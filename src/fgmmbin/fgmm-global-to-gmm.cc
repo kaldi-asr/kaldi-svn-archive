@@ -1,4 +1,4 @@
-// fstbin/fstgetnextsymbol.cc
+// fgmmbin/fgmm-global-to-gmm.cc
 
 // Copyright 2009-2011  Microsoft Corporation
 
@@ -15,50 +15,51 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include "util/common-utils.h"
+#include "gmm/full-gmm.h"
+#include "gmm/mle-full-gmm.h"
 
-#include "base/kaldi-common.h"
-#include "util/kaldi-io.h"
-#include "util/parse-options.h"
-#include "fst/fstlib.h"
 
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
-    using namespace fst;
-    using kaldi::int32;
+    typedef kaldi::int32 int32;
 
     const char *usage =
-        "Prints out next unused symbol not in supplied symbol table.\n"
-        "\n"
-        "Usage:  fstgetnextsymbol symtab.txt\n";
-
-    // no options.
-    // bool binary = true;
+        "Convert single full-covariance GMM to single diagonal-covariance GMM.\n"
+        "Usage: fgmm-global-to-gmm [options] 1.fgmm 1.gmm\n";
+        
+    bool binary = true;
     ParseOptions po(usage);
-    // po.Register("binary", &binary, "Write output in binary mode");
+    po.Register("binary", &binary, "Write output in binary mode");
     po.Read(argc, argv);
 
-    if (po.NumArgs() != 1) {
+    if (po.NumArgs() != 2) {
       po.PrintUsage();
       exit(1);
     }
 
-    std::string sym_filename = po.GetArg(1);
-
-    SymbolTable *symtab = SymbolTable::ReadText(sym_filename, false);
-    if (!symtab) {
-      std::cerr << "fstgetnextsymbol: could not read symbol table from "<<sym_filename << '\n';
-      return 1;
+    std::string fgmm_rxfilename = po.GetArg(1),
+        gmm_wxfilename = po.GetArg(2);
+    
+    FullGmm fgmm;
+    
+    {
+      bool binary_read;
+      Input ki(fgmm_rxfilename, &binary_read);
+      fgmm.Read(ki.Stream(), binary_read);
     }
-    size_t ans = symtab->AvailableKey();
 
-    std::cerr << ans << '\n';  // This is the program's output.
-
-    delete symtab;
+    DiagGmm gmm;
+    gmm.CopyFromFullGmm(fgmm);
+    {
+      Output ki(gmm_wxfilename, binary);
+      gmm.Write(ki.Stream(), binary);
+    }
+    KALDI_LOG << "Written diagonal GMM to " << gmm_wxfilename;
   } catch(const std::exception& e) {
-    std::cerr << e.what();
+    std::cerr << e.what() << '\n';
     return -1;
   }
-  return 0;
 }
 

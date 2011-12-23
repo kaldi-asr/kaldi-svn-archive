@@ -63,13 +63,20 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
+    // Initialize the readers before the model, as this can avoid
+    // crashes on systems with low virtual memory.
+    SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
+    RandomAccessSgmmGauPostReader gpost_reader(gpost_rspecifier);
+    RandomAccessBaseFloatVectorReader spkvecs_reader(spkvecs_rspecifier);
+    RandomAccessTokenReader utt2spk_reader(utt2spk_rspecifier);
+
     AmSgmm am_sgmm;
     TransitionModel trans_model;
     {
       bool binary;
-      Input is(model_filename, &binary);
-      trans_model.Read(is.Stream(), binary);
-      am_sgmm.Read(is.Stream(), binary);
+      Input ki(model_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      am_sgmm.Read(ki.Stream(), binary);
     }
 
     Vector<double> transition_accs;
@@ -78,14 +85,6 @@ int main(int argc, char *argv[]) {
     sgmm_accs.ResizeAccumulators(am_sgmm, acc_flags);
 
     double tot_t = 0.0;
-
-    SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessSgmmGauPostReader gpost_reader(gpost_rspecifier);
-
-    RandomAccessBaseFloatVectorReader spkvecs_reader(spkvecs_rspecifier);
-
-    RandomAccessTokenReader utt2spk_reader(utt2spk_rspecifier);
-
     kaldi::SgmmPerFrameDerivedVars per_frame_vars;
 
     int32 num_done = 0, num_no_posterior = 0, num_other_error = 0;

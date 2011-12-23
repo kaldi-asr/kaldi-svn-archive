@@ -84,9 +84,9 @@ int main(int argc, char *argv[]) {
     AmSgmm am_sgmm;
     {
       bool binary;
-      Input is(model_in_filename, &binary);
-      trans_model.Read(is.Stream(), binary);
-      am_sgmm.Read(is.Stream(), binary);
+      Input ki(model_in_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      am_sgmm.Read(ki.Stream(), binary);
     }
 
     SequentialTableReader<fst::VectorFstHolder> fst_reader(fst_rspecifier);
@@ -157,11 +157,11 @@ int main(int argc, char *argv[]) {
           num_other_error++;
           continue;
         }
-
+        
         {  // Add transition-probs to the FST.
           std::vector<int32> disambig_syms;  // empty.
           AddTransitionProbs(trans_model, disambig_syms,
-                             gopts.trans_prob_scale, gopts.self_loop_scale,
+                             gopts.transition_scale, gopts.self_loop_scale,
                              &decode_fst);
         }
 
@@ -171,8 +171,7 @@ int main(int argc, char *argv[]) {
                                              features, *gselect, log_prune, acoustic_scale);
 
         decoder.Decode(&sgmm_decodable);
-        KALDI_LOG << "Length of file is " << features.NumRows();
-
+        
         VectorFst<LatticeArc> decoded;  // linear FST.
         bool ans = decoder.ReachedFinal() // consider only final states.
             && decoder.GetBestPath(&decoded);  

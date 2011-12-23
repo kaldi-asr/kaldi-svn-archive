@@ -66,15 +66,15 @@ int main(int argc, char *argv[]) {
       SplitStringToIntegers(ci_phones_str, ":", false, &ci_phones);
       std::sort(ci_phones.begin(), ci_phones.end());
       if (!IsSortedAndUniq(ci_phones) || ci_phones[0] == 0) {
-        KALDI_EXIT << "Invalid set of ci_phones: "<<ci_phones_str;
+        KALDI_ERR << "Invalid set of ci_phones: "<<ci_phones_str;
       }
     }
 
     TransitionModel trans_model;
     {
       bool binary;
-      Input is(model_filename, &binary);
-      trans_model.Read(is.Stream(), binary);
+      Input ki(model_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
       // There is more in this file but we don't need it.
     }
 
@@ -124,8 +124,8 @@ int main(int argc, char *argv[]) {
     tree_stats.clear();
 
     {
-      Output os(accs_out_wxfilename, binary);
-      WriteBuildTreeStats(os.Stream(), binary, stats);
+      Output ko(accs_out_wxfilename, binary);
+      WriteBuildTreeStats(ko.Stream(), binary, stats);
     }
     KALDI_LOG << "Accumulated stats for " << num_done << " files, "
               << num_no_alignment << " failed due to no alignment, "

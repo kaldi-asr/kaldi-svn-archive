@@ -32,11 +32,11 @@ using namespace kaldi;
 fst::Fst<fst::StdArc> *ReadNetwork(std::string filename) {
   // read decoding network FST
   Input ki(filename); // use ki.Stream() instead of is.
-  if (!ki.Stream().good()) KALDI_EXIT << "Could not open decoding-graph FST "
+  if (!ki.Stream().good()) KALDI_ERR << "Could not open decoding-graph FST "
                                       << filename;
 
   fst::FstHeader hdr;
-  if (!hdr.Read(ki.Stream(), "<unknown>")) {
+  if (!hdr.Read(ki.Stream(), filename)) {
     KALDI_ERR << "Reading FST: error reading FST header.";
   }
   if (hdr.ArcType() != fst::StdArc::Type()) {
@@ -99,9 +99,9 @@ int main(int argc, char *argv[]) {
     AmTiedDiagGmm am_gmm;
     {
       bool binary;
-      Input is(model_in_filename, &binary);
-      trans_model.Read(is.Stream(), binary);
-      am_gmm.Read(is.Stream(), binary);
+      Input ki(model_in_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      am_gmm.Read(ki.Stream(), binary);
     }
 
     Int32VectorWriter words_writer(words_wspecifier);
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
     fst::SymbolTable *word_syms = NULL;
     if (word_syms_filename != "")
       if (!(word_syms = fst::SymbolTable::ReadText(word_syms_filename)))
-        KALDI_EXIT << "Could not read symbol table from file "
+        KALDI_ERR << "Could not read symbol table from file "
                    << word_syms_filename;
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);

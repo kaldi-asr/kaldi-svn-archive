@@ -57,12 +57,12 @@ int main(int argc, char *argv[]) {
                 "dimension as far as allowed towards this target.");
     po.Register("remove-speaker-space", &remove_speaker_space, "Remove speaker-specific "
                 "projections N");
-    po.Register("power", &power, "Exponent for substate occupancies used while"
-        "splitting substates.");
+    po.Register("power", &power, "Exponent for substate occupancies used while "
+                "splitting substates.");
     po.Register("perturb-factor", &perturb_factor, "Perturbation factor for "
-        "state vectors while splitting substates.");
+                "state vectors while splitting substates.");
     po.Register("max-cond-split", &max_cond, "Max condition number of smoothing "
-        "matrix used in substate splitting.");
+                "matrix used in substate splitting.");
     po.Register("write-occs", &occs_out_filename, "File to write state "
                 "occupancies to.");
     po.Register("update-flags", &update_flags_str, "Which SGMM parameters to "
@@ -90,18 +90,18 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary;
-      Input is(model_in_filename, &binary);
-      trans_model.Read(is.Stream(), binary);
-      am_sgmm.Read(is.Stream(), binary);
+      Input ki(model_in_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      am_sgmm.Read(ki.Stream(), binary);
     }
 
     Vector<double> transition_accs;
     MleAmSgmmAccs sgmm_accs;
     {
       bool binary;
-      Input is(stats_filename, &binary);
-      transition_accs.Read(is.Stream(), binary);
-      sgmm_accs.Read(is.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input ki(stats_filename, &binary);
+      transition_accs.Read(ki.Stream(), binary);
+      sgmm_accs.Read(ki.Stream(), binary, true);  // true == add; doesn't matter here.
     }
 
     if (update_flags & kSgmmTransitions) {  // Update transition model.
@@ -130,8 +130,8 @@ int main(int argc, char *argv[]) {
       }
 
       if (!occs_out_filename.empty()) {
-        kaldi::Output os(occs_out_filename, binary_write);
-        state_occs.Write(os.Stream(), binary_write);
+        kaldi::Output ko(occs_out_filename, binary_write);
+        state_occs.Write(ko.Stream(), binary_write);
       }
     }
 
@@ -151,9 +151,9 @@ int main(int argc, char *argv[]) {
     }
 
     {
-      Output os(model_out_filename, binary_write);
-      trans_model.Write(os.Stream(), binary_write);
-      am_sgmm.Write(os.Stream(), binary_write, write_flags);
+      Output ko(model_out_filename, binary_write);
+      trans_model.Write(ko.Stream(), binary_write);
+      am_sgmm.Write(ko.Stream(), binary_write, write_flags);
     }
     
     

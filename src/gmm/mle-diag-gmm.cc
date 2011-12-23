@@ -133,9 +133,10 @@ void AccumDiagGmm::Scale(BaseFloat f, GmmFlagsType flags) {
 
 void AccumDiagGmm::AccumulateForComponent(const VectorBase<BaseFloat>& data,
                                           int32 comp_index, BaseFloat weight) {
-  assert(data.Dim() == Dim());
+  if (flags_ & kGmmMeans)
+    KALDI_ASSERT(data.Dim() == Dim());
   double wt = static_cast<double>(weight);
-
+  KALDI_ASSERT(comp_index < NumGauss());
   // accumulate
   occupancy_(comp_index) += wt;
   if (flags_ & kGmmMeans) {
@@ -148,11 +149,25 @@ void AccumDiagGmm::AccumulateForComponent(const VectorBase<BaseFloat>& data,
   }
 }
 
+void AccumDiagGmm::AddStatsForComponent(int32 g,
+                                        double occ,
+                                        const VectorBase<double> &x_stats,
+                                        const VectorBase<double> &x2_stats) {
+  KALDI_ASSERT(g < NumGauss());
+  occupancy_(g) += occ;
+  if (flags_ & kGmmMeans)
+    mean_accumulator_.Row(g).AddVec(1.0, x_stats);
+  if (flags_ & kGmmVariances)
+    variance_accumulator_.Row(g).AddVec(1.0, x2_stats);
+}
+
+
 void AccumDiagGmm::AccumulateFromPosteriors(
     const VectorBase<BaseFloat>& data,
     const VectorBase<BaseFloat>& posteriors) {
-  assert(static_cast<int32>(data.Dim()) == Dim());
-  assert(static_cast<int32>(posteriors.Dim()) == NumGauss());
+  if (flags_ & kGmmMeans)
+    KALDI_ASSERT(static_cast<int32>(data.Dim()) == Dim());
+  KALDI_ASSERT(static_cast<int32>(posteriors.Dim()) == NumGauss());
   Vector<double> post_d(posteriors);  // Copy with type-conversion
 
   // accumulate
@@ -170,9 +185,9 @@ void AccumDiagGmm::AccumulateFromPosteriors(
 BaseFloat AccumDiagGmm::AccumulateFromDiag(const DiagGmm &gmm,
                                            const VectorBase<BaseFloat>& data,
                                            BaseFloat frame_posterior) {
-  assert(gmm.NumGauss() == NumGauss());
-  assert(gmm.Dim() == Dim());
-  assert(static_cast<int32>(data.Dim()) == Dim());
+  KALDI_ASSERT(gmm.NumGauss() == NumGauss());
+  KALDI_ASSERT(gmm.Dim() == Dim());
+  KALDI_ASSERT(static_cast<int32>(data.Dim()) == Dim());
 
   Vector<BaseFloat> posteriors(NumGauss());
   BaseFloat log_like = gmm.ComponentPosteriors(data, &posteriors);
@@ -401,6 +416,17 @@ void MleDiagGmmUpdate(const MleDiagGmmOptions &config,
     KALDI_WARN << tot_floored << " variances floored in " << gauss_floored
                << " Gaussians.";
 }
+
+void AccumDiagGmm::Add(double scale, const AccumDiagGmm &acc) {
+  // The functions called here will crash if the dimensions etc.
+  // or the flags don't match.
+  occupancy_.AddVec(scale, acc.occupancy_);
+  if (flags_ & kGmmMeans)
+    mean_accumulator_.AddMat(scale, acc.mean_accumulator_);
+  if (flags_ & kGmmVariances)
+    variance_accumulator_.AddMat(scale, acc.variance_accumulator_);
+}
+
 
 
 }  // End of namespace kaldi
