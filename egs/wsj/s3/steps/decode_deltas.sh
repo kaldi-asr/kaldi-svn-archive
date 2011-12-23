@@ -30,15 +30,11 @@ if [ "$1" == "-j" ]; then
   numjobs=$1;
   jobid=$2;
   shift; shift;
-  if [ $jobid -ge $numjobs ]; then
-     echo "Invalid job number, $jobid >= $numjobs";
-     exit 1;
-  fi
 fi
 
 if [ $# != 3 ]; then
    echo "Usage: steps/decode_deltas.sh [-j num-jobs job-number] <graph-dir> <data-dir> <decode-dir>"
-   echo " e.g.: steps/decode_deltas.sh -j 8 0 exp/mono/graph_tgpr data/dev_nov93 exp/mono/decode_dev93_tgpr"
+   echo " e.g.: steps/decode_deltas.sh -j 8 0 exp/mono/graph_tgpr data/test_dev93 exp/mono/decode_dev93_tgpr"
    exit 1;
 fi
 

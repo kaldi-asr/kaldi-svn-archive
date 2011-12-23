@@ -31,11 +31,11 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Accumulate stats for GMM training.\n"
-        "Usage:  tied-diag-gmm-est [options] <model-in> <stats-in> <model-out>\n"
+        "Usage: tied-diag-gmm-est [options] <model-in> <stats-in> <model-out>\n"
         "e.g.: tied-diag-gmm-est 1.mdl 1.acc 2.mdl\n";
 
     bool binary_write = false;
-    std::string update_flags_str = "mvwt";    
+    std::string update_flags_str = "mvwt";
     TransitionUpdateConfig tcfg;
     std::string occs_out_filename;
 
@@ -61,8 +61,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    kaldi::GmmFlagsType update_flags =
-        StringToGmmFlags(update_flags_str);    
+    kaldi::GmmFlagsType update_flags = StringToGmmFlags(update_flags_str);
 
     std::string model_in_filename = po.GetArg(1),
         stats_filename = po.GetArg(2),
@@ -72,18 +71,18 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary_read;
-      Input is(model_in_filename, &binary_read);
-      trans_model.Read(is.Stream(), binary_read);
-      am_gmm.Read(is.Stream(), binary_read);
+      Input ki(model_in_filename, &binary_read);
+      trans_model.Read(ki.Stream(), binary_read);
+      am_gmm.Read(ki.Stream(), binary_read);
     }
 
     Vector<double> transition_accs;
     AccumAmTiedDiagGmm gmm_accs;
     {
       bool binary;
-      Input is(stats_filename, &binary);
-      transition_accs.Read(is.Stream(), binary);
-      gmm_accs.Read(is.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input ki(stats_filename, &binary);
+      transition_accs.Read(ki.Stream(), binary);
+      gmm_accs.Read(ki.Stream(), binary, true);  // true == add; doesn't matter here.
     }
 
     if (update_flags & kGmmTransitions) {  // Update transition model.
@@ -97,14 +96,14 @@ int main(int argc, char *argv[]) {
     {  // Update GMMs.
       BaseFloat objf_impr, count;
       BaseFloat objf_impr_tied, count_tied;
-      MleAmTiedDiagGmmUpdate(gmm_opts, tied_opts, gmm_accs, kGmmAll, &am_gmm, 
-	                         &objf_impr, &count, &objf_impr_tied, &count_tied);
+      MleAmTiedDiagGmmUpdate(gmm_opts, tied_opts, gmm_accs, kGmmAll, &am_gmm,
+                             &objf_impr, &count, &objf_impr_tied, &count_tied);
 
       KALDI_LOG << "codebook update: average " << (objf_impr/count)
                 << " objective function improvement per frame over "
                 <<  (count) <<  " frames.";
-      
-	  KALDI_LOG << "tied update: average " << (objf_impr_tied/count_tied)
+
+      KALDI_LOG << "tied update: average " << (objf_impr_tied/count_tied)
                 << " objective function improvement per frame over "
                 <<  (count) <<  " frames.";
     }

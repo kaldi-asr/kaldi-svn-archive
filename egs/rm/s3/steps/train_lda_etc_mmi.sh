@@ -26,10 +26,12 @@
 # alignments, models and transforms from an LDA+MLLT system:
 #  ali, final.mdl, final.mat
 
-b=0 # boosting constant, for boosted MMI. 
+boost=0 # boosting constant, for boosted MMI. 
+tau=100 # Tau value.
+
 if [ $1 == "--boost" ]; then # e.g. "--boost 0.05"
    shift;
-   b=$1;
+   boost=$1;
    shift;
 fi
 
@@ -82,7 +84,7 @@ fi
 scripts/sym2int.pl --ignore-first-field $lang/words.txt < $data/text > $dir/train.tra \
   || exit 1;
 
-cp -r $lang $dir/lang
+cp -r $lang $dir/
 
 # Compute grammar FST which corresponds to unigram decoding graph.
 cat $dir/train.tra | awk '{for(n=2;n<=NF;n++){ printf("%s ", $n); } printf("\n"); }' | \
@@ -93,7 +95,7 @@ cat $dir/train.tra | awk '{for(n=2;n<=NF;n++){ printf("%s ", $n); } printf("\n")
 # it gets L_disambig.fst and G.fst (among other things) from $dir/lang, and 
 # final.mdl from $alidir; the output HCLG.fst goes in $dir/graph.
 
-scripts/mkgraph.sh $dir/lang $alidir $dir/dgraph || exit 1;
+scripts/mkgraph.sh $dir/lang $alidir $dir/dengraph || exit 1;
 
 echo "Making denominator lattices"
 
@@ -102,8 +104,8 @@ rm $dir/.error 2>/dev/null
 for n in 0 1 2 3; do
    gmm-latgen-simple --beam=$beam --lattice-beam=$latticebeam --acoustic-scale=$acwt \
     --word-symbol-table=$lang/words.txt \
-    $alidir/final.mdl $dir/dgraph/HCLG.fst "${featspart[$n]}" \
-    "ark:|lattice-boost-ali --b=$b --silence-phones=$silphonelist $alidir/final.mdl ark:- ark,s,cs:$alidir/ali ark:- | gzip -c >$dir/lat$n.gz" \
+    $alidir/final.mdl $dir/dengraph/HCLG.fst "${featspart[$n]}" \
+    "ark:|lattice-boost-ali --b=$boost --silence-phones=$silphonelist $alidir/final.mdl ark:- ark,s,cs:$alidir/ali ark:- | gzip -c >$dir/lat$n.gz" \
       2>$dir/decode_den.$n.log || touch $dir/.error &
 done
 wait
@@ -136,14 +138,16 @@ while [ $x -lt $num_iters ]; do
   # Get numerator stats...
   gmm-acc-stats-ali $dir/$x.mdl "$feats" ark:$alidir/ali $dir/num_acc.$x.acc \
    2>$dir/acc_num.$x.log || exit 1;
-  # Update.
-  gmm-est-mmi $dir/$x.mdl $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl \
+
+  ( gmm-est-gaussians-ebw $dir/$x.mdl "gmm-ismooth-stats --tau=$tau $dir/num_acc.$x.acc $dir/num_acc.$x.acc -|" \
+         $dir/den_acc.$x.acc - | \
+   gmm-est-weights-ebw - $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl ) \
     2>$dir/update.$x.log || exit 1;
 
   den=`grep Overall $dir/acc_den.$x.log  | grep lattice-to-post | awk '{print $7}'`
   num=`grep Overall $dir/acc_num.$x.log  | grep gmm-acc-stats-ali | awk '{print $11}'`
   diff=`perl -e "print ($num * $acwt - $den);"`
-  impr=`grep Overall $dir/update.$x.log | awk '{print $10;}'`
+  impr=`grep Overall $dir/update.$x.log | head -1 | awk '{print $10;}'`
   impr=`perl -e "print ($impr * $acwt);"` # auxf impr normalized by multiplying by
   # kappa, so it's comparable to an objective-function change.
   echo On iter $x, objf was $diff, auxf improvement was $impr | tee $dir/objf.$x.log

@@ -11,6 +11,13 @@ About the Switchboard corpus
 Each subdirectory of this directory contains the
 scripts for a sequence of experiments.
 
-  s1: 
-   [adding first version of scripts.  This is a draft.
-   Note: this is closest to the s3/ script for WSJ.]
+  s3: 
+   This Switchboard recipe is currently a work in progress, but the
+   parts of it that are there should run, and we are trying to keep
+   the RESULTS file up to date.
+   Note: this is quite similar to the s3/ recipes for WSJ; the
+   scripts that are invoked are the same, except for the data
+   preparation.
+
+
+

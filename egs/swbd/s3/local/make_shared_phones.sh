@@ -18,9 +18,7 @@
 # This script makes lists of phones that are shared for building the monophone
 # system and shared during phone clustering when creating questions for the
 # triphone system.  It puts out a line for each "real" phone, and that line
-# contains all the versions of the "real" phones.  With --nosil we have no
-# silences in these sets; otherwise we share the silence phones SIL SPN and NSN
-# into one group.
+# contains all the versions of the "real" phones.  
 
 # Takes as standard input e.g. data/lang/phones.txt
 

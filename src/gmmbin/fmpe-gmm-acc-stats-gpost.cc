@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Accumulate positive and negative stats for Fmpe training (reading in gaussian-level posteriors).\n"
+        "Note: not yet tested.\n"
         "Usage:  fmpe-gmm-acc-stats-gpost [options] <model-in> <model-diffs-in> <gmms-model-in> <feature-rspecifier> <gposteriors-ebw-rspecifier> <gposteriors-mle-rspecifier> <stats-out>\n"
         "e.g.: \n"
         " fmpe-gmm-acc-stats-gpost 1.mdl 1.model.diffs 1.gmm scp:train.scp ark:1.ebw.gpost ark:1.mle.gpost 1.fmpe.acc\n";
@@ -78,17 +79,17 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary;
-      Input is(model_filename, &binary);
-      trans_model.Read(is.Stream(), binary);
-      am_gmm.Read(is.Stream(), binary);
+      Input ki(model_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      am_gmm.Read(ki.Stream(), binary);
     }
 
     FmpeAccs fmpe_accs(fmpe_opts);
     fmpe_accs.Init(am_gmm, true);
     {
       bool binary;
-      Input is(model_diffs_filename, &binary);
-      fmpe_accs.ReadModelDiffs(is.Stream(), binary);
+      Input ki(model_diffs_filename, &binary);
+      fmpe_accs.ReadModelDiffs(ki.Stream(), binary);
     }
 
     kaldi::DiagGmm gmm;
@@ -96,10 +97,10 @@ int main(int argc, char *argv[]) {
     std::vector<int32> gaussian_cluster_center_map;
     {
       bool binary;
-      Input is(gmms_model_filename, &binary);
-      gmm.Read(is.Stream(), binary);
-      gmm_clusters.Read(is.Stream(), binary);
-      ReadIntegerVector(is.Stream(), binary, &gaussian_cluster_center_map);
+      Input ki(gmms_model_filename, &binary);
+      gmm.Read(ki.Stream(), binary);
+      gmm_clusters.Read(ki.Stream(), binary);
+      ReadIntegerVector(ki.Stream(), binary, &gaussian_cluster_center_map);
     }
 
     fmpe_accs.InitializeGMMs(gmm, gmm_clusters, gaussian_cluster_center_map);

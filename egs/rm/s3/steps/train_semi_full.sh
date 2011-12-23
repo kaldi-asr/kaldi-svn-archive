@@ -131,8 +131,10 @@ for i in `seq 1 $max_leaves`; do
 done
 echo "]" >> $dir/tree.map
 
+# This creates a mixture of full-cov Gaussians.
 echo "Initializing codebooks"
 init-ubm --ubm-numcomps=$totgauss \
+    --intermediate-numcomps=$[$totgauss*2] \
 	$alidir/final.mdl $alidir/final.occs $dir/ubm-full || exit 1;
 
 # we should do some initial iterations on the codebook

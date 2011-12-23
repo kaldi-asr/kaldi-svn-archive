@@ -63,7 +63,6 @@ int main(int argc, char *argv[]) {
     }
 
     AccumFullGmm gmm_accs;
-
     {
       bool binary;
       Input ki(stats_filename, &binary);

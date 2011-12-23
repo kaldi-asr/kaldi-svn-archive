@@ -145,8 +145,8 @@ while [ $x -lt $numiters ]; do
    fi
    for n in `get_splits.pl $nj`; do
      $cmd $dir/log/acc.$x.$n.log \
-     gmm-acc-stats-ali --binary=false $dir/$x.mdl "${featspart[$n]}" \
-       "ark:gunzip -c $dir/$n.ali.gz|" $dir/$x.$n.acc || touch $dir/.error &
+     gmm-acc-stats-ali  $dir/$x.mdl "${featspart[$n]}" \
+       "ark,s,cs:gunzip -c $dir/$n.ali.gz|" $dir/$x.$n.acc || touch $dir/.error &
    done
    wait;
    [ -f $dir/.error ] && echo "Error accumulating stats on iteration $x" && exit 1;

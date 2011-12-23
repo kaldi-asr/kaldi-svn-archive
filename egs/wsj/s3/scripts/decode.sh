@@ -19,11 +19,18 @@ orig_args="$*"
 # will set nj to #spkrs (if using queue) or 4 (if not), if
 # not set by the user.
 nj=
+lang=
+opts=
 cmd=scripts/run.pl
-for x in 1 2; do
+for x in 1 2 3 4; do
   if [ $1 == "--num-jobs" ]; then
      shift
      nj=$1
+     shift
+  fi
+  if [ $1 == "--opts" ]; then
+     shift
+     opts="$1"
      shift
   fi
   if [ $1 == "--cmd" ]; then
@@ -32,17 +39,25 @@ for x in 1 2; do
      shift
      [ -z "$cmd" ] && echo "Empty argument to --cmd option" && exit 1;
   fi  
+  if [ $1 == "-l" ]; then
+     shift
+     lang=$1
+     shift
+     [ ! -f "$lang/phones_disambig.txt" -o ! -f "$lang/L_align.fst" ] && \
+      echo "Invalid argument to -l option; expected $lang/phones_disambig.txt and $lang/L_align.fst to exist." \
+      && exit 1;
+  fi  
 done
 
 
 if [ $# -lt 4 ]; then
-  echo "Usage: scripts/decode.sh [--cmd scripts/queue.sh opts..] [--num-jobs n] <decode_script> <graph-dir> <data-dir> <decode-dir> [extra-args...]"
+  echo "Usage: scripts/decode.sh [-l lang-dir] [--cmd scripts/queue.sh opts..] [--num-jobs n] <decode_script> <graph-dir> <data-dir> <decode-dir> [extra-args...]"
+  echo "note: -l option only required if you want to score with sclite (since we need L_align.fst)"
   exit 1;
 fi
 
 script=$1
 graphdir=$2
-graph=$graphdir/HCLG.fst
 data=$3
 dir=$4
 # Make "dir" an absolute pathname.
@@ -52,12 +67,20 @@ shift;shift;shift;shift;
 # Remaining args will be supplied to decoding script.
 extra_args=$* 
 
-for file in $graph $script $scp $data/utt2spk; do
+for file in $script $scp $data/utt2spk; do
   if [ ! -f $file ]; then
      echo "decode.sh: no such file $file"
      exit 1
   fi 
 done
+
+if [ ! -f $graphdir/HCLG.fst -a ! -f $graphdir/G.fst ]; then
+  # Note: most scripts expect HCLG.fst in graphdir, but the
+  # "*_fromlats.sh" script(s) require(s) a "lang" dir in that
+  # position
+  echo No such file: $graphdir/HCLG.fst or $graphdir/G.fst
+  exit 1;
+fi
 
 if [ "$nj" == "" ]; then # Figure out num-jobs; user did not specify.
   cmd1=`echo $cmd | awk '{print $1;}'`
@@ -76,10 +99,23 @@ fi
 rm $dir/.error 2>/dev/null
 for n in `scripts/get_splits.pl $nj`; do
   $cmd $dir/part$n.log \
-    $script -j $nj $n $graphdir $data $dir $extra_args || touch $dir/.error &
+    $script $opts -j $nj $n $graphdir $data $dir $extra_args || touch $dir/.error &
 done
 
 wait
 [ -f $dir/.error ] && echo "Error in decoding script: command line was decode.sh $orig_args" && exit 1;
 
-scripts/score_lats.sh $dir $graphdir/words.txt $data
+if ls $dir/lat.*.gz >&/dev/null; then
+  if [ -n "$lang" ]; then # sclite scoring: $lang directory supplied only for this reason.
+    [ ! -f $data/stm ] && \
+     echo "Expected $data/stm to exist (-l option only for sclite scoring)" && exit 1;
+    scripts/score_lats_ctm.sh $dir $lang $data || exit 1;
+  else
+    scripts/score_lats.sh $dir $graphdir/words.txt $data || exit 1;
+  fi
+elif ls $dir/*.txt >&/dev/null; then
+  scripts/score_text.sh $dir $data || exit 1;
+else
+  echo "No output found in $dir, not scoring.";
+  exit 1;
+fi

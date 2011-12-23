@@ -61,9 +61,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    kaldi::GmmFlagsType update_flags =
-        StringToGmmFlags(update_flags_str);    
-    
+    kaldi::GmmFlagsType update_flags = StringToGmmFlags(update_flags_str);
+
     std::string model_in_filename = po.GetArg(1),
         stats_filename = po.GetArg(2),
         model_out_filename = po.GetArg(3);
@@ -72,18 +71,18 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary_read;
-      Input is(model_in_filename, &binary_read);
-      trans_model.Read(is.Stream(), binary_read);
-      am_gmm.Read(is.Stream(), binary_read);
+      Input ki(model_in_filename, &binary_read);
+      trans_model.Read(ki.Stream(), binary_read);
+      am_gmm.Read(ki.Stream(), binary_read);
     }
 
     Vector<double> transition_accs;
     AccumAmTiedFullGmm gmm_accs;
     {
       bool binary;
-      Input is(stats_filename, &binary);
-      transition_accs.Read(is.Stream(), binary);
-      gmm_accs.Read(is.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input ki(stats_filename, &binary);
+      transition_accs.Read(ki.Stream(), binary);
+      gmm_accs.Read(ki.Stream(), binary, true);  // true == add; doesn't matter here.
     }
 
     if (update_flags & kGmmTransitions) {  // Update transition model.
@@ -97,9 +96,9 @@ int main(int argc, char *argv[]) {
     {  // Update GMMs.
       BaseFloat objf_impr, count;
       BaseFloat objf_impr_t, count_t;
-      MleAmTiedFullGmmUpdate(gmm_opts, tied_opts, gmm_accs, update_flags, 
-	                         &am_gmm, &objf_impr, &count, &objf_impr_t, 
-							 &count_t);
+      MleAmTiedFullGmmUpdate(gmm_opts, tied_opts, gmm_accs, update_flags,
+                             &am_gmm, &objf_impr, &count, &objf_impr_t,
+                             &count_t);
 
       KALDI_LOG << "codebook update: average " << (objf_impr/count)
                 << " objective function improvement per frame over "

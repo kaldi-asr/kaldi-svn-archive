@@ -75,9 +75,9 @@ if [ ! -d $data/split$nj -o $data/split$nj -ot $data/feats.scp ]; then
 fi
 
 for n in `get_splits.pl $nj`; do
-  sifeatspart[$n]="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$alidir/$n.cmvn scp:$data/split$nj/$n/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+  sifeatspart[$n]="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$alidir/$n.cmvn scp:$data/split$nj/$n/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
 done
-sifeats="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk 'ark:cat $alidir/*.cmvn|' scp:$data/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk 'ark:cat $alidir/*.cmvn|' scp:$data/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
 
 # Initial transforms... either find them, or create them.
 n=`get_splits.pl $nj | awk '{print $1}'`
@@ -141,11 +141,11 @@ rm $dir/treeacc
 
 echo "Converting old alignments"
 for n in `get_splits.pl $nj`; do
-  $cmd $dir/log/convert$n.log \
-    convert-ali $alidir/final.mdl $dir/1.mdl $dir/tree \
-    "ark:gunzip -c $alidir/$n.ali.gz|" "ark:|gzip -c >$dir/$n.ali.gz" || exit 1;
+  convert-ali $alidir/final.mdl $dir/1.mdl $dir/tree \
+  "ark:gunzip -c $alidir/$n.ali.gz|" "ark:|gzip -c >$dir/$n.ali.gz" \
+   2>$dir/log/convert$n.log || exit 1;
 done
-
+                  
 # Make training graphs.
 echo "Compiling training graphs"
 rm $dir/.error 2>/dev/null
@@ -188,16 +188,15 @@ while [ $x -lt $numiters ]; do
      done
      wait
      [ -f $dir/.error ] && echo "Error estimating or composing fMLLR transforms on iter $x" && exit 1;
-     transdir=$dir # This is now used as the place where the "current" transforms are.
      for n in `get_splits.pl $nj`; do
-       featspart[$n]="${sifeatspart[$n]} transform-feats --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$transdir/$n.trans ark:- ark:- |"
+       featspart[$n]="${sifeatspart[$n]} transform-feats --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$dir/$n.trans ark:- ark:- |"
      done
-     feats="$sifeats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $transdir/*.trans|' ark:- ark:- |" # not used, but in case...
+     feats="$sifeats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $dir/*.trans|' ark:- ark:- |" # not used, but in case...
    fi
    for n in `get_splits.pl $nj`; do
      $cmd $dir/log/acc.$x.$n.log \
-      gmm-acc-stats-ali --binary=false $dir/$x.mdl "${featspart[$n]}" \
-        "ark:gunzip -c $dir/$n.ali.gz|" $dir/$x.$n.acc || touch $dir/.error &
+      gmm-acc-stats-ali  $dir/$x.mdl "${featspart[$n]}" \
+        "ark,s,cs:gunzip -c $dir/$n.ali.gz|" $dir/$x.$n.acc || touch $dir/.error &
    done
    wait;
    [ -f $dir/.error ] && echo "Error accumulating stats on iteration $x" && exit 1;
@@ -218,7 +217,7 @@ for n in `get_splits.pl $nj`; do
   $cmd $dir/log/acc_alimdl.$n.log \
    ali-to-post "ark:gunzip -c $dir/$n.ali.gz|" ark:-  \| \
     gmm-acc-stats-twofeats $dir/$x.mdl "${featspart[$n]}" "${sifeatspart[$n]}" \
-      ark:- $dir/$x.$n.acc2 || touch $dir/.error &
+      ark,s,cs:- $dir/$x.$n.acc2 || touch $dir/.error &
 done
 wait;
 [ -f $dir/.error ] && echo "Error accumulating alignment statistics." && exit 1;

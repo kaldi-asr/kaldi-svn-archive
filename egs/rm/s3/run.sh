@@ -1,20 +1,4 @@
 #!/bin/bash
-### [men at work sign] ###
-### WORK IN PROGRESS###
-# Copyright 2010-2011 Microsoft Corporation
-
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#  http://www.apache.org/licenses/LICENSE-2.0
-#
-# THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
-# WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
-# MERCHANTABLITY OR NON-INFRINGEMENT.
-# See the Apache 2 License for the specific language governing permissions and
-# limitations under the License.
 
 exit 1 # Don't run this... it's to be run line by line from the shell.
 
@@ -60,27 +44,6 @@ steps/train_deltas.sh data/train data/lang exp/tri1_ali exp/tri2a
 # decode tri2a
 local/decode.sh steps/decode_deltas.sh exp/tri2a/decode
 
-# Train a classic semi-continuous model using {diag,full} densities
-# the numeric parameters following exp/tri1-semi are: 
-#   number of gaussians, something like 4096 for diag, 2048 for full
-#   number of tree leaves 
-#   type of suff-stats interpolation (0 regular, 1 preserves counts)
-#   rho-stats, rho value for the smoothing of the statistics (0 for no smoothing)
-#   rho-iters, rho value to interpolate the parameters with the last iteration (0 for no interpolation)
-steps/train_semi_full.sh data/train data/lang exp/tri1_ali exp/tri1-semi 1024 2500 1 35 0.2
-local/decode.sh steps/decode_tied_full.sh exp/tri1-semi
-
-# Train a 2-lvl semi-continuous model using {diag,full} densities
-# the numeric parameters following exp/tri1-2lvl are:
-#   number of codebooks, typically 1-3 times number of phones, the more, the faster
-#   total number of gaussians, something like 2048 for full, 4096 for diag
-#   number of tree leaves
-#   type of suff-stats interpolation (0 regular, 1 preserves counts)
-#   rho-stats, rho value for the smoothing of the statistics (0 for no smoothing)
-#   rho-iters, rho value to interpolate the parameters with the last iteration (0 for no interpolation)
-steps/train_2lvl_full.sh data/train data/lang exp/tri1_ali exp/tri1-2lvl 104 2048 2500 1 10 0.2
-local/decode.sh steps/decode_tied_full.sh exp/tri1-2lvl
-
 # train tri2b [LDA+MLLT]
 steps/train_lda_mllt.sh data/train data/lang exp/tri1_ali exp/tri2b
 # decode tri2b
@@ -88,7 +51,6 @@ local/decode.sh steps/decode_lda_mllt.sh exp/tri2b/decode
 
 # Train and test ET.
 steps/train_lda_et.sh data/train data/lang exp/tri1_ali exp/tri2c
-scripts/mkgraph.sh data/lang_test exp/tri2c exp/tri2c/graph
 local/decode.sh steps/decode_lda_et.sh exp/tri2c/decode
 
 # Align all data with LDA+MLLT system (tri2b)
@@ -96,12 +58,16 @@ steps/align_lda_mllt.sh --graphs "ark,s,cs:gunzip -c exp/tri2b/graphs.fsts.gz|" 
    data/train data/lang exp/tri2b exp/tri2b_ali
 
 #  Do MMI on top of LDA+MLLT.
-steps/train_lda_etc_mmi.sh data/train data/lang exp/tri2b_ali exp/tri3a &
+steps/train_lda_etc_mmi.sh data/train data/lang exp/tri2b_ali exp/tri3a
 local/decode.sh steps/decode_lda_mllt.sh exp/tri3a/decode
 
 # Do the same with boosting.
-steps/train_lda_etc_mmi.sh --boost 0.05 data/train data/lang exp/tri2b_ali exp/tri3b &
-local/decode.sh steps/decode_lda_mllt.sh exp/tri3a/decode
+steps/train_lda_etc_mmi.sh --boost 0.05 data/train data/lang exp/tri2b_ali exp/tri3b 
+local/decode.sh steps/decode_lda_mllt.sh exp/tri3b/decode
+
+# An experiment with MCE.
+steps/train_lda_etc_mce.sh data/train data/lang exp/tri2b_ali exp/tri3c
+local/decode.sh steps/decode_lda_mllt.sh exp/tri3c/decode
 
 
 # Do LDA+MLLT+SAT
@@ -113,19 +79,18 @@ local/decode.sh steps/decode_lda_mllt_sat.sh exp/tri3d/decode
 steps/align_lda_mllt_sat.sh --graphs "ark,s,cs:gunzip -c exp/tri3d/graphs.fsts.gz|" \
     data/train data/lang exp/tri3d exp/tri3d_ali
 
-# MMI on top of that.
-steps/train_lda_etc_mmi.sh data/train data/lang exp/tri3d_ali exp/tri4a &
+# MMI on top of tri3d
+steps/train_lda_etc_mmi.sh data/train data/lang exp/tri3d_ali exp/tri4a 
 local/decode.sh steps/decode_lda_mllt_sat.sh exp/tri4a/decode
 
-# Try another pass on top of that.
+# Try another pass of training on top of 3d
 steps/train_lda_mllt_sat.sh data/train data/lang exp/tri3d_ali exp/tri4d
 scripts/mkgraph.sh data/lang_test exp/tri4d exp/tri4d/graph
 local/decode.sh steps/decode_lda_mllt_sat.sh exp/tri4d/decode
 
 # Next, SGMM system-- train SGMM system with speaker vectors, on top 
 # of LDA+MLLT features.
-
-steps/train_ubm_lda_etc.sh data/train data/lang exp/tri2b_ali exp/ubm3d
+steps/train_ubm_lda_etc.sh 400 data/train data/lang exp/tri2b_ali exp/ubm3d
 steps/train_sgmm_lda_etc.sh data/train data/lang exp/tri2b_ali exp/ubm3d/final.ubm exp/sgmm3d
 
 scripts/mkgraph.sh data/lang_test exp/sgmm3d exp/sgmm3d/graph
@@ -136,18 +101,19 @@ steps/align_lda_et.sh --graphs "ark,s,cs:gunzip -c exp/tri2c/graphs.fsts.gz|" \
   data/train data/lang exp/tri2c exp/tri2c_ali 
 
 # Train SGMM system on top of LDA+ET.
-steps/train_ubm_lda_etc.sh data/train data/lang exp/tri2c_ali exp/ubm3e
+steps/train_ubm_lda_etc.sh 400 data/train data/lang exp/tri2c_ali exp/ubm3e
 steps/train_sgmm_lda_etc.sh data/train data/lang exp/tri2c_ali exp/ubm3e/final.ubm exp/sgmm3e
 
 local/decode.sh steps/decode_sgmm_lda_etc.sh exp/sgmm3e/decode exp/tri2c/decode
 
 # Now train SGMM system on top of LDA+MLLT+SAT
-steps/train_ubm_lda_etc.sh data/train data/lang exp/tri3d_ali exp/ubm4f
+steps/train_ubm_lda_etc.sh 400 data/train data/lang exp/tri3d_ali exp/ubm4f
 steps/train_sgmm_lda_etc.sh data/train data/lang exp/tri3d_ali exp/ubm4f/final.ubm exp/sgmm4f
-
 local/decode.sh steps/decode_sgmm_lda_etc.sh exp/sgmm4f/decode exp/tri3d/decode
 
+
 # Decode with fMLLR
+. path.sh
 sgmm-comp-prexform exp/sgmm4f/final.{mdl,occs,fmllr_mdl}
 local/decode.sh steps/decode_sgmm_lda_etc_fmllr.sh exp/sgmm4f/decode_fmllr exp/sgmm4f/decode exp/tri3d/decode
 
@@ -155,22 +121,40 @@ local/decode.sh steps/decode_sgmm_lda_etc_fmllr.sh exp/sgmm4f/decode_fmllr exp/s
 # Some system combination experiments (just compose lattices).
 local/decode_combine.sh steps/decode_combine.sh exp/tri1/decode exp/tri2a/decode exp/combine_1_2a/decode
 local/decode_combine.sh steps/decode_combine.sh exp/sgmm4f/decode/ exp/tri3d/decode exp/combine_sgmm4f_tri3d/decode
+local/decode_combine.sh steps/decode_combine.sh exp/sgmm4f/decode/ exp/tri4a/decode exp/combine_sgmm4f_tri4a/decode
 
-for x in exp/*/decode*; do [ -d $x ] && grep WER $x/wer_* | scripts/best_wer.sh; done
+### From here is semi-continuous experiments. ###
+### Note: this is not yet working.  Do not run this.  ***
+echo "semi-continuous code not finalized" && exit 1;
 
-exp/combine_1_2a/decode/wer_7:%WER 3.399027 [ 426 / 12533, 55 ins, 94 del, 277 sub ]
-exp/combine_sgmm4f_tri3d/decode/wer_5:%WER 1.731429 [ 217 / 12533, 30 ins, 43 del, 144 sub ]
-exp/mono/decode/wer_6:%WER 10.340701 [ 1296 / 12533, 95 ins, 391 del, 810 sub ]
-exp/sgmm3d/decode/wer_5:%WER 2.267284 [ 284 / 12526, 38 ins, 51 del, 195 sub ]
-exp/sgmm3e/decode/wer_6:%WER 2.122397 [ 266 / 12533, 37 ins, 51 del, 178 sub ]
-exp/sgmm4f/decode/wer_4:%WER 1.795261 [ 225 / 12533, 45 ins, 37 del, 143 sub ]
-exp/sgmm4f/decode_fmllr/wer_5:%WER 1.771324 [ 222 / 12533, 38 ins, 42 del, 142 sub ]
-exp/tri1/decode/wer_6:%WER 3.566584 [ 447 / 12533, 74 ins, 88 del, 285 sub ]
-exp/tri2a/decode/wer_7:%WER 3.518711 [ 441 / 12533, 57 ins, 91 del, 293 sub ]
-exp/tri2b/decode/wer_9:%WER 3.614458 [ 453 / 12533, 59 ins, 111 del, 283 sub ]
-exp/tri2c/decode/wer_6:%WER 2.833653 [ 355 / 12528, 54 ins, 71 del, 230 sub ]
-exp/tri3d/decode/wer_7:%WER 2.489428 [ 312 / 12533, 43 ins, 63 del, 206 sub ]
-exp/tri4d/decode/wer_7:%WER 2.649007 [ 332 / 12533, 53 ins, 67 del, 212 sub ]
+# Train a classic semi-continuous model using {diag,full} densities
+# the numeric parameters following exp/tri1-semi are: 
+#   number of gaussians, something like 4096 for diag, 2048 for full
+#   number of tree leaves 
+#   type of suff-stats interpolation (0 regular, 1 preserves counts)
+#   rho-stats, rho value for the smoothing of the statistics (0 for no smoothing)
+#   rho-iters, rho value to interpolate the parameters with the last iteration (0 for no interpolation)
 
-local/decode_combine.sh steps/decode_combine.sh exp/tri1/decode exp/tri2a/decode exp/combine_tri3d_sgmm4f
+steps/train_ubm_lda_etc.sh 1024 data/train data/lang exp/tri2b_ali exp/ubm3f
+steps/train_lda_mllt_semi_full.sh data/train data/lang exp/tri2b_ali exp/ubm3f/final.ubm exp/tiedfull3f 2500 1 35 0.2
 
+steps/train_semi_full.sh data/train data/lang exp/tri1_ali exp/tri1_semi 1024 2500 1 35 0.2
+local/decode.sh steps/decode_tied_full.sh exp/tri1_semi/decode
+
+# 2level full-cov training...
+steps/train_2lvl.sh data/train data/lang exp/tri1_ali exp/tri1_2lvl 100 1024 1800 0 0 0
+
+# Train a 2-lvl semi-continuous model using {diag,full} densities
+# the numeric parameters following exp/tri1_2lvl are:
+#   number of codebooks, typically 1-3 times number of phones, the more, the faster
+#   total number of gaussians, something like 2048 for full, 4096 for diag
+#   number of tree leaves
+#   type of suff-stats interpolation (0 regular, 1 preserves counts)
+#   rho-stats, rho value for the smoothing of the statistics (0 for no smoothing)
+#   rho-iters, rho value to interpolate the parameters with the last iteration (0 for no interpolation)
+steps/train_2lvl_full.sh data/train data/lang exp/tri1_ali exp/tri1_2lvl 104 2048 2500 0 1 10 0
+local/decode.sh steps/decode_tied_full.sh exp/tri1_2lvl/decode
+
+
+# note on new gselect:
+# gmm-gselect --n=50 "sgmm-write-ubm exp/sgmm3d/final.mdl - | fgmm-global-to-gmm - - |" 'ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:data/train/utt2spk ark:exp/tri2b_ali/cmvn.ark scp:data/train/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats exp/sgmm3d/final.mat ark:- ark:- |' ark,t:-  | fgmm-gselect --n=15 "sgmm-write-ubm exp/sgmm3d/final.mdl -|" 'ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:data/train/utt2spk ark:exp/tri2b_ali/cmvn.ark scp:data/train/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats exp/sgmm3d/final.mat ark:- ark:- |' ark:- ark,t:-  | head -1 > f2
