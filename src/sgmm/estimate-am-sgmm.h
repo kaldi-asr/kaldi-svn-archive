@@ -233,6 +233,15 @@ class MleAmSgmmUpdater {
               AmSgmm *model,
               SgmmUpdateFlagsType flags);
 
+  void Update(const MleAmSgmmAccs &accs,
+              AmSgmm *model,
+              std::vector<std::vector<int32> > &states,
+              std::vector<std::vector<std::vector<int32> > > &questions,
+              std::vector<std::vector<int32> > *subset,
+              std::vector<Vector<double> > *vectors,
+              int max_number_subsets,
+              SgmmUpdateFlagsType flags);
+
  private:
   MleAmSgmmOptions update_options_;
   /// Q_{i}, quadratic term for phonetic subspace estimation. Dim is [I][S][S]
@@ -264,7 +273,28 @@ class MleAmSgmmUpdater {
                             const SpMatrix<double> &H_sm,
                             const Vector<double> &y_sm);
 
+  double UpdatePhoneVectors(const MleAmSgmmAccs &accs,
+                            AmSgmm *model,
+                            const std::vector<SpMatrix<double> > &H,
+                            const SpMatrix<double> &H_sm,
+                            const Vector<double> &y_sm,
+			    std::vector<std::vector<int32> > &contexts,
+			    std::vector<std::vector<std::vector<int32> > > &questions,
+			    std::vector<std::vector<int32> > *subSets,
+			    std::vector<Vector<double> > *vectors,
+			    int max_number_subsets);  
+
+  std::vector<std::pair<Vector<double>, SpMatrix<double> > > precomputeQuantities(const MleAmSgmmAccs &accs,
+                                                                                        AmSgmm *model,
+									                const std::vector<SpMatrix<double> > &H,
+											const SpMatrix<double> &H_sm,
+											const Vector<double> &y_sm,
+                                                                                        std::vector<std::vector<int32> > contexts);
   
+  std::vector<int32> getYes(std::vector<std::vector<int32> > contexts, 
+		            std::vector<int32> set,
+			    std::vector<int32> questions,
+			    int32 contextPosition);
 
   // UpdatePhoneVectors function that does not support smoothing
   // terms, but allows checking of objective-function improvement,
