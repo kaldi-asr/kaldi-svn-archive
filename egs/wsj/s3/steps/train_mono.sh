@@ -137,7 +137,7 @@ while [ $x -lt $numiters ]; do
   fi
   for n in `get_splits.pl $nj`; do
     $cmd $dir/log/acc.$x.$n.log \
-      gmm-acc-stats-ali  $dir/$x.mdl "${featspart[$n]}" "ark:gunzip -c $dir/$n.ali.gz|" \
+      gmm-acc-stats-ali --binary=false $dir/$x.mdl "${featspart[$n]}" "ark:gunzip -c $dir/$n.ali.gz|" \
         $dir/$x.$n.acc || touch $dir/.error &
   done
   wait
@@ -153,7 +153,7 @@ while [ $x -lt $numiters ]; do
   x=$[$x+1]
 done
 
-( cd $dir; rm final.{mdl,occs} 2>/dev/null; ln -s $x.mdl final.mdl; ln -s $x.occs final.occs )
+( cd $dir; rm final.mdl 2>/dev/null; ln -s $x.mdl final.mdl; ln -s $x.occs final.occs )
 
 # Print out summary of the warning messages.
 for x in $dir/log/*.log; do 

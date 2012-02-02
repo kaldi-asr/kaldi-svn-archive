@@ -57,7 +57,7 @@ n1=`get_splits.pl $nj | awk '{print $1}'`
 [ -f $alidir/$n1.trans ] && echo "Using speaker transforms from $alidir"
 
 for n in `get_splits.pl $nj`; do
-  featspart[$n]="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$alidir/$n.cmvn scp:$data/split$nj/$n/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  featspart[$n]="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$alidir/$n.cmvn scp:$data/split$nj/$n/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
   if [ -f $alidir/$n1.trans ]; then
     featspart[$n]="${featspart[$n]} transform-feats --utt2spk=ark:$data/split$nj/$n/utt2spk ark:$alidir/$n.trans ark:- ark:- |"
   fi
@@ -70,30 +70,16 @@ fi
 
 echo "Clustering model $alidir/final.mdl to get initial UBM"
 # typically: --intermediate-numcomps=2000 --ubm-numcomps=400
-
-$cmd $dir/log/cluster.log \
-  init-ubm --intermediate-numcomps=$intermediate --ubm-numcomps=$numcomps \
-   --verbose=2 --fullcov-ubm=true $alidir/final.mdl $alidir/final.occs \
-    $dir/0.ubm   || exit 1;
+init-ubm --intermediate-numcomps=$intermediate --ubm-numcomps=$numcomps --verbose=2 \
+   --fullcov-ubm=true $alidir/final.mdl $alidir/final.occs \
+    $dir/0.ubm 2> $dir/log/cluster.log
 
 rm $dir/.error 2>/dev/null
-# First do Gaussian selection to 50 components, which will be used
-# as the initial screen for all further passes.
-for n in `get_splits.pl $nj`; do
-  $cmd $dir/log/gselect_diag.$n.log \
-    gmm-gselect --n=50 "fgmm-global-to-gmm $dir/0.ubm - |" "${featspart[$n]}" \
-      "ark:|gzip -c >$dir/gselect_diag.$n.gz"  &
-done
-wait
-[ -f $dir/.error ] && echo "Error doing GMM selection" && exit 1;
-
 for x in 0 1 2 3; do
   echo "Pass $x"
   for n in `get_splits.pl $nj`; do
     $cmd $dir/log/acc.$x.$n.log \
-      gmm-gselect "--gselect=ark,s,cs:gunzip -c $dir/gselect_diag.$n.gz|" \
-        "fgmm-global-to-gmm $dir/$x.ubm - |" "${featspart[$n]}" ark:- \| \
-      fgmm-global-acc-stats --gselect=ark,s,cs:- $dir/$x.ubm "${featspart[$n]}" \
+      fgmm-global-acc-stats --diag-gmm-nbest=15 --binary=false --verbose=2 $dir/$x.ubm "${featspart[$n]}" \
         $dir/$x.$n.acc || touch $dir/.error &
   done
   wait
@@ -104,7 +90,5 @@ for x in 0 1 2 3; do
   rm $dir/$x.*.acc $dir/$x.ubm
 done
 
-rm $dir/gselect_diag.*.gz
-rm $dir/final.ubm 2>/dev/null
 mv $dir/4.ubm $dir/final.ubm || exit 1;
 

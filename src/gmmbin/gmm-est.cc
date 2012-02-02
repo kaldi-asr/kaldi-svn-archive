@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     }
 
     kaldi::GmmFlagsType update_flags =
-        StringToGmmFlags(update_flags_str);
+        StringToGmmFlags(update_flags_str);    
 
     std::string model_in_filename = po.GetArg(1),
         stats_filename = po.GetArg(2),
@@ -81,18 +81,18 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary_read;
-      Input ki(model_in_filename, &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_gmm.Read(ki.Stream(), binary_read);
+      Input is(model_in_filename, &binary_read);
+      trans_model.Read(is.Stream(), binary_read);
+      am_gmm.Read(is.Stream(), binary_read);
     }
 
     Vector<double> transition_accs;
     AccumAmDiagGmm gmm_accs;
     {
       bool binary;
-      Input ki(stats_filename, &binary);
-      transition_accs.Read(ki.Stream(), binary);
-      gmm_accs.Read(ki.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input is(stats_filename, &binary);
+      transition_accs.Read(is.Stream(), binary);
+      gmm_accs.Read(is.Stream(), binary, true);  // true == add; doesn't matter here.
     }
 
     if (update_flags & kGmmTransitions) {  // Update transition model.
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
       state_occs.Resize(gmm_accs.NumAccs());
       for (int i = 0; i < gmm_accs.NumAccs(); i++)
         state_occs(i) = gmm_accs.GetAcc(i).occupancy().Sum();
-      
+
       if (mixdown != 0)
         am_gmm.MergeByCount(state_occs, mixdown, power, min_count);
 

@@ -220,14 +220,14 @@ EventMap *BuildTree(Questions &qopts,
 
     BaseFloat objf_after_cluster = ObjfGivenMap(stats, *tree_renumbered);
 
-    KALDI_VLOG(1) << "Objf change due to clustering "
+    KALDI_LOG << "Objf change due to clustering "
                   << ((objf_after_cluster-objf_before_cluster) / normalizer)
                    << " per frame.";
     KALDI_VLOG(1) << "Normalizing over only split phones, this is: "
                   << ((objf_after_cluster-objf_before_cluster) / normalizer_filt)
                   << " per frame.";
-    KALDI_VLOG(1) <<  "Num-leaves is now "<< num_leaves;
-
+    
+    KALDI_VLOG(1) <<  "Num-leaves now "<< num_leaves;
     delete tree_clustered;
     delete tree_split;
     delete tree_stub;
@@ -722,13 +722,13 @@ void ReadRootsFile(std::istream &is,
     std::string shared;
     ss >> shared;
     if (ss.fail() && shared != "shared" && shared != "not-shared")
-      KALDI_ERR << "Bad line in roots file: line "<< line_number << ": " << line;
+      KALDI_EXIT << "Bad line in roots file: line "<< line_number << ": " << line;
     is_shared_root->push_back(shared == "shared");
 
     std::string split;
     ss >> split;
     if (ss.fail() && shared != "split" && shared != "not-split")
-      KALDI_ERR << "Bad line in roots file: line "<< line_number << ": " << line;
+      KALDI_EXIT << "Bad line in roots file: line "<< line_number << ": " << line;
     is_split_root->push_back(split == "split");
 
     phone_sets->push_back(std::vector<int32>());
@@ -739,12 +739,12 @@ void ReadRootsFile(std::istream &is,
     std::sort(phone_sets->back().begin(), phone_sets->back().end());
     if (!IsSortedAndUniq(phone_sets->back()) || phone_sets->back().empty()
        || phone_sets->back().front() <= 0)
-      KALDI_ERR << "Bad line in roots file [empty, or contains non-positive "
+      KALDI_EXIT << "Bad line in roots file [empty, or contains non-positive "
                  << " or duplicate phone-ids]: line " << line_number << ": "
                  << line;
   }
   if (phone_sets->empty())
-    KALDI_ERR << "Empty roots file ";
+    KALDI_EXIT << "Empty roots file ";
 }
 
 

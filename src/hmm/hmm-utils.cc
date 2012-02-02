@@ -25,12 +25,10 @@ namespace kaldi {
 
 
 
-fst::VectorFst<fst::StdArc> *GetHmmAsFst(
-    std::vector<int32> phone_window,
-    const ContextDependencyInterface &ctx_dep,
-    const TransitionModel &trans_model,
-    const HTransducerConfig &config,    
-    HmmCacheType *cache) {
+fst::VectorFst<fst::StdArc> *GetHmmAsFst(std::vector<int32> phone_window,
+                                         const ContextDependencyInterface &ctx_dep,
+                                         const TransitionModel &trans_model,
+                                         const HTransducerConfig &config) {
   using namespace fst;
 
   if (config.reverse) ReverseVector(&phone_window);  // phone_window represents backwards
@@ -47,9 +45,7 @@ fst::VectorFst<fst::StdArc> *GetHmmAsFst(
   if (phone == 0) {  // error.  Error message depends on whether reversed.
     if (config.reverse)
       KALDI_ERR << "phone == 0.  Possibly you are trying to get a reversed "
-          "FST with a non-central \"central position\" P (i.e. asymmetric "
-          "context), but forgot to initialize the ContextFst object with P "
-          "as N-1-P (or it could be a simpler problem)";
+          "FST, but forgot to initialize the ContextFst object with P as N-1-P.";
     else
       KALDI_ERR << "phone == 0.  Some mismatch happened, or there is "
           "a code error.";
@@ -58,32 +54,6 @@ fst::VectorFst<fst::StdArc> *GetHmmAsFst(
   const HmmTopology &topo = trans_model.GetTopo();
   const HmmTopology::TopologyEntry &entry  = topo.TopologyForPhone(phone);
 
-  // vector of the pdfs, indexed by pdf-class (pdf-classes must start from zero
-  // and be contiguous).
-  std::vector<int32> pdfs(topo.NumPdfClasses(phone));
-  for (int32 pdf_class = 0;
-       pdf_class < static_cast<int32>(pdfs.size());
-       pdf_class++) {
-    if ( ! ctx_dep.Compute(phone_window, pdf_class, &(pdfs[pdf_class])) ) {
-      std::ostringstream ctx_ss;
-      for (size_t i = 0; i < phone_window.size(); i++)
-        ctx_ss << phone_window[i] << ' ';
-      KALDI_ERR << "GetHmmAsFst: context-dependency object could not produce "
-                << "an answer: pdf-class = " << pdf_class << " ctx-window = "
-                << ctx_ss.str() << ".  This probably points "
-          "to either a coding error in some graph-building process, "
-          "a mismatch of topology with context-dependency object, the "
-          "wrong FST being passed on a command-line, or something of "
-          " that general nature.";
-    }
-  }
-  std::pair<int32,std::vector<int32> > cache_index(phone, pdfs);
-  if (cache != NULL) {
-    HmmCacheType::iterator iter = cache->find(cache_index);
-    if (iter != cache->end())
-      return iter->second;
-  }
-  
   VectorFst<StdArc> *ans = new VectorFst<StdArc>;
 
   typedef StdArc Arc;
@@ -100,13 +70,23 @@ fst::VectorFst<fst::StdArc> *GetHmmAsFst(
   ans->SetFinal(final, Weight::One());
 
   for (int32 hmm_state = 0;
-       hmm_state < static_cast<int32>(entry.size());
-       hmm_state++) {
+      hmm_state < static_cast<int32>(entry.size());
+      hmm_state++) {
     int32 pdf_class = entry[hmm_state].pdf_class, pdf;
     if (pdf_class == kNoPdf) pdf = kNoPdf;  // nonemitting state.
     else {
-      KALDI_ASSERT(pdf_class < static_cast<int32>(pdfs.size()));
-      pdf = pdfs[pdf_class];
+      if ( ! ctx_dep.Compute(phone_window, pdf_class, &pdf) ) {
+        std::ostringstream ctx_ss;
+        for (size_t i = 0; i < phone_window.size(); i++)
+          ctx_ss << phone_window[i] << ' ';
+        KALDI_ERR << "GetHmmAsFst: context-dependency object could not produce "
+                  << "an answer: pdf-class = " << pdf_class << " ctx-window = "
+                  << ctx_ss.str() << ".  This probably points "
+            "to either a coding error in some graph-building process, "
+            "a mismatch of topology with context-dependency object, the "
+            "wrong FST being passed on a command-line, or something of "
+            " that general nature.";
+      }
     }
     int32 trans_idx;
     for (trans_idx = 0;
@@ -155,9 +135,8 @@ fst::VectorFst<fst::StdArc> *GetHmmAsFst(
   // Now apply probability scale.
   // We waited till after the possible weight-pushing steps,
   // because weight-pushing needs "real" weights in order to work.
-  ApplyProbabilityScale(config.transition_scale, ans);
-  if (cache != NULL)
-    (*cache)[cache_index] = ans;
+  ApplyProbabilityScale(config.trans_prob_scale, ans);
+
   return ans;
 }
 
@@ -253,9 +232,7 @@ fst::VectorFst<fst::StdArc> *GetHTransducer (const std::vector<std::vector<int32
                                              const HTransducerConfig &config,
                                              std::vector<int32> *disambig_syms_left) {
   assert(ilabel_info.size() >= 1 && ilabel_info[0].size() == 0);  // make sure that eps == eps.
-  HmmCacheType cache;
-  // "cache" is an optimization that prevents GetHmmAsFst repeating work
-  // unnecessarily.
+
   using namespace fst;
   typedef StdArc Arc;
   typedef Arc::Weight Weight;
@@ -296,15 +273,16 @@ fst::VectorFst<fst::StdArc> *GetHTransducer (const std::vector<std::vector<int32
       VectorFst<Arc> *fst = GetHmmAsFst(phone_window,
                                         ctx_dep,
                                         trans_model,
-                                        config,
-                                        &cache);
+                                        config);
       fsts[j] = fst;
     }
   }
 
   VectorFst<Arc> *ans = MakeLoopFst(fsts);
-  SortAndUniq(&fsts); // remove duplicate pointers, which we will have
-  // in general, since we used the cache.
+  {  // make sure output is olabel sorted.
+    fst::OLabelCompare<fst::StdArc> olabel_comp;
+    fst::ArcSort(ans, olabel_comp);
+  }
   DeletePointers(&fsts);
   return ans;
 }
@@ -769,19 +747,19 @@ bool ConvertAlignment(const TransitionModel &old_trans_model,
 // Returns the scaled, but not negated, log-prob, with the given scaling factors.
 static BaseFloat GetScaledTransitionLogProb(const TransitionModel &trans_model,
                                             int32 trans_id,
-                                            BaseFloat transition_scale,
+                                            BaseFloat trans_prob_scale,
                                             BaseFloat self_loop_scale) {
-  if (transition_scale == self_loop_scale) {
-    return trans_model.GetTransitionLogProb(trans_id) * transition_scale;
+  if (trans_prob_scale == self_loop_scale) {
+    return trans_model.GetTransitionLogProb(trans_id) * trans_prob_scale;
   } else {
     if (trans_model.IsSelfLoop(trans_id)) {
       return self_loop_scale * trans_model.GetTransitionLogProb(trans_id);
     } else {
       int32 trans_state = trans_model.TransitionIdToTransitionState(trans_id);
       return self_loop_scale * trans_model.GetNonSelfLoopLogProb(trans_state)
-          + transition_scale * trans_model.GetTransitionLogProbIgnoringSelfLoops(trans_id);
+          + trans_prob_scale * trans_model.GetTransitionLogProbIgnoringSelfLoops(trans_id);
       // This could be simplified to
-      // (self_loop_scale - transition_scale) * trans_model.GetNonSelfLoopLogProb(trans_state)
+      // (self_loop_scale - trans_prob_scale) * trans_model.GetNonSelfLoopLogProb(trans_state)
       // + trans_model.GetTransitionLogProb(trans_id);
       // this simplifies if self_loop_scale == 0.0
     }
@@ -792,7 +770,7 @@ static BaseFloat GetScaledTransitionLogProb(const TransitionModel &trans_model,
 
 void AddTransitionProbs(const TransitionModel &trans_model,
                         const std::vector<int32> &disambig_syms,  // may be empty
-                        BaseFloat transition_scale,
+                        BaseFloat trans_prob_scale,
                         BaseFloat self_loop_scale,
                         fst::VectorFst<fst::StdArc> *fst) {
   using namespace fst;
@@ -809,7 +787,7 @@ void AddTransitionProbs(const TransitionModel &trans_model,
       if (l >= 1 && l <= num_tids) {  // a transition-id.
         BaseFloat scaled_log_prob = GetScaledTransitionLogProb(trans_model,
                                                                l,
-                                                               transition_scale,
+                                                               trans_prob_scale,
                                                                self_loop_scale);
         arc.weight = Times(arc.weight, TropicalWeight(-scaled_log_prob));
       } else if (l != 0) {
@@ -817,36 +795,6 @@ void AddTransitionProbs(const TransitionModel &trans_model,
                                arc.ilabel))
           KALDI_ERR << "AddTransitionProbs: invalid symbol " << arc.ilabel
                     << " on graph input side.";
-      }
-      aiter.SetValue(arc);
-    }
-  }
-}
-
-void AddTransitionProbs(const TransitionModel &trans_model,
-                        BaseFloat transition_scale,
-                        BaseFloat self_loop_scale,
-                        Lattice *lat) {
-  using namespace fst;
-  int num_tids = trans_model.NumTransitionIds();
-  for (fst::StateIterator<Lattice> siter(*lat);
-       !siter.Done();
-       siter.Next()) {
-    for (MutableArcIterator<Lattice> aiter(lat, siter.Value());
-         !aiter.Done();
-         aiter.Next()) {
-      LatticeArc arc = aiter.Value();
-      LatticeArc::Label l = arc.ilabel;
-      if (l >= 1 && l <= num_tids) {  // a transition-id.
-        BaseFloat scaled_log_prob = GetScaledTransitionLogProb(trans_model,
-                                                               l,
-                                                               transition_scale,
-                                                               self_loop_scale);
-        // cost is negated log prob.
-        arc.weight.SetValue1(arc.weight.Value1() - scaled_log_prob);
-      } else if (l != 0) {
-        KALDI_ERR << "AddTransitionProbs: invalid symbol " << arc.ilabel
-                  << " on lattice input side.";
       }
       aiter.SetValue(arc);
     }

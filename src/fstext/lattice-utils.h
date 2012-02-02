@@ -27,10 +27,8 @@ namespace fst {
 
 // The template ConvertLattice does conversions to and from
 // LatticeWeight FSTs and CompactLatticeWeight FSTs, and
-// between float and double, and to convert from LatticeWeight
-// to StdWeight.  It's used in the I/O code for lattices,
-// and for converting lattices to standard FSTs (e.g. for creating
-// decoding graphs from lattices).
+// between float and double.  It's used in the I/O code
+// for lattices.
 
 
 /**
@@ -55,8 +53,7 @@ void ConvertLattice(
    ilabels and olabels should be identical).  If invert=false, the labels on
    "ifst" become the ilabels on "ofst" and the strings in the weights of "ifst"
    becomes the olabels.  If invert=true [default], this is reversed (useful for speech
-   recognition lattices; our standard non-compact format has the words on the output side to
-   match HCLG).
+   recognition lattices).
 */
 template<class Weight, class Int>
 void ConvertLattice(
@@ -181,13 +178,13 @@ bool CompactLatticeHasAlignment(
     const ExpandedFst<ArcTpl<CompactLatticeWeightTpl<Weight, Int> > > &fst);
 
 
-/// Class StdToLatticeMapper maps a normal arc (StdArc)
+/// Class LatticeToStdMapper maps a normal arc (StdArc)
 /// to a LatticeArc by putting the StdArc weight as the first
 /// element of the LatticeWeight.  Useful when doing LM
 /// rescoring.
 
 template<class Int>
-class StdToLatticeMapper {
+class LatticeToStdMapper {
   typedef LatticeWeightTpl<Int> LatticeWeight;
   typedef ArcTpl<LatticeWeight> LatticeArc;
  public:
@@ -205,31 +202,6 @@ class StdToLatticeMapper {
   // I believe all properties are preserved.
   uint64 Properties(uint64 props) { return props; }
 };
-
-
-/// Class LatticeToStdMapper maps a LatticeArc to a normal arc (StdArc)
-/// by adding the elements of the LatticeArc weight.
-
-template<class Int>
-class LatticeToStdMapper {
-  typedef LatticeWeightTpl<Int> LatticeWeight;
-  typedef ArcTpl<LatticeWeight> LatticeArc;
- public:
-  StdArc operator()(const LatticeArc &arc) {
-    return StdArc(arc.ilabel, arc.olabel,
-                  StdArc::Weight(arc.weight.Value1() + arc.weight.Value2()),
-                  arc.nextstate);
-  }
-  MapFinalAction FinalAction() { return MAP_NO_SUPERFINAL; }
-
-  MapSymbolsAction InputSymbolsAction() { return MAP_COPY_SYMBOLS; }
-
-  MapSymbolsAction OutputSymbolsAction() { return MAP_COPY_SYMBOLS; }
-
-  // I believe all properties are preserved.
-  uint64 Properties(uint64 props) { return props; }
-};
-
 
 template<class Weight, class Int>
 void PruneCompactLattice(

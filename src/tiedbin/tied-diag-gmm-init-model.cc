@@ -36,8 +36,7 @@ using std::vector;
 /// Initialize the tied densities of the AmTiedDiag using the
 /// AmTiedDiagGmm (with set codebooks) and a (optional) list of codebook ids
 /// to assign the tied gmms to.
-void InitAmTiedDiagGmm(AmTiedDiagGmm *am_gmm,
-                       const vector<int32> *tied_to_pdf) {
+void InitAmTiedDiagGmm(AmTiedDiagGmm *am_gmm, const vector<int32> *tied_to_pdf) {
   TiedGmm *tied = new TiedGmm();
 
   // initialize for ever leaf
@@ -56,6 +55,7 @@ void InitAmTiedDiagGmm(AmTiedDiagGmm *am_gmm,
 
   am_gmm->ComputeGconsts();
 }
+
 }
 
 int main(int argc, char *argv[]) {
@@ -67,8 +67,7 @@ int main(int argc, char *argv[]) {
         "Initialize a tied mixture model with diagonal mixture codebooks. If\n"
         "using more than one codebook, you need to specify a map file, mapping\n"
         "the tree leaves to the codebook ids as a vector, e.g. \"[ 0 0 1 1 \"]\n"
-        "Usage:  tied-diag-gmm-init-model [options] <tree> <topo> [<diag-ubm0> "
-        "| <tree-map> <diag-ubm> ...] <model-out>\n"
+        "Usage:  tied-diag-gmm-init-model [options] <tree> <topo> [<diag-ubm0> | <tree-map> <diag-ubm> ...] <model-out>\n"
         "e.g.: \n"
         "  tied-diag-gmm-init-model tree topo tree.map diag0.ubm diag1.ubm 1.mdl\n";
 
@@ -143,9 +142,9 @@ int main(int argc, char *argv[]) {
 
     TransitionModel trans_model(ctx_dep, topo);
     {
-      Output ko(model_out_filename, binary);
-      trans_model.Write(ko.Stream(), binary);
-      am_gmm.Write(ko.Stream(), binary);
+      Output os(model_out_filename, binary);
+      trans_model.Write(os.Stream(), binary);
+      am_gmm.Write(os.Stream(), binary);
     }
     KALDI_LOG << "Wrote tree and model.";
 

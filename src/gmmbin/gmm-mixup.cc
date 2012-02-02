@@ -33,8 +33,10 @@ int main(int argc, char *argv[]) {
         "e.g. of mixing up:\n"
         " gmm-mixup --mix-up=4000 1.mdl 1.occs 2.mdl\n"
         "e.g. of merging:\n"
-        " gmm-mixup --merge=2000 1.mdl 1.occs 2.mdl\n";
-        
+        " gmm-mixup --merge=2000 1.mdl 1.occs 2.mdl\n"
+        "e.g. of changing to binary model format:\n"
+        " gmm-mixup 1.mdl dontcare 2.mdl\n";
+
     bool binary_write = true;
     TransitionUpdateConfig tcfg;
     int32 mixup = 0;
@@ -72,9 +74,9 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary_read;
-      Input ki(model_in_filename, &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_gmm.Read(ki.Stream(), binary_read);
+      Input is(model_in_filename, &binary_read);
+      trans_model.Read(is.Stream(), binary_read);
+      am_gmm.Read(is.Stream(), binary_read);
     }
 
     if (mixup != 0 || mixdown != 0) {
@@ -82,11 +84,11 @@ int main(int argc, char *argv[]) {
       Vector<BaseFloat> occs;
       {
         bool binary;
-        Input ki(occs_in_filename, &binary);
-        occs.Read(ki.Stream(), binary);
+        Input is(occs_in_filename, &binary);
+        occs.Read(is.Stream(), binary);
       }
       if (occs.Dim() != am_gmm.NumPdfs())
-        KALDI_ERR << "Dimension of state occupancies " << occs.Dim()
+        KALDI_EXIT << "Dimension of state occupancies " << occs.Dim()
                    << " does not match num-pdfs " << am_gmm.NumPdfs();
 
       if (mixdown != 0)

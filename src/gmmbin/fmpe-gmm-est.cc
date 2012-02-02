@@ -28,8 +28,7 @@ int main(int argc, char *argv[]) {
     typedef kaldi::int32 int32;
 
     const char *usage =
-        "Estimate fMPE transforms.\n"
-        "Note: not yet tested.\n"
+        "Accumulate stats for GMM training.\n"
         "Usage:  fmpe-gmm-est [options] <am-model-in> <fmpe-proj-matrix-in> <stats-in> <fmpe-proj-matrix-out>\n"
         "e.g.: gmm-est 1.mdl 1.mat 1.acc 2.mat\n";
 
@@ -57,29 +56,29 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary_read;
-      Input ki(model_in_filename, &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_gmm.Read(ki.Stream(), binary_read);
+      Input is(model_in_filename, &binary_read);
+      trans_model.Read(is.Stream(), binary_read);
+      am_gmm.Read(is.Stream(), binary_read);
     }
 
     FmpeAccs fmpe_accs(fmpe_opts);
     {
       bool binary;
-      Input ki(stats_filename, &binary);
-      fmpe_accs.Read(ki.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input is(stats_filename, &binary);
+      fmpe_accs.Read(is.Stream(), binary, true);  // true == add; doesn't matter here.
     }
 
     FmpeUpdater fmpe_updater(fmpe_accs);
     {
       bool binary;
-      Input ki(fmpe_proj_mat_in_filename, &binary);
-      fmpe_updater.Read(ki.Stream(), binary);
+      Input is(fmpe_proj_mat_in_filename, &binary);
+      fmpe_updater.Read(is.Stream(), binary);
     }
 
     {  // update the Fmpe projection matrix
-      BaseFloat obj_change_out, count_out;
+      BaseFloat *obj_change_out, *count_out;
       fmpe_updater.ComputeAvgStandardDeviation(am_gmm);
-      fmpe_updater.Update(fmpe_accs, &obj_change_out, &count_out);
+      fmpe_updater.Update(fmpe_accs, obj_change_out, count_out);
     }
 
     {

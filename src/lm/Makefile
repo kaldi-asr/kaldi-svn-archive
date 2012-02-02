@@ -40,7 +40,7 @@ $(CMDFILES): $(LIBFILE) ../util/kaldi-util.a ../base/kaldi-base.a
 	$(MAKE) -C ${@D} ${@F}
 
 clean:
-	rm *.o *.a $(TESTFILES) $(CMDFILES)
+	rm *.o *.a $(TESTFILES)
 
 test: $(TESTFILES)
 	for x in $(TESTFILES); do ./$$x >&/dev/null || (echo "***test $$x failed***"; exit 1); done  

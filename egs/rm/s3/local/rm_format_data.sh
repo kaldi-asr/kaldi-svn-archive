@@ -30,6 +30,8 @@ done
 
 # Copy stuff into its final location:
 
+
+
 for x in $data_list; do
   cp data/local/$x.spk2utt data/$x/spk2utt || exit 1;
   cp data/local/$x.utt2spk data/$x/utt2spk || exit 1;
@@ -42,7 +44,6 @@ done
 
 scripts/make_words_symtab.pl < data/local/G.txt > data/lang/words.txt
 scripts/make_phones_symtab.pl < data/local/lexicon.txt > data/lang/phones.txt
-cp data/lang/words.txt data/lang_test/words.txt
 
 silphones="sil"; # This would in general be a space-separated list of all silence phones.  E.g. "sil vn"
 # Generate colon-separated lists of silence and non-silence phones.
@@ -52,7 +53,7 @@ scripts/silphones.pl data/lang/phones.txt "$silphones" data/lang/silphones.csl \
 ndisambig=`scripts/add_lex_disambig.pl data/local/lexicon.txt data/local/lexicon_disambig.txt`
 ndisambig=$[$ndisambig+1]; # add one disambig symbol for silence in lexicon FST.
 scripts/add_disambig.pl data/lang/phones.txt $ndisambig > data/lang_test/phones_disambig.txt
-cp data/lang_test/phones_disambig.txt data/lang/ # needed for MMI.
+
 
 silprob=0.5  # same prob as word
 scripts/make_lexicon_fst.pl data/local/lexicon.txt $silprob sil  | \
@@ -66,22 +67,19 @@ scripts/make_lexicon_fst.pl data/local/lexicon.txt $silprob sil  | \
 # ever need to e.g. create ctm's-- these are used to work out the
 # word boundaries.
 
-
 cat data/local/lexicon.txt | \
  awk '{printf("%s #1 ", $1); for (n=2; n <= NF; n++) { printf("%s ", $n); } print "#2"; }' | \
  scripts/make_lexicon_fst.pl - 0.5 sil | \
- fstcompile --isymbols=data/lang_test/phones_disambig.txt --osymbols=data/lang_test/words.txt \
+ fstcompile --isymbols=data/lang_test/phones_disambig.txt --osymbols=data/lang/words.txt \
   --keep_isymbols=false --keep_osymbols=false | \
  fstarcsort --sort_type=olabel > data/lang_test/L_align.fst
 
 # L_disambig.fst has the disambiguation symbols (c.f. Mohri's papers)
 
 scripts/make_lexicon_fst.pl data/local/lexicon_disambig.txt $silprob sil '#'$ndisambig | \
-   fstcompile --isymbols=data/lang_test/phones_disambig.txt --osymbols=data/lang_test/words.txt \
+   fstcompile --isymbols=data/lang_test/phones_disambig.txt --osymbols=data/lang/words.txt \
    --keep_isymbols=false --keep_osymbols=false | fstarcsort --sort_type=olabel \
     > data/lang_test/L_disambig.fst
-
-cp data/lang_test/L_disambig.fst data/lang/  # Needed for MMI training.
 
 fstcompile --isymbols=data/lang/words.txt --osymbols=data/lang/words.txt --keep_isymbols=false \
     --keep_osymbols=false data/local/G.txt > data/lang_test/G.fst

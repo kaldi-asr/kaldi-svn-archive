@@ -28,7 +28,7 @@
 
 echo "Preparing train and test data"
 
-for x in train_si284 test_eval92 test_eval93 test_dev93 test_eval92_5k test_eval93_5k test_dev93_5k dev_dt_05 dev_dt_20; do 
+for x in train_si284 test_eval92 test_eval93 test_dev93; do 
   mkdir -p data/$x
   cp data/local/${x}_wav.scp data/$x/wav.scp
   cp data/local/$x.txt data/$x/text
@@ -92,7 +92,7 @@ echo "<SPOKEN_NOISE>" > data/lang/oov.txt
 # triphone system.  extra_questions.txt is some pre-defined extra questions about
 # position and stress that split apart the categories we created in phonesets.txt.
 # in extra_questions.txt there is also a question about silence phones, since we 
-# don't include them in our automatically generated clustering of phones.
+# didn't include that in our
 
 local/make_shared_phones.sh < data/lang/phones.txt > data/lang/phonesets_mono.txt
 grep -v SIL data/lang/phonesets_mono.txt > data/lang/phonesets_cluster.txt
@@ -122,18 +122,18 @@ for f in phones.txt words.txt L.fst silphones.csl nonsilphones.csl topo; do
 done
 
 
+
 # (3),
 # In lang_test, create a phones.txt file that includes the disambiguation symbols.
 # the --include-zero includes the #0 symbol we pass through from the grammar.
 # Note: we previously echoed the # of disambiguation symbols to data/local/lex_ndisambig.
 scripts/add_disambig.pl --include-zero data/lang_test/phones.txt \
    `cat data/local/lex_ndisambig` > data/lang_test/phones_disambig.txt
-cp data/lang_test/phones_disambig.txt data/lang # Needed for MMI.
 
 
 # Create the lexicon FST with disambiguation symbols, and put it in lang_test.
 # There is an extra
-# step where we create a loop to "pass through" the disambiguation symbols
+# step where we create a loop "pass through" the disambiguation symbols
 # from G.fst.  
 phone_disambig_symbol=`grep \#0 data/lang_test/phones_disambig.txt | awk '{print $2}'`
 word_disambig_symbol=`grep \#0 data/lang_test/words.txt | awk '{print $2}'`
@@ -142,10 +142,7 @@ scripts/make_lexicon_fst.pl data/local/lexicon_disambig.txt 0.5 SIL '#'$ndisambi
    fstcompile --isymbols=data/lang_test/phones_disambig.txt --osymbols=data/lang_test/words.txt \
    --keep_isymbols=false --keep_osymbols=false |   \
    fstaddselfloops  "echo $phone_disambig_symbol |" "echo $word_disambig_symbol |" | \
-   fstarcsort --sort_type=olabel > data/lang_test/L_disambig.fst || exit 1;
-
-# Copy into data/lang/ also, where it will be needed for discriminative training.
-cp data/lang_test/L_disambig.fst data/lang/
+   fstarcsort --sort_type=olabel > data/lang_test/L_disambig.fst
 
 
 # Create L_align.fst, which is as L.fst but with alignment symbols (#1 and #2 at the
@@ -164,7 +161,7 @@ cat data/local/lexicon.txt | \
 
 echo Preparing language models for test
 
-for lm_suffix in bg tgpr tg bg_5k tgpr_5k tg_5k; do
+for lm_suffix in bg tgpr tg; do
   test=data/lang_test_${lm_suffix}
   mkdir -p $test
   for f in phones.txt words.txt phones_disambig.txt L.fst L_disambig.fst \
@@ -186,8 +183,8 @@ for lm_suffix in bg tgpr tg bg_5k tgpr_5k tg_5k; do
     arpa2fst - | fstprint | \
     scripts/remove_oovs.pl data/local/oovs_${lm_suffix}.txt | \
     scripts/eps2disambig.pl | scripts/s2eps.pl | fstcompile --isymbols=$test/words.txt \
-      --osymbols=$test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
-     fstrmepsilon > $test/G.fst
+      --osymbols=$test/words.txt  --keep_isymbols=false --keep_osymbols=false \
+      > $test/G.fst
   fstisstochastic $test/G.fst
  # The output is like:
  # 9.14233e-05 -0.259833

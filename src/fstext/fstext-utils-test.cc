@@ -455,22 +455,16 @@ template<class Arc>  void TestMakeLoopFst() {
       VectorFst<Arc> *fst = RandFst<Arc>();
       Project(fst, PROJECT_INPUT);  // make input & output labels the same.
       fsts[i] = fst;
-    } else { // this is to test that it works with the caching.
-      fsts[i] = fsts[i/2];
     }
   }
 
   VectorFst<Arc> *fst1 = MakeLoopFst(fsts),
       *fst2 = MakeLoopFstCompare(fsts);
 
-  assert(fst1->Properties(kOLabelSorted, kOLabelSorted) != 0);
-      
   assert(RandEquivalent(*fst1, *fst2, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
   delete fst1;
   delete fst2;
-  std::sort(fsts.begin(), fsts.end());
-  fsts.erase(std::unique(fsts.begin(), fsts.end()), fsts.end());
-  for (int i = 0; i < (int)fsts.size(); i++)
+  for (int i = 0; i < num_fsts; i++)
     if (fsts[i] != NULL)
       delete fsts[i];
 }
@@ -577,6 +571,7 @@ void TestRemoveUselessArcs() {
     delete fst;
   }
 }
+
 
 
 

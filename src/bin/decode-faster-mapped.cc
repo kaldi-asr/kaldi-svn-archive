@@ -67,8 +67,8 @@ int main(int argc, char *argv[]) {
     TransitionModel trans_model;
     {
       bool binary;
-      Input ki(model_in_filename, &binary);
-      trans_model.Read(ki.Stream(), binary);
+      Input is(model_in_filename, &binary);
+      trans_model.Read(is.Stream(), binary);
     }
 
     Int32VectorWriter words_writer(words_wspecifier);
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     if (word_syms_filename != "") {
       word_syms = fst::SymbolTable::ReadText(word_syms_filename);
       if (!word_syms)
-        KALDI_ERR << "Could not read symbol table from file "<<word_syms_filename;
+        KALDI_EXIT << "Could not read symbol table from file "<<word_syms_filename;
     }
 
     SequentialBaseFloatMatrixReader loglikes_reader(loglikes_rspecifier);

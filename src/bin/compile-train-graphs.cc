@@ -32,27 +32,21 @@ int main(int argc, char *argv[]) {
     using fst::StdArc;
 
     const char *usage =
-        "Creates training graphs (without transition-probabilities, by default)\n"
-        "\n"
+        "Creates training graphs (without transition-probabilities, by default) "
+        " and concatenates them to output\n"
         "Usage:   compile-train-graphs [options] tree-in model-in lexicon-fst-in transcriptions-rspecifier graphs-wspecifier\n"
         "e.g.: \n"
-        " compile-train-graphs tree 1.mdl lex.fst ark:train.tra ark:graphs.fsts\n";
+        " compile-train-graphs tree 1.mdl lex.fst ark:train.tra  b, ark:graphs.fsts\n";
     ParseOptions po(usage);
 
     TrainingGraphCompilerOptions gopts;
     int32 batch_size = 250;
-    gopts.transition_scale = 0.0;  // Change the default to 0.0 since we will generally add the
+    gopts.trans_prob_scale = 0.0;  // Change the default to 0.0 since we will generally add the
     // transition probs in the alignment phase (since they change eacm time)
     gopts.self_loop_scale = 0.0;  // Ditto for self-loop probs.
-    std::string disambig_rxfilename;
     gopts.Register(&po);
 
-    po.Register("batch-size", &batch_size,
-                "Number of FSTs to compile at a time (more -> faster but uses "
-                "more memory.  E.g. 500");
-    po.Register("read-disambig-syms", &disambig_rxfilename, "File containing "
-                "list of disambiguation symbols in phone symbol table");
-    
+    po.Register("batch-size", &batch_size, "Number of FSTs to compile at a time (more -> faster but uses more memory.  E.g. 500");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 5) {
@@ -60,51 +54,45 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    std::string tree_rxfilename = po.GetArg(1);
-    std::string model_rxfilename = po.GetArg(2);
-    std::string lex_rxfilename = po.GetArg(3);
+    std::string tree_in_filename = po.GetArg(1);
+    std::string model_in_filename = po.GetArg(2);
+    std::string lex_in_filename = po.GetArg(3);
     std::string transcript_rspecifier = po.GetArg(4);
-    std::string fsts_wspecifier = po.GetArg(5);
+    std::string fsts_out_wspecifier = po.GetArg(5);
 
     ContextDependency ctx_dep;  // the tree.
     {
       bool binary;
-      Input ki(tree_rxfilename, &binary);
-      ctx_dep.Read(ki.Stream(), binary);
+      Input is(tree_in_filename, &binary);
+      ctx_dep.Read(is.Stream(), binary);
     }
 
     TransitionModel trans_model;
     {
       bool binary;
-      Input ki(model_rxfilename, &binary);
-      trans_model.Read(ki.Stream(), binary);
+      Input is(model_in_filename, &binary);
+      trans_model.Read(is.Stream(), binary);
       // AmDiagGmm am_gmm;
-      // am_gmm.Read(ki.Stream(), binary);
+      // am_gmm.Read(is.Stream(), binary);
     }
 
     // need VectorFst because we will change it by adding subseq symbol.
     VectorFst<StdArc> *lex_fst = NULL;  // ownership will be taken by gc.
     {
-      std::ifstream is(lex_rxfilename.c_str());
-      if (!is.good()) KALDI_ERR << "Could not open lexicon FST " << (std::string)lex_rxfilename;
+      std::ifstream is(lex_in_filename.c_str());
+      if (!is.good()) KALDI_EXIT << "Could not open lexicon FST " << (std::string)lex_in_filename;
       lex_fst =
-          VectorFst<StdArc>::Read(is, fst::FstReadOptions(lex_rxfilename));
+          VectorFst<StdArc>::Read(is, fst::FstReadOptions(lex_in_filename));
       if (lex_fst == NULL)
         exit(1);
     }
 
-    std::vector<int32> disambig_syms;
-    if (disambig_rxfilename != "")
-      if (!ReadIntegerVectorSimple(disambig_rxfilename, &disambig_syms))
-        KALDI_ERR << "fstcomposecontext: Could not read disambiguation symbols from "
-                  << disambig_rxfilename;
-    
-    TrainingGraphCompiler gc(trans_model, ctx_dep, lex_fst, disambig_syms, gopts);
+    TrainingGraphCompiler gc(trans_model, ctx_dep, lex_fst, gopts);
 
     lex_fst = NULL;  // we gave ownership to gc.
 
     SequentialInt32VectorReader transcript_reader(transcript_rspecifier);
-    TableWriter<fst::VectorFstHolder> fst_writer(fsts_wspecifier);
+    TableWriter<fst::VectorFstHolder> fst_writer(fsts_out_wspecifier);
 
     int num_succeed = 0, num_fail = 0;
 
@@ -115,14 +103,14 @@ int main(int argc, char *argv[]) {
         const std::vector<int32> &transcript = transcript_reader.Value();
         VectorFst<StdArc> decode_fst;
 
-        if (!gc.CompileGraphFromText(transcript, &decode_fst)) {
+        if (!gc.CompileGraph(transcript, &decode_fst)) {
           KALDI_WARN << "Problem creating decoding graph for utterance "
                      << key << " [serious error]";
           decode_fst.DeleteStates();  // Just make it empty.
         }
         if (decode_fst.Start() != fst::kNoStateId) num_succeed++;
         else num_fail++;
-        fst_writer.Write(key, decode_fst);
+        fst_writer.WriteThrow(key, decode_fst);
       }
     } else {
       std::vector<std::string> keys;
@@ -137,12 +125,12 @@ int main(int argc, char *argv[]) {
           transcripts.push_back(transcript_reader.Value());
         }
         std::vector<fst::VectorFst<fst::StdArc>* > fsts;
-        if (!gc.CompileGraphsFromText(transcripts, &fsts)) {
+        if (!gc.CompileGraphs(transcripts, &fsts)) {
           KALDI_ERR << "Not expecting CompileGraphs to fail.";
         }
         assert(fsts.size() == keys.size());
         for (size_t i = 0; i < fsts.size(); i++)
-          fst_writer.Write(keys[i], *(fsts[i]));
+          fst_writer.WriteThrow(keys[i], *(fsts[i]));
         num_succeed += fsts.size();
         DeletePointers(&fsts);
       }

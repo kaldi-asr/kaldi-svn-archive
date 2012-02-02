@@ -40,17 +40,15 @@ int main(int argc, char *argv[]) {
         "e.g.: \n"
         " gmm-align tree 1.mdl lex.fst scp:train.scp ark:train.tra ark:1.ali\n";
     ParseOptions po(usage);
+    bool binary = true;
     BaseFloat beam = 200.0;
     BaseFloat retry_beam = 0.0;
     BaseFloat acoustic_scale = 1.0;
-    std::string disambig_rxfilename;
     TrainingGraphCompilerOptions gopts;
+    po.Register("binary", &binary, "Write output in binary mode");
     po.Register("beam", &beam, "Decoding beam");
     po.Register("retry-beam", &retry_beam, "Decoding beam for second try at alignment");
     po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic likelihoods");
-    po.Register("read-disambig-syms", &disambig_rxfilename, "File containing "
-                "list of disambiguation symbols in phone symbol table");
-
     gopts.Register(&po);
     po.Read(argc, argv);
 
@@ -75,37 +73,30 @@ int main(int argc, char *argv[]) {
     ContextDependency ctx_dep;
     {
       bool binary;
-      Input ki(tree_in_filename, &binary);
-      ctx_dep.Read(ki.Stream(), binary);
+      Input is(tree_in_filename, &binary);
+      ctx_dep.Read(is.Stream(), binary);
     }
 
     TransitionModel trans_model;
     AmDiagGmm am_gmm;
     {
       bool binary;
-      Input ki(model_in_filename, &binary);
-      trans_model.Read(ki.Stream(), binary);
-      am_gmm.Read(ki.Stream(), binary);
+      Input is(model_in_filename, &binary);
+      trans_model.Read(is.Stream(), binary);
+      am_gmm.Read(is.Stream(), binary);
     }
 
     VectorFst<StdArc> *lex_fst = NULL;  // ownership will be taken by gc.
     {
       std::ifstream is(lex_in_filename.c_str());
-      if (!is.good()) KALDI_ERR << "Could not open lexicon FST " << (std::string)lex_in_filename;
+      if (!is.good()) KALDI_EXIT << "Could not open lexicon FST " << (std::string)lex_in_filename;
       lex_fst =
           VectorFst<StdArc>::Read(is, fst::FstReadOptions(lex_in_filename));
       if (lex_fst == NULL)
         exit(1);
     }
 
-    std::vector<int32> disambig_syms;    
-    if (disambig_rxfilename != "")
-      if (!ReadIntegerVectorSimple(disambig_rxfilename, &disambig_syms))
-        KALDI_ERR << "fstcomposecontext: Could not read disambiguation symbols from "
-                  << disambig_rxfilename;
-    
-    TrainingGraphCompiler gc(trans_model, ctx_dep, lex_fst, disambig_syms,
-                             gopts);
+    TrainingGraphCompiler gc(trans_model, ctx_dep, lex_fst, gopts);
 
     lex_fst = NULL;  // we gave ownership to gc.
     
@@ -124,7 +115,7 @@ int main(int argc, char *argv[]) {
         const std::vector<int32> &transcript = transcript_reader.Value(key);
 
         VectorFst<StdArc> decode_fst;
-        if (!gc.CompileGraphFromText(transcript, &decode_fst)) {
+        if (!gc.CompileGraph(transcript, &decode_fst)) {
           KALDI_WARN << "Problem creating decoding graph for utterance " <<
               key <<" [serious error]";
           num_other_error++;

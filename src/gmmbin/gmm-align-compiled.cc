@@ -48,18 +48,18 @@ int main(int argc, char *argv[]) {
     BaseFloat beam = 200.0;
     BaseFloat retry_beam = 0.0;
     BaseFloat acoustic_scale = 1.0;
-    BaseFloat transition_scale = 1.0;
+    BaseFloat trans_prob_scale = 1.0;
     BaseFloat self_loop_scale = 1.0;
 
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("beam", &beam, "Decoding beam");
     po.Register("retry-beam", &retry_beam, "Decoding beam for second try at alignment");
-    po.Register("transition-scale", &transition_scale, "Transition-probability scale [relative to acoustics]");
+    po.Register("transition-scale", &trans_prob_scale, "Transition-probability scale [relative to acoustics]");
     po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic likelihoods");
     po.Register("self-loop-scale", &self_loop_scale, "Scale of self-loop versus non-self-loop log probs [relative to acoustics]");
     po.Read(argc, argv);
 
-    if (po.NumArgs() < 4 || po.NumArgs() > 5) {
+    if (po.NumArgs() != 4) {
       po.PrintUsage();
       exit(1);
     }
@@ -74,21 +74,19 @@ int main(int argc, char *argv[]) {
     std::string fst_rspecifier = po.GetArg(2);
     std::string feature_rspecifier = po.GetArg(3);
     std::string alignment_wspecifier = po.GetArg(4);
-    std::string scores_wspecifier = po.GetOptArg(5);
 
     TransitionModel trans_model;
     AmDiagGmm am_gmm;
     {
       bool binary;
-      Input ki(model_in_filename, &binary);
-      trans_model.Read(ki.Stream(), binary);
-      am_gmm.Read(ki.Stream(), binary);
+      Input is(model_in_filename, &binary);
+      trans_model.Read(is.Stream(), binary);
+      am_gmm.Read(is.Stream(), binary);
     }
 
     SequentialTableReader<fst::VectorFstHolder> fst_reader(fst_rspecifier);
     RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);
     Int32VectorWriter alignment_writer(alignment_wspecifier);
-    BaseFloatWriter scores_writer(scores_wspecifier);
 
     int num_success = 0, num_no_feat = 0, num_other_error = 0;
     BaseFloat tot_like = 0.0;
@@ -120,7 +118,7 @@ int main(int argc, char *argv[]) {
         {  // Add transition-probs to the FST.
           std::vector<int32> disambig_syms;  // empty.
           AddTransitionProbs(trans_model, disambig_syms,
-                             transition_scale, self_loop_scale,
+                             trans_prob_scale, self_loop_scale,
                              &decode_fst);
         }
 
@@ -152,10 +150,8 @@ int main(int argc, char *argv[]) {
           frame_count += features.NumRows();
 
           GetLinearSymbolSequence(decoded, &alignment, &words, &weight);
-          BaseFloat like = -(weight.Value1()+weight.Value2()) / acoustic_scale;
+          BaseFloat like = (-weight.Value1() -weight.Value2()) / acoustic_scale;
           tot_like += like;
-          if (scores_writer.IsOpen())
-            scores_writer.Write(key, -(weight.Value1()+weight.Value2()));
           alignment_writer.Write(key, alignment);
           num_success ++;
           if (num_success % 50  == 0) {

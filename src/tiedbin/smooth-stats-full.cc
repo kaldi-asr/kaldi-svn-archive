@@ -44,12 +44,9 @@ int main(int argc, char *argv[]) {
 
     BaseFloat tau = 10.;
 
-    po.Register("tau", &tau,
-                "Interpolation factor (see tied-gmm.h: Interpolate{1,2})");
-    po.Register("preserve-counts", &preserve_counts,
-                "Preserve the counts, uses Interpolate2");
-    po.Register("print-diversity", &print_diversity,
-                "Print the diversity of the nodes, i.e. the childrens' codebooks");
+    po.Register("tau", &tau, "Interpolation factor (see tied-gmm.h: Interpolate{1,2})");
+    po.Register("preserve-counts", &preserve_counts, "Preserve the counts, uses Interpolate2");
+    po.Register("print-diversity", &print_diversity, "Print the diversity of the nodes, i.e. the childrens' codebooks");
 
     po.Read(argc, argv);
 
@@ -67,8 +64,8 @@ int main(int argc, char *argv[]) {
     ContextDependency ctx_dep;  // the tree.
     {
       bool binary;
-      Input ki(tree_in_filename, &binary);
-      ctx_dep.Read(ki.Stream(), binary);
+      Input is(tree_in_filename, &binary);
+      ctx_dep.Read(is.Stream(), binary);
     }
 
     // read in tied->pdf map
@@ -92,9 +89,9 @@ int main(int argc, char *argv[]) {
     bool binary_accu;
     AccumAmTiedFullGmm acc;
     {
-      Input ki(acc_in_filename, &binary_accu);
-      trans_accs.Read(ki.Stream(), binary_accu);
-      acc.Read(ki.Stream(), binary_accu, false);
+      Input is(acc_in_filename, &binary_accu);
+      trans_accs.Read(is.Stream(), binary_accu);
+      acc.Read(is.Stream(), binary_accu, false);
     }
 
     int32 num_leaves;
@@ -127,8 +124,8 @@ int main(int argc, char *argv[]) {
     // children
     if (print_diversity) {
       int32 k = diversity.size() - 1;
-      for (vector< std::set<int32> >::reverse_iterator rit = diversity.rbegin(),
-           rend = diversity.rend(); rit != rend; ++rit, --k) {
+      for (vector<std::set<int32> >::reverse_iterator rit = diversity.rbegin(), rend = diversity.rend();
+           rit != rend; ++rit, --k) {
         std::stringstream sstr;
         sstr << "node=" << (k+num_leaves) << " pdf-ids [ ";
         for (std::set<int32>::iterator si = (*rit).begin(), se = (*rit).end();
@@ -149,7 +146,7 @@ int main(int argc, char *argv[]) {
       AccumTiedGmm &a = acc.GetTiedAcc(i);
       std::stringstream sstr;
       sstr << "tied-id=" << i << " occ=" << a.occupancy().Sum() << " ==>";
-      int32 cur = i, par = p[i];
+      int32 cur = i, par = p[i] ;
 
       // walk up, as long as the parent is a diverse node or the root node
       while (cur != par) {
@@ -187,8 +184,8 @@ int main(int argc, char *argv[]) {
 
     // interpolate down, beginning from the top
     int32 k = trace.size() - 1;
-    for (vector< std::set<int32> >::reverse_iterator rit = trace.rbegin(),
-         rend = trace.rend(); rit != rend; ++rit, --k) {
+    for (vector<std::set<int32> >::reverse_iterator rit = trace.rbegin(), rend = trace.rend();
+         rit != rend; ++rit, --k) {
       std::stringstream sstr;
       sstr << (k + num_leaves) << " <==";
 
@@ -225,13 +222,14 @@ int main(int argc, char *argv[]) {
             interim[t-num_leaves]->Interpolate1(tau, *interim[k]);
         }
       }
+      
       KALDI_LOG << sstr.str();
     }
 
     {
-      Output ko(acc_out_filename, binary_accu);
-      trans_accs.Write(ko.Stream(), binary_accu);
-      acc.Write(ko.Stream(), binary_accu);
+      Output os(acc_out_filename, binary_accu);
+      trans_accs.Write(os.Stream(), binary_accu);
+      acc.Write(os.Stream(), binary_accu);
     }
 
     KALDI_LOG << "Wrote " << acc_out_filename;

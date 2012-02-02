@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
       return 0;
     } else {
       if (utt2spk_rspecifier != "")
-        KALDI_ERR << "--utt2spk option not compatible with rxfilename as input "
+        KALDI_EXIT << "--utt2spk option not compatible with rxfilename as input "
                    << "(did you forget ark:?)";
       std::string cmvn_rxfilename = cmvn_rspecifier_or_rxfilename;
       bool binary;

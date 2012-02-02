@@ -36,8 +36,7 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Align features given tied fullonal GMM-based models.\n"
-        "Usage:   tied-full-gmm-align-compiled [options] model-in "
-        "graphs-rspecifier feature-rspecifier alignments-wspecifier\n"
+        "Usage:   tied-full-gmm-align-compiled [options] model-in graphs-rspecifier feature-rspecifier alignments-wspecifier\n"
         "e.g.: \n"
         " tied-full-gmm-align-compiled 1.mdl ark:graphs.fsts scp:train.scp ark:1.ali\n"
         "or:\n"
@@ -49,22 +48,15 @@ int main(int argc, char *argv[]) {
     BaseFloat beam = 200.0;
     BaseFloat retry_beam = 0.0;
     BaseFloat acoustic_scale = 1.0;
-    BaseFloat transition_scale = 1.0;
+    BaseFloat trans_prob_scale = 1.0;
     BaseFloat self_loop_scale = 1.0;
-    std::string gselect_rspecifier;
 
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("beam", &beam, "Decoding beam");
-    po.Register("retry-beam", &retry_beam,
-                "Decoding beam for second try at alignment");
-    po.Register("transition-scale", &transition_scale,
-                "Transition-probability scale [relative to acoustics]");
-    po.Register("acoustic-scale", &acoustic_scale,
-                "Scaling factor for acoustic likelihoods");
-    po.Register("self-loop-scale", &self_loop_scale,
-                "Scale of self-loop versus non-self-loop log probs [relative to acoustics]");
-    po.Register("gselect", &gselect_rspecifier,
-                "rspecifier for gaussian-selection information (to speed up computation)");
+    po.Register("retry-beam", &retry_beam, "Decoding beam for second try at alignment");
+    po.Register("transition-scale", &trans_prob_scale, "Transition-probability scale [relative to acoustics]");
+    po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic likelihoods");
+    po.Register("self-loop-scale", &self_loop_scale, "Scale of self-loop versus non-self-loop log probs [relative to acoustics]");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 4) {
@@ -83,14 +75,13 @@ int main(int argc, char *argv[]) {
     AmTiedFullGmm am_gmm;
     {
       bool binary;
-      Input ki(model_in_filename, &binary);
-      trans_model.Read(ki.Stream(), binary);
-      am_gmm.Read(ki.Stream(), binary);
+      Input is(model_in_filename, &binary);
+      trans_model.Read(is.Stream(), binary);
+      am_gmm.Read(is.Stream(), binary);
     }
 
     SequentialTableReader<fst::VectorFstHolder> fst_reader(fst_rspecifier);
     RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessInt32VectorVectorReader gselect_reader(gselect_rspecifier);
     Int32VectorWriter alignment_writer(alignment_wspecifier);
 
     int num_success = 0, num_no_feat = 0, num_other_error = 0;
@@ -123,7 +114,7 @@ int main(int argc, char *argv[]) {
         {  // Add transition-probs to the FST.
           std::vector<int32> disambig_syms;  // empty.
           AddTransitionProbs(trans_model, disambig_syms,
-                             transition_scale, self_loop_scale,
+                             trans_prob_scale, self_loop_scale,
                              &decode_fst);
         }
 
@@ -132,19 +123,18 @@ int main(int argc, char *argv[]) {
         // makes it a bit faster: 37 sec -> 26 sec on 1000 RM utterances @ beam 200.
 
         DecodableAmTiedFullGmmScaled gmm_decodable(am_gmm, trans_model, features,
-                                                   acoustic_scale);
+                                               acoustic_scale);
         decoder.Decode(&gmm_decodable);
 
         VectorFst<LatticeArc> decoded;  // linear FST.
-        bool ans = decoder.ReachedFinal()  // consider only final states.
+        bool ans = decoder.ReachedFinal() // consider only final states.
             && decoder.GetBestPath(&decoded);
         if (!ans && retry_beam != 0.0) {
-          KALDI_WARN << "Retrying utterance " << key << " with beam "
-                     << retry_beam;
+          KALDI_WARN << "Retrying utterance " << key << " with beam " << retry_beam;
           decode_opts.beam = retry_beam;
           decoder.SetOptions(decode_opts);
           decoder.Decode(&gmm_decodable);
-          ans = decoder.ReachedFinal()  // consider only final states.
+          ans = decoder.ReachedFinal() // consider only final states.
               && decoder.GetBestPath(&decoded);
           decode_opts.beam = beam;
           decoder.SetOptions(decode_opts);
@@ -159,7 +149,7 @@ int main(int argc, char *argv[]) {
           BaseFloat like = (-weight.Value1() -weight.Value2()) / acoustic_scale;
           tot_like += like;
           alignment_writer.Write(key, alignment);
-          num_success++;
+          num_success ++;
           KALDI_LOG << "Log-like per frame for this file is "
                     << (like / features.NumRows()) << " over "
                     << features.NumRows() << " frames.";
@@ -174,10 +164,8 @@ int main(int argc, char *argv[]) {
               << " over " << frame_count<< " frames.";
     KALDI_LOG << "Done " << num_success << ", could not find features for "
               << num_no_feat << ", other errors on " << num_other_error;
-    if (num_success != 0)
-      return 0;
-    else
-      return 1;
+    if (num_success != 0) return 0;
+    else return 1;
   } catch(const std::exception& e) {
     std::cerr << e.what();
     return -1;

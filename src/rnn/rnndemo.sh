@@ -2,7 +2,7 @@
 
 #
 if [ -f WSJ.tar.gz ]; then
-  echo "data archive already present, not downloading it"
+  echo "data archive found!"
 else
   echo "trying to download the data archive using wget"
   wget http://www.fit.vutbr.cz/~kombrink/personal/rnn-kaldi/WSJ.tar.gz

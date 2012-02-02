@@ -59,15 +59,19 @@ class VectorBase {
 
   /// Indexing  operator (const).
   inline Real operator() (MatrixIndexT i) const {
-    KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
+#ifdef KALDI_PARANOID
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
                  static_cast<UnsignedMatrixIndexT>(dim_));
+#endif
     return *(data_ + i);
   }
 
   /// Indexing operator (non-const).
   inline Real & operator() (MatrixIndexT i) {
-    KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
+#ifdef KALDI_PARANOID
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
                  static_cast<UnsignedMatrixIndexT>(dim_));
+#endif
     return *(data_ + i);
   }
 
@@ -112,7 +116,6 @@ class VectorBase {
   void Abs();
 
   /// Apply soft-max to vector and return normalizer (log sum of exponentials).
-  /// This is the same as: \f$ x(i) = exp(x(i)) / \sum_i exp(x(i)) \f$
   Real ApplySoftMax();
 
   /// Take all  elements of vector to a power.

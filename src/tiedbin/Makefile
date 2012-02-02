@@ -12,6 +12,7 @@ BINFILES = \
   tied-diag-gmm-decode-simple \
   tied-diag-gmm-decode-faster \
   tied-diag-gmm-init-model \
+  tied-diag-gmm-align \
   smooth-stats-diag \
   tied-full-gmm-init-mono \
   tied-full-gmm-acc-stats-ali \
@@ -20,13 +21,11 @@ BINFILES = \
   tied-full-gmm-decode-simple \
   tied-full-gmm-decode-faster \
   tied-full-gmm-init-model \
+  tied-full-gmm-align \
   smooth-stats-full \
   init-tied-codebooks \
   tied-lbg \
   full-to-diag
-
-#  tied-diag-gmm-align \
-#  tied-full-gmm-align \
 
 OBJFILES =
 

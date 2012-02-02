@@ -22,9 +22,8 @@
 
 int main(int argc, char *argv[]) {
   try {
-    using namespace kaldi;
-    typedef int32 int32;
-    MleFullGmmOptions gmm_opts;
+    typedef kaldi::int32 int32;
+    kaldi::MleFullGmmOptions gmm_opts;
 
     const char *usage =
         "Estimate a full-covariance GMM from the accumulated stats.\n"
@@ -32,14 +31,12 @@ int main(int argc, char *argv[]) {
 
     bool binary_write = true;
     int32 mixup = 0;
-    BaseFloat perturb_factor = 0.01;
-    std::string update_flags_str = "mvw"; 
-    ParseOptions po(usage);
+    kaldi::BaseFloat perturb_factor = 0.01;
+
+    kaldi::ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
-    po.Register("update-flags", &update_flags_str, "Which GMM parameters will be "
-                "updated: subset of mvw.");
     po.Register("mix-up", &mixup, "Increase number of mixture components to "
-                "this overall target.");
+        "this overall target.");
     po.Register("perturb-factor", &perturb_factor, "While mixing up, perturb "
         "means by standard deviation times this factor.");
     gmm_opts.Register(&po);
@@ -55,26 +52,25 @@ int main(int argc, char *argv[]) {
         stats_filename = po.GetArg(2),
         model_out_filename = po.GetArg(3);
 
-    FullGmm fgmm;
+    kaldi::FullGmm fgmm;
     {
       bool binary_read;
-      Input ki(model_in_filename, &binary_read);
-      fgmm.Read(ki.Stream(), binary_read);
+      kaldi::Input is(model_in_filename, &binary_read);
+      fgmm.Read(is.Stream(), binary_read);
     }
 
-    AccumFullGmm gmm_accs;
+    kaldi::AccumFullGmm gmm_accs;
     {
       bool binary;
-      Input ki(stats_filename, &binary);
-      gmm_accs.Read(ki.Stream(), binary, true /* add accs, doesn't matter */);
+      kaldi::Input is(stats_filename, &binary);
+      gmm_accs.Read(is.Stream(), binary, true /* add accs, doesn't matter */);
     }
 
     {  // Update GMMs.
-      BaseFloat objf_impr, count;
-      MleFullGmmUpdate(gmm_opts, gmm_accs, StringToGmmFlags(update_flags_str),
-                       &fgmm, &objf_impr, &count);
-      KALDI_LOG << "Overall objective function improvement is "
-                << (objf_impr/count) << " per frame over "
+      kaldi::BaseFloat objf_impr, count;
+      MleFullGmmUpdate(gmm_opts, gmm_accs, kaldi::kGmmAll, &fgmm, &objf_impr, &count);
+      KALDI_LOG << "GMM update: average " << (objf_impr/count)
+                << " objective function improvement per frame over "
                 <<  (count) <<  " frames.";
     }
 
@@ -82,8 +78,8 @@ int main(int argc, char *argv[]) {
       fgmm.Split(mixup, perturb_factor);
 
     {
-      Output ko(model_out_filename, binary_write);
-      fgmm.Write(ko.Stream(), binary_write);
+      kaldi::Output os(model_out_filename, binary_write);
+      fgmm.Write(os.Stream(), binary_write);
     }
 
     KALDI_LOG << "Written model to " << model_out_filename;

@@ -1,6 +1,6 @@
 // gmmbin/gmm-est-mmi.cc
 
-// Copyright 2009-2011  Petr Motlicek  Chao Weng
+// Copyright 2009-2011  Petr Motlicek
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,10 +29,9 @@ int main(int argc, char *argv[]) {
     MmieDiagGmmOptions mmi_opts;
 
     const char *usage =
-        "Do EBW update with I-smoothing for MMI, MPE or MCE discriminative training.\n"
-        "Usage:  gmm-est-mmi [options] <model-in> <stats-num-in> <stats-den-in> [<stats-ismooth-in>] <model-out>\n"
-        "e.g.: gmm-est 1.mdl num.acc den.acc 2.mdl\n"
-        "or (for MPE): gmm-est 1.mdl num.acc den.acc ml.acc 2.mdl\n";
+        "Do EBW update with I-smoothing for MMI discriminative training.\n"
+        "Usage:  gmm-est-mmi [options] <model-in> <stats-num-in> <stats-den-in> <model-out>\n"
+        "e.g.: gmm-est 1.mdl num.acc den.acc 2.mdl\n";
 
     bool binary_write = false;
     //TransitionUpdateConfig tcfg;
@@ -51,7 +50,7 @@ int main(int argc, char *argv[]) {
 
     po.Read(argc, argv);
 
-    if (po.NumArgs() < 4 || po.NumArgs() > 5) {
+    if (po.NumArgs() != 4) {
       po.PrintUsage();
       exit(1);
     }
@@ -62,16 +61,16 @@ int main(int argc, char *argv[]) {
     std::string model_in_filename = po.GetArg(1),
         num_stats_filename = po.GetArg(2),
         den_stats_filename = po.GetArg(3),
-        i_smooth_stats_filename = (po.NumArgs() == 5 ? po.GetArg(4) : ""),
-        model_out_filename = po.GetArg(po.NumArgs());
+        model_out_filename = po.GetArg(4);
+
 
     AmDiagGmm am_gmm;
     TransitionModel trans_model;
     {
       bool binary_read;
-      Input ki(model_in_filename, &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_gmm.Read(ki.Stream(), binary_read);
+      Input is(model_in_filename, &binary_read);
+      trans_model.Read(is.Stream(), binary_read);
+      am_gmm.Read(is.Stream(), binary_read);
     }
 
     Vector<double> num_transition_accs;
@@ -79,25 +78,18 @@ int main(int argc, char *argv[]) {
     MmieAccumAmDiagGmm mmi_accs;
     {
       bool binary;
-      Input ki(num_stats_filename, &binary);
-      num_transition_accs.Read(ki.Stream(), binary);
-      mmi_accs.ReadNum(ki.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input is(num_stats_filename, &binary);
+      num_transition_accs.Read(is.Stream(), binary);
+      mmi_accs.ReadNum(is.Stream(), binary, true);  // true == add; doesn't matter here.
     }
     {
       bool binary;
-      Input ki(den_stats_filename, &binary);
-      num_transition_accs.Read(ki.Stream(), binary);
-      mmi_accs.ReadDen(ki.Stream(), binary, true);  // true == add; doesn't matter here.
+      Input is(den_stats_filename, &binary);
+      num_transition_accs.Read(is.Stream(), binary);
+      mmi_accs.ReadDen(is.Stream(), binary, true);  // true == add; doesn't matter here.
     }
-      
-    if (!i_smooth_stats_filename.empty()) {
-      mmi_opts.has_i_smooth_stats = true;
-      bool binary;
-      Input is(i_smooth_stats_filename, &binary);
-      num_transition_accs.Read(is.Stream(), binary); // not sure here.. probably useless.
-      mmi_accs.ReadISmooth(is.Stream(), binary, true);
-    }
- 
+    
+       
     {  // Update GMMs.
       BaseFloat auxf_impr_gauss, auxf_impr_weights, count;
       int32 num_floored;
@@ -127,3 +119,5 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 }
+
+

@@ -33,7 +33,7 @@ namespace kaldi {
   //***************************************************************************
   //***************************************************************************
   template<class Decodable, class Fst>
-  KaldiDecoder<Decodable, Fst>::KaldiDecoder(const KaldiDecoderOptions opts) :
+  KaldiDecoder<Decodable, Fst>::KaldiDecoder(KaldiDecoderOptions opts) :
       options_(opts) {
     tokens_ = new TokenStore(&link_store_);
     tokens_next_ = new TokenStore(&link_store_);
@@ -65,9 +65,6 @@ namespace kaldi {
     do {  // go over all feature frames and decode
       frame_index_++;
       DEBUG_OUT1("==== FRAME " << frame_index_)
-      DEBUG_OUTC("frame:" << frame_index_)
-      DEBUG_STAT(models_.clear())
-      DEBUG_STAT(model_cnt_ = 0)
 
       ProcessToDoList();
       // all active tokens from last frame are by now processed
@@ -82,7 +79,6 @@ namespace kaldi {
       // adds GMM likelihood score (based on state) to each token
       // computes best likelihood and new beamwidth for pruning
       // new states are explored using depth first network visitor
-      DEBUG_OUTC("models:" << model_cnt_ << " different:" << models_.size())
 
       // pruning: removes all tokens outside the beam from active_tokens_
       //   a) main loop of EvaluateAndPrune
@@ -107,24 +103,24 @@ namespace kaldi {
   void KaldiDecoder<Decodable, Fst>::InitDecoding(const Fst &fst,
                                                   Decodable *decodable) {
     reconet_ = &fst;  // recognition network FST
-    KALDI_ASSERT(reconet_ != NULL);
-    KALDI_ASSERT(reconet_->Start() != fst::kNoStateId);  // gets the initial state
+    assert(reconet_ != NULL);
+    assert(reconet_->Start() != fst::kNoStateId);  // gets the initial state
     // kNoState means empty FST
     p_decodable_ = decodable;  // acoustic model with features
-    KALDI_ASSERT(p_decodable_ != NULL);
+    assert(p_decodable_ != NULL);
     if ((Weight::Properties() & (fst::kPath | fst::kRightSemiring)) !=
         (fst::kPath | fst::kRightSemiring)) {
       KALDI_ERR << "Weight must have path property and be right distributive: "
                 << Weight::Type();
     }
     // pruning
-    KALDI_ASSERT(options_.max_active_tokens > 1);
+    assert(options_.max_active_tokens > 1);
     scores_.reserve(options_.max_active_tokens * 3);  // a heuristical size
-    KALDI_ASSERT(options_.beamwidth >= 0.0);
-    KALDI_ASSERT(options_.beamwidth2 >= 0.0);
+    assert(options_.beamwidth >= 0.0);
+    assert(options_.beamwidth2 >= 0.0);
     // scoring
-    KALDI_ASSERT(options_.lm_scale > 0.0);
-    // KALDI_ASSERT(options_.word_penalty <= 0.0);  // does it have to be >0 or <0?
+    assert(options_.lm_scale > 0.0);
+    // assert(options_.word_penalty <= 0.0);  // does it have to be >0 or <0?
     DEBUG_OUT2("BeamWidth:" << options_.beamwidth << "/" << options_.beamwidth2
         << " LmScale:" << options_.lm_scale << " WordPenalty: " 
         << options_.word_penalty)
@@ -159,7 +155,7 @@ namespace kaldi {
     size_t n_tokens = active_tokens_.Size();
     for(size_t ntok = 0; ntok < n_tokens; ntok++) {
       Token *token = active_tokens_.Get(ntok); // internal iterator not valid!!
-      DEBUG_CMD(KALDI_ASSERT(token != NULL))
+      DEBUG_CMD(assert(token != NULL))
       DEBUG_OUT2("get:" << token->state << ":" << token->unique)
       if (!is_less(beam_threshold_, token->weight)) VisitNode(token);
     }
@@ -174,7 +170,7 @@ namespace kaldi {
     StateId state = token->state;
     DEBUG_OUT2("visit:" << state << ":" << token->ilabel)
     ArcIterator aiter(*reconet_, state);
-    DEBUG_CMD(KALDI_ASSERT(!(aiter.Done() && reconet_->Final(state)==Weight::Zero())))
+    DEBUG_CMD(assert(!(aiter.Done() && reconet_->Final(state)==Weight::Zero())))
     // check for states without outgoing links
 
     while(!aiter.Done()) { // go through all outgoing arcs
@@ -208,7 +204,7 @@ namespace kaldi {
     StateId state = token->state;
     DEBUG_OUT2("visit:" << state << ":" << token->ilabel)
     ArcIterator aiter(*reconet_, state);
-    DEBUG_CMD(KALDI_ASSERT(!(aiter.Done() && reconet_->Final(state)==Weight::Zero())))
+    DEBUG_CMD(assert(!(aiter.Done() && reconet_->Final(state)==Weight::Zero())))
     // check for states without outgoing links
 
     while(!aiter.Done()) { // go through all outgoing arcs
@@ -316,13 +312,12 @@ namespace kaldi {
     // non-emitting arcs go to the queue in topological order in the same frame
     // emitting arcs go to active_tokens_(next)
     DEBUG_OUT2("ProcessTokens")
-    DEBUG_OUTC("queue:" << active_tokens_.QueueSize())
     // processes non-emitting arcs
     while (!active_tokens_.QueueEmpty()) {
       StateId state = active_tokens_.PopQueue();  // get next state from queue
       Token *dest = active_tokens_.HashLookup(state);
       active_tokens_.HashRemove(state); // also remove from hash
-      DEBUG_CMD(KALDI_ASSERT(dest != NULL))
+      DEBUG_CMD(assert(dest != NULL))
       DEBUG_OUT2("pop destination: " << dest->state << "(" << dest->weight<<")")
       ProcessState(dest, final_frame);
       //token should only be really deleted, if all arcs from it have been processed
@@ -332,7 +327,7 @@ namespace kaldi {
     while (!active_tokens_.NextEnded()) {
       Token *dest = active_tokens_.NextGetNext(); // get next state
       active_tokens_.HashRemove(dest);
-      DEBUG_CMD(KALDI_ASSERT(dest != NULL))
+      DEBUG_CMD(assert(dest != NULL))
       DEBUG_OUT2("get destination:" << dest->state << "(" << dest->weight<<")")
       ProcessState(dest, final_frame);
     }
@@ -347,7 +342,7 @@ namespace kaldi {
 
     active_tokens_.Swap();  // flip dual token lists
     // on the hash are all tokens that are on active tokens (this)
-    DEBUG_CMD(KALDI_ASSERT(active_tokens_.NextEmpty()))
+    DEBUG_CMD(assert(active_tokens_.NextEmpty()))
     DEBUG_CMD(active_tokens_.AssertHashEmpty())
     active_tokens_.Defragment();  // memory defragmentation for next frame
   }
@@ -403,7 +398,7 @@ namespace kaldi {
     active_tokens_.Start();
     while (!active_tokens_.Ended()) {
         Token *token = active_tokens_.GetNext();
-        DEBUG_CMD(KALDI_ASSERT(token != NULL))
+        DEBUG_CMD(assert(token != NULL))
         DEBUG_OUT2("get:" << token->state << ":" << token->unique)
         if (token->state == fst::kNoStateId) continue;  // some of them can be pruned
         // compute minimum score:
@@ -434,8 +429,7 @@ namespace kaldi {
                << best_active_score_ << " pruning threshold:"
                << beam_threshold_ )
     active_tokens_.QueueReset();  // the emitting states remain still marked!
-    DEBUG_CMD(KALDI_ASSERT(active_tokens_.QueueEmpty()))
-    DEBUG_OUTC("count:" << active_tokens_.Size() << " best:" << best_active_score_)
+    DEBUG_CMD(assert(active_tokens_.QueueEmpty()))
 
     // evaluate acoustic models and again find best score on active_tokens_
     best_active_score_ = Weight::Zero();
@@ -448,16 +442,9 @@ namespace kaldi {
       if (!is_less(beam_threshold_, token->weight)) {
         DEBUG_OUT2("evaluate state " << token->state << " (" << token->weight
                    << ") : " << token->ilabel)
-        DEBUG_CMD(KALDI_ASSERT(token->ilabel > 0))
+        DEBUG_CMD(assert(token->ilabel > 0))
         BaseFloat score 
           = -p_decodable_->LogLikelihood(frame_index_, token->ilabel);
-        // acoustic model statistics
-        DEBUG_STAT(int32 pdfid = token->ilabel)
-        DEBUG_STAT(pdfid = p_decodable_->TransModel()->TransitionIdToPdf(token->ilabel))
-        DEBUG_STAT2(typename unordered_map<Label, int32>::iterator find_iter = models_.find(pdfid))
-        DEBUG_STAT(if (find_iter == models_.end()) models_[pdfid] = 0; else find_iter->second++)
-        DEBUG_STAT(model_cnt_++)
-          
         // add negative loglikelihood to previous token score
         token->weight = Times(token->weight, score);
         DEBUG_OUT2("new: " << token->weight)
@@ -472,7 +459,7 @@ namespace kaldi {
       }
     } // while not active_tokens_.Empty()
     active_tokens_.SwapMembers();
-    DEBUG_CMD(KALDI_ASSERT(active_tokens_.NextEmpty()))
+    DEBUG_CMD(assert(active_tokens_.NextEmpty()))
     active_tokens_.NextReserve(
       std::min(scores_.size(), size_t(floor(options_.max_active_tokens*1.001))));
 
@@ -483,7 +470,6 @@ namespace kaldi {
                << ", " << active_tokens_.QueueSize()
                << " best active score:" << best_active_score_
                << " pruning threshold:" << beam_threshold_)
-    DEBUG_OUTC("after:" << active_tokens_.Size() << " best:" << best_active_score_)
   }
 
   //***************************************************************************
@@ -507,7 +493,7 @@ namespace kaldi {
     size_t n_tokens = active_tokens_.Size();
     for(size_t ntok = 0; ntok < n_tokens; ntok++) {
       Token *token = active_tokens_.Get(ntok); // internal iterator not valid!!
-      DEBUG_CMD(KALDI_ASSERT(token != NULL))
+      DEBUG_CMD(assert(token != NULL))
       if (!is_less(beam_threshold_, token->weight)) {
         ReachedFinalState(token);  // stores as final_token_
         VisitNode2(token); // follows only non-emitting links
@@ -527,14 +513,14 @@ namespace kaldi {
 
     DEBUG_OUT1("decoding finished!")
     DEBUG_OUT1("FRAME:" << frame_index_ << " " << active_tokens_.NextSize())
-    KALDI_ASSERT(active_tokens_.NextEmpty());
+    assert(active_tokens_.NextEmpty());
     active_tokens_.AssertHashEmpty();
     active_tokens_.QueueReset();
     // active_tokens_.AssertQueueEmpty();
 
     // either take final_token or best_token if no final state was reached
     if (final_token_.weight == Weight::Zero()) {  // take only best_token
-      KALDI_ASSERT(final_token_.arcs == NULL &&
+      assert(final_token_.arcs == NULL &&
              best_token.weight != Weight::Zero() &&
              best_token.arcs != NULL);
       final_token_.weight = best_token.weight;
@@ -550,7 +536,7 @@ namespace kaldi {
     // in case we'd have symbol tables
 
     // back-track word links in best path
-    KALDI_ASSERT(final_token_.arcs != NULL);
+    assert(final_token_.arcs != NULL);
     StateId wlstate = output_arcs_->AddState();
     output_arcs_->SetFinal(wlstate,
                            LatticeWeight(final_token_.weight.Value(), 0.0));

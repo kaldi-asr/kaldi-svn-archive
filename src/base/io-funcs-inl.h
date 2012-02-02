@@ -50,7 +50,9 @@ template<class T>  void WriteBasicType(std::ostream &os,
 // Template that covers integers.
 template<class T> inline void ReadBasicType(std::istream &is,
                                             bool binary, T *t) {
-  KALDI_PARANOID_ASSERT(t != NULL);
+#ifdef KALDI_PARANOID
+  assert(t != NULL);
+#endif
   // Compile time assertion that this is not called with a wrong type.
   KALDI_ASSERT_IS_INTEGER_TYPE(T);
   if (binary) {

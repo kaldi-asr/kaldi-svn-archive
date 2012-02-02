@@ -96,13 +96,10 @@ namespace fst {
 
 struct DeterminizeLatticeOptions {
   float delta;
-  int max_mem; // If >0, determinization will fail and return false
-  // when the algorithm's (approximate) memory consumption crosses this threshold.
-  int max_loop; // If >0, can be used to detect non-determinizable input
-  // (a case that wouldn't be caught by max_mem).
+  int max_arcs;
+  int max_loop;
   DeterminizeLatticeOptions(): delta(kDelta),
-                               max_mem(-1),
-                               max_loop(-1) { }
+      max_arcs(-1), max_loop(-1) { }
 };
 
 /**

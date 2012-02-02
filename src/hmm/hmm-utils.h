@@ -20,7 +20,6 @@
 
 #include "hmm/hmm-topology.h"
 #include "hmm/transition-model.h"
-#include "lat/kaldi-lattice.h"
 
 namespace kaldi {
 
@@ -35,7 +34,7 @@ struct HTransducerConfig {
   /// Transition log-prob scale, see \ref hmm_scale.
   /// Note this doesn't apply to self-loops; GetHTransducer() does
   /// not include self-loops.
-  BaseFloat transition_scale;
+  BaseFloat trans_prob_scale;
 
   /// if true, we are constructing time-reversed FST: phone-seqs in ilabel_info
   /// are backwards, and we want to output a backwards version of the HMM
@@ -52,7 +51,7 @@ struct HTransducerConfig {
   BaseFloat push_delta;
 
   HTransducerConfig():
-      transition_scale(1.0),
+      trans_prob_scale(1.0),
       reverse(false),
       push_weights(true),
       push_delta(0.001)
@@ -62,27 +61,13 @@ struct HTransducerConfig {
   // but not the "sym_type" which is an enum and should be handled
   // separately in main().
   void Register (ParseOptions *po) {
-    po->Register("transition-scale", &transition_scale, "Scale of transition probs (relative to LM)");
+    po->Register("transition-scale", &trans_prob_scale, "Scale of transition probs (relative to LM)");
     po->Register("reverse", &reverse, "Set true to build time-reversed FST.");
     po->Register("push-weights", &push_weights, "Push weights (only applicable if reverse == true)");
     po->Register("push-delta", &push_delta, "Delta used in pushing weights (only applicable if reverse && push-weights");
   }
 };
 
-
-struct HmmCacheHash {
-  int operator () (const std::pair<int32,std::vector<int32> >&p) const {
-    VectorHasher<int32> v;
-    int32 prime = 103049;
-    return prime*p.first + v(p.second);
-  }
-};
-
-/// HmmCacheType is a map from (central-phone, sequence of pdf-ids) to FST, used
-/// as cache in GetHmmAsFst, as an optimization.
-typedef unordered_map<std::pair<int32,std::vector<int32> >,
-                      fst::VectorFst<fst::StdArc>*,
-                      HmmCacheHash> HmmCacheType;
 
 
 /// Called by GetHTransducer() and probably will not need to be called directly;
@@ -98,17 +83,11 @@ typedef unordered_map<std::pair<int32,std::vector<int32> >,
 ///         the mappings to transition-ids and also the transition
 ///         probabilities.
 ///   @param config Configuration object, see \ref HTransducerConfig.
-///   @param cache Object used as a lookaside buffer to save computation;
-///       if it finds that the object it needs is already there, it will
-///       just return a pointer value from "cache"-- not that this means
-///       you have to be careful not to delete things twice.
 
-fst::VectorFst<fst::StdArc> *GetHmmAsFst(
-    std::vector<int32> context_window,
-    const ContextDependencyInterface &ctx_dep,
-    const TransitionModel &trans_model,
-    const HTransducerConfig &config,
-    HmmCacheType *cache = NULL);
+fst::VectorFst<fst::StdArc> *GetHmmAsFst(std::vector<int32> context_window,
+                                         const ContextDependencyInterface &ctx_dep,
+                                         const TransitionModel &trans_model,
+                                         const HTransducerConfig &config);
 
 /// Included mainly as a form of documentation, not used in any other code
 /// currently.  Creates the FST with self-loops, and with fewer options.
@@ -191,11 +170,11 @@ void AddSelfLoops(const TransitionModel &trans_model,
   * train the model (including the transition probs) but keep the graph fixed,
   * and add back in the transition probs.  It assumes the fst has transition-ids
   * on it.
-  * @param trans_model [in] The transition model
+  * @param trans_model [in] The transition modle
   * @param disambig_syms [in] A list of disambiguation symbols, required if the
   *                       graph has disambiguation symbols on its input but only
   *                       used for checks.
-  * @param transition_scale [in] A scale on transition-probabilities apart from
+  * @param trans_prob_scale [in] A scale on transition-probabilities apart from
   *                      those involving self-loops; see \ref hmm_scale.
   * @param self_loop_scale [in] A scale on self-loop transition probabilities;
   *                      see \ref hmm_scale.
@@ -203,18 +182,9 @@ void AddSelfLoops(const TransitionModel &trans_model,
   */
 void AddTransitionProbs(const TransitionModel &trans_model,
                         const std::vector<int32> &disambig_syms,
-                        BaseFloat transition_scale,
+                        BaseFloat trans_prob_scale,
                         BaseFloat self_loop_scale,
                         fst::VectorFst<fst::StdArc> *fst);
-
-/**
-   This is as AddSelfLoops(), but operates on a Lattice, where
-   it affects the graph part of the weight (the first element
-   of the pair). */
-void AddTransitionProbs(const TransitionModel &trans_model,
-                        BaseFloat transition_scale,
-                        BaseFloat self_loop_scale,
-                        Lattice *lat);
 
 
 /// Returns a transducer from pdfs plus one (input) to  transition-ids (output).

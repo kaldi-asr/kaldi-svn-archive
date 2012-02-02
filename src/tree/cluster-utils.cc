@@ -25,9 +25,6 @@ using std::vector;
 
 namespace kaldi {
 
-typedef uint16 uint_smaller;
-typedef int16 int_smaller;
-
 // ============================================================================
 // Some convenience functions used in the clustering routines
 // ============================================================================
@@ -235,7 +232,7 @@ class BottomUpClusterer {
   std::vector<BaseFloat> dist_vec_;
   int32 nclusters_;
   int32 npoints_;
-  typedef std::pair<BaseFloat, std::pair<uint_smaller, uint_smaller> > QueueElement;
+  typedef std::pair<BaseFloat, std::pair<uint16, uint16> > QueueElement;
   // Priority queue using greater (lowest distances are highest priority).
   typedef std::priority_queue<QueueElement, std::vector<QueueElement>,
       std::greater<QueueElement>  > QueueType;
@@ -247,7 +244,7 @@ BaseFloat BottomUpClusterer::Cluster() {
   SetInitialDistances();
 
   while (nclusters_ > min_clust_ && !queue_.empty()) {
-    std::pair<BaseFloat, std::pair<uint_smaller, uint_smaller> > pr = queue_.top();
+    std::pair<BaseFloat, std::pair<uint16, uint16> > pr = queue_.top();
     BaseFloat dist = pr.first;
     int32 i = (int32) pr.second.first, j = (int32) pr.second.second;
     queue_.pop();
@@ -267,7 +264,7 @@ void BottomUpClusterer::Renumber() {
 
   // called after clustering, renumbers to make clusters contiguously
   // numbered. also processes assignments_ to remove chains of references.
-  std::vector<uint_smaller> mapping(npoints_, static_cast<uint_smaller> (-1));  // mapping from intermediate to final clusters.
+  std::vector<uint16> mapping(npoints_, static_cast<uint16> (-1));  // mapping from intermediate to final clusters.
   std::vector<Clusterable*> new_clusters(nclusters_);
   int32 clust = 0;
   std::vector<Clusterable*>::const_iterator iter = clusters_->begin(), end =
@@ -287,7 +284,7 @@ void BottomUpClusterer::Renumber() {
     while ((*assignments_)[ii] != ii)
       ii = (*assignments_)[ii];  // follow the chain.
     assert((*clusters_)[ii] != NULL);  // cannot have assignment to nonexistent cluster.
-    assert(mapping[ii] != static_cast<uint_smaller>(-1));
+    assert(mapping[ii] != static_cast<uint16>(-1));
     new_assignments[i] = mapping[ii];
   }
   clusters_->swap(new_clusters);
@@ -309,8 +306,8 @@ void BottomUpClusterer::SetInitialDistances() {
       BaseFloat dist = (*clusters_)[i]->Distance(*((*clusters_)[j]));
       dist_vec_[(i * (i - 1)) / 2 + j] = dist;
       if (dist <= max_merge_thresh_)
-        queue_.push(std::make_pair(dist, std::make_pair(static_cast<uint_smaller>(i),
-            static_cast<uint_smaller>(j))));
+        queue_.push(std::make_pair(dist, std::make_pair(static_cast<uint16>(i),
+            static_cast<uint16>(j))));
     }
   }
 }
@@ -359,7 +356,7 @@ void BottomUpClusterer::ReconstructQueue() {
           BaseFloat dist = dist_vec_[(i * (i - 1)) / 2 + j];
           if (dist <= max_merge_thresh_) {
             queue_.push(std::make_pair(dist, std::make_pair(
-                static_cast<uint_smaller>(i), static_cast<uint_smaller>(j))));
+                static_cast<uint16>(i), static_cast<uint16>(j))));
           }
         }
       }
@@ -373,8 +370,8 @@ void BottomUpClusterer::SetDistance(int32 i, int32 j) {
   BaseFloat dist = (*clusters_)[i]->Distance(*((*clusters_)[j]));
   dist_vec_[(i * (i - 1)) / 2 + j] = dist;  // set the distance in the array.
   if (dist < max_merge_thresh_) {
-    queue_.push(std::make_pair(dist, std::make_pair(static_cast<uint_smaller>(i),
-        static_cast<uint_smaller>(j))));
+    queue_.push(std::make_pair(dist, std::make_pair(static_cast<uint16>(i),
+        static_cast<uint16>(j))));
   }
   // every time it's at least twice the maximum possible size.
   if (queue_.size() >= static_cast<size_t> (npoints_ * npoints_)) {
@@ -393,9 +390,8 @@ BaseFloat ClusterBottomUp(const std::vector<Clusterable*> &points,
   KALDI_ASSERT(max_merge_thresh >= 0.0 && min_clust >= 0);
   KALDI_ASSERT(!ContainsNullPointers(points));
   int32 npoints = points.size();
-  // make sure fits in uint_smaller and does not hit the -1 which is reserved.
-  KALDI_ASSERT(sizeof(uint_smaller)==sizeof(uint32) ||
-               npoints < static_cast<int32>(static_cast<uint_smaller>(-1)));
+  // make sure fits in uint16 and does not hit the -1 which is reserved.
+  KALDI_ASSERT(npoints < static_cast<int32>(static_cast<uint16>(-1)));
 
   BottomUpClusterer bc(points, max_merge_thresh, min_clust, clusters_out, assignments_out);
   BaseFloat ans = bc.Cluster();
@@ -510,7 +506,7 @@ void CompartmentalizedBottomUpClusterer::Renumber(int32 comp) {
   KALDI_ASSERT(clusts_in_compartment <= nclusters_);
 
   // mapping from intermediate to final clusters.
-  vector<uint_smaller> mapping(npoints_[comp], static_cast<uint_smaller> (-1));
+  vector<uint16> mapping(npoints_[comp], static_cast<uint16> (-1));
   vector<Clusterable*> new_clusters(clusts_in_compartment);
 
   // Now copy the surviving clusters in a fresh array.
@@ -531,7 +527,7 @@ void CompartmentalizedBottomUpClusterer::Renumber(int32 comp) {
       ii = assignments_[comp][ii];  // follow the chain.
     // cannot assign to nonexistent cluster.
     KALDI_ASSERT(clusters_[comp][ii] != NULL);
-    KALDI_ASSERT(mapping[ii] != static_cast<uint_smaller>(-1));
+    KALDI_ASSERT(mapping[ii] != static_cast<uint16>(-1));
     new_assignments[i] = mapping[ii];
   }
   clusters_[comp].swap(new_clusters);
@@ -623,8 +619,8 @@ void CompartmentalizedBottomUpClusterer::SetDistance(int32 comp,
   BaseFloat dist = clusters_[comp][i]->Distance(*(clusters_[comp][j]));
   dist_vec_[comp][(i * (i - 1)) / 2 + j] = dist;
   if (dist < max_merge_thresh_) {
-    queue_.push(CompBotClustElem(dist, comp, static_cast<uint_smaller>(i),
-        static_cast<uint_smaller>(j)));
+    queue_.push(CompBotClustElem(dist, comp, static_cast<uint16>(i),
+        static_cast<uint16>(j)));
   }
 }
 
@@ -641,9 +637,8 @@ BaseFloat ClusterBottomUpCompartmentalized(
     KALDI_ASSERT(!ContainsNullPointers(*itr));
     npoints += itr->size();
   }
-  // make sure fits in uint_smaller and does not hit the -1 which is reserved.
-  KALDI_ASSERT(sizeof(uint_smaller)==sizeof(uint32) ||
-               npoints < static_cast<int32>(static_cast<uint_smaller>(-1)));
+  // make sure fits in uint16 and does not hit the -1 which is reserved.
+  KALDI_ASSERT(npoints < static_cast<int32>(static_cast<uint16>(-1)));
 
   CompartmentalizedBottomUpClusterer bc(points, thresh, min_clust);
   BaseFloat ans = bc.Cluster(clusters_out, assignments_out);
@@ -668,7 +663,7 @@ class RefineClusterer {
   // to just make it int32). Also used as a time-id (cannot have more moves of
   // points, than can fit in this time). Must be big enough to store num-clust.
   typedef int32 LocalInt;
-  typedef uint_smaller ClustIndexInt;
+  typedef uint16 ClustIndexInt;
 
   RefineClusterer(const std::vector<Clusterable*> &points,
                   std::vector<Clusterable*> *clusters,
@@ -847,7 +842,9 @@ class RefineClusterer {
   point_info &GetInfo(int32 point, int32 idx) {
     assert(point < num_points_ && idx < cfg_.top_n);
     int32 i = point*cfg_.top_n + idx;
-    KALDI_PARANOID_ASSERT(i < static_cast<int32>(info_.size()));
+#ifdef KALDI_PARANOID
+    assert(i < static_cast<int32>(info_.size()));
+#endif
     return info_[i];
   }
 

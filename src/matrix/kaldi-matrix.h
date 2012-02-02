@@ -82,20 +82,24 @@ class MatrixBase {
   /// Indexing operator, non-const
   /// (only checks sizes if compiled with -DKALDI_PARANOID)
   inline Real&  operator() (MatrixIndexT r, MatrixIndexT c) {
-    KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
-                          static_cast<UnsignedMatrixIndexT>(num_rows_) &&
-                          static_cast<UnsignedMatrixIndexT>(c) <
-                          static_cast<UnsignedMatrixIndexT>(num_cols_));
+#ifdef KALDI_PARANOID
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_) &&
+                 static_cast<UnsignedMatrixIndexT>(c) <
+                 static_cast<UnsignedMatrixIndexT>(num_cols_));
+#endif
     return *(data_ + r * stride_ + c);
   }
 
   /// Indexing operator, const
   /// (only checks sizes if compiled with -DKALDI_PARANOID)
   inline const Real operator() (MatrixIndexT r, MatrixIndexT c) const {
-    KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
-                          static_cast<UnsignedMatrixIndexT>(num_rows_) &&
-                          static_cast<UnsignedMatrixIndexT>(c) <
-                          static_cast<UnsignedMatrixIndexT>(num_cols_));
+#ifdef KALDI_PARANOID
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_) &&
+                 static_cast<UnsignedMatrixIndexT>(c) <
+                 static_cast<UnsignedMatrixIndexT>(num_cols_));
+#endif
     return *(data_ + r * stride_ + c);
   }
 

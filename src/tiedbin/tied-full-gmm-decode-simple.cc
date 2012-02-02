@@ -71,15 +71,15 @@ int main(int argc, char *argv[]) {
     AmTiedFullGmm am_gmm;
     {
       bool binary;
-      Input ki(model_in_filename, &binary);
-      trans_model.Read(ki.Stream(), binary);
-      am_gmm.Read(ki.Stream(), binary);
+      Input is(model_in_filename, &binary);
+      trans_model.Read(is.Stream(), binary);
+      am_gmm.Read(is.Stream(), binary);
     }
 
     VectorFst<StdArc> *decode_fst = NULL;
     {
       std::ifstream is(fst_in_filename.c_str(), std::ifstream::binary);
-      if (!is.good()) KALDI_ERR << "Could not open decoding-graph FST "
+      if (!is.good()) KALDI_EXIT << "Could not open decoding-graph FST "
                                 << fst_in_filename;
       decode_fst =
           VectorFst<StdArc>::Read(is, fst::FstReadOptions((std::string)fst_in_filename));
@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
     fst::SymbolTable *word_syms = NULL;
     if (word_syms_filename != "")
       if (!(word_syms = fst::SymbolTable::ReadText(word_syms_filename)))
-        KALDI_ERR << "Could not read symbol table from file "
+        KALDI_EXIT << "Could not read symbol table from file "
                    << word_syms_filename;
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);

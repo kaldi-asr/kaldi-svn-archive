@@ -72,7 +72,9 @@ void ConvertLattice(
          !iter.Done();
          iter.Next()) {
       const Arc &arc = iter.Value();
-      KALDI_PARANOID_ASSERT(arc.weight != Weight::Zero());
+#ifdef KALDI_PARANOID
+      assert(arc.weight != Weight::Zero());
+#endif
       // note: zero-weight arcs not allowed anyway so weight should not be zero,
       // but no harm in checking.
       CompactArc compact_arc(arc.olabel, arc.olabel,
@@ -82,6 +84,55 @@ void ConvertLattice(
     }
   }
 }
+
+/*
+  This was the older version of ConvertLattice [ from regular to compact], which
+  did not do the factoring to find linear chains of states.
+  
+template<class Weight, class Int>
+void ConvertLattice(
+    const ExpandedFst<ArcTpl<Weight> > &ifst,
+    MutableFst<ArcTpl<CompactLatticeWeightTpl<Weight,Int> > > *ofst,
+    bool invert) {
+  typedef ArcTpl<Weight> Arc;
+  typedef typename Arc::StateId StateId;
+  typedef typename Arc::Label Label;
+  typedef CompactLatticeWeightTpl<Weight,Int> CompactWeight;
+  typedef ArcTpl<CompactWeight> CompactArc;
+  ofst->DeleteStates();
+  // The states will be numbered exactly the same as the original FST.
+  // Add the states to the new FST.
+  StateId num_states = ifst.NumStates();
+  for (StateId s = 0; s < num_states; s++) {
+    StateId news = ofst->AddState();
+    assert(news == s);
+  }
+  ofst->SetStart(ifst.Start());
+  for (StateId s = 0; s < num_states; s++) {
+    Weight final_weight = ifst.Final(s);
+    if (final_weight != Weight::Zero()) {
+      CompactWeight final_compact_weight(final_weight, vector<Int>());
+      ofst->SetFinal(s, final_compact_weight);
+    }
+    for (ArcIterator<ExpandedFst<Arc> > iter(ifst, s);
+         !iter.Done();
+         iter.Next()) {
+      Arc arc = iter.Value();
+      if (arc.weight != Weight::Zero()) {
+        if (invert)
+          std::swap(arc.ilabel, arc.olabel);
+        vector<Int> str;
+        if (arc.olabel != 0) str.push_back(arc.olabel);
+        CompactArc compact_arc(arc.ilabel, arc.ilabel,
+                               CompactWeight(arc.weight, str),
+                               arc.nextstate);
+        ofst->AddArc(s, compact_arc);
+      }
+    }
+  }
+}
+*/
+
 
 template<class Weight, class Int>
 void ConvertLattice(
@@ -149,8 +200,6 @@ void ConvertLattice(
   }    
 }
 
-// This function converts lattices between float and double;
-// it works for both CompactLatticeWeight and LatticeWeight.
 template<class WeightIn, class WeightOut>
 void ConvertLattice(
     const ExpandedFst<ArcTpl<WeightIn> > &ifst,
@@ -179,7 +228,9 @@ void ConvertLattice(
          !iter.Done();
          iter.Next()) {
       ArcIn arc = iter.Value();
-      KALDI_PARANOID_ASSERT(arc.weight != WeightIn::Zero());
+#ifdef KALDI_PARANOID
+      assert(arc.weight != WeightIn::Zero());
+#endif
       ArcOut oarc;
       ConvertLatticeWeight(arc.weight, &oarc.weight);
       oarc.ilabel = arc.ilabel;

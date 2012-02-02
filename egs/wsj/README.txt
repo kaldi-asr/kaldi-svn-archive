@@ -16,5 +16,3 @@ scripts for a sequence of experiments.
       Maximum Likelihood 
       techniques including global and speaker-specific transforms.
       See a parallel setup in ../rm/s1 
-
-  s3: This is the "new-style" recipe.   We recommend to look here first.

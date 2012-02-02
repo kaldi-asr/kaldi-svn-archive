@@ -72,11 +72,7 @@ class AccumAmDiagGmm {
 
   int32 NumAccs() const { return gmm_accumulators_.size(); }
 
-  BaseFloat TotCount() const;
-
   const AccumDiagGmm& GetAcc(int32 index) const;
-
-  AccumDiagGmm& GetAcc(int32 index);
 
  private:
   /// MLE accumulators and update methods for the GMMs
@@ -89,8 +85,8 @@ class AccumAmDiagGmm {
 /// for computing the maximum-likelihood estimates of the parameters of
 /// an acoustic model that uses diagonal Gaussian mixture models as emission densities.
 void MleAmDiagGmmUpdate(const MleDiagGmmOptions &config, const AccumAmDiagGmm &amdiaggmm_acc,
-                        GmmFlagsType flags, AmDiagGmm *am_gmm, BaseFloat *obj_change_out,
-                        BaseFloat *count_out);
+            GmmFlagsType flags, AmDiagGmm *am_gmm, BaseFloat *obj_change_out,
+            BaseFloat *count_out);
 
 }  // End namespace kaldi
 

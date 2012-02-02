@@ -72,12 +72,13 @@ void AllocateDiagGmms(const BuildTreeStatsType &stats,
     x.Scale(1.0 / count);
     x2.Scale(1.0 / count);
     x2.AddVec2(-1.0, x);  // subtract mean^2.
+    
+	// enforce variance floor
+	for (int32 i = 0; i < x2.Dim(); ++i)
+		if (x2(i) < 0.01) x2(i) = 0.01;
 
-    // enforce variance floor
-    for (int32 i = 0; i < x2.Dim(); ++i)
-      if (x2(i) < 0.01) x2(i) = 0.01;
+	// KALDI_ASSERT(x2.Min() > 0);
 
-    // KALDI_ASSERT(x2.Min() > 0);
     DiagGmmNormal ngmm(*gmm);
     ngmm.means_.CopyRowFromVec(x, 0);
     ngmm.vars_.CopyRowFromVec(x2, 0);
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]) {
                 "per codebook");
     po.Register("full", &full, "Write full covariance models with covariances "
                 "set to the min variance");
-    po.Register("power", &power, "Power to allocate Gaussians to codebooks");
+	po.Register("power", &power, "Power to allocate Gaussians to codebooks");
 
     po.Read(argc, argv);
 
@@ -153,8 +154,8 @@ int main(int argc, char *argv[]) {
     {
       bool binary_in;
       GaussClusterable gc;  // dummy needed to provide type.
-      Input ki(stats_filename, &binary_in);
-      ReadBuildTreeStats(ki.Stream(), binary_in, gc, &stats);
+      Input is(stats_filename, &binary_in);
+      ReadBuildTreeStats(is.Stream(), binary_in, gc, &stats);
     }
     KALDI_LOG << "Number of separate statistics is " << stats.size();
 
@@ -212,9 +213,9 @@ int main(int argc, char *argv[]) {
       }
 
       // we will attribute the Gaussians according to a power law
-      for (int32 i = 0; i < num_pdf; ++i) {
+	  for (int32 i = 0; i < num_pdf; ++i) {
         occs[i] = pow(occs[i], power);
-	tot_occ += occs[i];
+		tot_occ += occs[i];
       }
     }
 

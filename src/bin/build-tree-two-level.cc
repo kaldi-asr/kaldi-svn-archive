@@ -121,8 +121,8 @@ int main(int argc, char *argv[]) {
     {
       bool binary_in;
       GaussClusterable gc;  // dummy needed to provide type.
-      Input ki(stats_filename, &binary_in);
-      ReadBuildTreeStats(ki.Stream(), binary_in, gc, &stats);
+      Input is(stats_filename, &binary_in);
+      ReadBuildTreeStats(is.Stream(), binary_in, gc, &stats);
     }
     std::cerr << "Number of separate statistics is " << stats.size() << '\n';
 
@@ -130,10 +130,10 @@ int main(int argc, char *argv[]) {
     {
       bool binary_in;
       try {
-        Input ki(questions_filename, &binary_in);
-        qo.Read(ki.Stream(), binary_in);
+        Input is(questions_filename, &binary_in);
+        qo.Read(is.Stream(), binary_in);
       } catch (const std::exception &e) {
-        KALDI_ERR << "Error reading questions file "<<questions_filename<<", error is: " << e.what();
+        KALDI_EXIT << "Error reading questions file "<<questions_filename<<", error is: " << e.what();
       }
     }
 
@@ -164,13 +164,13 @@ int main(int argc, char *argv[]) {
     to_pdf = NULL;
 
     {
-      Output ko(tree_out_filename, binary);
-      ctx_dep.Write(ko.Stream(), binary);
+      Output os(tree_out_filename, binary);
+      ctx_dep.Write(os.Stream(), binary);
     }
 
     {
-      Output ko(map_out_filename, binary);
-      WriteIntegerVector(ko.Stream(), binary, mapping); 
+      Output os(map_out_filename, binary);
+      WriteIntegerVector(os.Stream(), binary, mapping); 
     }
     
     {  // This block is just doing some checks.
@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
           unseen_phones.push_back(all_phones[i]);
       for (size_t i = 0; i < phones_vec.size(); i++)
         if (!std::binary_search(all_phones.begin(), all_phones.end(), phones_vec[i]))
-          KALDI_ERR << "Phone "<< (phones_vec[i]) << " appears in stats but is not listed in roots file.";
+          KALDI_EXIT << "Phone "<< (phones_vec[i]) << " appears in stats but is not listed in roots file.";
       if (!unseen_phones.empty()) {
         std::ostringstream ss;
         for (size_t i = 0; i < unseen_phones.size(); i++)

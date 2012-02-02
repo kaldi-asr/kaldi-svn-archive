@@ -131,10 +131,8 @@ for i in `seq 1 $max_leaves`; do
 done
 echo "]" >> $dir/tree.map
 
-# This creates a mixture of full-cov Gaussians.
 echo "Initializing codebooks"
 init-ubm --ubm-numcomps=$totgauss \
-    --intermediate-numcomps=$[$totgauss*2] \
 	$alidir/final.mdl $alidir/final.occs $dir/ubm-full || exit 1;
 
 # we should do some initial iterations on the codebook
@@ -144,10 +142,10 @@ if [ $emiters -gt 0 ]; then
   echo "Performing $emiters EM iterations on initial codebook"
   mv $dir/ubm-full $dir/ubm-full.0
   for i in `seq 1 $emiters`; do
-    fgmm-global-acc-stats --diag-gmm-nbest=15 $dir/ubm-full.$[$i-1] "$emfeats" $dir/em.$i.acc 2> $dir/em.$i.log || exit 1;
+    fgmm-global-acc-stats $dir/ubm-full.$[$i-1] "$emfeats" $dir/em.$i.acc 2> $dir/em.$i.log || exit 1;
     fgmm-global-est --remove-low-count-gaussians=false $dir/ubm-full.$[$i-1] $dir/em.$i.acc $dir/ubm-full.$i 2> $dir/est.$i.log || exit 1;
   done
-  mv $dir/ubm-full.$emiters $dir/ubm-full
+  mv ubm-full.$emiters $dir/ubm-full
 fi
 
 # we won't need the old ubms

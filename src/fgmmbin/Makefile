@@ -3,8 +3,7 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 
-BINFILES = fgmm-global-acc-stats fgmm-global-sum-accs fgmm-global-est \
-	fgmm-global-merge fgmm-global-to-gmm fgmm-gselect
+BINFILES = fgmm-global-acc-stats fgmm-global-sum-accs fgmm-global-est fgmm-global-merge
 
 
 OBJFILES =

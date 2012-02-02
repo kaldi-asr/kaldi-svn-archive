@@ -124,8 +124,8 @@ void TestEventTypeIo(bool binary) {
 
       {
         bool binary_in;
-        Input ki(filename, &binary_in);
-        std::istream &infile = ki.Stream();
+        Input is(filename, &binary_in);
+        std::istream &infile = is.Stream();
         EventType evec2;
         evec2.push_back(std::make_pair<EventKeyType, EventValueType>(1, 1));  // make it nonempty.
         ReadEventType(infile, binary_in, &evec2);

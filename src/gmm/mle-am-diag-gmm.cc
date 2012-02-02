@@ -27,11 +27,6 @@ const AccumDiagGmm& AccumAmDiagGmm::GetAcc(int32 index) const {
   return *(gmm_accumulators_[index]);
 }
 
-AccumDiagGmm& AccumAmDiagGmm::GetAcc(int32 index) {
-  assert(index >= 0 && index < static_cast<int32>(gmm_accumulators_.size()));
-  return *(gmm_accumulators_[index]);
-}
-
 AccumAmDiagGmm::~AccumAmDiagGmm() {
   DeletePointers(&gmm_accumulators_);
 }
@@ -138,14 +133,6 @@ void AccumAmDiagGmm::Write(std::ostream& out_stream, bool binary) const {
       gmm_accumulators_.begin(), end = gmm_accumulators_.end(); it != end; ++it) {
     (*it)->Write(out_stream, binary);
   }
-}
-
-
-BaseFloat AccumAmDiagGmm::TotCount() const {
-  BaseFloat ans = 0.0;
-  for (int32 pdf = 0; pdf < NumAccs(); pdf++)
-    ans += gmm_accumulators_[pdf]->occupancy().Sum();
-  return ans;
 }
 
 void MleAmDiagGmmUpdate(const MleDiagGmmOptions &config,

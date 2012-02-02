@@ -18,7 +18,6 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "gmm/model-common.h"
 #include "gmm/full-gmm.h"
 #include "gmm/diag-gmm.h"
 #include "gmm/mle-full-gmm.h"
@@ -26,7 +25,8 @@
 
 int main(int argc, char *argv[]) {
   try {
-    using namespace kaldi;
+    typedef kaldi::int32 int32;
+    typedef kaldi::BaseFloat BaseFloat;
 
     const char *usage =
         "Accumulate stats for training a full-covariance GMM.\n"
@@ -34,15 +34,11 @@ int main(int argc, char *argv[]) {
         "<stats-out>\n"
         "e.g.: fgmm-global-acc-stats 1.mdl scp:train.scp 1.acc\n";
 
-    ParseOptions po(usage);
+    kaldi::ParseOptions po(usage);
     bool binary = true;
-    std::string update_flags_str = "mvw";
-    std::string gselect_rspecifier;
+    int32 diag_gmm_nbest = 0;
     po.Register("binary", &binary, "Write output in binary mode");
-    po.Register("update-flags", &update_flags_str, "Which GMM parameters will be "
-                "updated: subset of mvw.");
-    po.Register("gselect", &gselect_rspecifier, "rspecifier for gselect objects "
-                "to limit the #Gaussians accessed on each frame.");
+    po.Register("diag-gmm-nbest", &diag_gmm_nbest, "If nonzero, prune likelihood computation withdiagonal version of GMM, to this many indices.");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 3) {
@@ -54,57 +50,49 @@ int main(int argc, char *argv[]) {
         feature_rspecifier = po.GetArg(2),
         accs_wxfilename = po.GetArg(3);
 
-    FullGmm fgmm;
+    kaldi::FullGmm fgmm;
     {
       bool binary_read;
-      Input ki(model_filename, &binary_read);
-      fgmm.Read(ki.Stream(), binary_read);
+      kaldi::Input is(model_filename, &binary_read);
+      fgmm.Read(is.Stream(), binary_read);
     }
+    kaldi::DiagGmm dgmm;
+    if (diag_gmm_nbest != 0)
+      dgmm.CopyFromFullGmm(fgmm);
 
-    AccumFullGmm fgmm_accs;
-    fgmm_accs.Resize(fgmm, StringToGmmFlags(update_flags_str));
-    
+    kaldi::AccumFullGmm gmm_accs;
+    gmm_accs.Resize(fgmm, kaldi::kGmmAll);
+
     double tot_like = 0.0;
     double tot_frames = 0.0;
 
-    SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessInt32VectorVectorReader gselect_reader(gselect_rspecifier);
-    int32 num_done = 0, num_err = 0;
+    kaldi::SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
+    int32 num_done = 0;
 
     for (; !feature_reader.Done(); feature_reader.Next()) {
       std::string key = feature_reader.Key();
-      const Matrix<BaseFloat> &mat = feature_reader.Value();
-      BaseFloat file_like = 0.0, file_frames = mat.NumRows();
+      const kaldi::Matrix<kaldi::BaseFloat> &mat = feature_reader.Value();
+      kaldi::BaseFloat file_like = 0.0, file_frames = mat.NumRows();
 
-      if (gselect_rspecifier != "") {
-        if (!gselect_reader.HasKey(key)) {
-          KALDI_WARN << "No gselect information for utterance " << key;
-          num_err++;
-          continue;
+      for (int32 i = 0; i < file_frames; ++i) {
+        if (diag_gmm_nbest == 0 || diag_gmm_nbest >= fgmm.NumGauss()) {
+          file_like += gmm_accs.AccumulateFromFull(fgmm, mat.Row(i), 1.0);
+        } else {
+          kaldi::Vector<BaseFloat> loglikes;
+          dgmm.LogLikelihoods(mat.Row(i), &loglikes);
+          kaldi::Vector<BaseFloat> loglikes_copy(loglikes);
+          int32 ngauss = fgmm.NumGauss();
+          BaseFloat *ptr = loglikes_copy.Data();
+          std::nth_element(ptr, ptr+ngauss-diag_gmm_nbest, ptr+ngauss);
+          BaseFloat thresh = ptr[ngauss-diag_gmm_nbest];
+          kaldi::Vector<BaseFloat> full_loglikes(ngauss, kaldi::kUndefined);
+          full_loglikes.Set(-std::numeric_limits<BaseFloat>::infinity());
+          for (int32 g = 0; g < ngauss; g++)
+            if (loglikes(g) >= thresh)
+              full_loglikes(g) = fgmm.ComponentLogLikelihood(mat.Row(i), g);
+          file_like += full_loglikes.ApplySoftMax();
+          gmm_accs.AccumulateFromPosteriors(mat.Row(i), full_loglikes);
         }
-        const std::vector<std::vector<int32> > &gselect =
-            gselect_reader.Value(key);
-        if (gselect.size() != static_cast<size_t>(file_frames)) {
-          KALDI_WARN << "gselect information for utterance " << key
-                     << " has wrong size " << gselect.size() << " vs. "
-                     << file_frames;
-          num_err++;
-          continue;
-        }
-        for (int32 i = 0; i < file_frames; i++) {
-          SubVector<BaseFloat> data(mat, i);
-          const std::vector<int32> &this_gselect = gselect[i];
-          int32 gselect_size = this_gselect.size();
-          KALDI_ASSERT(gselect_size > 0);
-          Vector<BaseFloat> loglikes;
-          fgmm.LogLikelihoodsPreselect(data, this_gselect, &loglikes);
-          file_like += loglikes.ApplySoftMax();
-          for (int32 j = 0; j < loglikes.Dim(); j++)
-            fgmm_accs.AccumulateForComponent(data, this_gselect[j], loglikes(j));
-        }
-      } else { // no gselect..
-        for (int32 i = 0; i < file_frames; i++)
-          file_like += fgmm_accs.AccumulateFromFull(fgmm, mat.Row(i), 1.0);
       }
       KALDI_VLOG(1) << "File '" << key << "': Average likelihood = "
                     << (file_like/file_frames) << " over "
@@ -120,11 +108,11 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "Done " << num_done << " files.";
     KALDI_LOG << "Overall likelihood per "
               << "frame = " << (tot_like/tot_frames) << " over " << tot_frames
-              << " frames.";
+              << "frames.";
 
     {
-      Output ko(accs_wxfilename, binary);
-      fgmm_accs.Write(ko.Stream(), binary);
+      kaldi::Output ko(accs_wxfilename, binary);
+      gmm_accs.Write(ko.Stream(), binary);
     }
     KALDI_LOG << "Written accs to " << accs_wxfilename;
     return (num_done != 0 ? 0 : 1);

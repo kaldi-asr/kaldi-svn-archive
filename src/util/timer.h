@@ -26,10 +26,10 @@ namespace kaldi
 
 class Timer {
  public:
-  Timer() { Reset(); }
-  void Reset() {
+  Timer() {
     QueryPerformanceCounter(&time_start_);
   }
+
   double Elapsed() {
     LARGE_INTEGER time_end;
     LARGE_INTEGER freq;
@@ -52,9 +52,7 @@ namespace kaldi
 class Timer
 {
  public:
-  Timer() { Reset(); }
-
-  void Reset() { gettimeofday(&this->time_start_, &time_zone_); }
+  Timer() { gettimeofday(&this->time_start_, &time_zone_); }
 
   double Elapsed() {
     struct timeval time_end;
