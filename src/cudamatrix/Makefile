@@ -21,7 +21,7 @@ LIBFILE = cuda-matrix.a
 
 all:  $(LIBFILE) $(TESTFILES)
 
-#implicit rules for kerenls
+#implicit rule for kernel compilation
 %.o : %.cu
 	export PATH=$(CUDATKDIR)/bin:$(PATH); $(CUDATKDIR)/bin/nvcc -c $< -o $@ $(CUDA_INCLUDE) $(CUDA_FLAGS) -I../
 
