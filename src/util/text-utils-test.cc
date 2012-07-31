@@ -25,7 +25,7 @@ char GetRandChar() {
   return static_cast<char>(32 + rand() % 95);  // between ' ' and '~'
 }
 
-const char* ws_delim = " \t\n\r";
+const char *ws_delim = " \t\n\r";
 char GetRandDelim() {
   if (rand() % 2 == 0)
     return static_cast<char>(33 + rand() % 94);  // between '!' and '~';
@@ -47,7 +47,7 @@ void TestSplitStringToVector() {
     SplitStringToVector("", " ", &str_vec, true);
     assert(str_vec.empty());
   }
-  for (int j = 0; j < 100; ++j) {
+  for (int j = 0; j < 100; j++) {
     std::vector<std::string> str_vec;
     int sz = rand() % 73;
     std::string full;
@@ -59,7 +59,7 @@ void TestSplitStringToVector() {
     bool omit_empty_strings = (rand() %2 == 0)? true : false;
     SplitStringToVector(full, delim.c_str(), &str_vec, omit_empty_strings);
     std::string new_full;
-    for (size_t i = 0; i < str_vec.size(); ++i) {
+    for (size_t i = 0; i < str_vec.size(); i++) {
       if (omit_empty_strings) assert(str_vec[i] != "");
       new_full.append(str_vec[i]);
       if (i < str_vec.size() -1) new_full.append(delim);

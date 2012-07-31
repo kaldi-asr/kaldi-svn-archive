@@ -52,7 +52,7 @@ class Rnnlm {
  // Disable copy construction and assignment
  private:
   Rnnlm(Rnnlm&); 
-  Rnnlm& operator=(Rnnlm&);
+  Rnnlm &operator=(Rnnlm&);
    
  //////////////////////////////////////////////////////////////
  // Constructor & Destructor
@@ -78,13 +78,13 @@ class Rnnlm {
    *    p(y_i|w_i), ie. first row contains the posteriors of the next word 
    *    after the first observed word1
    */ 
-  void Propagate(const std::vector<int32>& in, Matrix<BaseFloat>* out);
+  void Propagate(const std::vector<int32> &in, Matrix<BaseFloat> *out);
 
   /// Perform backward pass through the network
-  void Backpropagate(const MatrixBase<BaseFloat>& in_err);
+  void Backpropagate(const MatrixBase<BaseFloat> &in_err);
 
   /// Score a sequence
-  BaseFloat Score(const std::vector<int32>& seq, const VectorBase<BaseFloat>* hid = NULL, int32 prev_wrd = 1);
+  BaseFloat Score(const std::vector<int32> &seq, const VectorBase<BaseFloat> *hid = NULL, int32 prev_wrd = 1);
 
   MatrixIndexT InputDim() const; ///< Dimensionality of the input features
   MatrixIndexT OutputDimCls() const; ///< Dimensionality of the desired vectors
@@ -93,19 +93,19 @@ class Rnnlm {
   /// Get the last hidden layer state
   const VectorBase<BaseFloat>& HidVector() const;
   /// Set hidden layer state for next input sequence
-  void HidVector(const VectorBase<BaseFloat>& v);
+  void HidVector(const VectorBase<BaseFloat> &v);
   /// Get hidden layer states of last sequence
   const Matrix<BaseFloat>& HidMatrix() const;
   
  
   /// Read the MLP from file (can add layers to exisiting instance of Rnnlm)
-  void Read(const std::string& file);  
+  void Read(const std::string &file);  
   /// Read the MLP from stream (can add layers to exisiting instance of Rnnlm)
-  void Read(std::istream& in, bool binary);  
+  void Read(std::istream &in, bool binary);  
   /// Write MLP to file
-  void Write(const std::string& file, bool binary); 
+  void Write(const std::string &file, bool binary); 
   /// Write MLP to stream 
-  void Write(std::ostream& out, bool binary);    
+  void Write(std::ostream &out, bool binary);    
   
   /// Set the learning rate values to trainable layers, 
   /// factors can disable training of individual layers
@@ -136,26 +136,26 @@ class Rnnlm {
 
  private:
   ///////
-  //network parameters
+  // network parameters
 
-  //layer1,input 1 of N coding
+  // layer1,input 1 of N coding
   Matrix<BaseFloat> V1_; ///< x->y
   Matrix<BaseFloat> U1_; ///< y(t-1)->y(t)
   Vector<BaseFloat> b1_;
 
-  ///factorization - clustering words to classes
-  //:TODO:
+  /// factorization - clustering words to classes
+  // :TODO:
   Matrix<BaseFloat> W2cls_;
   Vector<BaseFloat> b2cls_;
   std::vector<int32> last_element_index_;
 
-  ///output weights
+  /// output weights
   Matrix<BaseFloat> W2_;
   Vector<BaseFloat> b2_;
-  //std::vector<SubMatrix<BaseFloat> > W2div_;
+  // std::vector<SubMatrix<BaseFloat> > W2div_;
 
   ///////
-  //buffers
+  // buffers
   std::vector<int32> in_seq_;
   Matrix<BaseFloat> h2_;
   Vector<BaseFloat> h2_last_;
@@ -168,7 +168,7 @@ class Rnnlm {
   Vector<BaseFloat> b1_corr_;
 
   ///////
-  //global parameters
+  // global parameters
   BaseFloat learn_rate_; ///< global learning rate
   BaseFloat l2_penalty_; ///< l2 penalty
   BaseFloat l1_penalty_; ///< l1 penalty
@@ -199,7 +199,7 @@ inline const VectorBase<BaseFloat>& Rnnlm::HidVector() const {
   return h2_.Row(h2_.NumRows()-1);
 }
 
-inline void Rnnlm::HidVector(const VectorBase<BaseFloat>& v) {
+inline void Rnnlm::HidVector(const VectorBase<BaseFloat> &v) {
   h2_last_.CopyFromVec(v);
 }
 
@@ -209,14 +209,14 @@ inline const Matrix<BaseFloat>& Rnnlm::HidMatrix() const {
 
  
   
-inline void Rnnlm::Read(const std::string& file) {
+inline void Rnnlm::Read(const std::string &file) {
   bool binary;
-  Input in(file,&binary);
-  Read(in.Stream(),binary);
+  Input in(file, &binary);
+  Read(in.Stream(), binary);
   in.Close();
 }
 
-inline void Rnnlm::Read(std::istream& in, bool binary) {
+inline void Rnnlm::Read(std::istream &in, bool binary) {
   ExpectToken(in,binary,"<rnnlm_v1.0>");
   ExpectToken(in,binary,"<v1>");
   in >> V1_; 
@@ -228,22 +228,22 @@ inline void Rnnlm::Read(std::istream& in, bool binary) {
   in >> W2_; 
   ExpectToken(in,binary,"<b2>");
   in >> b2_;
-  //in >> V1 >> U1 >> b1 >> W2cls >> b2cls >> last_element_index >> W2 >> b2;
+  // in >> V1 >> U1 >> b1 >> W2cls >> b2cls >> last_element_index >> W2 >> b2;
   
-  //same vocabulary size
+  // same vocabulary size
   KALDI_ASSERT(V1_.NumRows() == W2_.NumCols());
-  //same dim of hidden layer
+  // same dim of hidden layer
   KALDI_ASSERT(V1_.NumCols() == U1_.NumCols());
   KALDI_ASSERT(V1_.NumCols() == b1_.Dim());
-  //input of layer2 same as output of layer1
+  // input of layer2 same as output of layer1
   KALDI_ASSERT(V1_.NumCols() == W2_.NumRows());
   KALDI_ASSERT(b2_.Dim() == W2_.NumCols());
 
   h2_last_.Resize(b1_.Dim());
 
   b2_corr_.Resize(b2_.Dim());
-  V1_corr_.Resize(V1_.NumRows(),V1_.NumCols());
-  U1_corr_.Resize(U1_.NumRows(),U1_.NumCols());
+  V1_corr_.Resize(V1_.NumRows(), V1_.NumCols());
+  U1_corr_.Resize(U1_.NumRows(), U1_.NumCols());
   b1_corr_.Resize(b1_.Dim());
 
 
@@ -251,13 +251,13 @@ inline void Rnnlm::Read(std::istream& in, bool binary) {
 
 }
 
-inline void Rnnlm::Write(const std::string& file, bool binary) {
+inline void Rnnlm::Write(const std::string &file, bool binary) {
   Output out(file, binary, true);
-  Write(out.Stream(),binary);
+  Write(out.Stream(), binary);
   out.Close();
 }
 
-inline void Rnnlm::Write(std::ostream& out, bool binary) {
+inline void Rnnlm::Write(std::ostream &out, bool binary) {
   WriteToken(out,binary,"<rnnlm_v1.0>");
   WriteToken(out,binary,"<v1>");
   out << V1_; 
@@ -269,14 +269,14 @@ inline void Rnnlm::Write(std::ostream& out, bool binary) {
   out << W2_; 
   WriteToken(out,binary,"<b2>");
   out << b2_;
-  //out << V1 << U1 << b1 << W2cls << b2cls << last_element_index << W2 << b2;
+  // out << V1 << U1 << b1 << W2cls << b2cls << last_element_index << W2 << b2;
 }
 
     
 
 
 
-} //namespace kaldi
+} // namespace kaldi
 
 #endif
 

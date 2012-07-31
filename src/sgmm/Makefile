@@ -4,14 +4,15 @@ OPENFST_CXXFLAGS =
 OPENFST_LDLIBS = 
 include ../kaldi.mk
 
-TESTFILES = am-sgmm-test estimate-am-sgmm-test fmllr-sgmm-test
+TESTFILES = am-sgmm-test estimate-am-sgmm-test fmllr-sgmm-test \
+	estimate-am-sgmm-multi-test
 
-OBJFILES = am-sgmm.o estimate-am-sgmm.o estimate-am-sgmm-compress.o fmllr-sgmm.o \
-           sgmm-clusterable.o
+OBJFILES = am-sgmm.o estimate-am-sgmm.o fmllr-sgmm.o sgmm-clusterable.o \
+         estimate-am-sgmm-ebw.o estimate-am-sgmm-multi.o
 
 LIBFILE = kaldi-sgmm.a
 
-all:  $(LIBFILE) $(TESTFILES)
+all:  $(LIBFILE)
 
 
 $(LIBFILE): $(OBJFILES)

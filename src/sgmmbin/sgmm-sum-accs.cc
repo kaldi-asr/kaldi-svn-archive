@@ -42,12 +42,12 @@ int main(int argc, char *argv[]) {
     kaldi::Vector<double> transition_accs;
     kaldi::MleAmSgmmAccs sgmm_accs;
 
-    for (int i = 2, max = po.NumArgs(); i <= max; ++i) {
+    for (int i = 2, max = po.NumArgs(); i <= max; i++) {
       std::string stats_in_filename = po.GetArg(i);
       bool binary_read;
       kaldi::Input ki(stats_in_filename, &binary_read);
-      transition_accs.Read(ki.Stream(), binary_read, true /* add read values */);
-      sgmm_accs.Read(ki.Stream(), binary_read, true /* add read values */);
+      transition_accs.Read(ki.Stream(), binary_read, true /* add values */);
+      sgmm_accs.Read(ki.Stream(), binary_read, true /* add values */);
     }
 
     // Write out the accs
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     }
 
     KALDI_LOG << "Written stats to " << stats_out_filename;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';
     return -1;
   }

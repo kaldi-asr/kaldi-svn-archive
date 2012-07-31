@@ -1,7 +1,6 @@
 // sgmmbin/sgmm-acc-stats.cc
 
-// Copyright 2009-2011   Saarland University
-// Author:  Arnab Ghoshal
+// Copyright 2009-2011   Saarland University (Author:  Arnab Ghoshal),
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -87,7 +86,8 @@ int main(int argc, char *argv[]) {
     }
 
     Vector<double> transition_accs;
-    trans_model.InitStats(&transition_accs);
+    if (acc_flags & kaldi::kSgmmTransitions)
+      trans_model.InitStats(&transition_accs);
     MleAmSgmmAccs sgmm_accs(rand_prune);
     sgmm_accs.ResizeAccumulators(am_sgmm, acc_flags);
 
@@ -142,8 +142,8 @@ int main(int argc, char *argv[]) {
             am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
           } else {
             KALDI_WARN << "Cannot find speaker vector for " << utt_or_spk;
-            continue;
             num_other_error++;
+            continue;
           }
         }  // else spk_vars is "empty"
 
@@ -161,7 +161,8 @@ int main(int argc, char *argv[]) {
             int32 tid = posterior[i][j].first,  // transition identifier.
                 pdf_id = trans_model.TransitionIdToPdf(tid);
             BaseFloat weight = posterior[i][j].second;
-            trans_model.Accumulate(weight, tid, &transition_accs);
+            if (acc_flags & kaldi::kSgmmTransitions)
+              trans_model.Accumulate(weight, tid, &transition_accs);
             tot_like_this_file += sgmm_accs.Accumulate(am_sgmm, per_frame_vars,
                                                        spk_vars.v_s, pdf_id,
                                                        weight, acc_flags)
@@ -194,12 +195,14 @@ int main(int argc, char *argv[]) {
 
     {
       Output ko(accs_wxfilename, binary);
+      // TODO(arnab): Ideally, we shouldn't be writing transition accs if not
+      // asked for, but that will complicate reading later. To be fixed?
       transition_accs.Write(ko.Stream(), binary);
       sgmm_accs.Write(ko.Stream(), binary);
     }
     KALDI_LOG << "Written accs.";
     return (num_done != 0 ? 0 : 1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

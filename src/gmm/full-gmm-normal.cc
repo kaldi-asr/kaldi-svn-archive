@@ -39,7 +39,7 @@ void FullGmmNormal::Resize(int32 nmix, int32 dim) {
 
   if (vars_.size() != nmix)
     vars_.resize(nmix);
-  for (int32 i = 0; i < nmix; ++i) {
+  for (int32 i = 0; i < nmix; i++) {
     if (vars_[i].NumRows() != nmix ||
         vars_[i].NumCols() != dim) {
       vars_[i].Resize(dim);
@@ -72,7 +72,7 @@ void FullGmmNormal::CopyFromFullGmm(const FullGmm &fullgmm) {
 
 void FullGmmNormal::CopyToFullGmm(FullGmm *fullgmm, GmmFlagsType flags) {
   KALDI_ASSERT(weights_.Dim() == fullgmm->weights_.Dim()
-    && means_.NumCols() == fullgmm->Dim());
+               && means_.NumCols() == fullgmm->Dim());
 
   FullGmmNormal oldg(*fullgmm);
 
@@ -80,7 +80,7 @@ void FullGmmNormal::CopyToFullGmm(FullGmm *fullgmm, GmmFlagsType flags) {
     fullgmm->weights_.CopyFromVec(weights_);
 
   size_t num_comp = fullgmm->NumGauss(), dim = fullgmm->Dim();
-  for (size_t i = 0; i < num_comp; ++i) {
+  for (size_t i = 0; i < num_comp; i++) {
     if (flags & kGmmVariances) {
       fullgmm->inv_covars_[i].CopyFromSp(vars_[i]);
       fullgmm->inv_covars_[i].InvertDouble();

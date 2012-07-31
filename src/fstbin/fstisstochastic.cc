@@ -20,7 +20,7 @@
 #include "util/kaldi-io.h"
 #include "util/parse-options.h"
 #include "fst/fstlib.h"
-#include "fstext/make-stochastic.h"
+#include "fstext/fstext-utils.h"
 
 // e.g. of test:
 // echo " 0 0" | fstcompile | fstisstochastic
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     delete fst;
     if (ans) return 0;  // success;
     else return 1;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

@@ -155,11 +155,11 @@ bool ProcessUtterance(LatticeFasterDecoder &decoder,
   if (!decoder.ReachedFinal()) {
     if (allow_partial) {
       KALDI_WARN << "Outputting partial output for utterance " << utt
-                 << " since no final-state reached\n";
+                 << " since no final-state reached";
     } else {
       KALDI_WARN << "Not producing output for utterance " << utt
                  << " since no final-state reached and "
-                 << "--allow-partial=false.\n";
+                 << "--allow-partial=false.";
       return false;
     }
   }
@@ -352,7 +352,7 @@ int main(int argc, char *argv[]) {
 
     if (word_syms) delete word_syms;
     return (num_success != 0 ? 0 : 1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

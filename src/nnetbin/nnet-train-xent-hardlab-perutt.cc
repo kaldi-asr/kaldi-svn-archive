@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
         alignments_rspecifier = po.GetArg(3);
         
     std::string target_model_filename;
-    if(!crossvalidate) {
+    if (!crossvalidate) {
       target_model_filename = po.GetArg(4);
     }
 
@@ -80,10 +80,10 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
 
-    nnet.LearnRate(learn_rate,NULL);
-    nnet.Momentum(momentum);
-    nnet.L2Penalty(l2_penalty);
-    nnet.L1Penalty(l1_penalty);
+    nnet.SetLearnRate(learn_rate, NULL);
+    nnet.SetMomentum(momentum);
+    nnet.SetL2Penalty(l2_penalty);
+    nnet.SetL1Penalty(l1_penalty);
 
     kaldi::int64 tot_t = 0;
 
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
         const Matrix<BaseFloat> &mat = feature_reader.Value();
         const std::vector<int32> &alignment = alignments_reader.Value(key);
          
-        //std::cout << mat;
+        // std::cout << mat;
 
         if ((int32)alignment.size() != mat.NumRows()) {
           KALDI_WARN << "Alignment has wrong size "<< (alignment.size()) << " vs. "<< (mat.NumRows());
@@ -121,16 +121,16 @@ int main(int argc, char *argv[]) {
         if(num_done % 10000 == 0) std::cout << num_done << ", " << std::flush;
         num_done++;
 
-        //push features to GPU
+        // push features to GPU
         feats.CopyFromMat(mat);
 
-        nnet_transf.Feedforward(feats,&feats_transf);
-        nnet.Propagate(feats_transf,&nnet_out);
+        nnet_transf.Feedforward(feats, &feats_transf);
+        nnet.Propagate(feats_transf, &nnet_out);
         
-        xent.Eval(nnet_out,alignment,&glob_err);
+        xent.EvalVec(nnet_out, alignment, &glob_err);
         
-        if(!crossvalidate) {
-          nnet.Backpropagate(glob_err,NULL);
+        if (!crossvalidate) {
+          nnet.Backpropagate(glob_err, NULL);
         }
 
         tot_t += mat.NumRows();
@@ -141,8 +141,8 @@ int main(int argc, char *argv[]) {
       time_next += t_features.Elapsed();
     }
 
-    if(!crossvalidate) {
-      nnet.Write(target_model_filename,binary);
+    if (!crossvalidate) {
+      nnet.Write(target_model_filename, binary);
     }
     
     std::cout << "\n" << std::flush;
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
 
 
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

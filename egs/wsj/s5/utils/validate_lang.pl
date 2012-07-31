@@ -9,7 +9,6 @@ if(@ARGV != 1) {
 }
 
 $lang = shift @ARGV;
-
 $exit = 0;
 # Checking phones.txt -------------------------------
 print "Checking $lang/phones.txt ...\n";
@@ -59,7 +58,7 @@ foreach(keys %wsymtab) {
 if(exists $wsymtab{"#0"}) {
   print "--> $lang/words.txt has \"#0\"\n";
   print "--> $lang/words.txt is OK\n";
-} else {print "--> ERROR: $lang/words.txt doesn't have \"#0\"\n"; exit 1;}
+} else {print "--> ERROR: $lang/words.txt doesn't have \"#0\"\n"; $exit = 1;}
 print "\n";
 
 # Checking phones/* -------------------------------
@@ -124,7 +123,7 @@ sub check_txt_int {
   $idx1 = 1;
   while(<TXT>) {
     chomp;
-    s/^shared split //g;
+    s/^(shared|not-shared) (split|not-split) //g;
     s/ nonword$//g;
     s/ begin$//g;
     s/ end$//g;
@@ -139,7 +138,7 @@ sub check_txt_int {
   $idx2 = 1;
   while(<INT>) {
     chomp;
-    s/^shared split //g;
+    s/^(shared|not-shared) (split|not-split) //g;
     s/ nonword$//g;
     s/ begin$//g;
     s/ end$//g;
@@ -449,20 +448,31 @@ if(-s "$lang/phones/word_boundary.txt") {
   $internal  =~ s/ / |/g;
   $singleton =~ s/ $//g;
   $singleton =~ s/ / |/g;
+  
+  # Now handle the escape characters
+  foreach $esc(("^", "\$", "(", ")", "/", "@", "[", "]", "{", "}", "?", ".", "+", "*")) {
+    $tmp = "\\" . $esc;
+    $nonword   =~ s/$tmp/\\$esc/g;
+    $begin     =~ s/$tmp/\\$esc/g;
+    $end       =~ s/$tmp/\\$esc/g;
+    $internal  =~ s/$tmp/\\$esc/g;
+    $singleton =~ s/$tmp/\\$esc/g;
+  }
+
   $wlen = int(rand(100)) + 1;
   print "--> generating a $wlen words sequence\n";
   $wordseq = "";
   $sid = 0;
   foreach(1 .. $wlen) {
     $id = int(rand(scalar(%wint2sym)));
-    while($wint2sym{$id} =~ m/^#[0-9]*$/) {$id = int(rand(scalar(%wint2sym)));}
+    while($wint2sym{$id} =~ m/^#[0-9]*$/ or $id == 0) {$id = int(rand(scalar(%wint2sym)));}
     $wordseq = $wordseq . "$sid ". ($sid + 1) . " $id $id 0\n";
     $sid ++;
   }
   $wordseq = $wordseq . "$sid 0";
   $phoneseq = `echo \"$wordseq" | fstcompile > tmp.fst; fstcompose $lang/L.fst tmp.fst | fstproject | fstrandgen | fstrmepsilon | fsttopsort | fstprint --isymbols=$lang/phones.txt --osymbols=$lang/phones.txt | awk '{if(NF > 2) {print \$3}}'; rm tmp.fst`;
   $phoneseq =~ s/\s/ /g;
-  $phoneseq =~ m/^($nonword )*((($begin )($internal )*($end)|($singleton))($nonword )*){$wlen}$/;
+  $phoneseq =~ m/^($nonword )*(((($begin )($internal )*($end ))|($singleton ))($nonword )*){$wlen}$/;
   if(length($2) == 0) {
     $exit = 1; print "--> ERROR: resulting phone sequence from L.fst doesn't correspond to the word sequence; check L.log.fst\n";
     open(LOG, ">L.log.fst"); print LOG $wordseq; close(LOG);
@@ -473,7 +483,7 @@ if(-s "$lang/phones/word_boundary.txt") {
 
   $phoneseq = `echo \"$wordseq" | fstcompile > tmp.fst; fstcompose $lang/L_disambig.fst tmp.fst | fstproject | fstrandgen | fstrmepsilon | fsttopsort | fstprint --isymbols=$lang/phones.txt --osymbols=$lang/phones.txt | awk '{if(NF > 2) {print \$3}}'; rm tmp.fst`;
   $phoneseq =~ s/\s/ /g;
-  $phoneseq =~ m/^(($nonword )(#[0-9]* )*)*((($begin )($internal )*($end)|($singleton))(#[0-9]* )*(($nonword )(#[0-9]* )*)*){$wlen}$/;
+  $phoneseq =~ m/^(($nonword )(#[0-9]* )*)*(((($begin )($internal )*($end ))|($singleton ))(#[0-9]* )*(($nonword )(#[0-9]* )*)*){$wlen}$/;
   if(length($4) == 0) {
     $exit = 1; print "--> ERROR: resulting phone sequence from L_disambig.fst doesn't correspond to the word sequence; check L_disambig.log.fst\n";
     open(LOG, ">L_disambig.log.fst"); print LOG $wordseq; close(LOG);

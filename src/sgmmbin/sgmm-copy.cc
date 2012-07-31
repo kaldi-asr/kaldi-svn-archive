@@ -1,6 +1,7 @@
 // sgmmbin/sgmm-copy.cc
 
-// Copyright 2009-2011  Microsoft Corporation
+// Copyright 2009-2012  Microsoft Corporation
+//                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +29,8 @@ int main(int argc, char *argv[]) {
     typedef kaldi::int32 int32;
     const char *usage =
         "Copy SGMM (possibly changing binary/text format)\n"
-        "Usage: sgmm-normalize [options] <model-in> <model-out>\n"
-        "e.g.: sgmm-normalize --binary=false 1.mdl 1_text.mdl\n";
+        "Usage: sgmm-copy [options] <model-in> <model-out>\n"
+        "e.g.: sgmm-copy --binary=false 1.mdl 1_text.mdl\n";
 
     bool binary_write = true;
 
@@ -62,7 +63,7 @@ int main(int argc, char *argv[]) {
     
     KALDI_LOG << "Written model to " << model_out_filename;
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

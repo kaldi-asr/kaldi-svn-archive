@@ -42,7 +42,7 @@ template<class Label, class StringId> class StringRepository {
  public:
   class VectorKey { // Hash function object.
    public:
-    size_t operator()(const vector<Label>* vec) const {
+    size_t operator()(const vector<Label> *vec) const {
       assert(vec != NULL);
       size_t hash = 0, factor = 1;
       for (typename vector<Label>::const_iterator it = vec->begin(); it != vec->end(); it++)
@@ -52,7 +52,7 @@ template<class Label, class StringId> class StringRepository {
   };
   class VectorEqual {  // Equality-operator function object.
    public:
-    size_t operator()(const vector<Label>* vec1, const vector<Label>* vec2) const {
+    size_t operator()(const vector<Label> *vec1, const vector<Label> *vec2) const {
       return (*vec1 == *vec2);
     }
   };
@@ -158,10 +158,10 @@ template<class Arc> class DeterminizerStar {
   // (but we cannot output again).
   void Output(MutableFst<GallicArc<Arc> >  *ofst, bool destroy = true) {
     assert(determinized_);
-    if(destroy) determinized_ = false;
+    if (destroy) determinized_ = false;
     typedef GallicWeight<Label, Weight> ThisGallicWeight;
     typedef typename Arc::StateId StateId;
-    if(destroy)
+    if (destroy)
       FreeMostMemory();
     StateId nStates = static_cast<StateId>(output_arcs_.size());
     ofst->DeleteStates();
@@ -210,10 +210,10 @@ template<class Arc> class DeterminizerStar {
 
   void  Output(MutableFst<Arc> *ofst, bool destroy = true) {
     assert(determinized_);
-    if(destroy) determinized_ = false;
+    if (destroy) determinized_ = false;
     // Outputs to standard fst.
     OutputStateId nStates = static_cast<OutputStateId>(output_arcs_.size());
-    if(destroy)
+    if (destroy)
       FreeMostMemory();
     ofst->DeleteStates();
     if (nStates == 0) {
@@ -313,7 +313,7 @@ template<class Arc> class DeterminizerStar {
       Q_.pop_back();
       ProcessSubset(cur_pair);
       if (debug_ptr && *debug_ptr) Debug();  // will exit.
-      if(max_states_ > 0 && output_arcs_.size() > max_states_) {
+      if (max_states_ > 0 && output_arcs_.size() > max_states_) {
         std::cerr << "Determinization aborted since passed " << max_states_
                   << " states.\n";
         throw std::runtime_error("max-states reached in determinization");
@@ -327,7 +327,7 @@ template<class Arc> class DeterminizerStar {
   // frees all except output_arcs_, which contains the important info
   // we need to output.
   void FreeMostMemory() {
-    if(ifst_) {
+    if (ifst_) {
       delete ifst_;
       ifst_ = NULL;
     }
@@ -476,9 +476,9 @@ template<class Arc> class DeterminizerStar {
       // both the new (optimal) and old (less-optimal) Element will still be in
       // "queue".  The next if-statement stops us from wasting compute by
       // processing the old Element.
-      if(replaced_elems && cur_subset[elem.state] != elem)
+      if (replaced_elems && cur_subset[elem.state] != elem)
         continue;
-      if(max_states_ > 0 && counter++ > max_states_) {
+      if (max_states_ > 0 && counter++ > max_states_) {
         std::cerr << "Determinization aborted since looped more than "
                   << max_states_ << " times during epsilon closure.\n";
         throw std::runtime_error("looped more than max-states times in determinization");
@@ -503,7 +503,7 @@ template<class Arc> class DeterminizerStar {
           }
           typename std::map<InputStateId, Element>::iterator
               iter = cur_subset.find(next_elem.state);
-          if(iter == cur_subset.end()) {
+          if (iter == cur_subset.end()) {
             // was no such StateId: insert and add to queue.
             cur_subset[next_elem.state] = next_elem;
             queue.push_back(next_elem);
@@ -767,7 +767,7 @@ template<class Arc> class DeterminizerStar {
   // to the queue).
 
   void ProcessSubset(const pair<vector<Element>*, OutputStateId> & pair) {
-    const vector<Element>* subset = pair.first;
+    const vector<Element> *subset = pair.first;
     OutputStateId state = pair.second;
 
     vector<Element> closed_subset;  // subset after epsilon closure.

@@ -217,7 +217,7 @@ void MelBanks::Compute(const VectorBase<BaseFloat> &power_spectrum,
 
   if (debug_) {
     fprintf(stderr, "MEL BANKS:\n");
-    for (int32 i = 0; i < num_bins; ++i)
+    for (int32 i = 0; i < num_bins; i++)
       fprintf(stderr, " %f", (*mel_energies_out)(i));
     fprintf(stderr, "\n");
   }
@@ -237,7 +237,7 @@ void ComputeLifterCoeffs(BaseFloat Q, VectorBase<BaseFloat> *coeffs) {
 // pAC - autocorrelation coefficients [n + 1]
 // pLP - linear prediction coefficients [n] (predicted_sn = sum_1^P{a[i] * s[n-i]}})
 //       F(z) = 1 / (1 - A(z)), 1 is not stored in the demoninator
-BaseFloat Durbin (int n, const BaseFloat* pAC, BaseFloat* pLP, BaseFloat* pTmp) {
+BaseFloat Durbin (int n, const BaseFloat *pAC, BaseFloat *pLP, BaseFloat *pTmp) {
   BaseFloat ki;                // reflection coefficient
   int i;
   int j;
@@ -270,7 +270,7 @@ BaseFloat Durbin (int n, const BaseFloat* pAC, BaseFloat* pLP, BaseFloat* pTmp) 
 }
 
 
-void Lpc2Cepstrum (int n, const BaseFloat* pLPC, BaseFloat* pCepst) {
+void Lpc2Cepstrum (int n, const BaseFloat *pLPC, BaseFloat *pCepst) {
   int i;
   for (i = 0; i < n; i++)
   {

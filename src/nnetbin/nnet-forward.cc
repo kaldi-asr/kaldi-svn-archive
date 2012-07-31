@@ -15,6 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <limits> 
+
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-loss.h"
 #include "base/kaldi-common.h"
@@ -80,25 +82,25 @@ int main(int argc, char *argv[]) {
     CuMatrix<BaseFloat> feats, feats_transf, nnet_out;
     Matrix<BaseFloat> nnet_out_host;
 
-    //Read the class-counts, compute priors
+    // Read the class-counts, compute priors
     Vector<BaseFloat> tmp_priors;
     CuVector<BaseFloat> priors;
     if(class_frame_counts != "") {
       Input in;
       in.OpenTextMode(class_frame_counts);
-      tmp_priors.Read(in.Stream(),false);
+      tmp_priors.Read(in.Stream(), false);
       in.Close();
       
       BaseFloat sum = tmp_priors.Sum();
       tmp_priors.Scale(1.0/sum);
-      if(apply_log || no_softmax) {
+      if (apply_log || no_softmax) {
         tmp_priors.ApplyLog();
         tmp_priors.Scale(-prior_scale);
       } else {
         tmp_priors.ApplyPow(-prior_scale);
       }
 
-      //push priors to GPU
+      // push priors to GPU
       priors.CopyFromVec(tmp_priors);
     }
 
@@ -106,53 +108,72 @@ int main(int argc, char *argv[]) {
     if(!silent) KALDI_LOG << "MLP FEEDFORWARD STARTED";
 
     int32 num_done = 0;
-    //iterate over all the feature files
+    // iterate over all the feature files
     for (; !feature_reader.Done(); feature_reader.Next()) {
-      //read
+      // read
       const Matrix<BaseFloat> &mat = feature_reader.Value();
-      //push it to gpu
+      //check for NaN/inf
+      for(int32 r=0; r<mat.NumRows(); r++) {
+        for(int32 c=0; c<mat.NumCols(); c++) {
+          BaseFloat val = mat(r,c);
+          if(val != val) KALDI_ERR << "NaN in features of : " << feature_reader.Key();
+          if(val == std::numeric_limits<BaseFloat>::infinity())
+            KALDI_ERR << "inf in features of : " << feature_reader.Key();
+        }
+      }
+      // push it to gpu
       feats.CopyFromMat(mat);
-      //fwd-pass
-      nnet_transf.Feedforward(feats,&feats_transf);
-      nnet.Feedforward(feats_transf,&nnet_out);
+      // fwd-pass
+      nnet_transf.Feedforward(feats, &feats_transf);
+      nnet.Feedforward(feats_transf, &nnet_out);
       
-      //convert posteriors to log-posteriors
-      if(apply_log) {
+      // convert posteriors to log-posteriors
+      if (apply_log) {
         nnet_out.ApplyLog();
       }
      
-      //divide posteriors by priors to get quasi-likelihoods
+      // divide posteriors by priors to get quasi-likelihoods
       if(class_frame_counts != "") {
-        if(apply_log || no_softmax) {
-          nnet_out.AddScaledRow(1.0,priors,1.0);
+        if (apply_log || no_softmax) {
+          nnet_out.AddVecToRows(1.0, priors, 1.0);
         } else {
           nnet_out.MulColsVec(priors);
         }
       }
-      
-      //write
+     
+      //download from GPU 
       nnet_out.CopyToMat(&nnet_out_host);
-      feature_writer.Write(feature_reader.Key(),nnet_out_host);
+      //check for NaN/inf
+      for(int32 r=0; r<nnet_out_host.NumRows(); r++) {
+        for(int32 c=0; c<nnet_out_host.NumCols(); c++) {
+          BaseFloat val = nnet_out_host(r,c);
+          if(val != val) KALDI_ERR << "NaN in NNet output of : " << feature_reader.Key();
+          if(val == std::numeric_limits<BaseFloat>::infinity())
+            KALDI_ERR << "inf in NNet coutput of : " << feature_reader.Key();
+        }
+      }
+      // write
+      feature_writer.Write(feature_reader.Key(), nnet_out_host);
 
-      //progress log
-      if(num_done % 1000 == 0) {
+      // progress log
+      if (num_done % 1000 == 0) {
         if(!silent) KALDI_LOG << num_done << ", " << std::flush;
       }
       num_done++;
       tot_t += mat.NumRows();
     }
     
-    //final message
+    // final message
     if(!silent) KALDI_LOG << "MLP FEEDFORWARD FINISHED " 
                           << tim.Elapsed() << "s, fps" << tot_t/tim.Elapsed(); 
     if(!silent) KALDI_LOG << "Done " << num_done << " files";
 
 #if HAVE_CUDA==1
-    if(!silent) CuDevice::Instantiate().PrintProfile();
+    if (!silent) CuDevice::Instantiate().PrintProfile();
 #endif
 
     return ((num_done>0)?0:1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     KALDI_ERR << e.what();
     return -1;
   }

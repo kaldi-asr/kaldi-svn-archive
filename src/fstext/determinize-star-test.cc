@@ -46,7 +46,7 @@ template<class Arc> void TestDeterminizeGeneral() {
       }
       assert(RandEquivalent(*fst, ofst, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length, max*/));      
     } catch (...) {
-      std::cout << "Failed to determinize* this FST (probably not determinizable)\n";
+      std::cout << "Failed to determinize *this FST (probably not determinizable)\n";
     }
     delete fst;
   }
@@ -187,7 +187,7 @@ template<class Arc>  void TestDeterminize2() {
   for(int i = 0; i < 10; i++) {
     RandFstOptions opts;
     opts.acyclic = true;
-    VectorFst<Arc>* ifst = RandFst<Arc>(opts);
+    VectorFst<Arc> *ifst = RandFst<Arc>(opts);
     VectorFst<Arc> ofst;
     Determinize(*ifst, &ofst);
     assert(RandEquivalent(*ifst, ofst, 5, 0.01, rand(), 100));
@@ -488,7 +488,7 @@ template<class Arc, class inttype> void TestStringRepository() {
 
 
 int main() {
-  for (int i = 0;i < 5;i++) {  // We would need more iterations to check
+  for (int i = 0;i < 3;i++) {  // We would need more iterations to check
     // this properly.
     fst::TestStringRepository<fst::StdArc, int>();
     fst::TestStringRepository<fst::StdArc, unsigned int>();
@@ -497,7 +497,7 @@ int main() {
     fst::TestStringRepository<fst::StdArc, char>();
     fst::TestDeterminizeGeneral<fst::StdArc>();
     fst::TestDeterminize<fst::StdArc>();
-    //fst::TestDeterminize2<fst::StdArc>();
+    // fst::TestDeterminize2<fst::StdArc>();
     fst::TestPush<fst::StdArc>();
     fst::TestMinimize<fst::StdArc>();
   }

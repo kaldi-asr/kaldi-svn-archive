@@ -1,3 +1,22 @@
+// cudamatrix/cu-stlvector.h
+
+// Copyright 2009-2012  Karel Vesely
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+
+
 #ifndef KALDI_CUDAMATRIX_CUSTLVECTOR_H_
 #define KALDI_CUDAMATRIX_CUSTLVECTOR_H_
 
@@ -5,23 +24,23 @@
 
 namespace kaldi {
 
-template<typename _ElemT> class CuMatrix;
+template<typename IntType> class CuMatrix;
 
 /**
- * Vector for CUDA computing
+ * std::vector equivalent for CUDA computing
  */
-template<typename _ElemT>
+template<typename IntType>
 class CuStlVector {
- typedef CuStlVector<_ElemT> ThisType;
+ typedef CuStlVector<IntType> ThisType;
 
  public:
 
   /// Default Constructor
-  CuStlVector<_ElemT>()
+  CuStlVector<IntType>()
    : dim_(0), data_(NULL) { 
   }
   /// Constructor with memory initialisation
-  CuStlVector<_ElemT>(size_t dim)
+  CuStlVector<IntType>(size_t dim)
    : dim_(0), data_(NULL) { 
     Resize(dim); 
   }
@@ -37,8 +56,8 @@ class CuStlVector {
   }
 
   /// Get raw pointer
-  const _ElemT* Data() const;
-  _ElemT* Data();
+  const IntType* Data() const;
+  IntType* Data();
  
   /// Allocate the memory
   ThisType& Resize(size_t dim);
@@ -47,44 +66,44 @@ class CuStlVector {
   void Destroy();
 
   /// Copy functions (reallocates when needed)
-  ThisType&        CopyFromVec(const std::vector<_ElemT>& src);
-  void             CopyToVec(std::vector<_ElemT>* dst) const;
+  ThisType&        CopyFromVec(const std::vector<IntType> &src);
+  void             CopyToVec(std::vector<IntType> *dst) const;
   
-  // Math operations
-  //
+  /// Math operations
   void SetZero();
-
-  void Set(_ElemT value) { 
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
+  void Set(IntType value);
 
   /// Accessor to non-GPU vector
-  const std::vector<_ElemT>& Vec() const {
+  const std::vector<IntType>& Vec() const {
     return vec_;
   }
-  std::vector<_ElemT>& Vec() {
+  std::vector<IntType>& Vec() {
     return vec_;
   }
-
-
 
 private:
-  size_t dim_;
- 
-  _ElemT* data_; ///< GPU data pointer
-
-  std::vector<_ElemT> vec_; ///< non-GPU vector as back-off
+  size_t dim_;     ///< dimension of the vector
+  IntType *data_;  ///< GPU data pointer
+  std::vector<IntType> vec_; ///< non-GPU vector as back-up
 };
 
 
+
+/*
+ * Signatures of general/specialized methods
+ */
+template<typename Real> void CuStlVector<Real>::Set(Real value) { KALDI_ERR << __func__ << " Not implemented"; }
+template<> inline void CuStlVector<int32>::Set(int32 value);
+
+
 /// I/O
-template<typename _ElemT>
-std::ostream& operator << (std::ostream& out, const CuStlVector<_ElemT>& vec);
+template<typename IntType>
+std::ostream &operator << (std::ostream &out, const CuStlVector<IntType> &vec);
  
-  
-} //namespace
+} // namespace
 
 
 #include "cu-stlvector-inl.h"
 
 #endif
+

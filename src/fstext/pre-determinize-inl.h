@@ -239,7 +239,7 @@ inline bool HasBannedPrefixPlusDigits(SymbolTable *symTable, std::string prefix,
       if (isdigit(sym[prefix_len])) {  // we don't allow prefix followed by a digit, as a symbol.
         // Has at least one digit.
         size_t pos;
-        for (pos = prefix_len;sym[pos] != '\0'; ++pos)
+        for (pos = prefix_len;sym[pos] != '\0'; pos++)
           if (!isdigit(sym[pos])) break;
         if (sym[pos] == '\0') {  // All remaining characters were digits.
           if (bad_sym != NULL) *bad_sym = (std::string) sym;
@@ -276,7 +276,7 @@ vector<T>* InsertMember(const vector<T> m, vector<vector<T>*> *S) {
     // It could either be a programming error or a deeper conceptual bug.
     return NULL;  // nothing was inserted.
   } else {
-    vector<T>* ret = (*S)[idx] = new vector<T>(m);  // New copy of m.
+    vector<T> *ret = (*S)[idx] = new vector<T>(m);  // New copy of m.
     return ret;  // was inserted.
   }
 }
@@ -388,10 +388,10 @@ void PreDeterminize(MutableFst<Arc> *fst,
     vector<StateId> all_seed_states;  // all "problematic" states, plus initial state (if not problematic).
     if (!p_vec[fst->Start()])
       all_seed_states.push_back(fst->Start());
-    for (StateId s = 0;s<=max_state;++s)
+    for (StateId s = 0;s<=max_state; s++)
       if (p_vec[s]) all_seed_states.push_back(s);
 
-    for (size_t idx = 0;idx < all_seed_states.size();++idx) {
+    for (size_t idx = 0;idx < all_seed_states.size(); idx++) {
       StateId s = all_seed_states[idx];
       std::set<StateId> closure_s;
       closure_s.insert(s);  // insert "seed" state.
@@ -425,7 +425,7 @@ void PreDeterminize(MutableFst<Arc> *fst,
     size_t n =cur_pair.second;  // next special symbol to add.
 
     // (D)(v)(b)
-    for (size_t idx = 0;idx < A.size();++idx) {
+    for (size_t idx = 0;idx < A.size(); idx++) {
       assert(d_vec[A[idx]] == false && "This state has been seen before.  Algorithm error.");
       d_vec[A[idx]] = true;
     }
@@ -441,7 +441,7 @@ void PreDeterminize(MutableFst<Arc> *fst,
 
 
     {  // This block sets up arc_hash
-      for (size_t idx = 0;idx < A.size();++idx) {
+      for (size_t idx = 0;idx < A.size(); idx++) {
         StateId s = A[idx];
         assert(s>=0 && s<=max_state);
         ArcId arc_id = 0;

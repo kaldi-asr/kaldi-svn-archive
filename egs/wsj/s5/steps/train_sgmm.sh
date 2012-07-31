@@ -21,10 +21,12 @@ num_iters_alimdl=3 # Number of iterations for estimating alignment model.
 max_iter_inc=15 # Last iter to increase #substates on.
 realign_iters="5 10 15"; # Iters to realign on. 
 spkvec_iters="5 8 12 17" # Iters to estimate speaker vectors on.
-add_dim_iters="6 8 10 12"; # Iters on which to increase phn dim and/or spk dim,
+increase_dim_iters="6 8"; # Iters on which to increase phn dim and/or spk dim;
+   # rarely necessary, and if it is, only the 1st will normally be necessary.
 rand_prune=0.1 # Randomized-pruning parameter for posteriors, to speed up training.
 phn_dim=  # You can use this to set the phonetic subspace dim. [default: feat-dim+1]
 spk_dim=  # You can use this to set the speaker subspace dim. [default: feat-dim]
+power=0.2 # Exponent for number of gaussians according to occurrence counts
 beam=8
 retry_beam=40
 # End configuration section.
@@ -74,6 +76,8 @@ nj=`cat $alidir/num_jobs` || exit 1;
 mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 sdata=$data/split$nj;
+splice_opts=`cat $alidir/splice_opts 2>/dev/null`
+cp $alidir/splice_opts $dir 2>/dev/null
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
 spkvecs_opt=  # Empty option for now, until we estimate the speaker vectors.
@@ -85,7 +89,7 @@ echo "$0: feature type is $feat_type"
 
 case $feat_type in
   delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
@@ -146,7 +150,7 @@ if [ $stage -le -2 ]; then
 fi
 
 if [ $stage -le -1 ]; then
-  echo "Converting alignments" 
+  echo "$0: Converting alignments" 
   $cmd JOB=1:$nj $dir/log/convert_ali.JOB.log \
     convert-ali $alidir/final.mdl $dir/0.mdl $dir/tree "ark:gunzip -c $alidir/ali.JOB.gz|" \
     "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
@@ -210,7 +214,7 @@ while [ $x -lt $num_iters ]; do
    if [ $stage -le $x ]; then
      $cmd $dir/log/update.$x.log \
        sgmm-est --update-flags=$flags --split-substates=$numsubstates $increase_dim_opts \
-         --write-occs=$dir/$[$x+1].occs $dir/$x.mdl "sgmm-sum-accs - $dir/$x.*.acc|" \
+         --power=$power --write-occs=$dir/$[$x+1].occs $dir/$x.mdl "sgmm-sum-accs - $dir/$x.*.acc|" \
        $dir/$[$x+1].mdl || exit 1;
      rm $dir/$x.mdl $dir/$x.*.acc $dir/$x.occs 2>/dev/null
    fi
@@ -246,10 +250,10 @@ if [ $spk_dim -gt 0 ]; then
         ali-to-post "ark:gunzip -c $dir/ali.JOB.gz|" ark:- \| \
         sgmm-post-to-gpost $spkvecs_opt "$gselect_opt" \
         --utt2spk=ark:$sdata/JOB/utt2spk $final_mdl "$feats" ark,s,cs:- ark:- \| \
-        sgmm-acc-stats-gpost --update-flags=$flags  $cur_alimdl "$feats" \
-        ark,s,cs:- $dir/$x.JOB.aliacc || exit 1;
+        sgmm-acc-stats-gpost --rand-prune=$rand_prune --update-flags=$flags \
+          $cur_alimdl "$feats" ark,s,cs:- $dir/$x.JOB.aliacc || exit 1;
       $cmd $dir/log/update_ali.$x.log \
-        sgmm-est --update-flags=$flags --remove-speaker-space=true $cur_alimdl \
+        sgmm-est --update-flags=$flags --remove-speaker-space=true --power=$power $cur_alimdl \
         "sgmm-sum-accs - $dir/$x.*.aliacc|" $dir/$[$x+1].alimdl || exit 1;
       rm $dir/$x.*.aliacc || exit 1;
       [ $x -gt $num_iters ]  && rm $dir/$x.alimdl

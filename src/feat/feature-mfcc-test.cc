@@ -173,12 +173,12 @@ static void UnitTestHTKCompare1() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021406  // MFCC_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.fea_kaldi.1",
+    std::ofstream os("tmp.test.wav.fea_kaldi.1",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -254,12 +254,12 @@ static void UnitTestHTKCompare2() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021406  // MFCC_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.fea_kaldi.2",
+    std::ofstream os("tmp.test.wav.fea_kaldi.2",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -335,12 +335,12 @@ static void UnitTestHTKCompare3() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021406  // MFCC_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.fea_kaldi.3",
+    std::ofstream os("tmp.test.wav.fea_kaldi.3",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -414,12 +414,12 @@ static void UnitTestHTKCompare4() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021406  // MFCC_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.fea_kaldi.4",
+    std::ofstream os("tmp.test.wav.fea_kaldi.4",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -497,12 +497,12 @@ static void UnitTestHTKCompare5() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021406  // MFCC_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.fea_kaldi.5",
+    std::ofstream os("tmp.test.wav.fea_kaldi.5",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -580,12 +580,12 @@ static void UnitTestHTKCompare6() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021406  // MFCC_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.fea_kaldi.6",
+    std::ofstream os("tmp.test.wav.fea_kaldi.6",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -644,7 +644,7 @@ static void UnitTestFeat() {
     UnitTestHTKCompare5();
     UnitTestHTKCompare6();
     std::cout << "Tests succeeded.\n";
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     std::cerr << e.what();
   }
 }

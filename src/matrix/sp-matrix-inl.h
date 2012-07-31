@@ -22,6 +22,9 @@
 
 namespace kaldi {
 
+// All the lines in this file seem to be declaring template specializations.
+// These tell the compiler that we'll implement the templated function
+// separately for the different template arguments (float, double).
 
 template<>
 void SpMatrix<float>::AddMat2Sp(const float alpha, const MatrixBase<float> &M,
@@ -64,25 +67,40 @@ float SolveQuadraticProblem(const SpMatrix<float> &H, const VectorBase<float> &g
                             const char *debug_str, bool optimizeDelta);
 
 template<>
-float
-SolveQuadraticMatrixProblem(const SpMatrix<float> &Q, const MatrixBase<float> &Y,
-                            const SpMatrix<float> &SigmaInv, MatrixBase<float> *M,
-                            float K, float eps, const char *debug_str,
-                            bool optimizeDelta);
+float SolveQuadraticMatrixProblem(const SpMatrix<float> &Q,
+                                  const MatrixBase<float> &Y,
+                                  const SpMatrix<float> &SigmaInv,
+                                  MatrixBase<float> *M,
+                                  float K, float eps, const char *debug_str,
+                                  bool optimizeDelta);
 
 template<>
-float
-SolveDoubleQuadraticMatrixProblem(const MatrixBase<float> &G, const SpMatrix<float> &P1,
-                                  const SpMatrix<float> &P2, const SpMatrix<float> &Q1,
-                                  const SpMatrix<float> &Q2, MatrixBase<float> *M,
-                                  float K, float eps, const char *debug_str);
+double SolveQuadraticMatrixProblem(const SpMatrix<double> &Q,
+                                  const MatrixBase<double> &Y,
+                                  const SpMatrix<double> &SigmaInv,
+                                  MatrixBase<double> *M,
+                                  double K, double eps, const char *debug_str,
+                                  bool optimizeDelta);
 
 template<>
-double
-SolveDoubleQuadraticMatrixProblem(const MatrixBase<double> &G, const SpMatrix<double> &P1,
-                                  const SpMatrix<double> &P2, const SpMatrix<double> &Q1,
-                                  const SpMatrix<double> &Q2, MatrixBase<double> *M,
-                                  double K, double eps, const char *debug_str);
+float SolveDoubleQuadraticMatrixProblem(const MatrixBase<float> &G,
+                                        const SpMatrix<float> &P1,
+                                        const SpMatrix<float> &P2,
+                                        const SpMatrix<float> &Q1,
+                                        const SpMatrix<float> &Q2,
+                                        MatrixBase<float> *M,
+                                        float K, float eps,
+                                        const char *debug_str);
+
+template<>
+double SolveDoubleQuadraticMatrixProblem(const MatrixBase<double> &G,
+                                         const SpMatrix<double> &P1,
+                                         const SpMatrix<double> &P2,
+                                         const SpMatrix<double> &Q1,
+                                         const SpMatrix<double> &Q2,
+                                         MatrixBase<double> *M,
+                                         double K, double eps,
+                                         const char *debug_str);
 
 
 template<>
@@ -92,8 +110,7 @@ template<>
 float TraceSpSpLower(const SpMatrix<float> &A, const SpMatrix<float> &B);
 
 
+}  // namespace kaldi
 
-} // namespace kaldi
 
-
-#endif
+#endif  // KALDI_MATRIX_SP_MATRIX_INL_H_

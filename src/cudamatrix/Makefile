@@ -12,18 +12,21 @@ LDFLAGS += $(CUDA_LDFLAGS)
 
 TESTFILES = cuda-matrix-test 
 
-OBJFILES = cu-device.o cu-matrix.o cu-vector.o cu-stlvector.o cu-math.o
+OBJFILES = cu-device.o 
 ifeq ($(CUDA), true)
-  OBJFILES += cu-kernels.o
+  OBJFILES += cu-kernels.o cu-randkernels.o
 endif
 
 LIBFILE = cuda-matrix.a
 
-all:  $(LIBFILE) $(TESTFILES)
+all:  $(LIBFILE)
 
 #implicit rule for kernel compilation
+#symlink in necessary for cross-compilation at BUT
 %.o : %.cu
-	export PATH=$(CUDATKDIR)/bin:$(PATH); $(CUDATKDIR)/bin/nvcc -c $< -o $@ $(CUDA_INCLUDE) $(CUDA_FLAGS) -I../
+	-ln -s `which $(CC)` gcc
+	export PATH=$(CUDATKDIR)/bin:$(PWD):$(PWD)/cudamatrix:$(PATH); ln -s `which $(CC)` gcc; $(CUDATKDIR)/bin/nvcc -c $< -o $@ $(CUDA_INCLUDE) $(CUDA_FLAGS) -I../
+	-unlink gcc
 
 
 $(LIBFILE): $(OBJFILES)
@@ -45,7 +48,7 @@ clean:
 	rm *.o *.a $(TESTFILES)
 
 test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >&/dev/null || (echo "***test $$x failed***"; exit 1); done  
+	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || (echo "***test $$x failed***"; exit 1); done  
 	echo Tests succeeded
 
 .valgrind: $(TESTFILES)

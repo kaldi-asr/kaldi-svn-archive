@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
       } else {
         const Matrix<BaseFloat> &loglikes = loglikes_reader.Value();
         VectorFst<StdArc> decode_fst(fst_reader.Value(key));
-        //fst_reader.FreeCurrent();  // this stops copy-on-write of the fst
+        // fst_reader.FreeCurrent();  // this stops copy-on-write of the fst
         // by deleting the fst inside the reader, since we're about to mutate
         // the fst by adding transition probs.
 
@@ -171,7 +171,7 @@ int main(int argc, char *argv[]) {
               << num_no_feat << ", other errors on " << num_other_error;
     if (num_success != 0) return 0;
     else return 1;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

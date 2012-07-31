@@ -127,8 +127,8 @@ private:
   // there are 2 cases:
   //    - there is a single underlying FST (then fst2_ is NULL)
   //    - the composition case, where there are 2 underlying FSTs (then fst2_ is not NULL)
-  const Fst<Arc>* fst1_;
-  const Fst<Arc>* fst2_;
+  const Fst<Arc> *fst1_;
+  const Fst<Arc> *fst2_;
   
   // private helper method for GetArc()
   // Used to get first matching arc from one of the underlying non-deterministic FST's
@@ -138,16 +138,16 @@ private:
   // (recursively and cumulating the weights) until an arc with input ilabel is found.
   // If called with input ilabel equal to epsilon, treats it as any other label
   // (i.e. matches it only with epsilon labels).
-  static bool GetArcFromNonDetFst(const Fst<Arc>* fst, StateId s, Label ilabel,
+  static bool GetArcFromNonDetFst(const Fst<Arc> *fst, StateId s, Label ilabel,
                                   Arc *oarc, Weight iweight = Weight::One());
   
   // private helper method for GetFinal().  If current state is final returns it;
   // else follows epsilons recursively till it finds a final state and returns the
   // first one it finds (or Zero() if none found).
-  Weight GetFinalFromNonDetFst(const Fst<Arc>* fst, StateId s);
+  Weight GetFinalFromNonDetFst(const Fst<Arc> *fst, StateId s);
   
   // state management for composition
-  typedef std::pair<StateId,StateId> StatePair;
+  typedef std::pair<StateId, StateId> StatePair;
 
   class StatePairEqual {
    public:
@@ -180,7 +180,7 @@ private:
       cs = composed_state_.size();
       composed_state_.push_back(sp);
       state_map_[sp] = cs;
-      //cerr << "Adding composed state ("<<s1<<","<<s2<<") = "<<cs<<endl;
+      // cerr << "Adding composed state ("<<s1<<","<<s2<<") = "<<cs<<endl;
     } else {
       cs = (*mit).second;
     }
@@ -196,7 +196,7 @@ private:
 
   typename StateLabelMap::iterator scm_it_;
   bool HasArc(StateId s, Label l);
-  void AddSingleArc(StateId s, Label l, Arc& a);
+  void AddSingleArc(StateId s, Label l, Arc &a);
   void SetArc(StateId s, Label l);
   bool GetCachedArc(StateId s, Label l, Arc *oarc);
     
@@ -231,7 +231,7 @@ class DeterministicOnDemandFst : public Fst<Arc> {
 
   DeterministicOnDemandFst(const DeterministicOnDemandFst<Arc> &fst, bool reset = false); // defined in -inl.h
 
-  DeterministicOnDemandFst(const Fst<Arc> &fst1,const Fst<Arc> &fst2) :
+  DeterministicOnDemandFst(const Fst<Arc> &fst1, const Fst<Arc> &fst2) :
    	impl_(new DeterministicOnDemandFstImpl<Arc>(fst1,fst2)) {}   // no options yet
 
   virtual ~DeterministicOnDemandFst() { if (!impl_->DecrRefCount()) delete impl_;  }

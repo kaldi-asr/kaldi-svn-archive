@@ -40,14 +40,9 @@ struct RegtreeFmllrOptions {
   bool use_regtree;     ///< If 'true', find transforms to generate using regression tree.
                         ///< If 'false', generate transforms for each baseclass.
 
-  /// If 'true' use gradient descent (if available) for computing the transform
-  /// If 'false' use default method (row-wise update)
-  bool use_gradient_descent;
-
   RegtreeFmllrOptions(): update_type("full"), min_count(1000.0),
-                         num_iters(10), use_regtree(true),
-                         use_gradient_descent(false) { }
-
+                         num_iters(10), use_regtree(true) { }
+  
   void Register(ParseOptions *po) {
     po->Register("fmllr-update-type", &update_type,
                  "Update type for fMLLR (\"full\"|\"diag\"|\"offset\"|\"none\")");
@@ -57,9 +52,6 @@ struct RegtreeFmllrOptions {
                  "Number of fMLLR iterations (if using an iterative update).");
     po->Register("fmllr-use-regtree", &use_regtree,
                  "Use a regression-class tree for fMLLR.");
-    // Disabling this option until needed.
-    // po->Register("fmllr-use-gradient-descent", &use_gradient_descent,
-    //"Use a gradient descent algorithm for estimating transforms.");
   }
 };
 
@@ -75,7 +67,7 @@ struct RegtreeFmllrOptions {
 class RegtreeFmllrDiagGmm {
  public:
   RegtreeFmllrDiagGmm() : dim_(-1), num_xforms_(-1), valid_logdet_(false) {}
-  explicit RegtreeFmllrDiagGmm(const RegtreeFmllrDiagGmm& other)
+  explicit RegtreeFmllrDiagGmm(const RegtreeFmllrDiagGmm &other)
       : dim_(other.dim_), num_xforms_(other.num_xforms_),
         xform_matrices_(other.xform_matrices_), logdet_(other.logdet_),
         valid_logdet_(other.valid_logdet_),
@@ -104,7 +96,7 @@ class RegtreeFmllrDiagGmm {
 
   /// Mutators
   void SetParameters(const MatrixBase<BaseFloat> &mat, size_t regclass);
-  void set_bclass2xforms(const std::vector<int32>& in) { bclass2xforms_ = in; }
+  void set_bclass2xforms(const std::vector<int32> &in) { bclass2xforms_ = in; }
 
  private:
   int32 dim_;             ///< Dimension of feature vectors
@@ -161,13 +153,13 @@ class RegtreeFmllrDiagGmmAccs {
   /// This does not work with multiple feature transforms.
   BaseFloat AccumulateForGmm(const RegressionTree &regtree,
                              const AmDiagGmm &am,
-                             const VectorBase<BaseFloat>& data,
+                             const VectorBase<BaseFloat> &data,
                              size_t pdf_index, BaseFloat weight);
 
   /// Accumulate stats for a single Gaussian component in the model.
   void AccumulateForGaussian(const RegressionTree &regtree,
                              const AmDiagGmm &am,
-                             const VectorBase<BaseFloat>& data,
+                             const VectorBase<BaseFloat> &data,
                              size_t pdf_index, size_t gauss_index,
                              BaseFloat weight);
 
@@ -181,7 +173,7 @@ class RegtreeFmllrDiagGmmAccs {
   /// Accessors
   int32 Dim() const { return dim_; }
   int32 NumBaseClasses() const { return num_baseclasses_; }
-  const std::vector<AffineXformStats*>& baseclass_stats() const {
+  const std::vector<AffineXformStats*> &baseclass_stats() const {
     return baseclass_stats_;
   }
 

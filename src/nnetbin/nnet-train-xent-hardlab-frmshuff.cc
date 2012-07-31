@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
 
-    int32 bunchsize=512,cachesize=32768;
+    int32 bunchsize=512, cachesize=32768;
     po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("cachesize", &cachesize, "Size of cache for frame level shuffling");
 
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
         alignments_rspecifier = po.GetArg(3);
         
     std::string target_model_filename;
-    if(!crossvalidate) {
+    if (!crossvalidate) {
       target_model_filename = po.GetArg(4);
     }
 
@@ -85,10 +85,10 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
 
-    nnet.LearnRate(learn_rate,NULL);
-    nnet.Momentum(momentum);
-    nnet.L2Penalty(l2_penalty);
-    nnet.L1Penalty(l1_penalty);
+    nnet.SetLearnRate(learn_rate, NULL);
+    nnet.SetMomentum(momentum);
+    nnet.SetL2Penalty(l2_penalty);
+    nnet.SetL1Penalty(l1_penalty);
 
     kaldi::int64 tot_t = 0;
 
@@ -96,8 +96,8 @@ int main(int argc, char *argv[]) {
     RandomAccessInt32VectorReader alignments_reader(alignments_rspecifier);
 
     Cache cache;
-    cachesize = (cachesize/bunchsize)*bunchsize; //ensure divisibility
-    cache.Init(cachesize,bunchsize);
+    cachesize = (cachesize/bunchsize)*bunchsize; // ensure divisibility
+    cache.Init(cachesize, bunchsize);
 
     Xent xent;
 
@@ -110,62 +110,62 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << (crossvalidate?"CROSSVALIDATE":"TRAINING") << " STARTED";
 
     int32 num_done = 0, num_no_alignment = 0, num_other_error = 0, num_cache = 0;
-    while(1) {
-      //fill the cache
-      while(!cache.Full() && !feature_reader.Done()) {
+    while (1) {
+      // fill the cache
+      while (!cache.Full() && !feature_reader.Done()) {
         std::string key = feature_reader.Key();
         if (!alignments_reader.HasKey(key)) {
           num_no_alignment++;
         } else {
-          //get feature alignment pair
+          // get feature alignment pair
           const Matrix<BaseFloat> &mat = feature_reader.Value();
           const std::vector<int32> &alignment = alignments_reader.Value(key);
-          //chech for dimension
+          // chech for dimension
           if ((int32)alignment.size() != mat.NumRows()) {
             KALDI_WARN << "Alignment has wrong size "<< (alignment.size()) << " vs. "<< (mat.NumRows());
             num_other_error++;
             continue;
           }
-          //push features to GPU
+          // push features to GPU
           feats.CopyFromMat(mat);
-          //possibly apply transform
-          nnet_transf.Feedforward(feats,&feats_transf);
-          //add to cache
-          cache.AddData(feats_transf,alignment);
+          // possibly apply transform
+          nnet_transf.Feedforward(feats, &feats_transf);
+          // add to cache
+          cache.AddData(feats_transf, alignment);
           num_done++;
         }
         Timer t_features;
         feature_reader.Next(); 
         time_next += t_features.Elapsed();
       }
-      //randomize
-      if(!crossvalidate) {
+      // randomize
+      if (!crossvalidate) {
         cache.Randomize();
       }
-      //report
+      // report
       std::cerr << "Cache #" << ++num_cache << " "
                 << (cache.Randomized()?"[RND]":"[NO-RND]")
                 << " segments: " << num_done
                 << " frames: " << tot_t << "\n";
-      //train with the cache
-      while(!cache.Empty()) {
-        //get block of feature/target pairs
-        cache.GetBunch(&nnet_in,&targets);
-        //train 
-        nnet.Propagate(nnet_in,&nnet_out);
-        xent.Eval(nnet_out,targets,&glob_err);
-        if(!crossvalidate) {
-          nnet.Backpropagate(glob_err,NULL);
+      // train with the cache
+      while (!cache.Empty()) {
+        // get block of feature/target pairs
+        cache.GetBunch(&nnet_in, &targets);
+        // train 
+        nnet.Propagate(nnet_in, &nnet_out);
+        xent.EvalVec(nnet_out, targets, &glob_err);
+        if (!crossvalidate) {
+          nnet.Backpropagate(glob_err, NULL);
         }
         tot_t += nnet_in.NumRows();
       }
 
-      //stop training when no more data
-      if(feature_reader.Done()) break;
+      // stop training when no more data
+      if (feature_reader.Done()) break;
     }
 
-    if(!crossvalidate) {
-      nnet.Write(target_model_filename,binary);
+    if (!crossvalidate) {
+      nnet.Write(target_model_filename, binary);
     }
     
     std::cout << "\n" << std::flush;
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
 
 
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

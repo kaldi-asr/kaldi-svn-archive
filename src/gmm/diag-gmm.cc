@@ -43,6 +43,7 @@ void DiagGmm::Resize(int32 nmix, int32 dim) {
   if (means_invvars_.NumRows() != nmix ||
       means_invvars_.NumCols() != dim)
     means_invvars_.Resize(nmix, dim);
+  valid_gconsts_ = false;
 }
 
 void DiagGmm::CopyFromDiagGmm(const DiagGmm &diaggmm) {
@@ -62,7 +63,7 @@ void DiagGmm::CopyFromFullGmm(const FullGmm &fullgmm) {
   Matrix<BaseFloat> means(num_comp, dim);
   fullgmm.GetMeans(&means);
   int32 ncomp = NumGauss();
-  for (int32 mix = 0; mix < ncomp; ++mix) {
+  for (int32 mix = 0; mix < ncomp; mix++) {
     SpMatrix<double> covar(dim);
     covar.CopyFromSp(fullgmm.inv_covars()[mix]);
     covar.Invert();
@@ -284,7 +285,7 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
     vars.InvertElements();
     means.MulElements(vars);
     // add means square to variances; get second-order stats
-    for (int32 i = 0; i < num_comp; ++i) {
+    for (int32 i = 0; i < num_comp; i++) {
       vars.Row(i).AddVec2(1.0, means.Row(i));
     }
 
@@ -294,7 +295,7 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
     means_invvars_.Resize(1, dim);
     inv_vars_.Resize(1, dim);
 
-    for (int32 i = 0; i < num_comp; ++i) {
+    for (int32 i = 0; i < num_comp; i++) {
       weights_(0) += weights(i);
       means_invvars_.Row(0).AddVec(weights(i), means.Row(i));
       inv_vars_.Row(0).AddVec(weights(i), vars.Row(i));
@@ -316,10 +317,9 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
   // clustering of components that lead to the smallest decrease in likelihood.
   std::vector<bool> discarded_component(num_comp);
   Vector<BaseFloat> logdet(num_comp);   // logdet for each component
-  logdet.SetZero();
-  for (int32 i = 0; i < num_comp; ++i) {
+  for (int32 i = 0; i < num_comp; i++) {
     discarded_component[i] = false;
-    for (int32 d = 0; d < dim; ++d) {
+    for (int32 d = 0; d < dim; d++) {
       logdet(i) += 0.5 * log(inv_vars_(i, d));  // +0.5 because var is inverted
     }
   }
@@ -333,14 +333,14 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
 
   // add means square to variances; get second-order stats
   // (normalized by zero-order stats)
-  for (int32 i = 0; i < num_comp; ++i) {
+  for (int32 i = 0; i < num_comp; i++) {
     vars.Row(i).AddVec2(1.0, means.Row(i));
   }
 
   // compute change of likelihood for all combinations of components
   SpMatrix<BaseFloat> delta_like(num_comp);
-  for (int32 i = 0; i < num_comp; ++i) {
-    for (int32 j = 0; j < i; ++j) {
+  for (int32 i = 0; i < num_comp; i++) {
+    for (int32 j = 0; j < i; j++) {
       BaseFloat w1 = weights_(i), w2 = weights_(j), w_sum = w1 + w2;
       BaseFloat merged_logdet = merged_components_logdet(w1, w2,
         means.Row(i), means.Row(j), vars.Row(i), vars.Row(j));
@@ -350,14 +350,14 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
   }
 
   // Merge components with smallest impact on the loglike
-  for (int32 removed = 0; removed < num_comp - target_components; ++removed) {
+  for (int32 removed = 0; removed < num_comp - target_components; removed++) {
     // Search for the least significant change in likelihood
     // (maximum of negative delta_likes)
     BaseFloat max_delta_like = -std::numeric_limits<BaseFloat>::max();
     int32 max_i = -1, max_j = -1;
-    for (int32 i = 0; i < NumGauss(); ++i) {
+    for (int32 i = 0; i < NumGauss(); i++) {
       if (discarded_component[i]) continue;
-      for (int32 j = 0; j < i; ++j) {
+      for (int32 j = 0; j < i; j++) {
         if (discarded_component[j]) continue;
         if (delta_like(i, j) > max_delta_like) {
           max_delta_like = delta_like(i, j);
@@ -402,7 +402,7 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
 
     // Update logdet for merged component
     logdet(max_i) = 0.0;
-    for (int32 d = 0; d < dim; ++d) {
+    for (int32 d = 0; d < dim; d++) {
       logdet(max_i) += 0.5 * log(inv_vars_(max_i, d));
       // +0.5 because var is inverted
     }
@@ -411,7 +411,7 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
     discarded_component[max_j] = true;
 
     // Update delta_like for merged component
-    for (int32 j = 0; j < num_comp; ++j) {
+    for (int32 j = 0; j < num_comp; j++) {
       if ((j == max_i) || (discarded_component[j])) continue;
       BaseFloat w1 = weights_(max_i),
                 w2 = weights_(j),
@@ -427,7 +427,7 @@ void DiagGmm::Merge(int32 target_components, std::vector<int32> *history) {
 
   // Remove the consumed components
   int32 m = 0;
-  for (int32 i = 0; i < num_comp; ++i) {
+  for (int32 i = 0; i < num_comp; i++) {
     if (discarded_component[i]) {
       weights_.RemoveElement(m);
       means_invvars_.RemoveRow(m);
@@ -449,7 +449,6 @@ BaseFloat DiagGmm::merged_components_logdet(BaseFloat w1, BaseFloat w2,
   int32 dim = f1.Dim();
   Vector<BaseFloat> tmp_mean(dim);
   Vector<BaseFloat> tmp_var(dim);
-  BaseFloat merged_logdet = 0.0;
 
   BaseFloat w_sum = w1 + w2;
   tmp_mean.CopyFromVec(f1);
@@ -459,7 +458,8 @@ BaseFloat DiagGmm::merged_components_logdet(BaseFloat w1, BaseFloat w2,
   tmp_var.AddVec(w2/w1, s2);
   tmp_var.Scale(w1/w_sum);
   tmp_var.AddVec2(-1.0, tmp_mean);
-  for (int32 d = 0; d < dim; ++d) {
+  BaseFloat merged_logdet = 0.0;
+  for (int32 d = 0; d < dim; d++) {
     merged_logdet -= 0.5 * log(tmp_var(d));
     // -0.5 because var is not inverted
   }
@@ -472,7 +472,7 @@ BaseFloat DiagGmm::ComponentLogLikelihood(const VectorBase<BaseFloat> &data,
     KALDI_ERR << "Must call ComputeGconsts() before computing likelihood";
   if (static_cast<int32>(data.Dim()) != Dim()) {
     KALDI_ERR << "DiagGmm::ComponentLogLikelihood, dimension "
-        << "mismatch" << (data.Dim()) << " vs. "<< (Dim());
+        << "mismatch " << (data.Dim()) << " vs. "<< (Dim());
   }
   BaseFloat loglike;
   Vector<BaseFloat> data_sq(data);
@@ -503,7 +503,7 @@ void DiagGmm::LogLikelihoods(const VectorBase<BaseFloat> &data,
   loglikes->CopyFromVec(gconsts_);
   if (static_cast<int32>(data.Dim()) != Dim()) {
     KALDI_ERR << "DiagGmm::ComponentLogLikelihood, dimension "
-        << "mismatch" << (data.Dim()) << " vs. "<< (Dim());
+        << "mismatch " << (data.Dim()) << " vs. "<< (Dim());
   }
   Vector<BaseFloat> data_sq(data);
   data_sq.ApplyPow(2.0);
@@ -525,7 +525,7 @@ void DiagGmm::LogLikelihoodsPreselect(const VectorBase<BaseFloat> &data,
   
   int32 num_indices = static_cast<int32>(indices.size());
   loglikes->Resize(num_indices, kUndefined);
-  if(indices.back() + 1 - indices.front() == num_indices) {
+  if (indices.back() + 1 - indices.front() == num_indices) {
     // A special (but common) case when the indices form a contiguous range.
     int32 start_idx = indices.front();
     loglikes->CopyFromVec(SubVector<BaseFloat>(gconsts_, start_idx, num_indices));
@@ -642,10 +642,10 @@ void DiagGmm::Interpolate(BaseFloat rho, const FullGmm &source,
   }
 
   if (flags & kGmmVariances) {
-    for (int32 i = 0; i < NumGauss(); ++i) {
+    for (int32 i = 0; i < NumGauss(); i++) {
       us.vars_.Scale(1. - rho);
       Vector<double> diag(Dim());
-      for (int32 j = 0; j < Dim(); ++j)
+      for (int32 j = 0; j < Dim(); j++)
         diag(j) = them.vars_[i](j, j);
       us.vars_.Row(i).AddVec(rho, diag);
     }
@@ -672,35 +672,35 @@ void DiagGmm::Write(std::ostream &out_stream, bool binary) const {
   if (!binary) out_stream << "\n";
 }
 
-std::ostream & operator <<(std::ostream & out_stream,
+std::ostream & operator <<(std::ostream & os,
                            const kaldi::DiagGmm &gmm) {
-  gmm.Write(out_stream, false);
-  return out_stream;
+  gmm.Write(os, false);
+  return os;
 }
 
-void DiagGmm::Read(std::istream &in_stream, bool binary) {
-//  ExpectToken(in_stream, binary, "<DiagGMMBegin>");
+void DiagGmm::Read(std::istream &is, bool binary) {
+//  ExpectToken(is, binary, "<DiagGMMBegin>");
   std::string token;
-  ReadToken(in_stream, binary, &token);
+  ReadToken(is, binary, &token);
   // <DiagGMMBegin> is for compatibility. Will be deleted later
   if (token != "<DiagGMMBegin>" && token != "<DiagGMM>")
     KALDI_ERR << "Expected <DiagGMM>, got " << token;
-  ReadToken(in_stream, binary, &token);
+  ReadToken(is, binary, &token);
   if (token == "<GCONSTS>") {  // The gconsts are optional.
-    gconsts_.Read(in_stream, binary);
-    ExpectToken(in_stream, binary, "<WEIGHTS>");
+    gconsts_.Read(is, binary);
+    ExpectToken(is, binary, "<WEIGHTS>");
   } else {
     if (token != "<WEIGHTS>")
       KALDI_ERR << "DiagGmm::Read, expected <WEIGHTS> or <GCONSTS>, got "
                 << token;
   }
-  weights_.Read(in_stream, binary);
-  ExpectToken(in_stream, binary, "<MEANS_INVVARS>");
-  means_invvars_.Read(in_stream, binary);
-  ExpectToken(in_stream, binary, "<INV_VARS>");
-  inv_vars_.Read(in_stream, binary);
-//  ExpectToken(in_stream, binary, "<DiagGMMEnd>");
-  ReadToken(in_stream, binary, &token);
+  weights_.Read(is, binary);
+  ExpectToken(is, binary, "<MEANS_INVVARS>");
+  means_invvars_.Read(is, binary);
+  ExpectToken(is, binary, "<INV_VARS>");
+  inv_vars_.Read(is, binary);
+//  ExpectToken(is, binary, "<DiagGMMEnd>");
+  ReadToken(is, binary, &token);
   // <DiagGMMEnd> is for compatibility. Will be deleted later
   if (token != "<DiagGMMEnd>" && token != "</DiagGMM>")
     KALDI_ERR << "Expected </DiagGMM>, got " << token;
@@ -708,9 +708,9 @@ void DiagGmm::Read(std::istream &in_stream, bool binary) {
   ComputeGconsts();  // safer option than trusting the read gconsts
 }
 
-std::istream & operator >>(std::istream & rIn, kaldi::DiagGmm &gmm) {
-  gmm.Read(rIn, false);  // false == non-binary.
-  return rIn;
+std::istream & operator >>(std::istream &is, kaldi::DiagGmm &gmm) {
+  gmm.Read(is, false);  // false == non-binary.
+  return is;
 }
 
 void DiagGmm::Generate(VectorBase<BaseFloat> *output) {

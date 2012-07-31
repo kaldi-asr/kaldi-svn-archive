@@ -2,8 +2,7 @@
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey).  Apache 2.0.
 
 # Create denominator lattices for MMI/MPE training.
-# This version uses speaker independent features.
-# output in $dir/lat.*.gz
+# Creates its output in $dir/lat.*.gz
 
 # Begin configuration.
 nj=4
@@ -14,18 +13,16 @@ lattice_beam=7.0
 acwt=0.1
 max_active=5000
 transform_dir=
-max_mem=20000000 # This will stop the processes getting too large 
-# (default is 50M, but this can result in the process getting up to 2G
-#  ... the units are not quite "real" units due to severe inaccuracies in the
-# way that program measures how much memory it is using).
-# End configuration.
+max_mem=20000000 # This will stop the processes getting too large.
+# This is in bytes, but not "real" bytes-- you have to multiply
+# by something like 5 or 10 to get real bytes (not sure why so large)
 
 [ -f ./path.sh ] && . ./path.sh; # source the path.
 . parse_options.sh || exit 1;
 
 if [ $# != 4 ]; then
-   echo "Usage: steps/make_denlats_si.sh [options] <data-dir> <lang-dir> <src-dir> <exp-dir>"
-   echo "  e.g.: steps/make_denlats_lda_etc.sh data/train data/lang exp/tri1_denlats"
+   echo "Usage: steps/make_denlats.sh [options] <data-dir> <lang-dir> <src-dir> <exp-dir>"
+   echo "  e.g.: steps/make_denlats.sh data/train data/lang exp/tri1 exp/tri1_denlats"
    echo "Works for (delta|lda) features, and (with --transform-dir option) such features"
    echo " plus transforms."
    echo ""
@@ -46,6 +43,7 @@ srcdir=$3
 dir=$4
 
 sdata=$data/split$nj
+splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
 mkdir -p $dir/log
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 echo $nj > $dir/num_jobs
@@ -58,7 +56,7 @@ cp -r $lang $dir/
 
 # Compute grammar FST which corresponds to unigram decoding graph.
 
-cat $data/text | utils/sym2int.pl --map-oov "$oov" -f 2- $lang/words.txt | \
+cat $data/text | utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt | \
   awk '{for(n=2;n<=NF;n++){ printf("%s ", $n); } printf("\n"); }' | \
   utils/make_unigram_grammar.pl | fstcompile > $dir/lang/G.fst \
    || exit 1;
@@ -79,7 +77,7 @@ echo "align_si.sh: feature type is $feat_type"
 
 case $feat_type in
   delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
     cp $srcdir/final.mat $dir    
    ;;
   *) echo "Invalid feature type $feat_type" && exit 1;
@@ -135,5 +133,4 @@ else
 fi
 
 
-echo "Done generating denominator lattices."
-
+echo "$0: done generating denominator lattices."

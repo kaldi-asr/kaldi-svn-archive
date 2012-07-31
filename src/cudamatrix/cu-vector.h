@@ -1,3 +1,22 @@
+// cudamatrix/cu-vector.h
+
+// Copyright 2009-2012  Karel Vesely
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+
+
 #ifndef KALDI_CUDAMATRIX_CUVECTOR_H_
 #define KALDI_CUDAMATRIX_CUVECTOR_H_
 
@@ -5,23 +24,24 @@
 
 namespace kaldi {
 
-template<typename _ElemT> class CuMatrix;
+template<typename Real> class CuMatrix;
+
 
 /**
  * Vector for CUDA computing
  */
-template<typename _ElemT>
+template<typename Real>
 class CuVector {
- typedef CuVector<_ElemT> ThisType;
+ typedef CuVector<Real> ThisType;
 
  public:
 
   /// Default Constructor
-  CuVector<_ElemT>()
+  CuVector<Real>()
    : dim_(0), data_(NULL) { 
   }
   /// Constructor with memory initialisation
-  CuVector<_ElemT>(size_t dim)
+  CuVector<Real>(size_t dim)
    : dim_(0), data_(NULL) { 
     Resize(dim); 
   }
@@ -37,8 +57,8 @@ class CuVector {
   }
 
   /// Get raw pointer
-  const _ElemT* Data() const;
-  _ElemT* Data();
+  const Real* Data() const;
+  Real* Data();
  
   /// Allocate the memory
   ThisType& Resize(size_t dim);
@@ -46,61 +66,46 @@ class CuVector {
   /// Deallocate the memory
   void Destroy();
 
-  /// Copy functions (reallocates when needed)
-  ThisType&        CopyFromVec(const CuVector<_ElemT>& src);
-  ThisType&        CopyFromVec(const Vector<_ElemT>& src);
-  void             CopyToVec(Vector<_ElemT>* dst) const;
-
-  void             Read(std::istream& is, bool binary);
-  void             Write(std::ostream& is, bool binary) const;
+  /// Copy functions (lazy reallocation when needed)
+  ThisType&        CopyFromVec(const CuVector<Real> &src);
+  ThisType&        CopyFromVec(const Vector<Real> &src);
+  void             CopyToVec(Vector<Real> *dst) const;
   
-  // Math operations
-  //
+  /// I/O 
+  void             Read(std::istream &is, bool binary);
+  void             Write(std::ostream &is, bool binary) const;
+  
+  /// Math operations
   void SetZero();
-
-  void Set(_ElemT value) { 
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-  void AddVec(_ElemT alpha, const CuVector<_ElemT>& vec, _ElemT beta=1.0) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-  void AddColSum(_ElemT alpha, const CuMatrix<_ElemT>& mat, _ElemT beta=1.0) { 
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-  void InvertElements() {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-
+  void Set(Real value);
+  void AddVec(Real alpha, const CuVector<Real> &vec, Real beta=1.0); 
+  /// Sum the rows of the matrix, add to vector
+  void AddRowSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta=1.0);
+  /// Sum the columns of the matrix, add to vector
+  void AddColSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta=1.0); 
+  void InvertElements(); 
 
   /// Accessor to non-GPU vector
-  const VectorBase<_ElemT>& Vec() const {
+  const VectorBase<Real>& Vec() const {
     return vec_;
   }
-  VectorBase<_ElemT>& Vec() {
+  VectorBase<Real>& Vec() {
     return vec_;
   }
-
-
 
 private:
-  size_t dim_;
- 
-  _ElemT* data_; ///< GPU data pointer
-
-  Vector<_ElemT> vec_; ///< non-GPU vector as back-off
+  size_t dim_; ///< dimension of the vector
+  Real *data_; ///< GPU data pointer
+  Vector<Real> vec_; ///< non-GPU vector as back-up
 };
 
 
 /// I/O
-template<typename _ElemT>
-std::ostream& operator << (std::ostream& out, const CuVector<_ElemT>& vec);
+template<typename Real>
+std::ostream &operator << (std::ostream &out, const CuVector<Real> &vec);
  
   
-} //namespace
+} // namespace
 
 
 #include "cu-vector-inl.h"

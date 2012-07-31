@@ -226,12 +226,11 @@ void UnitTestRegtreeFmllrDiagGmm(cova_type feature_type, size_t max_bclass) {
 
   RegtreeFmllrOptions xform_opts;
   xform_opts.min_count = 100 * (1 + rand() % 10);
-  xform_opts.use_gradient_descent = (RandUniform() < 0.5)? true : false;
   xform_opts.use_regtree = (RandUniform() < 0.5)? false : true;
 
   size_t num_pdfs = 1;
   Vector<BaseFloat> occs(num_pdfs);
-  for (int32 i = 0; i < static_cast<int32>(num_pdfs); ++i) {
+  for (int32 i = 0; i < static_cast<int32>(num_pdfs); i++) {
     occs(i) = 1.0/static_cast<BaseFloat>(num_pdfs);
   }
   std::vector<int32> silphones;

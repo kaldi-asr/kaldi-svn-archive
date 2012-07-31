@@ -13,7 +13,8 @@ cmd=run.pl
 num_iters=4
 boost=0.0
 cancel=true # if true, cancel num and den counts on each frame.
-tau=200
+tau=400
+weight_tau=10
 acwt=0.1
 stage=0
 # End configuration section
@@ -25,7 +26,7 @@ if [ $# -ne 5 ]; then
   echo "Usage: steps/train_mmi.sh <data> <lang> <ali> <denlats> <exp>"
   echo " e.g.: steps/train_mmi.sh data/train_si84 data/lang exp/tri2b_ali_si84 exp/tri2b_denlats_si84 exp/tri2b_mmi"
   echo "Main options (for others, see top of script file)"
-  echo "  --boost <boost-weight>                           # (e.g. 0.1) ... boosted MMI."
+  echo "  --boost <boost-weight>                           # (e.g. 0.1), for boosted MMI.  (default 0)"
   echo "  --cancel (true|false)                            # cancel stats (true by default)"
   echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
   echo "  --config <config-file>                           # config containing options"
@@ -50,7 +51,9 @@ nj=`cat $alidir/num_jobs` || exit 1;
   echo "$alidir and $denlatdir have different num-jobs" && exit 1;
 
 sdata=$data/split$nj
+splice_opts=`cat $alidir/splice_opts 2>/dev/null`
 mkdir -p $dir/log
+cp $alidir/splice_opts $dir 2>/dev/null
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 echo $nj > $dir/num_jobs
 
@@ -65,7 +68,7 @@ echo "$0: feature type is $feat_type"
 
 case $feat_type in
   delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "Invalid feature type $feat_type" && exit 1;
@@ -113,20 +116,20 @@ while [ $x -lt $num_iters ]; do
 
     $cmd $dir/log/update.$x.log \
       gmm-est-gaussians-ebw --tau=$tau $cur_mdl $dir/num_acc.$x.acc $dir/den_acc.$x.acc - \| \
-      gmm-est-weights-ebw - $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl || exit 1;
+      gmm-est-weights-ebw --weight-tau=$weight_tau - $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl || exit 1;
+    rm $dir/{den,num}_acc.$x.acc
   fi
   cur_mdl=$dir/$[$x+1].mdl
 
-  # Some diagnostics.  The "objf" that we compute is not the actual
-  # MMI objective function as it doesn't contain the transition and LM-related
-  # parts, but in practice I think it's the same.
+  # Some diagnostics: the objective function progress and auxiliary-function
+  # improvement.
 
-  objf_nf="`grep -w Overall $dir/log/acc.$x.*.log | grep -w gmm-acc-stats2 | awk '{ p+=$10*$12; nf+=$12; } END{print p/nf, nf;}'`"
-  objf=`echo $objf_nf | awk '{print $1}'`;
-  nf=`echo $objf_nf | awk '{print $2}'`;
-  impr=`grep -w Overall $dir/log/update.$x.log | head -1 | awk '{print $10*$12;}'`
-  impr=`perl -e "print ($impr/$nf);"` # We divide by $nf which is the "real" number of frames.
-
+  tail -n 50 $dir/log/acc.$x.*.log | perl -e '$acwt=shift @ARGV; while(<STDIN>) { if(m/gmm-acc-stats2.+Overall weighted acoustic likelihood per frame was (\S+) over (\S+) frames/) { $tot_aclike += $1*$2; $tot_frames1 += $2; } if(m|lattice-to-post.+Overall average log-like/frame is (\S+) over (\S+) frames.  Average acoustic like/frame is (\S+)|) { $tot_den_lat_like += $1*$2; $tot_frames2 += $2; $tot_den_aclike += $3*$2; } } if (abs($tot_frames1 - $tot_frames2) > 0.01*($tot_frames1 + $tot_frames2)) { print STDERR "Frame-counts disagree $tot_frames1 versus $tot_frames2\n"; } $tot_den_lat_like /= $tot_frames2; $tot_den_aclike /= $tot_frames2; $tot_aclike *= ($acwt / $tot_frames1);  $num_like = $tot_aclike + $tot_den_aclike; $per_frame_objf = $num_like - $tot_den_lat_like; print "$per_frame_objf $tot_frames1\n"; ' $acwt > $dir/tmpf
+  objf=`cat $dir/tmpf | awk '{print $1}'`;
+  nf=`cat $dir/tmpf | awk '{print $2}'`;
+  rm $dir/tmpf
+  impr=`grep -w Overall $dir/log/update.$x.log | awk '{x += $10*$12;} END{print x;}'`
+  impr=`perl -e "print ($impr*$acwt/$nf);"` # We multiply by acwt, and divide by $nf which is the "real" number of frames.
   echo "Iteration $x: objf was $objf, MMI auxf change was $impr" | tee $dir/objf.$x.log
   x=$[$x+1]
 done

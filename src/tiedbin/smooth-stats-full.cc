@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 
     // step 1: determine the codebooks under each node
     vector<std::set<int32> > diversity(p.size() - num_leaves);
-    for (int32 i = 0; i < num_leaves; ++i) {
+    for (int32 i = 0; i < num_leaves; i++) {
       int32 cur = i, par = p[i];
       int32 pdf = tied_to_pdf[i];
       while (cur != par) {
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     vector<AccumTiedGmm *> interim(p.size() - num_leaves, NULL);
 
     KALDI_LOG << "Propagating " << num_leaves << " leaves";
-    for (int32 i = 0; i < num_leaves; ++i) {
+    for (int32 i = 0; i < num_leaves; i++) {
       AccumTiedGmm &a = acc.GetTiedAcc(i);
       std::stringstream sstr;
       sstr << "tied-id=" << i << " occ=" << a.occupancy().Sum() << " ==>";
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "Wrote " << acc_out_filename;
 
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

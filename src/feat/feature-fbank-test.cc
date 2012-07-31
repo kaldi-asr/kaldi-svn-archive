@@ -153,7 +153,7 @@ static void UnitTestHTKCompare1() {
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
     for (int32 j = 0; j < kaldi_features.NumCols(); j++) {
       BaseFloat a = kaldi_features(i, j), b = htk_features(i, j);
-      ///THE FEATURES ARE ALMOST IDENTICAL WITH HTK!!! (SEE THE TOLERANCE!)
+      /// THE FEATURES ARE ALMOST IDENTICAL WITH HTK!!! (SEE THE TOLERANCE!)
       if ((std::abs(b - a)) > 0.001) {  //<< TOLERANCE TO DIFFERENCES!!!!!
         // print the non-matching data only once per-line
         if (i_old != i) {
@@ -170,7 +170,7 @@ static void UnitTestHTKCompare1() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     000007  // FBANK
   };
@@ -190,7 +190,7 @@ static void UnitTestFeat() {
     UnitTestSimple();
     UnitTestHTKCompare1();
     std::cout << "Tests succeeded.\n";
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     std::cerr << e.what();
   }
 }

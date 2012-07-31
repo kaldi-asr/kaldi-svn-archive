@@ -1,7 +1,6 @@
 // sgmmbin/sgmm-est.cc
 
-// Copyright 2009-2011  Saarland University
-// Author:  Arnab Ghoshal
+// Copyright 2009-2011  Saarland University (Author: Arnab Ghoshal)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,9 +115,9 @@ int main(int argc, char *argv[]) {
 
     sgmm_accs.Check(am_sgmm, true); // Will check consistency and print some diagnostics.
 
-    {  // Update SGMM.
-      kaldi::MleAmSgmmUpdater sgmm_updater(sgmm_opts);
-      sgmm_updater.Update(sgmm_accs, &am_sgmm, update_flags);
+    { // Do the update.
+      kaldi::MleAmSgmmUpdater updater(sgmm_opts);
+      updater.Update(sgmm_accs, &am_sgmm, update_flags);
     }
 
     if (split_substates != 0 || !occs_out_filename.empty()) {  // get state occs
@@ -132,8 +131,8 @@ int main(int argc, char *argv[]) {
       }
 
       if (!occs_out_filename.empty()) {
-        kaldi::Output ko(occs_out_filename, binary_write);
-        state_occs.Write(ko.Stream(), binary_write);
+        kaldi::Output ko(occs_out_filename, false /* no binary write */);
+        state_occs.Write(ko.Stream(), false  /* no binary write */);
       }
     }
 
@@ -161,7 +160,7 @@ int main(int argc, char *argv[]) {
     
     KALDI_LOG << "Written model to " << model_out_filename;
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

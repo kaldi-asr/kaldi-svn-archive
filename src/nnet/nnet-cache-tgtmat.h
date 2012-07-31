@@ -19,6 +19,7 @@
 #ifndef KALDI_NNET_CACHE_H
 #define KALDI_NNET_CACHE_H
 
+#include "base/kaldi-math.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
@@ -39,11 +40,11 @@ class CacheTgtMat {
   void Init(int32 cachesize, int32 bunchsize);
 
   /// Add data to cache
-  void AddData(const CuMatrix<BaseFloat>& features, const CuMatrix<BaseFloat>& targets);
+  void AddData(const CuMatrix<BaseFloat> &features, const CuMatrix<BaseFloat> &targets);
   /// Randomizes the cache
   void Randomize();
   /// Get the bunch of training data from cache
-  void GetBunch(CuMatrix<BaseFloat>* features, CuMatrix<BaseFloat>* targets);
+  void GetBunch(CuMatrix<BaseFloat> *features, CuMatrix<BaseFloat> *targets);
 
 
   /// Returns true if the cache was completely filled
@@ -63,10 +64,13 @@ class CacheTgtMat {
 
 
  private:
-  static long int GenerateRandom(int max) { 
-    return lrand48() % max; 
-  }
-  
+  struct GenerateRandom {
+    int32 operator()(int32 max) { 
+      // return lrand48() % max; 
+      return RandInt(0, max-1); 
+    }
+  };
+
   State state_; ///< Current state of the cache
 
   size_t filling_pos_;  ///< Number of frames filled to cache by AddData

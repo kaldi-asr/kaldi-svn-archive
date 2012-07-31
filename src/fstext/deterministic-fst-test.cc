@@ -29,8 +29,8 @@ bool FileExists(string strFilename) {
   int intStat; 
 
   // Attempt to get the file attributes 
-  intStat = stat(strFilename.c_str(),&stFileInfo); 
-  if(intStat == 0) { 
+  intStat = stat(strFilename.c_str(), &stFileInfo); 
+  if (intStat == 0) { 
     // We were able to get the file attributes 
     // so the file obviously exists. 
     blnReturn = true; 
@@ -44,7 +44,7 @@ bool FileExists(string strFilename) {
     blnReturn = false; 
   } 
    
-  return(blnReturn); 
+  return blnReturn; 
 }
 
 // Simplify writing
@@ -61,26 +61,26 @@ StdVectorFst* CreateBackoffFst() {
   StdVectorFst *fst = new StdVectorFst();
   fst->AddState();   // state 0
   fst->SetStart(0);
-  fst->AddArc(0, StdArc(10,10,0.0,1));
+  fst->AddArc(0, StdArc(10, 10, 0.0, 1));
 
   fst->AddState();    // state 1
-  fst->AddArc(1, StdArc(12,12,0.0,4));
+  fst->AddArc(1, StdArc(12, 12, 0.0, 4));
   fst->AddArc(1, StdArc(0,0,  0.1,2));  // backoff from 1 to 2
 
   fst->AddState();    // state 2
-  fst->AddArc(2, StdArc(13,13,0.2,4));
+  fst->AddArc(2, StdArc(13, 13, 0.2, 4));
   fst->AddArc(2, StdArc(0,0,  0.3,3));  // backoff from 2 to 3
 
   fst->AddState();     // state 3
-  fst->AddArc(3, StdArc(14,14,0.4,4));
+  fst->AddArc(3, StdArc(14, 14, 0.4, 4));
 
   fst->AddState();    // state 4
-  fst->AddArc(4, StdArc(15,15,0.5,5));
+  fst->AddArc(4, StdArc(15, 15, 0.5, 5));
 
   fst->AddState();     // state 5
-  fst->SetFinal(5,0.6);
+  fst->SetFinal(5, 0.6);
 
-  return(fst);
+  return fst;
 }
 
 // what the resulting DeterministicOnDemand FST should be like
@@ -88,10 +88,10 @@ StdVectorFst* CreateResultFst() {
   StdVectorFst *fst = new StdVectorFst();
   fst->AddState();   // state 0
   fst->SetStart(0);
-  fst->AddArc(0, StdArc(10,10,0.0,1));
+  fst->AddArc(0, StdArc(10, 10, 0.0, 1));
 
   fst->AddState();    // state 1
-  fst->AddArc(1, StdArc(12,12,0.0,4));
+  fst->AddArc(1, StdArc(12, 12, 0.0, 4));
   fst->AddArc(1, StdArc(13,13,0.3,4));  // went through 1 backoff
   fst->AddArc(1, StdArc(14,14,0.8,4));  // went through 2 backoffs
 
@@ -99,12 +99,12 @@ StdVectorFst* CreateResultFst() {
   fst->AddState();    // state 3
 
   fst->AddState();    // state 4
-  fst->AddArc(4, StdArc(15,15,0.5,5));
+  fst->AddArc(4, StdArc(15, 15, 0.5, 5));
 
   fst->AddState();     // state 5 
-  fst->SetFinal(5,0.6);
+  fst->SetFinal(5, 0.6);
   
-  return(fst);
+  return fst;
 }
 
 void DeleteTestFst(StdVectorFst *fst) {
@@ -113,18 +113,18 @@ void DeleteTestFst(StdVectorFst *fst) {
 
 // Follow paths from an input fst representing a string
 // (poor man's composition)
-Weight WalkSinglePath(StdVectorFst* ifst, StdDeterministicOnDemandFst* dfst) {
-  StdArc* oarc =  new StdArc();
+Weight WalkSinglePath(StdVectorFst *ifst, StdDeterministicOnDemandFst *dfst) {
+  StdArc *oarc =  new StdArc();
   StateId isrc=ifst->Start();
   StateId dsrc=dfst->Start();
   Weight totalCost = Weight::One();
   
   while (ifst->Final(isrc) == Weight::Zero()) { // while not final
-	fst::ArcIterator<StdVectorFst> aiter(*ifst,isrc);
+	fst::ArcIterator<StdVectorFst> aiter(*ifst, isrc);
 	const StdArc &iarc = aiter.Value();
-	if (dfst->GetArc(dsrc,iarc.olabel,oarc)) {
+	if (dfst->GetArc(dsrc, iarc.olabel, oarc)) {
 	  Weight cost = Times(iarc.weight, oarc->weight);
-	  //cout << "  Matched label "<<iarc.olabel<<" at summed cost "<<cost<<endl;	  
+	  // cout << "  Matched label "<<iarc.olabel<<" at summed cost "<<cost<<endl;	  
 	  totalCost = Times(totalCost, cost);
 	} else {
 	  cout << "  Can't match arc ["<<iarc.ilabel<<","<<iarc.olabel<<","<<iarc.weight<<"] from "<<isrc<<endl;
@@ -142,27 +142,27 @@ Weight WalkSinglePath(StdVectorFst* ifst, StdDeterministicOnDemandFst* dfst) {
 
 
 int main() {
-  //--------------- Test without files ---------------------
+  // --------------- Test without files ---------------------
   using namespace fst;
   // Build from existing fst
   cout << "Test with single generated backoff FST" << endl;
-  StdVectorFst* nfst = CreateBackoffFst();
-  StdVectorFst* rfst = CreateResultFst();
+  StdVectorFst *nfst = CreateBackoffFst();
+  StdVectorFst *rfst = CreateResultFst();
 
   // before using, make sure that it is input sorted
   ArcSort(nfst, StdILabelCompare());
-  StdDeterministicOnDemandFst* dfst1 = new StdDeterministicOnDemandFst(*nfst);
+  StdDeterministicOnDemandFst *dfst1 = new StdDeterministicOnDemandFst(*nfst);
   
   // Compare all arcs in dfst1 with expected result
   for (StateIterator<StdVectorFst> riter(*rfst); !riter.Done(); riter.Next()) {
 	StateId rsrc = riter.Value();
 	// verify that states have same weight (or final status)
-	assert(ApproxEqual(rfst->Final(rsrc),dfst1->Final(rsrc)));
-	for (ArcIterator<StdVectorFst> aiter(*rfst,rsrc); !aiter.Done(); aiter.Next()) {
+	assert(ApproxEqual(rfst->Final(rsrc), dfst1->Final(rsrc)));
+	for (ArcIterator<StdVectorFst> aiter(*rfst, rsrc); !aiter.Done(); aiter.Next()) {
 	  StdArc rarc = aiter.Value();
 	  StdArc darc;
 	  if (dfst1->GetArc(rsrc, rarc.ilabel, &darc)) {
-		assert(ApproxEqual(rarc.weight, darc.weight,0.001));
+		assert(ApproxEqual(rarc.weight, darc.weight, 0.001));
 		assert(rarc.ilabel==darc.ilabel);
 		assert(rarc.olabel==darc.olabel);
 		assert(rarc.nextstate == darc.nextstate);
@@ -187,38 +187,38 @@ int main() {
   }
   
 
-  //----------------- Test with files, single FST case --------------
+  // ----------------- Test with files, single FST case --------------
   Weight cost2;
   cout << "Single FST case: string with G'" <<  endl;
   cout << "  Reading Gp.fst" << endl << std::flush;
-  StdVectorFst* gpfst = StdVectorFst::Read("Gp.fst");
+  StdVectorFst *gpfst = StdVectorFst::Read("Gp.fst");
   cout << "  Creating SDODF from Gp.fst" << endl << std::flush;
-  StdDeterministicOnDemandFst* dfst2 = new StdDeterministicOnDemandFst(*gpfst);
-  StdVectorFst* strfst = StdVectorFst::Read("str.fst");
+  StdDeterministicOnDemandFst *dfst2 = new StdDeterministicOnDemandFst(*gpfst);
+  StdVectorFst *strfst = StdVectorFst::Read("str.fst");
   cost2 = WalkSinglePath(strfst, dfst2);
   delete dfst2; delete strfst;
 
-  //----------------- Test with files, composition case (with string transducer)
+  // ----------------- Test with files, composition case (with string transducer)
   Weight cost3;
   cout << "Composition case: string*bg with G^-1 * G'" << endl;
   cout << "  Reading Gm.fst" << endl << std::flush;
   StdVectorFst *gmfst = StdVectorFst::Read("Gm.fst");
-  StdDeterministicOnDemandFst* dfst3 = new StdDeterministicOnDemandFst(*gmfst,*gpfst);
+  StdDeterministicOnDemandFst *dfst3 = new StdDeterministicOnDemandFst(*gmfst, *gpfst);
   StdVectorFst *strbgfst = StdVectorFst::Read("strbg.fst");
-  cost3 = WalkSinglePath(strbgfst,dfst3);
+  cost3 = WalkSinglePath(strbgfst, dfst3);
   cout << "Cache had "<<dfst3->CacheCalls()<<" calls and "<<dfst3->CacheHits()<<" hits"<< endl;
   delete gmfst; delete gpfst; 
 
-  if ( !ApproxEqual(cost2,cost3)) {
+  if ( !ApproxEqual(cost2, cost3)) {
 	cout << "Test failed." << endl;
 	exit(1);
   }
 
-  //----------------- Exercise cache, composition case (with string transducer)
+  // ----------------- Exercise cache, composition case (with string transducer)
   Weight cost4;
   cout << "Exercise cache: string*bg with G^-1 * G'" << endl;
-  cost4 = WalkSinglePath(strbgfst,dfst3);
-  if ( !ApproxEqual(cost2,cost4)) {
+  cost4 = WalkSinglePath(strbgfst, dfst3);
+  if ( !ApproxEqual(cost2, cost4)) {
 	cout << "Test failed." << endl;
 	exit(1);
   }

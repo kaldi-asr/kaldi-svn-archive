@@ -40,7 +40,7 @@ extern int32 g_num_threads; // Maximum number of threads (for programs that
 class ExampleClass {
  public:
   ExampleClass (const ExampleClass &other) {
-    //.. optional initalizer.  Run sequentially;
+    // .. optional initalizer.  Run sequentially;
     // initialized from object passed by user.
   }
   void operator() (){
@@ -96,7 +96,7 @@ template<class C> void RunMultiThreaded(const C &c_in) {
     for (int32 thread = 0; thread < g_num_threads; thread++)
       if (pthread_join(threads[thread], NULL))
         KALDI_ERR << "Error rejoining thread.";
-    delete threads;
+    delete [] threads;
   }
 }
 

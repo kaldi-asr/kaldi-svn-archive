@@ -1,7 +1,8 @@
 // gmm/am-diag-gmm.h
 
-// Copyright 2009-2011  Saarland University
-// Author:  Arnab Ghoshal
+// Copyright 2009-2012  Saarland University (Author:  Arnab Ghoshal)
+//                      Johns Hopkins University (Author: Daniel Povey)
+//                      Karel Vesely
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,13 +33,13 @@ namespace kaldi {
 
 class AmDiagGmm {
  public:
-  AmDiagGmm() : dim_(0) { }
+  AmDiagGmm() {}
   ~AmDiagGmm();
 
   /// Initializes with a single "prototype" GMM.
   void Init(const DiagGmm &proto, int32 num_pdfs);
   /// Adds a GMM to the model, and increments the total number of PDFs.
-  void AddPdf(const DiagGmm& gmm);
+  void AddPdf(const DiagGmm &gmm);
   /// Copies the parameters from another model. Allocates necessary memory.
   void CopyFromAmDiagGmm(const AmDiagGmm &other);
 
@@ -73,8 +74,9 @@ class AmDiagGmm {
   void Read(std::istream &in_stream, bool binary);
   void Write(std::ostream &out_stream, bool binary) const;
 
-  int32 Dim() const { return dim_; }
-  void Dim(int32 dim) { dim_=dim; }
+  int32 Dim() const {
+    return (densities_.size() > 0)? densities_[0]->Dim() : 0;
+  }
   int32 NumPdfs() const { return densities_.size(); }
   int32 NumGauss() const;
   int32 NumGaussInPdf(int32 pdf_index) const;
@@ -93,19 +95,13 @@ class AmDiagGmm {
 
  private:
   std::vector<DiagGmm*> densities_;
-  int32 dim_;
+//  int32 dim_;
 
   void RemovePdf(int32 pdf_index);
 
-  // used in SplitByCount and MergeByCount.
-  void ComputeTargetNumPdfs(const Vector<BaseFloat> &state_occs,
-                            int32 target_components,
-                            BaseFloat power,
-                            BaseFloat min_count,
-                            std::vector<int32> *targets) const;
-
   KALDI_DISALLOW_COPY_AND_ASSIGN(AmDiagGmm);
 };
+
 
 inline BaseFloat AmDiagGmm::LogLikelihood(
     const int32 pdf_index, const VectorBase<BaseFloat> &data) const {
@@ -130,25 +126,22 @@ inline const DiagGmm& AmDiagGmm::GetPdf(int32 pdf_index) const {
   return *(densities_[pdf_index]);
 }
 
-inline void
-AmDiagGmm::GetGaussianMean(int32 pdf_index, int32 gauss,
-                                      VectorBase<BaseFloat> *out) const {
+inline void AmDiagGmm::GetGaussianMean(int32 pdf_index, int32 gauss,
+                                       VectorBase<BaseFloat> *out) const {
   KALDI_ASSERT((static_cast<size_t>(pdf_index) < densities_.size())
       && (densities_[pdf_index] != NULL));
   densities_[pdf_index]->GetComponentMean(gauss, out);
 }
 
-inline void
-AmDiagGmm::GetGaussianVariance(int32 pdf_index, int32 gauss,
-                                          VectorBase<BaseFloat> *out) const {
+inline void AmDiagGmm::GetGaussianVariance(int32 pdf_index, int32 gauss,
+                                           VectorBase<BaseFloat> *out) const {
   KALDI_ASSERT((static_cast<size_t>(pdf_index) < densities_.size())
                && (densities_[pdf_index] != NULL));
   densities_[pdf_index]->GetComponentVariance(gauss, out);
 }
 
-inline void
-AmDiagGmm::SetGaussianMean(int32 pdf_index, int32 gauss_index,
-                                      const VectorBase<BaseFloat> &in) {
+inline void AmDiagGmm::SetGaussianMean(int32 pdf_index, int32 gauss_index,
+                                       const VectorBase<BaseFloat> &in) {
   KALDI_ASSERT((static_cast<size_t>(pdf_index) < densities_.size())
                && (densities_[pdf_index] != NULL));
   densities_[pdf_index]->SetComponentMean(gauss_index, in);
@@ -210,7 +203,7 @@ struct UbmClusteringOptions {
  *  et al., "The subspace Gaussian mixture model - A structured model for speech
  *  recognition", In Computer Speech and Language, April 2011.
  */
-void ClusterGaussiansToUbm(const AmDiagGmm& am,
+void ClusterGaussiansToUbm(const AmDiagGmm &am,
                            const Vector<BaseFloat> &state_occs,
                            UbmClusteringOptions opts,
                            DiagGmm *ubm_out);

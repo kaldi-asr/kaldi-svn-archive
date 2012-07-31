@@ -24,7 +24,7 @@ namespace kaldi {
 
 class Sigmoid : public Component {
  public:
-  Sigmoid(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet* nnet) 
+  Sigmoid(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet) 
     : Component(dim_in, dim_out, nnet)
   { }
   ~Sigmoid()
@@ -34,22 +34,22 @@ class Sigmoid : public Component {
     return kSigmoid;
   }
 
-  void PropagateFnc(const Matrix<BaseFloat>& in, Matrix<BaseFloat>* out) {
-    //y = 1/(1+e^-x)
+  void PropagateFnc(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out) {
+    // y = 1/(1+e^-x)
     for(MatrixIndexT r=0; r<out->NumRows(); r++) {
       for(MatrixIndexT c=0; c<out->NumCols(); c++) {
-        (*out)(r,c) = 1.0/(1.0+exp(-in(r,c)));
+        (*out)(r, c) = 1.0/(1.0+exp(-in(r, c)));
       }
     }
   }
 
-  void BackpropagateFnc(const Matrix<BaseFloat>& in_err, Matrix<BaseFloat>* out_err) {
-    //ey = y(1-y)ex
-    const Matrix<BaseFloat>& y = nnet_->PropagateBuffer()[nnet_->IndexOfLayer(*this)+1];
+  void BackpropagateFnc(const Matrix<BaseFloat> &in_err, Matrix<BaseFloat> *out_err) {
+    // ey = y(1-y)ex
+    const Matrix<BaseFloat> &y = nnet_->PropagateBuffer()[nnet_->IndexOfLayer(*this)+1];
 
     for(MatrixIndexT r=0; r<out_err->NumRows(); r++) {
       for(MatrixIndexT c=0; c<out_err->NumCols(); c++) {
-        (*out_err)(r,c) = y(r,c)*(1.0-y(r,c))*in_err(r,c);
+        (*out_err)(r, c) = y(r, c)*(1.0-y(r, c))*in_err(r, c);
       }
     }
   }
@@ -58,7 +58,7 @@ class Sigmoid : public Component {
 
 class Softmax : public Component {
  public:
-  Softmax(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet* nnet) 
+  Softmax(MatrixIndexT dim_in, MatrixIndexT dim_out, Nnet *nnet) 
     : Component(dim_in, dim_out, nnet)
   { }
   ~Softmax()
@@ -68,17 +68,17 @@ class Softmax : public Component {
     return kSoftmax;
   }
 
-  void PropagateFnc(const Matrix<BaseFloat>& in, Matrix<BaseFloat>* out) {
-    //y = e^x_j/sum_j(e^x_j)
+  void PropagateFnc(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out) {
+    // y = e^x_j/sum_j(e^x_j)
     out->CopyFromMat(in);
     for(MatrixIndexT r=0; r<out->NumRows(); r++) {
       out->Row(r).ApplySoftMax();
     }
   }
 
-  void BackpropagateFnc(const Matrix<BaseFloat>& in_err, Matrix<BaseFloat>* out_err) {
-    //simply copy the error
-    //(ie. assume crossentropy error function, 
+  void BackpropagateFnc(const Matrix<BaseFloat> &in_err, Matrix<BaseFloat> *out_err) {
+    // simply copy the error
+    // (ie. assume crossentropy error function, 
     // while in_err contains (net_output-target) :
     // this is already derivative of the error with 
     // respect to activations of last layer neurons)

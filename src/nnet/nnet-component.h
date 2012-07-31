@@ -25,13 +25,13 @@
 #include "matrix/matrix-lib.h"
 #include "cudamatrix/cu-matrix.h"
 #include "cudamatrix/cu-vector.h"
-//#include "nnet/nnet-nnet.h"
+// #include "nnet/nnet-nnet.h"
 
 #include <iostream>
 
 namespace kaldi {
 
-//declare the nnet class so we can declare pointer
+// declare the nnet class so we can declare pointer
 class Nnet;
     
 
@@ -64,6 +64,7 @@ class Component {
     kSigmoid,
 
     kTranform =  0x0400,
+    kRbm,
     kExpand,
     kCopy,
     kTranspose,
@@ -75,16 +76,16 @@ class Component {
   /// Pair of type and marker
   struct key_value {
     const Component::ComponentType key;
-    const char* value;
+    const char *value;
   };
   /// Mapping of types and markers 
   static const struct key_value kMarkerMap[];
   /// Convert component type to marker
   static const char* TypeToMarker(ComponentType t);
   /// Convert marker to component type
-  static ComponentType MarkerToType(const std::string& s);
+  static ComponentType MarkerToType(const std::string &s);
 
-  Component(MatrixIndexT input_dim, MatrixIndexT output_dim, Nnet* nnet) 
+  Component(MatrixIndexT input_dim, MatrixIndexT output_dim, Nnet *nnet) 
       : input_dim_(input_dim), output_dim_(output_dim), nnet_(nnet) { }
   virtual ~Component() { }
    
@@ -106,31 +107,31 @@ class Component {
   }
  
   /// Perform forward pass propagateion Input->Output
-  void Propagate(const CuMatrix<BaseFloat>& in, CuMatrix<BaseFloat>* out); 
+  void Propagate(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out); 
   /// Perform backward pass propagateion ErrorInput->ErrorOutput
-  void Backpropagate(const CuMatrix<BaseFloat>& in_err,
-                     CuMatrix<BaseFloat>* out_err); 
+  void Backpropagate(const CuMatrix<BaseFloat> &in_err,
+                     CuMatrix<BaseFloat> *out_err); 
 
   /// Read component from stream
-  static Component* Read(std::istream& is, bool binary, Nnet* nnet);
+  static Component* Read(std::istream &is, bool binary, Nnet *nnet);
   /// Write component to stream
-  void Write(std::ostream& os, bool binary) const;
+  void Write(std::ostream &os, bool binary) const;
 
 
   // abstract interface for propagation/backpropagation 
  protected:
   /// Forward pass transformation (to be implemented by descendents...)
-  virtual void PropagateFnc(const CuMatrix<BaseFloat>& in,
-                            CuMatrix<BaseFloat>* out) = 0;
+  virtual void PropagateFnc(const CuMatrix<BaseFloat> &in,
+                            CuMatrix<BaseFloat> *out) = 0;
   /// Backward pass transformation (to be implemented by descendents...)
-  virtual void BackpropagateFnc(const CuMatrix<BaseFloat>& in_err,
-                                CuMatrix<BaseFloat>* out_err) = 0;
+  virtual void BackpropagateFnc(const CuMatrix<BaseFloat> &in_err,
+                                CuMatrix<BaseFloat> *out_err) = 0;
 
   /// Reads the component content
-  virtual void ReadData(std::istream& is, bool binary) { }
+  virtual void ReadData(std::istream &is, bool binary) { }
 
   /// Writes the component content
-  virtual void WriteData(std::ostream& os, bool binary) const { }
+  virtual void WriteData(std::ostream &os, bool binary) const { }
 
 
   // data members
@@ -138,7 +139,7 @@ class Component {
   MatrixIndexT input_dim_;  ///< Size of input vectors
   MatrixIndexT output_dim_; ///< Size of output vectors
   
-  Nnet* nnet_; ///< Pointer to the whole network
+  Nnet *nnet_; ///< Pointer to the whole network
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(Component);
 };
@@ -148,12 +149,12 @@ class Component {
  * Class UpdatableComponent is a Component which has
  * trainable parameters and contains some global 
  * parameters for stochastic gradient descent
- * (learnrate,momenutm,L2,L1)
+ * (learnrate, momenutm, L2, L1)
  */
 class UpdatableComponent : public Component {
  public: 
-  UpdatableComponent(MatrixIndexT input_dim, MatrixIndexT output_dim, Nnet* nnet)
-    : Component(input_dim,output_dim,nnet),
+  UpdatableComponent(MatrixIndexT input_dim, MatrixIndexT output_dim, Nnet *nnet)
+    : Component(input_dim, output_dim, nnet),
       learn_rate_(0.0), momentum_(0.0), l2_penalty_(0.0), l1_penalty_(0.0) { }
   virtual ~UpdatableComponent() { }
 
@@ -163,42 +164,42 @@ class UpdatableComponent : public Component {
   }
 
   /// Compute gradient and update parameters
-  virtual void Update(const CuMatrix<BaseFloat>& input,
-                      const CuMatrix<BaseFloat>& err) = 0;
+  virtual void Update(const CuMatrix<BaseFloat> &input,
+                      const CuMatrix<BaseFloat> &err) = 0;
 
   /// Sets the learning rate of gradient descent
-  void LearnRate(BaseFloat lrate) { 
+  void SetLearnRate(BaseFloat lrate) { 
     learn_rate_ = lrate; 
   }
   /// Gets the learning rate of gradient descent
-  BaseFloat LearnRate() { 
+  BaseFloat GetLearnRate() { 
     return learn_rate_; 
   }
   
   /// Sets momentum
-  void Momentum(BaseFloat mmt) { 
+  void SetMomentum(BaseFloat mmt) { 
     momentum_ = mmt; 
   }
   /// Gets momentum
-  BaseFloat Momentum() { 
+  BaseFloat GetMomentum() { 
     return momentum_; 
   }
 
   /// Sets L2 penalty (weight decay)
-  void L2Penalty(BaseFloat l2) { 
+  void SetL2Penalty(BaseFloat l2) { 
     l2_penalty_ = l2; 
   }
   /// Gets L2 penalty (weight decay)
-  BaseFloat L2Penalty() { 
+  BaseFloat GetL2Penalty() { 
     return l2_penalty_; 
   }
 
   /// Sets L1 penalty (sparisity promotion)
-  void L1Penalty(BaseFloat l1) { 
+  void SetL1Penalty(BaseFloat l1) { 
     l1_penalty_ = l1; 
   }
   /// Gets L1 penalty (sparisity promotion)
-  BaseFloat L1Penalty() { 
+  BaseFloat GetL1Penalty() { 
     return l1_penalty_; 
   }
 
@@ -212,13 +213,13 @@ class UpdatableComponent : public Component {
 
 
 
-inline void Component::Propagate(const CuMatrix<BaseFloat>& in,
-                                 CuMatrix<BaseFloat>* out) {
-  if(input_dim_ != in.NumCols()) {
+inline void Component::Propagate(const CuMatrix<BaseFloat> &in,
+                                 CuMatrix<BaseFloat> *out) {
+  if (input_dim_ != in.NumCols()) {
     KALDI_ERR << "Nonmatching dims, component:" << input_dim_ << " data:" << in.NumCols();
   }
   
-  if(output_dim_ != out->NumCols() || in.NumRows() != out->NumRows()) {
+  if (output_dim_ != out->NumCols() || in.NumRows() != out->NumRows()) {
     out->Resize(in.NumRows(), output_dim_);
   }
 
@@ -226,14 +227,14 @@ inline void Component::Propagate(const CuMatrix<BaseFloat>& in,
 }
 
 
-inline void Component::Backpropagate(const CuMatrix<BaseFloat>& in_err,
-                                     CuMatrix<BaseFloat>* out_err) {
-  if(output_dim_ != in_err.NumCols()) {
+inline void Component::Backpropagate(const CuMatrix<BaseFloat> &in_err,
+                                     CuMatrix<BaseFloat> *out_err) {
+  if (output_dim_ != in_err.NumCols()) {
     KALDI_ERR << "Nonmatching dims, component:" << output_dim_ 
               << " data:" << in_err.NumCols();
   }
   
-  if(input_dim_ != out_err->NumCols() || in_err.NumRows() != out_err->NumRows()) {
+  if (input_dim_ != out_err->NumCols() || in_err.NumRows() != out_err->NumRows()) {
     out_err->Resize(in_err.NumRows(), input_dim_);
   }
 

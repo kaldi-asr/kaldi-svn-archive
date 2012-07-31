@@ -1,6 +1,6 @@
 // gmm/am-diag-gmm.cc
 
-// Copyright 2012   Arnab Ghoshal  Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2012   Arnab Ghoshal  Johns Hopkins University (Author: Daniel Povey)  Karel Vesely
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation;
 //                      Georg Stemmer
 
@@ -33,7 +33,7 @@ AmDiagGmm::~AmDiagGmm() {
   DeletePointers(&densities_);
 }
 
-void AmDiagGmm::Init(const DiagGmm& proto, int32 num_pdfs) {
+void AmDiagGmm::Init(const DiagGmm &proto, int32 num_pdfs) {
   if (densities_.size() != 0) {
     KALDI_WARN << "Init() called on a non-empty object. Contents will be "
         "overwritten";
@@ -45,7 +45,6 @@ void AmDiagGmm::Init(const DiagGmm& proto, int32 num_pdfs) {
   }
 
   densities_.resize(num_pdfs, NULL);
-  dim_ = proto.Dim();
   for (vector<DiagGmm*>::iterator itr = densities_.begin(),
       end = densities_.end(); itr != end; ++itr) {
     *itr = new DiagGmm();
@@ -53,11 +52,9 @@ void AmDiagGmm::Init(const DiagGmm& proto, int32 num_pdfs) {
   }
 }
 
-void AmDiagGmm::AddPdf(const DiagGmm& gmm) {
+void AmDiagGmm::AddPdf(const DiagGmm &gmm) {
   if (densities_.size() != 0)  // not the first gmm
-    assert(static_cast<int32>(gmm.Dim()) == dim_);
-  else
-    dim_ = gmm.Dim();
+    KALDI_ASSERT(gmm.Dim() == this->Dim());
 
   DiagGmm *gmm_ptr = new DiagGmm();
   gmm_ptr->CopyFromDiagGmm(gmm);
@@ -72,7 +69,7 @@ void AmDiagGmm::RemovePdf(int32 pdf_index) {
 
 int32 AmDiagGmm::NumGauss() const {
   int32 ans = 0;
-  for (size_t i = 0; i < densities_.size(); ++i)
+  for (size_t i = 0; i < densities_.size(); i++)
     ans += densities_[i]->NumGauss();
   return ans;
 }
@@ -82,8 +79,7 @@ void AmDiagGmm::CopyFromAmDiagGmm(const AmDiagGmm &other) {
     DeletePointers(&densities_);
   }
   densities_.resize(other.NumPdfs(), NULL);
-  dim_ = other.dim_;
-  for (int32 i = 0, end = densities_.size(); i < end; ++i) {
+  for (int32 i = 0, end = densities_.size(); i < end; i++) {
     densities_[i] = new DiagGmm();
     densities_[i]->CopyFromDiagGmm(*other.densities_[i]);
   }
@@ -100,68 +96,6 @@ int32 AmDiagGmm::ComputeGconsts() {
   return num_bad;
 }
 
-struct CountStats {
-  CountStats(int32 p, int32 n, BaseFloat occ)
-      : pdf_index(p), num_components(n), occupancy(occ) {}
-  int32 pdf_index;
-  int32 num_components;
-  BaseFloat occupancy;
-  bool operator < (const CountStats &other) const {
-    return occupancy/(num_components+1.0e-10) <
-        other.occupancy/(other.num_components+1.0e-10);
-  }
-};
-
-void AmDiagGmm::ComputeTargetNumPdfs(const Vector<BaseFloat> &state_occs,
-                                     int32 target_components,
-                                     BaseFloat power,
-                                     BaseFloat min_count,
-                                     std::vector<int32> *targets) const {
-  KALDI_ASSERT(static_cast<int32>(state_occs.Dim()) == NumPdfs());
-
-  std::priority_queue<CountStats> split_queue;
-  int32 current_components = 0;
-  for (int32 pdf_index = 0, num_pdf = NumPdfs(); pdf_index < num_pdf;
-       ++pdf_index) {
-    BaseFloat occ = pow(state_occs(pdf_index), power);
-    // initialize with one Gaussian per PDF, to put a floor
-    // of 1 on the #Gauss
-    split_queue.push(CountStats(pdf_index, 1, occ));
-    current_components += densities_[pdf_index]->NumGauss();
-  }
-  KALDI_ASSERT(current_components == NumGauss());
-
-  for (int32 num_gauss = NumPdfs();  // since we initialized with 1 per PDF.
-       num_gauss < target_components;
-      ++num_gauss) {
-    CountStats state_to_split = split_queue.top();
-    if (state_to_split.occupancy == 0) {
-      KALDI_WARN << "Could not split up to " << target_components
-                 << " due to min-count = " << min_count
-                 << " (or no counts at all)\n";
-      break;
-    }
-    split_queue.pop();
-    BaseFloat orig_occ = state_occs(state_to_split.pdf_index);
-    if ((state_to_split.num_components+1) * min_count >= orig_occ) {
-      state_to_split.occupancy = 0; // min-count active -> disallow splitting
-      // this state any more by setting occupancy = 0.
-    } else {
-      state_to_split.num_components++;
-    }
-    split_queue.push(state_to_split);
-  }
-
-  targets->resize(NumPdfs());
-
-  current_components = 0;
-  while (!split_queue.empty()) {
-    int32 pdf_index = split_queue.top().pdf_index;
-    int32 pdf_tgt_comp = split_queue.top().num_components;
-    (*targets)[pdf_index] = pdf_tgt_comp;
-    split_queue.pop();
-  }
-}
 
 void AmDiagGmm::SplitByCount(const Vector<BaseFloat> &state_occs,
                              int32 target_components,
@@ -169,8 +103,8 @@ void AmDiagGmm::SplitByCount(const Vector<BaseFloat> &state_occs,
                              BaseFloat min_count) {
   int32 gauss_at_start = NumGauss();
   std::vector<int32> targets;
-  ComputeTargetNumPdfs(state_occs, target_components, power,
-                       min_count, &targets);
+  GetSplitTargets(state_occs, target_components, power,
+                  min_count, &targets);
 
   for (int32 i = 0; i < NumPdfs(); i++) {
     if (densities_[i]->NumGauss() < targets[i])
@@ -192,8 +126,8 @@ void AmDiagGmm::MergeByCount(const Vector<BaseFloat> &state_occs,
                              BaseFloat min_count) {
   int32 gauss_at_start = NumGauss();
   std::vector<int32> targets;
-  ComputeTargetNumPdfs(state_occs, target_components,
-                       power, min_count, &targets);
+  GetSplitTargets(state_occs, target_components,
+                  power, min_count, &targets);
 
   for (int32 i = 0; i < NumPdfs(); i++) {
     if (targets[i] == 0) targets[i] = 1;  // can't merge below 1.
@@ -209,10 +143,10 @@ void AmDiagGmm::MergeByCount(const Vector<BaseFloat> &state_occs,
 }
 
 void AmDiagGmm::Read(std::istream &in_stream, bool binary) {
-  int32 num_pdfs;
+  int32 num_pdfs, dim;
 
   ExpectToken(in_stream, binary, "<DIMENSION>");
-  ReadBasicType(in_stream, binary, &dim_);
+  ReadBasicType(in_stream, binary, &dim);
   ExpectToken(in_stream, binary, "<NUMPDFS>");
   ReadBasicType(in_stream, binary, &num_pdfs);
   KALDI_ASSERT(num_pdfs > 0);
@@ -220,15 +154,17 @@ void AmDiagGmm::Read(std::istream &in_stream, bool binary) {
   for (int32 i = 0; i < num_pdfs; i++) {
     densities_.push_back(new DiagGmm());
     densities_.back()->Read(in_stream, binary);
-    KALDI_ASSERT(static_cast<int32>(densities_.back()->Dim())
-                 == dim_);
+    KALDI_ASSERT(densities_.back()->Dim() == dim);
   }
 }
 
 void AmDiagGmm::Write(std::ostream &out_stream, bool binary) const {
-  KALDI_ASSERT((*densities_.begin())->Dim()==dim_);
+  int32 dim = this->Dim();
+  if (dim == 0) {
+    KALDI_WARN << "Trying to write empty AmDiagGmm object.";
+  }
   WriteToken(out_stream, binary, "<DIMENSION>");
-  WriteBasicType(out_stream, binary, dim_);
+  WriteBasicType(out_stream, binary, dim);
   WriteToken(out_stream, binary, "<NUMPDFS>");
   WriteBasicType(out_stream, binary, static_cast<int32>(densities_.size()));
   for (std::vector<DiagGmm*>::const_iterator it = densities_.begin(),
@@ -254,7 +190,7 @@ void UbmClusteringOptions::Check() {
               << reduce_state_factor;
 }
 
-void ClusterGaussiansToUbm(const AmDiagGmm& am,
+void ClusterGaussiansToUbm(const AmDiagGmm &am,
                            const Vector<BaseFloat> &state_occs,
                            UbmClusteringOptions opts,
                            DiagGmm *ubm_out) {
@@ -358,7 +294,7 @@ void ClusterGaussiansToUbm(const AmDiagGmm& am,
   ClusterBottomUpCompartmentalized(state_clust_gauss, kBaseFloatMax,
                                    opts.intermediate_num_gauss,
                                    &gauss_clusters_out, NULL);
-  for (int32 clust_index = 0; clust_index < num_clust_states; ++clust_index)
+  for (int32 clust_index = 0; clust_index < num_clust_states; clust_index++)
     DeletePointers(&state_clust_gauss[clust_index]);
 
   // Next, put the remaining clustered Gaussians into a single GMM.
@@ -369,7 +305,7 @@ void ClusterGaussiansToUbm(const AmDiagGmm& am,
   Vector<BaseFloat> tmp_weights(opts.intermediate_num_gauss);
   Vector<BaseFloat> tmp_vec(dim);
   int32 gauss_index = 0;
-  for (int32 clust_index = 0; clust_index < num_clust_states; ++clust_index) {
+  for (int32 clust_index = 0; clust_index < num_clust_states; clust_index++) {
     for (int32 i = gauss_clusters_out[clust_index].size()-1; i >=0; --i) {
       GaussClusterable *this_cluster = static_cast<GaussClusterable*>(
           gauss_clusters_out[clust_index][i]);

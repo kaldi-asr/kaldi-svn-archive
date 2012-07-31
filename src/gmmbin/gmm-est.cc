@@ -43,7 +43,6 @@ int main(int argc, char *argv[]) {
     std::string update_flags_str = "mvwt";
     std::string occs_out_filename;
 
-
     ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
     po.Register("mix-up", &mixup, "Increase number of mixture components to "
@@ -111,7 +110,7 @@ int main(int argc, char *argv[]) {
                          &objf_impr, &count);
       KALDI_LOG << "GMM update: average " << (objf_impr/count)
                 << " objective function improvement per frame over "
-                <<  (count) <<  " frames.";
+                <<  count <<  " frames";
       KALDI_LOG << "GMM update: Overall avg like per frame = "
                 << (tot_like/tot_t) << " over " << tot_t << " frames.";
     }
@@ -144,7 +143,7 @@ int main(int argc, char *argv[]) {
 
     KALDI_LOG << "Written model to " << model_out_filename;
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';
     return -1;
   }

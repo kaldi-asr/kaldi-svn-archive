@@ -30,7 +30,7 @@ AmTiedDiagGmm::~AmTiedDiagGmm() {
   DeletePointers(&tied_densities_);
 }
 
-void AmTiedDiagGmm::Init(const DiagGmm& proto) {
+void AmTiedDiagGmm::Init(const DiagGmm &proto) {
   if (densities_.size() != 0 || tied_densities_.size() != 0) {
     KALDI_WARN << "Init() called on a non-empty object. Contents will be "
         "overwritten";
@@ -107,12 +107,12 @@ void AmTiedDiagGmm::CopyFromAmTiedDiagGmm(const AmTiedDiagGmm &other) {
 
   dim_ = other.dim_;
 
-  for (int32 i = 0; i < densities_.size(); ++i) {
+  for (int32 i = 0; i < densities_.size(); i++) {
     densities_[i] = new DiagGmm();
     densities_[i]->CopyFromDiagGmm(*(other.densities_[i]));
   }
 
-  for (int32 i = 0; i < tied_densities_.size(); ++i) {
+  for (int32 i = 0; i < tied_densities_.size(); i++) {
     tied_densities_[i] = new TiedGmm();
     tied_densities_[i]->CopyFromTiedGmm(*(other.tied_densities_[i]));
   }
@@ -138,7 +138,7 @@ void AmTiedDiagGmm::SetupPerFrameVars(
   per_frame_vars->Setup(dim_, NumCodebooks());
 
   // allocate the svqs
-  for (int32 i = 0; i < NumCodebooks(); ++i) {
+  for (int32 i = 0; i < NumCodebooks(); i++) {
     per_frame_vars->ResizeSvq(i, GetCodebook(i).NumGauss());
     per_frame_vars->current[i] = false;
   }
@@ -151,7 +151,7 @@ void AmTiedDiagGmm::ComputePerFrameVars(
   per_frame_vars->x.CopyFromVec(data);
 
   // set the currency indicators to false
-  for (int32 i = 0; i < NumCodebooks(); ++i)
+  for (int32 i = 0; i < NumCodebooks(); i++)
     per_frame_vars->current[i] = false;
 }
 

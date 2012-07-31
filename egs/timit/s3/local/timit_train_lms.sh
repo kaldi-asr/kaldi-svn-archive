@@ -1,5 +1,22 @@
 #!/bin/bash
+# Copyright 2012  Navdeep Jaitly
+
+# Derived from swbd/s3/local/swbd_p1_train_lms.sh scripts. 
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+# WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+# MERCHANTABLITY OR NON-INFRINGEMENT.
+# See the Apache 2 License for the specific language governing permissions and
+# limitations under the License.
+
+
 # To be run from one directory above this script.
 # This script takes no arguments.  It assumes you have already run
 # timit_data_prep.sh.  
@@ -67,8 +84,12 @@ cat $dir/unigram.counts  | awk '{print $2}' | local/get_word_map.pl "<s>" "</s>"
 cat $trans_file | awk -v wmap=$dir/word_map 'BEGIN{while((getline<wmap)>0)map[$1]=$2;}
   { for(n=2;n<=NF;n++) { printf map[$n]; if(n<NF){ printf " "; } else { print ""; }}}' | gzip -c >$dir/train.gz
 
-! merge_ngrams </dev/null >&/dev/null  && echo You need to have kaldi_lm on your path \
-   && exit 1;
+! merge_ngrams </dev/null >&/dev/null  && \
+     echo merge_ngrams not found in kaldi_lm. You need to have kaldi_lm on your path OR && \
+     echo You can do the following:  && \
+     echo  1. Install the latest version from http://merlin.fit.vutbr.cz/kaldi/kaldi_lm.tar.gz  && \
+     echo  2. you delete kaldi_lm, and kaldi_lm.tar.gz in the tools folder. This script will automatically install it. && \
+   exit 1;
 
 echo "Creating biphone model"
 local/create_biphone_lm.sh  $dir

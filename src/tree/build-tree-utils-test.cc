@@ -123,10 +123,10 @@ void TestSplitStatsByKey() {
     BuildTreeStatsType stats;
     for(int32 i = 0; i < 100; i++) {
       EventType evec;
-      if(rand() % 2)
+      if (rand() % 2)
         evec.push_back(std::make_pair(12, rand() % 10));
       evec.push_back(std::make_pair(10, rand() % 10));
-      if(rand() % 2)
+      if (rand() % 2)
         evec.push_back(std::make_pair(8, rand() % 10));
       std::sort(evec.begin(), evec.end());
       stats.push_back(std::make_pair(evec, static_cast<Clusterable*>(NULL)));
@@ -653,7 +653,7 @@ void TestQuestionsInitRand() {
     std::set<EventKeyType> keys_all_saw_set;
     // Now we have two distinct sets of keys keys_all and keys_some.
     // We now create the Clusterable* stuff.
-    BuildTreeStatsType dummy_stats;  // dummy because the Clusterable* pointers are actually NULL.
+    BuildTreeStatsType dummy_stats;  // dummy because the Clusterable *pointers are actually NULL.
     size_t n_stats = rand() % 100;
     // make sure we sometimes have empty or just one stats: may find extra bugs.
     if (n_stats > 90) n_stats = 0;
@@ -743,7 +743,7 @@ void TestSplitDecisionTree() {
     std::set<EventKeyType> keys_all_saw_set;
     // Now we have two distinct sets of keys keys_all and keys_some.
     // We now create the Clusterable* stuff.
-    BuildTreeStatsType stats;  // dummy because the Clusterable* pointers are actually NULL.
+    BuildTreeStatsType stats;  // dummy because the Clusterable *pointers are actually NULL.
     size_t n_stats = rand() % 100;
     // make sure we sometimes have empty or just one stats: may find extra bugs.
     if (n_stats > 90) n_stats = 0;
@@ -766,7 +766,7 @@ void TestSplitDecisionTree() {
     }
     Questions qo;  // all default.
     BaseFloat thresh = 0.00001;  // these stats have a count of 1... need v. small thresh to get them to merge.
-    //0.000001 tries to ensure everything is split.
+    // 0.000001 tries to ensure everything is split.
 
     bool intersection = true;  // keep borrowed code later on happy.
 

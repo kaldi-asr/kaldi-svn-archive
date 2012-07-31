@@ -82,6 +82,7 @@ if ($num_jobs == 0) { # without -j option
 
 if ($utt2spk_file ne "") {  # We have the --utt2spk option...
     open(U, "<$utt2spk_file") || die "Failed to open utt2spk file $utt2spk_file";
+
     while(<U>) {
         @A = split;
         @A == 2 || die "Bad line $_ in utt2spk file $utt2spk_file";
@@ -89,6 +90,7 @@ if ($utt2spk_file ne "") {  # We have the --utt2spk option...
         $utt2spk{$u} = $s;
     }
     open(I, "<$inscp") || die "Opening input scp file $inscp";
+
     @spkrs = ();
     while(<I>) {
         @A = split;
@@ -203,6 +205,9 @@ if ($utt2spk_file ne "") {  # We have the --utt2spk option...
     for($scpidx = 0; $scpidx < @OUTPUTS; $scpidx++) {
         $scpfile = $OUTPUTS[$scpidx];
         open(O, ">$scpfile") || die "Opening output scp file $scpfile";
+        if ($linesperscp * $scpidx >= $numlines) {
+          die "split_scp.pl: you are splitting into too many pieces!";
+        }
         for($n = $linesperscp * $scpidx; $n < $numlines && $n < $linesperscp*($scpidx+1); $n++) {
             print O $F[$n];
         }

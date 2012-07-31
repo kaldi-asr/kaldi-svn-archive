@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
     Matrix<BaseFloat> fmllr_xform(dim, dim + 1);
     BaseFloat logdet = 0.0;
     double tot_impr = 0.0, tot_t = 0.0;
-    int32 num_done = 0, num_no_post = 0, num_other_error = 0;
+    int32 num_done = 0, num_err = 0;
     std::vector<std::vector<int32> > empty_gselect;
 
     if (!spk2utt_rspecifier.empty()) {  // per-speaker adaptation
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
             am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
           } else {
             KALDI_WARN << "Cannot find speaker vector for " << spk;
-            num_other_error++;
+            num_err++;
             continue;
           }
         }  // else spk_vars is "empty"
@@ -178,11 +178,12 @@ int main(int argc, char *argv[]) {
           std::string utt = uttlist[i];
           if (!feature_reader.HasKey(utt)) {
             KALDI_WARN << "Did not find features for utterance " << utt;
+            num_err++;
             continue;
           }
           if (!post_reader.HasKey(utt)) {
             KALDI_WARN << "Did not find posteriors for utterance " << utt;
-            num_no_post++;
+            num_err++;
             continue;
           }
           const Matrix<BaseFloat> &feats = feature_reader.Value(utt);
@@ -190,7 +191,7 @@ int main(int argc, char *argv[]) {
           if (static_cast<int32>(post.size()) != feats.NumRows()) {
             KALDI_WARN << "posterior vector has wrong size " << (post.size())
                        << " vs. " << (feats.NumRows());
-            num_other_error++;
+            num_err++;
             continue;
           }
 
@@ -229,7 +230,7 @@ int main(int argc, char *argv[]) {
         if (!post_reader.HasKey(utt)) {
           KALDI_WARN << "Did not find posts for utterance "
                      << utt;
-          num_no_post++;
+          num_err++;
           continue;
         }
         const Matrix<BaseFloat> &feats = feature_reader.Value();
@@ -241,7 +242,7 @@ int main(int argc, char *argv[]) {
             am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
           } else {
             KALDI_WARN << "Cannot find speaker vector for " << utt;
-            num_other_error++;
+            num_err++;
             continue;
           }
         }  // else spk_vars is "empty"
@@ -265,7 +266,7 @@ int main(int argc, char *argv[]) {
         if (static_cast<int32>(post.size()) != feats.NumRows()) {
           KALDI_WARN << "post has wrong size " << (post.size())
               << " vs. " << (feats.NumRows());
-          num_other_error++;
+          num_err++;
           continue;
         }
         spk_stats.SetZero();
@@ -299,12 +300,11 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    KALDI_LOG << "Done " << num_done << " files, " << num_no_post
-              << " with no posts, " << num_other_error << " with other errors.";
-    KALDI_LOG << "Num frames " << tot_t << ", auxf impr per frame is "
-              << (tot_impr / tot_t);
+    KALDI_LOG << "Done " << num_done << " files, " << num_err << " with errors.";
+    KALDI_LOG << "Overall auxf impr per frame is " << (tot_impr / tot_t)
+              << " per frame, over " << tot_t << " frames.";
     return (num_done != 0 ? 0 : 1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

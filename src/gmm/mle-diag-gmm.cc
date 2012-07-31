@@ -45,7 +45,8 @@ void AccumDiagGmm::Read(std::istream &in_stream, bool binary, bool add) {
         KALDI_ERR << "MlEstimatediagGmm::Read, dimension or flags mismatch, "
                   << NumGauss() << ", " << Dim() << ", "
                   << GmmFlagsToString(Flags()) << " vs. " << num_components << ", "
-                  << dimension << ", " << flags;
+                  << dimension << ", " << flags << " (mixing accs from different "
+                  << "models?";
     } else {
       Resize(num_components, dimension, flags);
     }
@@ -131,7 +132,7 @@ void AccumDiagGmm::Scale(BaseFloat f, GmmFlagsType flags) {
   if (flags & kGmmVariances) variance_accumulator_.Scale(d);
 }
 
-void AccumDiagGmm::AccumulateForComponent(const VectorBase<BaseFloat>& data,
+void AccumDiagGmm::AccumulateForComponent(const VectorBase<BaseFloat> &data,
                                           int32 comp_index, BaseFloat weight) {
   if (flags_ & kGmmMeans)
     KALDI_ASSERT(data.Dim() == Dim());
@@ -163,8 +164,8 @@ void AccumDiagGmm::AddStatsForComponent(int32 g,
 
 
 void AccumDiagGmm::AccumulateFromPosteriors(
-    const VectorBase<BaseFloat>& data,
-    const VectorBase<BaseFloat>& posteriors) {
+    const VectorBase<BaseFloat> &data,
+    const VectorBase<BaseFloat> &posteriors) {
   if (flags_ & kGmmMeans)
     KALDI_ASSERT(static_cast<int32>(data.Dim()) == Dim());
   KALDI_ASSERT(static_cast<int32>(posteriors.Dim()) == NumGauss());
@@ -183,7 +184,7 @@ void AccumDiagGmm::AccumulateFromPosteriors(
 }
 
 BaseFloat AccumDiagGmm::AccumulateFromDiag(const DiagGmm &gmm,
-                                           const VectorBase<BaseFloat>& data,
+                                           const VectorBase<BaseFloat> &data,
                                            BaseFloat frame_posterior) {
   KALDI_ASSERT(gmm.NumGauss() == NumGauss());
   KALDI_ASSERT(gmm.Dim() == Dim());
@@ -217,7 +218,7 @@ void AccumDiagGmm::SmoothStats(BaseFloat tau) {
 // to each Gaussian in this acc.
 // Careful: this wouldn't be valid if it were used to update the
 // Gaussian weights.
-void AccumDiagGmm::SmoothWithAccum(BaseFloat tau, const AccumDiagGmm& src_acc) {
+void AccumDiagGmm::SmoothWithAccum(BaseFloat tau, const AccumDiagGmm &src_acc) {
   KALDI_ASSERT(src_acc.NumGauss() == num_comp_ && src_acc.Dim() == dim_);
   for (int32 i = 0; i < num_comp_; i++) {
     if (src_acc.occupancy_(i) != 0.0) { // can only smooth if src was nonzero...
@@ -232,7 +233,7 @@ void AccumDiagGmm::SmoothWithAccum(BaseFloat tau, const AccumDiagGmm& src_acc) {
 }
 
 
-void AccumDiagGmm::SmoothWithModel(BaseFloat tau, const DiagGmm& gmm) {
+void AccumDiagGmm::SmoothWithModel(BaseFloat tau, const DiagGmm &gmm) {
   KALDI_ASSERT(gmm.NumGauss() == num_comp_ && gmm.Dim() == dim_);
   Matrix<double> means(num_comp_, dim_);
   Matrix<double> vars(num_comp_, dim_);
@@ -253,32 +254,7 @@ AccumDiagGmm::AccumDiagGmm(const AccumDiagGmm &other)
       mean_accumulator_(other.mean_accumulator_),
       variance_accumulator_(other.variance_accumulator_) {}
 
-int32 FloorVariance(const  VectorBase<BaseFloat> &variance_floor_vector,
-                    VectorBase<double> *var) {
-  int32 ans = 0;
-  KALDI_ASSERT(variance_floor_vector.Dim() == var->Dim());
-  for (int32 i = 0; i < var->Dim(); i++) {
-    if ((*var)(i) < variance_floor_vector(i)) {
-      (*var)(i) = variance_floor_vector(i);
-      ans++;
-    }
-  }
-  return ans;
-}
-
-int32 FloorVariance(const BaseFloat min_variance,
-                    VectorBase<double> *var) {
-  int32 ans = 0;
-  for (int32 i = 0; i < var->Dim(); i++) {
-    if ((*var)(i) < min_variance) {
-      (*var)(i) = min_variance;
-      ans++;
-    }
-  }
-  return ans;
-}
-
-BaseFloat MlObjective(const DiagGmm& gmm,
+BaseFloat MlObjective(const DiagGmm &gmm,
                       const AccumDiagGmm &diaggmm_acc) {
   GmmFlagsType acc_flags = diaggmm_acc.Flags();
   Vector<BaseFloat> occ_bf(diaggmm_acc.occupancy());
@@ -323,7 +299,7 @@ void MleDiagGmmUpdate(const MleDiagGmmOptions &config,
   DiagGmmNormal ngmm(*gmm);
 
   std::vector<int32> to_remove;
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     double occ = diaggmm_acc.occupancy()(i);
     double prob;
     if (occ_sum > 0.0)
@@ -362,12 +338,15 @@ void MleDiagGmmUpdate(const MleDiagGmmOptions &config,
         }
    
         int32 floored;
-        if (config.variance_floor_vector.Dim() != 0)
-          floored = FloorVariance(config.variance_floor_vector, &var);
-        else 
-          floored = FloorVariance(config.min_variance, &var);
+        if (config.variance_floor_vector.Dim() != 0) {
+          floored = var.ApplyFloor(config.variance_floor_vector);
+//          floored = FloorVariance(config.variance_floor_vector, &var);
+        } else {
+          floored = var.ApplyFloor(config.min_variance);
+//          floored = FloorVariance(config.min_variance, &var);
+        }
       
-        if (floored) {
+        if (floored != 0) {
           tot_floored += floored;
           gauss_floored++;
         }

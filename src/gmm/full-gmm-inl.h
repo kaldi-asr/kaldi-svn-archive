@@ -26,19 +26,19 @@
 namespace kaldi {
 
 template<class Real>
-void FullGmm::SetWeights(const Vector<Real>& w) {
+void FullGmm::SetWeights(const Vector<Real> &w) {
   KALDI_ASSERT(weights_.Dim() == w.Dim());
   weights_.CopyFromVec(w);
   valid_gconsts_ = false;
 }
 
 template<class Real>
-void FullGmm::SetMeans(const Matrix<Real>& m) {
+void FullGmm::SetMeans(const Matrix<Real> &m) {
   KALDI_ASSERT(means_invcovars_.NumRows() == m.NumRows()
     && means_invcovars_.NumCols() == m.NumCols());
   size_t num_comp = NumGauss();
   Matrix<BaseFloat> m_bf(m);
-  for (size_t i = 0; i < num_comp; ++i) {
+  for (size_t i = 0; i < num_comp; i++) {
     means_invcovars_.Row(i).AddSpVec(1.0, inv_covars_[i], m_bf.Row(i), 0.0);
   }
   valid_gconsts_ = false;
@@ -46,13 +46,13 @@ void FullGmm::SetMeans(const Matrix<Real>& m) {
 
 template<class Real>
 void FullGmm::SetInvCovarsAndMeans(
-    const std::vector<SpMatrix<Real> >& invcovars, const Matrix<Real>& means) {
+    const std::vector<SpMatrix<Real> > &invcovars, const Matrix<Real> &means) {
   KALDI_ASSERT(means_invcovars_.NumRows() == means.NumRows()
     && means_invcovars_.NumCols() == means.NumCols()
     && inv_covars_.size() == invcovars.size());
 
   size_t num_comp = NumGauss();
-  for (size_t i = 0; i < num_comp; ++i) {
+  for (size_t i = 0; i < num_comp; i++) {
     inv_covars_[i].CopyFromSp(invcovars[i]);
     Vector<Real> mean_times_inv(Dim());
     mean_times_inv.AddSpVec(1.0, invcovars[i], means.Row(i), 0.0);
@@ -63,14 +63,14 @@ void FullGmm::SetInvCovarsAndMeans(
 
 template<class Real>
 void FullGmm::SetInvCovarsAndMeansInvCovars(
-    const std::vector<SpMatrix<Real> >& invcovars,
-    const Matrix<Real>& means_invcovars) {
+    const std::vector<SpMatrix<Real> > &invcovars,
+    const Matrix<Real> &means_invcovars) {
   KALDI_ASSERT(means_invcovars_.NumRows() == means_invcovars.NumRows()
                && means_invcovars_.NumCols() == means_invcovars.NumCols()
                && inv_covars_.size() == invcovars.size());
 
   size_t num_comp = NumGauss();
-  for (size_t i = 0; i < num_comp; ++i) {
+  for (size_t i = 0; i < num_comp; i++) {
     inv_covars_[i].CopyFromSp(invcovars[i]);
   }
   means_invcovars_.CopyFromMat(means_invcovars);
@@ -78,7 +78,7 @@ void FullGmm::SetInvCovarsAndMeansInvCovars(
 }
 
 template<class Real>
-void FullGmm::SetInvCovars(const std::vector<SpMatrix<Real> >& v) {
+void FullGmm::SetInvCovars(const std::vector<SpMatrix<Real> > &v) {
   KALDI_ASSERT(inv_covars_.size() == v.size());
   size_t num_comp = NumGauss();
 
@@ -87,7 +87,7 @@ void FullGmm::SetInvCovars(const std::vector<SpMatrix<Real> >& v) {
   Vector<Real> new_mean_times_invvar(Dim());
   SpMatrix<Real> covar(Dim());
 
-  for (size_t i = 0; i < num_comp; ++i) {
+  for (size_t i = 0; i < num_comp; i++) {
     orig_mean_times_invvar.CopyFromVec(means_invcovars_.Row(i));
     covar.CopyFromSp(inv_covars_[i]);
     covar.InvertDouble();
@@ -127,7 +127,7 @@ void FullGmm::GetMeans(Matrix<Real> *M) const {
 }
 
 template<class Real>
-void FullGmm::GetCovarsAndMeans(std::vector< SpMatrix<Real> >* covars,
+void FullGmm::GetCovarsAndMeans(std::vector< SpMatrix<Real> > *covars,
                                 Matrix<Real> *means) const {
   assert(covars != NULL && means != NULL);
   size_t dim = Dim();

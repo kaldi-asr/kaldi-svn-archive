@@ -13,7 +13,7 @@
 cmd=run.pl
 schedule="fmmi mmi fmmi mmi fmmi mmi fmmi mmi"
 boost=0.0
-learning_rate=0.01
+learning_rate=0.02
 tau=200 # For model.  Note: we're doing smoothing "to the previous iteration",
     # so --smooth-from-model so 200 seems like a more sensible default
     # than 100.  We smooth to the previous iteration because now
@@ -69,7 +69,9 @@ nj=`cat $alidir/num_jobs` || exit 1;
 [ "$nj" -ne "`cat $denlatdir/num_jobs`" ] && \
   echo "$alidir and $denlatdir have different num-jobs" && exit 1;
 sdata=$data/split$nj
+splice_opts=`cat $alidir/splice_opts 2>/dev/null` # frame-splicing options.
 mkdir -p $dir/log
+cp $alidir/splice_opts $dir 2>/dev/null # frame-splicing options.
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
 
@@ -79,7 +81,7 @@ echo "$0: feature type is $feat_type"
 # Note: $feats is the features before fMPE.
 case $feat_type in
   delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "Invalid feature type $feat_type" && exit 1;
@@ -139,11 +141,14 @@ while [ $x -lt $num_iters ]; do
     n=`echo $dir/{num,den}_acc.$x.*.acc | wc -w`;
     [ "$n" -ne $[$nj*2] ] && \
       echo "Wrong number of MMI accumulators $n versus 2*$nj" && exit 1;
+    rm $dir/.error 2>/dev/null
     $cmd $dir/log/den_acc_sum.$x.log \
-      gmm-sum-accs $dir/den_acc.$x.acc $dir/den_acc.$x.*.acc || exit 1;
-    rm $dir/den_acc.$x.*.acc
+      gmm-sum-accs $dir/den_acc.$x.acc $dir/den_acc.$x.*.acc || touch $dir/.error &
     $cmd $dir/log/num_acc_sum.$x.log \
-      gmm-sum-accs $dir/num_acc.$x.acc $dir/num_acc.$x.*.acc || exit 1;
+      gmm-sum-accs $dir/num_acc.$x.acc $dir/num_acc.$x.*.acc || touch $dir/.error &
+    wait
+    [ -f $dir/.error ] && echo "Error summing accs" && exit 1;
+    rm $dir/den_acc.$x.*.acc
     rm $dir/num_acc.$x.*.acc
   fi
 

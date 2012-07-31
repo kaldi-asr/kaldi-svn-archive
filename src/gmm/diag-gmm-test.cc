@@ -177,7 +177,7 @@ void UnitTestDiagGmm() {
     gmm3.Resize(gmm->NumGauss(), gmm->Dim());
     gmm3.SetWeights(weights_bak);
     means_bak.SetZero();
-    for (size_t i = 0; i < nMix; ++i) {
+    for (size_t i = 0; i < nMix; i++) {
       SubVector<BaseFloat> row(means_bak, i);
       gmm->GetComponentMean(i, &row);
       gmm3.SetComponentMean(i, row);
@@ -196,7 +196,7 @@ void UnitTestDiagGmm() {
 
   {
     bool binary_in;
-    DiagGmm* gmm2 = new DiagGmm();
+    DiagGmm *gmm2 = new DiagGmm();
     Input ki("tmpf", &binary_in);
     gmm2->Read(ki.Stream(), binary_in);
 
@@ -208,7 +208,7 @@ void UnitTestDiagGmm() {
     delete gmm2;
 
     // binary read
-    DiagGmm* gmm3;
+    DiagGmm *gmm3;
     gmm3 = new DiagGmm();
     Input ki2("tmpfb", &binary_in);
     gmm3->Read(ki2.Stream(), binary_in);
@@ -296,7 +296,7 @@ void UnitTestDiagGmm() {
 
 int main() {
   // repeat the test ten times
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 2; i++) {
     kaldi::UnitTestDiagGmm();
     kaldi::UnitTestDiagGmmGenerate();
   }

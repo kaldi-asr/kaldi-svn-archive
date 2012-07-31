@@ -46,22 +46,33 @@ int main(int argc, char *argv[]) {
     BaseFloat beam = 200.0;
     BaseFloat retry_beam = 0.0;
     BaseFloat acoustic_scale = 1.0;
+    BaseFloat transition_scale = 1.0;
+    BaseFloat self_loop_scale = 1.0;
     BaseFloat log_prune = 5.0;
+    
     std::string gselect_rspecifier, spkvecs_rspecifier, utt2spk_rspecifier;
-    TrainingGraphCompilerOptions gopts;
     SgmmGselectConfig sgmm_opts;
 
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("beam", &beam, "Decoding beam");
-    po.Register("retry-beam", &retry_beam, "Decoding beam for second try at alignment");
-    po.Register("log-prune", &log_prune, "Pruning beam used to reduce number of exp() evaluations.");
+    po.Register("retry-beam", &retry_beam, "Decoding beam for second try "
+                "at alignment");
+    po.Register("log-prune", &log_prune, "Pruning beam used to reduce number "
+                "of exp() evaluations.");
     po.Register("spk-vecs", &spkvecs_rspecifier, "Speaker vectors (rspecifier)");
     po.Register("utt2spk", &utt2spk_rspecifier,
                 "rspecifier for utterance to speaker map");
-    po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic likelihoods");
-    po.Register("gselect", &gselect_rspecifier, "Precomputed Gaussian indices (rspecifier)");
-    gopts.Register(&po);
+    po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic "
+                "likelihoods");
+    po.Register("transition-scale", &transition_scale, "Scaling factor for "
+                "some transition probabilities [see also self-loop-scale].");
+    po.Register("self-loop-scale", &self_loop_scale, "Scaling factor for "
+                "self-loop versus non-self-loop probability mass [controls "
+                "most transition probabilities.]");
+    po.Register("gselect", &gselect_rspecifier, "Precomputed Gaussian indices "
+                "(rspecifier)");
     sgmm_opts.Register(&po);
+    
     po.Read(argc, argv);
 
     if (po.NumArgs() != 4) {
@@ -163,7 +174,7 @@ int main(int argc, char *argv[]) {
         {  // Add transition-probs to the FST.
           std::vector<int32> disambig_syms;  // empty.
           AddTransitionProbs(trans_model, disambig_syms,
-                             gopts.transition_scale, gopts.self_loop_scale,
+                             transition_scale, self_loop_scale,
                              &decode_fst);
         }
 
@@ -218,7 +229,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "Overall log-likelihood per frame is " << (tot_like/frame_count)
               << " over " << frame_count << " frames.";
     return (num_success != 0 ? 0 : 1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

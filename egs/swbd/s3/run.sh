@@ -10,7 +10,8 @@ exit 1;
 
 # Data prep
 
-local/swbd_p1_data_prep.sh /mnt/matylda2/data/SWITCHBOARD_1R2
+#/mnt/matylda2/data/SWITCHBOARD_1R2
+local/swbd_p1_data_prep.sh /export/corpora3/LDC/LDC97S62 
 
 local/swbd_p1_train_lms.sh
 
@@ -25,13 +26,13 @@ local/eval2000_data_prep.sh /mnt/matylda2/data/HUB5_2000/ /mnt/matylda2/data/HUB
 # want to store MFCC features. 
 #mfccdir=/mnt/matylda6/ijanda/kaldi_swbd_mfcc
 mfccdir=/mnt/matylda6/jhu09/qpovey/kaldi_swbd_mfcc
-cmd="queue.pl -q all.q@@blade" # remove the option if no queue.
-local/make_mfcc_segs.sh --num-jobs 10 --cmd "$cmd" data/train exp/make_mfcc/train $mfccdir
+cmd="queue.pl -S /bin/bash -q '*@a*'" # remove the option if no queue.
+steps/make_mfcc_segs.sh --num-jobs 10 --cmd "$cmd" data/train exp/make_mfcc/train $mfccdir
 # after this, the next command will remove the small number of utterances
 # that couldn't be extracted for some reason (e.g. too short; no such file).
 scripts/fix_data_dir.sh data/train
 
-local/make_mfcc_segs.sh --num-jobs 4 data/eval2000 exp/make_mfcc/eval2000 $mfccdir
+steps/make_mfcc_segs.sh --num-jobs 4 data/eval2000 exp/make_mfcc/eval2000 $mfccdir
 scripts/fix_data_dir.sh data/eval2000 # remove segments that had problems, e.g. too short.
 
 # Use the first 4k sentences as dev set.  Note: when we trained the LM, we used

@@ -27,15 +27,15 @@
 
 namespace kaldi {
 
-template<> float VecVec<>(const VectorBase<float>& ra,
-                          const VectorBase<float>& rb) {
+template<> float VecVec<>(const VectorBase<float> &ra,
+                          const VectorBase<float> &rb) {
   MatrixIndexT adim = ra.Dim();
   KALDI_ASSERT(adim == rb.Dim());
   return cblas_sdot(adim, ra.Data(), 1, rb.Data(), 1);
 }
 
-template<> double VecVec<>(const VectorBase<double>& ra,
-                           const VectorBase<double>& rb) {
+template<> double VecVec<>(const VectorBase<double> &ra,
+                           const VectorBase<double> &rb) {
   MatrixIndexT adim = ra.Dim();
   KALDI_ASSERT(adim == rb.Dim());
   return cblas_ddot(adim, ra.Data(), 1, rb.Data(), 1);
@@ -43,8 +43,8 @@ template<> double VecVec<>(const VectorBase<double>& ra,
 
 
 template<class Real, class OtherReal>
-Real VecVec(const VectorBase<Real>& ra,
-            const VectorBase<OtherReal>& rb) {
+Real VecVec(const VectorBase<Real> &ra,
+            const VectorBase<OtherReal> &rb) {
   MatrixIndexT adim = ra.Dim();
   KALDI_ASSERT(adim == rb.Dim());
   const Real *a_data = ra.Data();
@@ -57,17 +57,17 @@ Real VecVec(const VectorBase<Real>& ra,
 
 // instantiate the template above.
 template
-float VecVec<>(const VectorBase<float>& ra,
-               const VectorBase<double>& rb);
+float VecVec<>(const VectorBase<float> &ra,
+               const VectorBase<double> &rb);
 template
-double VecVec<>(const VectorBase<double>& ra,
-                const VectorBase<float>& rb);
+double VecVec<>(const VectorBase<double> &ra,
+                const VectorBase<float> &rb);
 
 
 template<>
 template<>
 void VectorBase<float>::AddVec(const float alpha,
-                               const VectorBase<float>& rv) {
+                               const VectorBase<float> &rv) {
   KALDI_ASSERT(dim_ == rv.dim_);
   KALDI_ASSERT(&rv != this);
   cblas_saxpy(dim_, alpha, rv.Data(), 1, data_, 1);
@@ -76,7 +76,7 @@ void VectorBase<float>::AddVec(const float alpha,
 template<>
 template<>
 void VectorBase<double>::AddVec(const double alpha,
-                                const VectorBase<double>& rv) {
+                                const VectorBase<double> &rv) {
   KALDI_ASSERT(dim_ == rv.dim_);
   KALDI_ASSERT(&rv != this);
   cblas_daxpy(dim_, alpha, rv.Data(), 1, data_, 1);
@@ -85,9 +85,9 @@ void VectorBase<double>::AddVec(const double alpha,
 
 template<>
 void VectorBase<float>::AddMatVec(const float alpha,
-                                  const MatrixBase<float>& rM,
+                                  const MatrixBase<float> &rM,
                                   MatrixTransposeType trans,
-                                  const VectorBase<float>& rv,
+                                  const VectorBase<float> &rv,
                                   const float beta) {
   KALDI_ASSERT((trans == kNoTrans && rM.NumCols() == rv.dim_ && rM.NumRows() == dim_)
       || (trans == kTrans && rM.NumRows() == rv.dim_ && rM.NumCols() == dim_));
@@ -99,9 +99,9 @@ void VectorBase<float>::AddMatVec(const float alpha,
 
 template<>
 void VectorBase<double>::AddMatVec(const double alpha,
-                                   const MatrixBase<double>& rM,
+                                   const MatrixBase<double> &rM,
                                    MatrixTransposeType trans,
-                                   const VectorBase<double>& rv,
+                                   const VectorBase<double> &rv,
                                    const double beta) {
   KALDI_ASSERT((trans == kNoTrans && rM.NumCols() == rv.dim_ && rM.NumRows() == dim_)
       || (trans == kTrans && rM.NumRows() == rv.dim_ && rM.NumCols() == dim_));
@@ -114,8 +114,8 @@ void VectorBase<double>::AddMatVec(const double alpha,
 
 template<>
 void VectorBase<float>::AddSpVec(const float alpha,
-                                 const SpMatrix<float>& rM,
-                                 const VectorBase<float>& rv,
+                                 const SpMatrix<float> &rM,
+                                 const VectorBase<float> &rv,
                                  const float beta) {
   KALDI_ASSERT(rM.NumRows() == rv.dim_ && dim_ == rv.dim_);
   KALDI_ASSERT(&rv != this);
@@ -125,8 +125,8 @@ void VectorBase<float>::AddSpVec(const float alpha,
 
 template<>
 void VectorBase<double>::AddSpVec(const double alpha,
-                                  const SpMatrix<double>& rM,
-                                  const VectorBase<double>& rv,
+                                  const SpMatrix<double> &rM,
+                                  const VectorBase<double> &rv,
                                   const double beta) {
   KALDI_ASSERT(rM.NumRows() == rv.dim_ && dim_ == rv.dim_);
   KALDI_ASSERT(&rv != this);
@@ -135,7 +135,7 @@ void VectorBase<double>::AddSpVec(const double alpha,
 }
 
 template<>
-void VectorBase<float>::MulTp(const TpMatrix<float>& rM,
+void VectorBase<float>::MulTp(const TpMatrix<float> &rM,
                               const MatrixTransposeType trans) {
   KALDI_ASSERT(rM.NumRows() == dim_);
   cblas_stpmv(CblasRowMajor, CblasLower, static_cast<CBLAS_TRANSPOSE>(trans),
@@ -143,7 +143,7 @@ void VectorBase<float>::MulTp(const TpMatrix<float>& rM,
 }
 
 template<>
-void VectorBase<double>::MulTp(const TpMatrix<double>& rM,
+void VectorBase<double>::MulTp(const TpMatrix<double> &rM,
                                const MatrixTransposeType trans) {
   KALDI_ASSERT(rM.NumRows() == dim_);
   cblas_dtpmv(CblasRowMajor, CblasLower, static_cast<CBLAS_TRANSPOSE>(trans),
@@ -161,8 +161,8 @@ inline void Vector<Real>::Init(const MatrixIndexT dim) {
     return;
   }
   MatrixIndexT size;
-  void* data;
-  void* free_data;
+  void *data;
+  void *free_data;
 
   // size = align<16>(dim * sizeof(Real));
   size = dim * sizeof(Real);
@@ -218,7 +218,7 @@ void Vector<Real>::Resize(const MatrixIndexT dim, MatrixResizeType resize_type) 
 
 /// Copy data from another vector
 template<typename Real>
-void VectorBase<Real>::CopyFromVec(const VectorBase<Real>& rv) {
+void VectorBase<Real>::CopyFromVec(const VectorBase<Real> &rv) {
   KALDI_ASSERT(Dim() == rv.Dim());
   CopyFromPtr(rv.data_, rv.Dim());
 }
@@ -306,10 +306,10 @@ void VectorBase<Real>::Set(Real f) {
 }
 
 template<typename Real>
-void VectorBase<Real>::CopyRowsFromMat(const MatrixBase<Real>& mat) {
+void VectorBase<Real>::CopyRowsFromMat(const MatrixBase<Real> &mat) {
   KALDI_ASSERT(dim_ == mat.NumCols() * mat.NumRows());
 
-  Real* inc_data = data_;
+  Real *inc_data = data_;
   const MatrixIndexT cols = mat.NumCols(), rows = mat.NumRows();
 
   if (mat.Stride() == mat.NumCols()) {
@@ -326,9 +326,9 @@ void VectorBase<Real>::CopyRowsFromMat(const MatrixBase<Real>& mat) {
 
 template<typename Real>
 template<typename OtherReal>
-void VectorBase<Real>::CopyRowsFromMat(const MatrixBase<OtherReal>& mat) {
+void VectorBase<Real>::CopyRowsFromMat(const MatrixBase<OtherReal> &mat) {
   KALDI_ASSERT(dim_ == mat.NumCols() * mat.NumRows());
-  Real* vec_data = data_;
+  Real *vec_data = data_;
   const MatrixIndexT cols = mat.NumCols(),
       rows = mat.NumRows();
 
@@ -348,12 +348,12 @@ void VectorBase<double>::CopyRowsFromMat(const MatrixBase<float> &mat);
 
 
 template<typename Real>
-void VectorBase<Real>::CopyColsFromMat(const MatrixBase<Real>& mat) {
+void VectorBase<Real>::CopyColsFromMat(const MatrixBase<Real> &mat) {
   KALDI_ASSERT(dim_ == mat.NumCols() * mat.NumRows());
 
   Real*       inc_data = data_;
   const MatrixIndexT  cols     = mat.NumCols(), rows = mat.NumRows(), stride = mat.Stride();
-  const Real* mat_inc_data = mat.Data();
+  const Real *mat_inc_data = mat.Data();
 
   for (MatrixIndexT i = 0; i < cols; i++) {
     for (MatrixIndexT j = 0; j < rows; j++) {
@@ -378,7 +378,7 @@ void VectorBase<Real>::CopyRowFromMat(const MatrixBase<OtherReal> &mat, MatrixIn
   KALDI_ASSERT(row < mat.NumRows());
   KALDI_ASSERT(dim_ == mat.NumCols());
   const OtherReal *mat_row = mat.RowData(row);
-  for (MatrixIndexT i = 0; i < dim_; ++i)
+  for (MatrixIndexT i = 0; i < dim_; i++)
     data_[i] = static_cast<Real>(mat_row[i]);
 }
 
@@ -397,7 +397,7 @@ void VectorBase<Real>::CopyRowFromSp(const SpMatrix<OtherReal> &sp, MatrixIndexT
 
   sp_data += (row*(row+1)) / 2; // takes us to beginning of this row.
   MatrixIndexT i;
-  for (i = 0; i < row; ++i) // copy consecutive elements.
+  for (i = 0; i < row; i++) // copy consecutive elements.
     data_[i] = static_cast<Real>(*(sp_data++));
   for(; i < dim_; ++i, sp_data += i) 
     data_[i] = static_cast<Real>(*sp_data);
@@ -529,7 +529,7 @@ void VectorBase<Real>::CopyDiagFromPacked(const PackedMatrix<Real> &M) {
 template<typename Real>
 Real VectorBase<Real>::Sum() const {
   double sum = 0.0;
-  for (MatrixIndexT i = 0; i < dim_; ++i) { sum += data_[i]; }
+  for (MatrixIndexT i = 0; i < dim_; i++) { sum += data_[i]; }
   return sum;
 }
 
@@ -537,7 +537,7 @@ template<typename Real>
 Real VectorBase<Real>::SumLog() const {
   double sum_log = 0.0;
   double prod = 1.0;
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     prod *= data_[i];
     // Possible future work (arnab): change these magic values to pre-defined
     // constants
@@ -551,13 +551,13 @@ Real VectorBase<Real>::SumLog() const {
 }
 
 template<typename Real>
-void VectorBase<Real>::AddRowSumMat(const MatrixBase<Real>& rM) {
+void VectorBase<Real>::AddRowSumMat(const MatrixBase<Real> &rM) {
   // note the double accumulator
   double sum;
   KALDI_ASSERT(dim_ == rM.NumCols());
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     sum = 0.0;
-    for (MatrixIndexT j = 0; j < rM.NumRows(); ++j) {
+    for (MatrixIndexT j = 0; j < rM.NumRows(); j++) {
       sum += rM(j, i);
     }
     data_[i] += sum;
@@ -565,13 +565,13 @@ void VectorBase<Real>::AddRowSumMat(const MatrixBase<Real>& rM) {
 }
 
 template<typename Real>
-void VectorBase<Real>::AddColSumMat(const MatrixBase<Real>& rM) {
+void VectorBase<Real>::AddColSumMat(const MatrixBase<Real> &rM) {
   // note the double accumulator
   double sum;
   KALDI_ASSERT(dim_ == rM.NumRows());
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     sum = 0.0;
-    for (MatrixIndexT j = 0; j < rM.NumCols(); ++j) {
+    for (MatrixIndexT j = 0; j < rM.NumCols(); j++) {
       sum += rM(i, j);
     }
     data_[i] += sum;
@@ -591,7 +591,7 @@ Real VectorBase<Real>::LogSumExp(Real prune) const {
 
   double sum_relto_max_elem = 0.0;
 
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     BaseFloat f = data_[i];
     if (f >= cutoff)
       sum_relto_max_elem += exp(f - max_elem);
@@ -601,14 +601,14 @@ Real VectorBase<Real>::LogSumExp(Real prune) const {
 
 template<typename Real>
 void VectorBase<Real>::InvertElements() {
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     data_[i] = static_cast<Real>(1 / data_[i]);
   }
 }
 
 template<typename Real>
 void VectorBase<Real>::ApplyLog() {
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     if (data_[i] < 0.0)
       KALDI_ERR << "Trying to take log of a negative number.";
     data_[i] = log(data_[i]);
@@ -616,32 +616,58 @@ void VectorBase<Real>::ApplyLog() {
 }
 
 template<typename Real>
-void VectorBase<Real>::ApplyLogAndCopy(const VectorBase<Real>& rv) {
+void VectorBase<Real>::ApplyLogAndCopy(const VectorBase<Real> &rv) {
   KALDI_ASSERT(dim_ == rv.Dim());
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     data_[i] = log(rv(i));
   }
 }
 
 template<typename Real>
 void VectorBase<Real>::ApplyExp() {
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
+  for (MatrixIndexT i = 0; i < dim_; i++) {
     data_[i] = exp(data_[i]);
   }
 }
 
 template<typename Real>
 void VectorBase<Real>::Abs() {
-  for (MatrixIndexT i = 0; i < dim_; ++i) { data_[i] = std::abs(data_[i]); }
+  for (MatrixIndexT i = 0; i < dim_; i++) { data_[i] = std::abs(data_[i]); }
+}
+
+template<typename Real>
+MatrixIndexT VectorBase<Real>::ApplyFloor(Real floor_val) {
+  MatrixIndexT num_floored = 0;
+  for (MatrixIndexT i = 0; i < dim_; i++) {
+    if (data_[i] < floor_val) {
+      data_[i] = floor_val;
+      num_floored++;
+    }
+  }
+  return num_floored;
+}
+
+template<typename Real>
+MatrixIndexT VectorBase<Real>::ApplyFloor(const VectorBase<Real> &floor_vec) {
+  KALDI_ASSERT(floor_vec.Dim() == dim_);
+  MatrixIndexT num_floored = 0;
+  for (MatrixIndexT i = 0; i < dim_; i++) {
+    if (data_[i] < floor_vec(i)) {
+      data_[i] = floor_vec(i);
+      num_floored++;
+    }
+  }
+  return num_floored;
 }
 
 template<typename Real>
 Real VectorBase<Real>::ApplySoftMax() {
-  Real lse = LogSumExp();
-  for (MatrixIndexT i = 0; i < dim_; ++i) {
-    data_[i] = exp(data_[i] - lse);
+  Real max = this->Max(), sum = 0.0;
+  for (MatrixIndexT i = 0; i < dim_; i++) {
+    sum += (data_[i] = exp(data_[i] - max));
   }
-  return lse;
+  this->Scale(1.0 / sum);
+  return max + log(sum);
 }
 
 
@@ -663,18 +689,18 @@ void VectorBase<double>::Scale(double alpha) {
 }
 
 template<typename Real>
-void VectorBase<Real>::MulElements(const VectorBase<Real> &rv) {
-  KALDI_ASSERT(dim_ == rv.dim_);
+void VectorBase<Real>::MulElements(const VectorBase<Real> &v) {
+  KALDI_ASSERT(dim_ == v.dim_);
   for (MatrixIndexT i = 0; i < dim_; i++) {
-    data_[i] *= rv.data_[i];
+    data_[i] *= v.data_[i];
   }
 }
 
 template<typename Real>
 template<typename OtherReal>
-void VectorBase<Real>::MulElements(const VectorBase<OtherReal> &rv) {
-  KALDI_ASSERT(dim_ == rv.Dim());
-  const OtherReal *other_ptr = rv.Data();
+void VectorBase<Real>::MulElements(const VectorBase<OtherReal> &v) {
+  KALDI_ASSERT(dim_ == v.Dim());
+  const OtherReal *other_ptr = v.Data();
   for (MatrixIndexT i = 0; i < dim_; i++) {
     data_[i] *= other_ptr[i];
   }
@@ -686,8 +712,8 @@ template
 void VectorBase<double>::MulElements(const VectorBase<float> &rv);
 
 template<typename Real>
-void VectorBase<Real>::AddVecVec(Real alpha, const VectorBase<Real>& v,
-                                 const VectorBase<Real>& r, Real beta) {
+void VectorBase<Real>::AddVecVec(Real alpha, const VectorBase<Real> &v,
+                                 const VectorBase<Real> &r, Real beta) {
   KALDI_ASSERT((dim_ == v.dim_ && dim_ == r.dim_));
   KALDI_ASSERT(this != &v && this != &r);
   // remove __restrict__ if it causes compilation problems.
@@ -706,16 +732,31 @@ void VectorBase<Real>::AddVecVec(Real alpha, const VectorBase<Real>& v,
 }
 
 template<typename Real>
-void VectorBase<Real>::DivElemByElem(const VectorBase<Real>& rv) {
-  KALDI_ASSERT(dim_ == rv.dim_);
+void VectorBase<Real>::DivElements(const VectorBase<Real> &v) {
+  KALDI_ASSERT(dim_ == v.dim_);
   for (MatrixIndexT i = 0; i < dim_; i++) {
-    data_[i] /= rv.data_[i];
+    data_[i] /= v.data_[i];
   }
 }
 
 template<typename Real>
-void VectorBase<Real>::AddVecDivVec(Real alpha, const VectorBase<Real>& rv,
-                                    const VectorBase<Real>& rr, Real beta) {
+template<typename OtherReal>
+void VectorBase<Real>::DivElements(const VectorBase<OtherReal> &v) {
+  KALDI_ASSERT(dim_ == v.Dim());
+  const OtherReal *other_ptr = v.Data();
+  for (MatrixIndexT i = 0; i < dim_; i++) {
+    data_[i] /= other_ptr[i];
+  }
+}
+// instantiate template.
+template
+void VectorBase<float>::DivElements(const VectorBase<double> &rv);
+template
+void VectorBase<double>::DivElements(const VectorBase<float> &rv);
+
+template<typename Real>
+void VectorBase<Real>::AddVecDivVec(Real alpha, const VectorBase<Real> &rv,
+                                    const VectorBase<Real> &rr, Real beta) {
   KALDI_ASSERT((dim_ == rv.dim_ && dim_ == rr.dim_));
   for (MatrixIndexT i = 0; i < dim_; i++) {
     data_[i] = alpha * rv.data_[i]/rr.data_[i] + beta * data_[i] ;
@@ -724,7 +765,7 @@ void VectorBase<Real>::AddVecDivVec(Real alpha, const VectorBase<Real>& rv,
 
 template<typename Real>
 template<typename OtherReal>
-void VectorBase<Real>::AddVec(const Real alpha, const VectorBase<OtherReal>& v) {
+void VectorBase<Real>::AddVec(const Real alpha, const VectorBase<OtherReal> &v) {
   KALDI_ASSERT(dim_ == v.dim_);
   // remove __restrict__ if it causes compilation problems.
   register __restrict__  Real *data = data_;
@@ -739,13 +780,13 @@ void VectorBase<Real>::AddVec(const Real alpha, const VectorBase<OtherReal>& v) 
 }
 
 template
-void VectorBase<float>::AddVec(const float alpha, const VectorBase<double>& v);
+void VectorBase<float>::AddVec(const float alpha, const VectorBase<double> &v);
 template
-void VectorBase<double>::AddVec(const double alpha, const VectorBase<float>& v);
+void VectorBase<double>::AddVec(const double alpha, const VectorBase<float> &v);
 
 template<typename Real>
 template<typename OtherReal>
-void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<OtherReal>& v) {
+void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<OtherReal> &v) {
   KALDI_ASSERT(dim_ == v.dim_);
   // remove __restrict__ if it causes compilation problems.
   register __restrict__  Real *data = data_;
@@ -760,9 +801,9 @@ void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<OtherReal>& v)
 }
 
 template
-void VectorBase<float>::AddVec2(const float alpha, const VectorBase<double>& v);
+void VectorBase<float>::AddVec2(const float alpha, const VectorBase<double> &v);
 template
-void VectorBase<double>::AddVec2(const double alpha, const VectorBase<float>& v);
+void VectorBase<double>::AddVec2(const double alpha, const VectorBase<float> &v);
 
 
 template<typename Real>
@@ -837,10 +878,10 @@ void Vector<Real>::Read(std::istream & is,  bool binary, bool add) {
   } else {  // Text mode reading; format is " [ 1.1 2.0 3.4 ]\n"
     std::string s;
     is >> s;
-    //if ((s.compare("DV") == 0) || (s.compare("FV") == 0)) {  // Back compatibility.
+    // if ((s.compare("DV") == 0) || (s.compare("FV") == 0)) {  // Back compatibility.
     //  is >> s;  // get dimension
     //  is >> s;  // get "["
-    //}
+    // }
     if (is.fail()) { specific_error << "EOF while trying to read vector."; goto bad; }
     if (s.compare("[]") == 0) { Resize(0); return; } // tolerate this variant.
     if (s.compare("[")) { specific_error << "Expected \"[\" but got " << s; goto bad; }
@@ -929,7 +970,7 @@ void VectorBase<Real>::Write(std::ostream & os, bool binary) const {
 
 
 template<class Real>
-void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<Real>& rv) {
+void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<Real> &rv) {
   KALDI_ASSERT(dim_ == rv.dim_);
   for (MatrixIndexT i = 0; i < dim_; i++) {
     data_[i] += rv.data_[i]*rv.data_[i]*alpha;
@@ -938,9 +979,9 @@ void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<Real>& rv) {
 
 // this <-- beta*this + alpha*M*v.
 template<class Real>
-void VectorBase<Real>::AddTpVec(const Real alpha, const TpMatrix<Real>& rM,
+void VectorBase<Real>::AddTpVec(const Real alpha, const TpMatrix<Real> &rM,
                                 const MatrixTransposeType trans,
-                                const VectorBase<Real>& rv,
+                                const VectorBase<Real> &rv,
                                 const Real beta) {
   KALDI_ASSERT(dim_ == rv.dim_ && dim_ == rM.NumRows());
   if (beta == 0.0) {

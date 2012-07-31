@@ -1,8 +1,9 @@
 // matrix/matrix-lib-test.cc
 
-// Copyright 2009-2012   Microsoft Corporation;  Mohit Agarwal  Lukas Burget;
-//                       Ondrej Glembek  Saarland University  Go Vivace Inc.
-//                       Yanmin Qian  Jan Silovsky  Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2009-2012   Microsoft Corporation;  Mohit Agarwal;  Lukas Burget;
+//                       Ondrej Glembek;  Saarland University (Author: Arnab Ghoshal);
+//                       Go Vivace Inc.;  Yanmin Qian;  Jan Silovsky;
+//                       Johns Hopkins University (Author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +21,27 @@
 #include "matrix/matrix-lib.h"
 
 namespace kaldi {
+
+template<typename Real>
+void RandPosdefSpMatrix(MatrixIndexT dim, SpMatrix<Real> *matrix) {
+  MatrixIndexT dim2 = dim + (rand() % 3);  // slightly higher-dim.
+  // generate random (non-singular) matrix
+  Matrix<Real> tmp(dim, dim2);
+  while (1) {
+    tmp.SetRandn();
+    if (tmp.Cond() < 100) break;
+    KALDI_LOG << "Condition number of random matrix large "
+              << static_cast<float>(tmp.Cond())
+              << ", trying again (this is normal)";
+  }
+  // tmp * tmp^T will give positive definite matrix
+  matrix->AddMat2(1.0, tmp, kNoTrans, 0.0);
+
+  // Checks that the matrix is indeed pos-def
+  TpMatrix<Real> sqrt(dim);
+  sqrt.Cholesky(*matrix);
+}
+
 
 template<class Real> static void InitRand(TpMatrix<Real> *M) {
   // start:
@@ -45,7 +67,11 @@ start:
   for (MatrixIndexT i = 0;i < M->NumRows();i++)
     for (MatrixIndexT j = 0;j < M->NumCols();j++)
       (*M)(i, j) = RandGauss();
-  if (M->NumRows() != 0 && M->Cond() > 100) { printf("Condition number of random matrix large %f, trying again (this is normal)\n", (float)M->Cond()); goto start; }
+    if (M->NumRows() != 0 && M->Cond() > 100) {
+      printf("Condition number of random matrix large %f, trying again (this is normal)\n",
+             (float) M->Cond());
+      goto start;
+    }
 }
 
 
@@ -148,7 +174,7 @@ template<class Real> static void CholeskyUnitTestTr() {
 
 template<class Real> static void SlowMatMul() {
   int N = 1000;
-  Matrix<Real> M(N,N), P(N,N), Q(N,N);
+  Matrix<Real> M(N, N), P(N, N), Q(N, N);
   for (int i = 0; i < 10000; i++) {
     Q.AddMatMat(1.0, M, kNoTrans, P, kNoTrans, 0.0);
   }
@@ -178,7 +204,7 @@ static void UnitTestSpAddVec() {
     InitRand(&v);
     S.AddVec(alpha, v);
     for (int32 i = 0; i < dimM; i++)
-      T(i,i) += alpha * v(i);
+      T(i, i) += alpha * v(i);
     AssertEqual(S, T);
   }
 }
@@ -304,7 +330,7 @@ static void UnitTestSimpleForVec() {  // testing some simple operaters on vector
     V2.CopyFromVec(V);
     V3.CopyFromVec(V1);
     V2.InvertElements();
-    V3.DivElemByElem(V);
+    V3.DivElements(V);
     V4.CopyFromVec(V3);
     V4.AddVecDivVec(1.0, V1, V, 0.0);
     AssertEqual(V3, V2);
@@ -345,13 +371,16 @@ static void UnitTestSimpleForVec() {  // testing some simple operaters on vector
   for (MatrixIndexT i = 0; i < 5; i++) {
     Vector<Real> V(100), V1(100), V2(100);
     InitRand(&V);
-
+    
     V1.CopyFromVec(V);
     V1.ApplyExp();
+    Real a = V.LogSumExp();
     V2.Set(exp(V.LogSumExp()));
-    V1.DivElemByElem(V2);
-    V.ApplySoftMax();
+    V1.DivElements(V2);
+    Real b = V.ApplySoftMax();
     AssertEqual(V1, V);
+    AssertEqual(a, b);
+    KALDI_LOG << "a = " << a << ", b = " << b;
   }
 
   for (MatrixIndexT i = 0; i < 5; i++) {
@@ -430,6 +459,12 @@ static void UnitTestSimpleForMat() {  // test some simple operates on all kinds 
     MatrixIndexT dimM = 10 + rand() % 10, dimN = 10 + rand() % 10;
     Matrix<Real> M(dimM, dimN);
     InitRand(&M);
+    {
+      Matrix<Real> N(M);
+      Real a = M.LogSumExp(), b = N.ApplySoftMax();
+      AssertEqual(a, b);
+      AssertEqual(1.0, N.Sum());
+    }
     {
       Matrix<Real> N(M);
       N.Add(2.0);
@@ -1038,8 +1073,67 @@ template<class Real> static void UnitTestEig() {
 
     AssertEqual(M, M2);  // check reconstruction worked.
   }
-
 }
+
+
+template<class Real> static void UnitTestEigSp() {
+  // Test the Eig function with SpMatrix.
+  // We make sure to test pathological cases, that have
+  // either large zero eigenspaces, or two large
+  // eigenspaces with the same absolute value but +ve
+  // and -ve.  Also zero matrix.
+  
+  for (int iter = 0; iter < 100; iter++) {
+	MatrixIndexT dimM = 1 + (rand() % 10);
+    SpMatrix<Real> S(dimM);
+
+    switch (iter % 5) {
+      case 0: // zero matrix.
+        break;
+      case 1: // general random symmetric matrix.
+        InitRand(&S);
+        break;
+      default:
+        { // start with a random matrix; do decomposition; change the eigenvalues to
+          // try to cover the problematic cases; reconstruct.
+          InitRand(&S);
+          Vector<Real> s(dimM); Matrix<Real> P(dimM, dimM);
+          S.Eig(&s, &P);
+          // We on purpose create a problematic case where
+          // some eigs are either zero or share a value (+ve or -ve)
+          // with some other eigenvalue.
+          for (int i = 0; i < dimM; i++) {
+            if (rand() % 10 == 0) s(i) = 0; // set that eig to zero.
+            else if (rand() % 10 < 2) {
+              // set that eig to some other randomly chosen eig,
+              // times random sign.
+              s(i) = (rand()%2 == 0 ? 1 : -1) * s(rand() % dimM);
+            }
+          }
+          // Reconstruct s from the eigenvalues "made problematic."
+          S.AddMat2Vec(1.0, P, kNoTrans, s, 0.0);
+          Real *data = s.Data();
+          std::sort(data, data+dimM);
+          KALDI_LOG << "Real eigs are: " << s;
+
+        }
+    }
+    Vector<Real> s(dimM); Matrix<Real> P(dimM, dimM);
+    S.Eig(&s, &P);
+    KALDI_LOG << "Found eigs are: " << s;
+    SpMatrix<Real> S2(dimM);
+    S2.AddMat2Vec(1.0, P, kNoTrans, s, 0.0);
+    {
+      SpMatrix<Real> diff(S);
+      diff.AddSp(-1.0, S2);
+      Vector<Real> s(dimM); Matrix<Real> P(dimM, dimM);
+      diff.Eig(&s, &P);
+      KALDI_LOG << "Eigs of difference are " << s;
+    }
+    KALDI_ASSERT(S.ApproxEqual(S2, 1.0e-03f));
+  }    
+}
+
 
 template<class Real> static void UnitTestMmul() {
   for (int iter = 0;iter < 5;iter++) {
@@ -1052,7 +1146,7 @@ template<class Real> static void UnitTestMmul() {
 	// std::cout <<"a = " << A;
 	// std::cout<<"B = " << B;
 	C.AddMatMat(1.0, A, kNoTrans, B, kNoTrans, 0.0);  // C = A * B.
-	//	std::cout << "c = " << C;
+	// 	std::cout << "c = " << C;
 	for (MatrixIndexT i = 0;i < dimM;i++) {
 	  for (MatrixIndexT j = 0;j < dimO;j++) {
 		double sum = 0.0;
@@ -1235,6 +1329,32 @@ static void UnitTestResize() {
         }
       }
     }
+  }
+}
+
+
+template<class Real>
+static void UnitTestTp2Sp() {
+  // Tests AddTp2Sp()
+  for (int iter = 0; iter < 4; iter++) {
+	MatrixIndexT dimM = 10 + rand()%3;    
+  
+    TpMatrix<Real> T(dimM);
+    InitRand(&T);
+    SpMatrix<Real> S(dimM);
+    InitRand(&S);
+
+    Matrix<Real> M(T);
+    for ( int32 i = 0; i < dimM; i++)
+      for (int32 j = 0; j < dimM; j++) {
+        if (j <= i) AssertEqual(T(i,j), M(i,j));
+        else AssertEqual(M(i,j), 0.0);
+      }
+
+    SpMatrix<Real> A(dimM), B(dimM);
+    A.AddTp2Sp(0.5, T, (iter < 2 ? kNoTrans : kTrans), S, 0.0);
+    B.AddMat2Sp(0.5, M, (iter < 2 ? kNoTrans : kTrans), S, 0.0);
+    AssertEqual(A, B);
   }
 }
 
@@ -1508,7 +1628,21 @@ template<class Real> static void  UnitTestSimple() {
     AssertEqual(V, V2);
 	AssertEqual(V3, V2);
 
-
+    {
+      Vector<Real> V2(V);
+      for (int32 i = 0; i < V2.Dim(); i++)
+        V2(i) = exp(V2(i));
+      V.ApplyExp();
+      AssertEqual(V, V2);
+    }
+    {
+      Matrix<Real> N2(N), N3(N);
+      for (int32 i = 0; i < N.NumRows(); i++)
+        for (int32 j = 0; j < N.NumCols(); j++)
+          N2(i, j) = exp(N2(i, j));
+      N3.ApplyExp();
+      AssertEqual(N2, N3);
+    }
     KALDI_ASSERT(!S.IsDiagonal());
     KALDI_ASSERT(!S.IsUnit());
     N.SetUnit();
@@ -1519,70 +1653,12 @@ template<class Real> static void  UnitTestSimple() {
     S.CopyFromMat(N);
     KALDI_ASSERT(S.IsZero());
     KALDI_ASSERT(S.IsDiagonal());
-  }
-}
-
-template<class Real> static void UnitTestIoOld() {  // deprecated I/O style.
-
-  for (int i = 0;i < 5;i++) {
-    MatrixIndexT dimM = rand()%10 + 1;
-    MatrixIndexT dimN = rand()%10 + 1;
-    bool binary = (i%2 == 0);
-
-    if (i == 0) {
-      dimM = 0;dimN = 0;  // test case when both are zero.
-    }
-    Matrix<Real> M(dimM, dimN);
-    InitRand(&M);
-    Matrix<Real> N;
-    Vector<Real> v1(dimM);
-    InitRand(&v1);
-    Vector<Real> v2(dimM);
-
-    SpMatrix<Real> S(dimM);
-    InitRand(&S);
-    SpMatrix<Real> T(dimM);
-
-    {
-      std::ofstream outs("tmpf", std::ios_base::out |std::ios_base::binary);
-      InitKaldiOutputStream(outs, binary);
-      M.Write(outs, binary);
-      S.Write(outs, binary);
-      v1.Write(outs, binary);
-      M.Write(outs, binary);
-      S.Write(outs, binary);
-      v1.Write(outs, binary);
-    }
-
-	{
-      std::ifstream ins("tmpf", std::ios_base::in | std::ios_base::binary);
-      bool binary_in;
-      InitKaldiInputStream(ins, &binary_in);
-      N.Read(ins, binary_in);
-      T.Read(ins, binary_in);
-      v2.Read(ins, binary_in);
-      if (i%2 == 0)
-        ((MatrixBase<Real>&)N).Read(ins, binary_in, true);  // add
-      else
-        N.Read(ins, binary_in, true);
-      T.Read(ins, binary_in, true);  // add
-      if (i%2 == 0)
-        ((VectorBase<Real>&)v2).Read(ins, binary_in, true);  // add
-      else
-        v2.Read(ins, binary_in, true);
-    }
-    N.Scale(0.5);
-    v2.Scale(0.5);
-    T.Scale(0.5);
-    AssertEqual(M, N);
-    AssertEqual(v1, v2);
-    AssertEqual(S, T);
-  }
+ }
 }
 
 
 
-template<class Real> static void UnitTestIo () {  // newer I/O test with the kaldi streams.
+template<class Real> static void UnitTestIo() {
 
   for (int i = 0;i < 5;i++) {
     MatrixIndexT dimM = rand()%10 + 1;
@@ -1958,29 +2034,32 @@ template<class Real> static void UnitTestSolve() {
   }
 
 
-  for (int i = 0;i < 5;i++) {
-    MatrixIndexT dimM = (rand()%10) + 10;
-    MatrixIndexT dimN = dimM - (rand()%3);  // slightly lower-dim.
-    MatrixIndexT dimO = (rand()%10) + 10;
+  for (int i = 0; i < 5; i++) {
+    MatrixIndexT dimM = (rand() % 10) + 10;
+    MatrixIndexT dimN = dimM - (rand() % 3); // slightly lower-dim.
+    MatrixIndexT dimO = (rand() % 10) + 10;
 
     SpMatrix<Real> Q(dimM), SigmaInv(dimO);
-    Matrix<Real> Mtmp(dimM, dimN); InitRand(&Mtmp);
-    Q.AddMat2(1.0, Mtmp, kNoTrans, 0.0);  // H = M M^T
+    Matrix<Real> Mtmp(dimM, dimN);
+    InitRand(&Mtmp);
+    Q.AddMat2(1.0, Mtmp, kNoTrans, 0.0); // H = M M^T
 
-    Matrix<Real> Ntmp(dimO, dimN); InitRand(&Ntmp);
-    SigmaInv.AddMat2(1.0, Ntmp, kNoTrans, 0.0);  // H = M M^T
+    Matrix<Real> Ntmp(dimO, dimN);
+    InitRand(&Ntmp);
+    SigmaInv.AddMat2(1.0, Ntmp, kNoTrans, 0.0); // H = M M^T
 
     Matrix<Real> M(dimO, dimM), Y(dimO, dimM);
-    InitRand(&M); InitRand(&Y);
+    InitRand(&M);
+    InitRand(&Y);
 
     Matrix<Real> M2(M);
 
     SpMatrix<Real> Qinv(Q);
-    if (Q.Cond() < 1000.0)
-      Qinv.Invert();
-    
+    if (Q.Cond() < 1000.0) Qinv.Invert();
+
 #if defined(_MSC_VER) // compiler bug workaround.
-    SolveQuadraticMatrixProblem(Q, Y, SigmaInv, &M2, (Real)1.0E4, (Real)1.0E-40, "unknown", true);
+    SolveQuadraticMatrixProblem(Q, Y, SigmaInv, &M2, (Real)1.0E4, (Real)1.0E-40,
+                                "unknown", true);
 #else
     SolveQuadraticMatrixProblem(Q, Y, SigmaInv, &M2);
 #endif
@@ -1988,18 +2067,59 @@ template<class Real> static void UnitTestSolve() {
     Matrix<Real> M3(M);
     M3.AddMatSp(1.0, Y, kNoTrans, Qinv, 0.0);
     if (Q.Cond() < 1000.0) {
-      AssertEqual(M2, M3); // This equality only holds if SigmaInv full-rank,
-      // which is overwhelmingly likely if dimO > dimM
+      AssertEqual(M2, M3);  // This equality only holds if SigmaInv full-rank,
+                            // which is overwhelmingly likely if dimO > dimM
     }
-    
+
     {
-      Real a1 = TraceMatSpMat(M2, kTrans, SigmaInv, Y, kNoTrans), a2 = TraceMatSpMatSp(M2, kNoTrans, Q, M2, kTrans, SigmaInv),
-          b1 = TraceMatSpMat(M, kTrans, SigmaInv, Y, kNoTrans), b2 = TraceMatSpMatSp(M, kNoTrans, Q, M, kTrans, SigmaInv),
-          a3 = a1-0.5*a2, b3 = b1-0.5*b2;
+      Real a1 = TraceMatSpMat(M2, kTrans, SigmaInv, Y, kNoTrans),
+           a2 = TraceMatSpMatSp(M2, kNoTrans, Q, M2, kTrans, SigmaInv),
+           b1 = TraceMatSpMat(M, kTrans, SigmaInv, Y, kNoTrans),
+           b2 = TraceMatSpMatSp(M, kNoTrans, Q, M, kTrans, SigmaInv),
+           a3 = a1 - 0.5 * a2,
+           b3 = b1 - 0.5 * b2;
       KALDI_ASSERT(a3 >= b3);
       // KALDI_LOG << "a3 = " << a3 << ", b3 = " << b3 << ", c3 = " << c3;
-    }
-    // Check objf not decreased.
+    }  // Check objf not decreased.
+  }
+
+  for (int i = 0; i < 5; i++) {
+    MatrixIndexT dimM = (rand() % 10) + 10;
+    MatrixIndexT dimO = (rand() % 10) + 10;
+
+    SpMatrix<Real> Q1(dimM), Q2(dimM), P1(dimO), P2(dimO);
+    RandPosdefSpMatrix(dimM, &Q1);
+    RandPosdefSpMatrix(dimM, &Q2);
+    RandPosdefSpMatrix(dimO, &P1);
+    RandPosdefSpMatrix(dimO, &P1);
+
+    Matrix<Real> M(dimO, dimM), G(dimO, dimM);
+    M.SetRandn();
+    G.SetRandn();
+//    InitRand(&M);
+//    InitRand(&G);
+
+    Matrix<Real> M2(M);
+
+#if defined(_MSC_VER) // compiler bug workaround.
+    SolveDoubleQuadraticMatrixProblem(G, P1, P2, Q1, Q2, &M2, (Real)1.0E4,
+                                      (Real)1.0E-40, "unknown");
+#else
+    SolveDoubleQuadraticMatrixProblem(G, P1, P2, Q1, Q2, &M2);
+#endif
+
+    {
+      Real a1 = TraceMatMat(M2, G, kTrans),
+           a2 = TraceMatSpMatSp(M2, kNoTrans, Q1, M2, kTrans, P1),
+           a3 = TraceMatSpMatSp(M2, kNoTrans, Q2, M2, kTrans, P2),
+           b1 = TraceMatMat(M, G, kTrans),
+           b2 = TraceMatSpMatSp(M, kNoTrans, Q1, M, kTrans, P1),
+           b3 = TraceMatSpMatSp(M, kNoTrans, Q2, M, kTrans, P2),
+           a4 = a1 - 0.5 * a2 - 0.5 * a3,
+           b4 = b1 - 0.5 * b2 - 0.5 * b3;
+      KALDI_LOG << "a4 = " << a4 << ", b4 = " << b4;
+      KALDI_ASSERT(a4 >= b4);
+    }  // Check objf not decreased.
   }
 }
 
@@ -2217,6 +2337,34 @@ template<class Real> static void UnitTestTranspose() {
   N.Transpose();
   AssertEqual(M, N);
 }
+
+template<class Real> static void UnitTestAddVecToRows() {
+
+  Matrix<Real> M(rand() % 5 + 1, rand() % 10 + 1);
+  InitRand(&M);
+  Vector<float> v(M.NumCols());
+  InitRand(&v);
+  Matrix<Real> N(M);
+  Vector<float> ones(M.NumRows());
+  ones.Set(1.0);
+  M.AddVecToRows(0.5, v);
+  N.AddVecVec(0.5, ones, v);
+  AssertEqual(M, N);
+}
+
+template<class Real> static void UnitTestAddVecToCols() {
+  Matrix<Real> M(rand() % 5 + 1, rand() % 10 + 1);
+  InitRand(&M);
+  Vector<float> v(M.NumRows());
+  InitRand(&v);
+  Matrix<Real> N(M);
+  Vector<float> ones(M.NumCols());
+  ones.Set(1.0);
+  M.AddVecToCols(0.5, v);
+  N.AddVecVec(0.5, v, ones);
+  AssertEqual(M, N);
+}
+
 template<class Real> static void UnitTestComplexFft2() {
 
   // Make sure it inverts properly.
@@ -2631,6 +2779,7 @@ template<class Real> static void MatrixUnitTest() {
   KALDI_LOG << " Point A";
   UnitTestComplexPower<Real>();
   UnitTestEig<Real>();
+  UnitTestEigSp<Real>();
   // commenting these out for now-- they test the speed, but take a while.
   // UnitTestSplitRadixRealFftSpeed<Real>();
   // UnitTestRealFftSpeed<Real>();   // won't exit!/
@@ -2647,13 +2796,12 @@ template<class Real> static void MatrixUnitTest() {
   UnitTestSvd<Real>();
   UnitTestSvdNodestroy<Real>();
   UnitTestSvdJustvec<Real>();
-  UnitTestSpAddVec<Real,float>();
-  UnitTestSpAddVec<Real,double>();  
+  UnitTestSpAddVec<Real, float>();
+  UnitTestSpAddVec<Real, double>();  
   UnitTestSpInvert<Real>();
       KALDI_LOG << " Point D";
   UnitTestTpInvert<Real>();
   UnitTestIo<Real>();
-  UnitTestIoOld<Real>();
   UnitTestIoCross<Real>();
   UnitTestHtkIo<Real>();
   UnitTestScale<Real>();
@@ -2677,7 +2825,7 @@ template<class Real> static void MatrixUnitTest() {
   UnitTestAddOuterProductPlusMinus<Real>();
   UnitTestPca<Real>();
   UnitTestTraceProduct<Real>();
-  UnitTestTransposeScatter<Real>();
+  UnitTestTransposeScatter<Real>(); 
   UnitTestRankNUpdate<Real>();
   UnitTestSherman<Real>();
   UnitTestSpVec<Real>();
@@ -2707,7 +2855,10 @@ template<class Real> static void MatrixUnitTest() {
             KALDI_LOG << " Point J";
   UnitTestTraceSpSpLower<Real>();
   UnitTestTranspose<Real>();
+  UnitTestAddVecToRows<Real>();
+  UnitTestAddVecToCols<Real>();
   UnitTestAddVecCross();
+  UnitTestTp2Sp<Real>();
   //  SlowMatMul<Real>();  
 }
 

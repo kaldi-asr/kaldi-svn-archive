@@ -31,11 +31,11 @@ class Xent {
   ~Xent() { }
 
   /// Evaluate cross entropy from hard labels
-  void Eval(const CuMatrix<BaseFloat>& net_out, const CuMatrix<BaseFloat>& target,
-            CuMatrix<BaseFloat>* diff);
+  void Eval(const CuMatrix<BaseFloat> &net_out, const CuMatrix<BaseFloat> &target,
+            CuMatrix<BaseFloat> *diff);
   /// Evaluate cross entropy from soft labels
-  void Eval(const CuMatrix<BaseFloat>& net_out, const std::vector<int32>& target,
-            CuMatrix<BaseFloat>* diff);
+  void EvalVec(const CuMatrix<BaseFloat> &net_out, const std::vector<int32> &target,
+            CuMatrix<BaseFloat> *diff);
   
   /// Generate string with error report
   std::string Report();
@@ -62,8 +62,8 @@ class Mse {
   ~Mse() { }
 
   /// Evaluate mean square error from target values
-  void Eval(const CuMatrix<BaseFloat>& net_out, const CuMatrix<BaseFloat>& target,
-            CuMatrix<BaseFloat>* diff);
+  void Eval(const CuMatrix<BaseFloat> &net_out, const CuMatrix<BaseFloat> &target,
+            CuMatrix<BaseFloat> *diff);
   
   /// Generate string with error report
   std::string Report();
@@ -71,6 +71,47 @@ class Mse {
  private:
   int32 frames_;
   double loss_;
+
+  CuMatrix<BaseFloat> diff_pow_2_;
+  CuVector<BaseFloat> sum_diff_pow_2_;
+  Vector<BaseFloat>   sum_diff_pow_2_host_;
+
+};
+
+
+
+class MseProgress {
+ public:
+  MseProgress(int32 progress_step = 1e6) 
+   : progress_step_(progress_step), progress_ctr_(0), 
+     frames_(0), frames_progress_(0), 
+     loss_(0.0), loss_progress_(0)
+   { }
+  ~MseProgress() { }
+
+  /// Evaluate mean square error from target values
+  void Eval(const CuMatrix<BaseFloat>& net_out, const CuMatrix<BaseFloat>& target,
+            CuMatrix<BaseFloat>* diff);
+  
+  /// Generate string with error report
+  std::string Report();
+
+ private:
+  int32 progress_step_;
+  int32 progress_ctr_;
+
+  int32 frames_;
+  int32 frames_progress_;
+
+  double loss_;
+  double loss_progress_;
+
+  std::vector<float> loss_vec_;
+
+  CuMatrix<BaseFloat> diff_pow_2_;
+  CuVector<BaseFloat> sum_diff_pow_2_;
+  Vector<BaseFloat>   sum_diff_pow_2_host_;
+
 };
 
 

@@ -16,16 +16,15 @@ mkdir -p $dir $lmdir
 local=`pwd`/local
 utils=`pwd`/utils
 
+. ./path.sh # Needed for KALDI_ROOT
+export PATH=$PATH:$KALDI_ROOT/tools/irstlm/bin
 sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
 if [ ! -x $sph2pipe ]; then
    echo "Could not find (or execute) the sph2pipe program at $sph2pipe";
    exit 1;
 fi
-. ./path.sh # Needed for KALDI_ROOT
-export PATH=$PATH:$KALDI_ROOT/tools/irstlm/bin
 
 cd $dir
-
 
 # Make directory of links to the WSJ disks such as 11-13.1.  This relies on the command
 # line arguments being absolute pathnames.
@@ -45,14 +44,19 @@ fi
 
 cat links/11-13.1/wsj0/doc/indices/train/tr_s_wv1.ndx | \
  $local/ndx2flist.pl $* | sort | \
- grep -v 11-2.1/wsj0/si_tr_s/401 > train_si84.flist
+ grep -v -i 11-2.1/wsj0/si_tr_s/401 > train_si84.flist
+
+nl=`cat train_si84.flist | wc -l`
+[ "$nl" -eq 7138 ] || echo "Warning: expected 37416 lines in train_si84.flist, got $nl"
 
 # This version for SI-284
 cat links/13-34.1/wsj1/doc/indices/si_tr_s.ndx \
  links/11-13.1/wsj0/doc/indices/train/tr_s_wv1.ndx | \
  $local/ndx2flist.pl  $* | sort | \
- grep -v 11-2.1/wsj0/si_tr_s/401 > train_si284.flist
+ grep -v -i 11-2.1/wsj0/si_tr_s/401 > train_si284.flist
 
+nl=`cat train_si284.flist | wc -l`
+[ "$nl" -eq 37416 ] || echo "Warning: expected 37416 lines in train_si284.flist, got $nl"
 
 # Now for the test sets.
 # links/13-34.1/wsj1/doc/indices/readme.doc 
@@ -101,8 +105,8 @@ cat links/13-34.1/wsj1/doc/indices/h2_p0.ndx | \
 # Note: the ???'s below match WSJ and SI_DT, or wsj and si_dt.  
 # Sometimes this gets copied from the CD's with upcasing, don't know 
 # why (could be older versions of the disks).
-find `readlink links/13-16.1`/???1/??_??_20 -print | grep ".WV1" | sort > dev_dt_20.flist
-find `readlink links/13-16.1`/???1/??_??_05 -print | grep ".WV1" | sort > dev_dt_05.flist
+find `readlink links/13-16.1`/???1/??_??_20 -print | grep -i ".wv1" | sort > dev_dt_20.flist
+find `readlink links/13-16.1`/???1/??_??_05 -print | grep -i ".wv1" | sort > dev_dt_05.flist
 
 
 # Finding the transcript files:

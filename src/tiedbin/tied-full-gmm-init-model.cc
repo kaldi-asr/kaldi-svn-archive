@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
       }
 
       // subsequently add the codebooks
-      for (int32 i = 5; i < po.NumArgs(); ++i) {
+      for (int32 i = 5; i < po.NumArgs(); i++) {
         FullGmm cb;
         bool binary_in;
         Input ki(po.GetArg(i), &binary_in);
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "Wrote tree and model.";
 
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

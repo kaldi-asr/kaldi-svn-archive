@@ -23,6 +23,7 @@ fmllr_iters="2 4 6 12";
 silence_weight=0.0 # Weight on silence in fMLLR estimation.
 num_iters=35   # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
+power=0.2 # Exponent for number of gaussians according to occurrence counts
 # End configuration section.
 
 [ -f path.sh ] && . ./path.sh
@@ -56,8 +57,11 @@ nj=`cat $alidir/num_jobs` || exit 1;
 silphonelist=`cat $lang/phones/silence.csl`
 ciphonelist=`cat $lang/phones/context_indep.csl` || exit 1;
 sdata=$data/split$nj;
+splice_opts=`cat $alidir/splice_opts 2>/dev/null` # frame-splicing options.
 
 mkdir -p $dir/log
+cp $alidir/splice_opts $dir 2>/dev/null # frame-splicing options.
+
 echo $nj >$dir/num_jobs
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
@@ -69,7 +73,7 @@ echo "$0: feature type is $feat_type"
 ## Set up speaker-independent features.
 case $feat_type in
   delta) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  lda) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
@@ -184,7 +188,7 @@ while [ $x -lt $num_iters ]; do
       "ark,s,cs:gunzip -c $dir/ali.JOB.gz|" $dir/$x.JOB.acc || exit 1;
     [ `ls $dir/$x.*.acc | wc -w` -ne "$nj" ] && echo "$0: Wrong #accs" && exit 1;
     $cmd $dir/log/update.$x.log \
-      gmm-est --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss $dir/$x.mdl \
+      gmm-est --power=$power --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss $dir/$x.mdl \
       "gmm-sum-accs - $dir/$x.*.acc |" $dir/$[$x+1].mdl || exit 1;
     rm $dir/$x.mdl $dir/$x.*.acc
     rm $dir/$x.occs 
@@ -205,7 +209,7 @@ if [ $stage -le $x ]; then
   [ `ls $dir/$x.*.acc | wc -w` -ne "$nj" ] && echo "$0: Wrong #accs" && exit 1;
   # Update model.
   $cmd $dir/log/est_alimdl.log \
-    gmm-est --remove-low-count-gaussians=false $dir/$x.mdl \
+    gmm-est --power=$power --remove-low-count-gaussians=false $dir/$x.mdl \
     "gmm-sum-accs - $dir/$x.*.acc|" $dir/$x.alimdl  || exit 1;
   rm $dir/$x.*.acc
 fi

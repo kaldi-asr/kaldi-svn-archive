@@ -1,7 +1,7 @@
 // gmm/mle-am-diag-gmm.h
 
-// Copyright 2009-2011  Saarland University
-// Author:  Arnab Ghoshal; Yanmin Qian
+// Copyright 2009-2011  Saarland University (Author: Arnab Ghoshal);
+//                      Yanmin Qian
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,26 +45,26 @@ class AccumAmDiagGmm {
   /// Accumulate stats for a single GMM in the model; returns log likelihood.
   /// This does not work with multiple feature transforms.
   BaseFloat AccumulateForGmm(const AmDiagGmm &model,
-                             const VectorBase<BaseFloat>& data,
+                             const VectorBase<BaseFloat> &data,
                              int32 gmm_index, BaseFloat weight);
 
   /// Accumulate stats for a single GMM in the model; uses data1 for
   /// getting posteriors and data2 for stats. Returns log likelihood.
   BaseFloat AccumulateForGmmTwofeats(const AmDiagGmm &model,
-                                     const VectorBase<BaseFloat>& data1,
-                                     const VectorBase<BaseFloat>& data2,
+                                     const VectorBase<BaseFloat> &data1,
+                                     const VectorBase<BaseFloat> &data2,
                                      int32 gmm_index, BaseFloat weight);
 
   /// Accumulates stats for a single GMM in the model using pre-computed
   /// Gaussian posteriors.
   void AccumulateFromPosteriors(const AmDiagGmm &model,
-                                const VectorBase<BaseFloat>& data,
+                                const VectorBase<BaseFloat> &data,
                                 int32 gmm_index,
-                                const VectorBase<BaseFloat>& posteriors);
+                                const VectorBase<BaseFloat> &posteriors);
 
   /// Accumulate stats for a single Gaussian component in the model.
   void AccumulateForGaussian(const AmDiagGmm &am,
-                             const VectorBase<BaseFloat>& data,
+                             const VectorBase<BaseFloat> &data,
                              int32 gmm_index, int32 gauss_index,
                              BaseFloat weight);
 
@@ -72,6 +72,9 @@ class AccumAmDiagGmm {
 
   int32 NumAccs() const { return gmm_accumulators_.size(); }
 
+  BaseFloat TotStatsCount() const; // returns the total count got by summing the count
+  // of the actual stats, may differ from TotCount() if e.g. you did I-smoothing.
+  
   // Be careful since total_frames_ is not updated in AccumulateForGaussian
   BaseFloat TotCount() const { return total_frames_; }
   BaseFloat TotLogLike() const { return total_log_like_; }
@@ -79,6 +82,8 @@ class AccumAmDiagGmm {
   const AccumDiagGmm& GetAcc(int32 index) const;
 
   AccumDiagGmm& GetAcc(int32 index);
+
+  void Add(BaseFloat scale, const AccumAmDiagGmm &other);
 
   void Scale(BaseFloat scale);
 

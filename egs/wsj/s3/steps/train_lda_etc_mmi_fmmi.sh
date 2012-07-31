@@ -26,7 +26,6 @@ tau=200 # Note: we're doing smoothing "to the previous iteration"
     # we are discriminatively training the features (and not using
     # the indirect differential), so it seems like it wouldn't make 
     # sense to use any element of ML.
-ngauss=400
 merge=true # if true, cancel num and den counts as described in 
     # the boosted MMI paper. 
 
@@ -41,9 +40,6 @@ for x in `seq 8`; do
   fi
   if [ $1 == "--learning-rate" ]; then
     shift; lrate=$1; shift
-  fi
-  if [ $1 == "--num-gauss" ]; then
-    shift; ngauss=$1; shift  # #Gauss in GMM for fMPE.
   fi
   if [ $1 == "--num-iters" ]; then
     shift; niters=$1; shift
@@ -158,7 +154,7 @@ while [ $x -lt $niters ]; do
       done
       wait
       [ -f $dir/.error ] && echo Error doing fMPE accumulation && exit 1;
-      ( sum-matrices $dir/$x.fmpe_acc $dir/$x.*.fmpe_acc && \
+      ( fmpe-sum-accs $dir/$x.fmpe_acc $dir/$x.*.fmpe_acc && \
         rm $dir/$x.*.fmpe_acc && \
         fmpe-est --learning-rate=$lrate $cur_fmpe $dir/$x.fmpe_acc $dir/$[$x+1].fmpe ) \
        2>$dir/log/est_fmpe.$x.log || exit 1;

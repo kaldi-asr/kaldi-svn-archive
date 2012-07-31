@@ -1,7 +1,7 @@
 // gmm/mle-am-diag-gmm.cc
 
-// Copyright 2009-2011  Saarland University;  Microsoft Corporation;
-//                      Georg Stemmer; Yanmin Qian
+// Copyright 2009-2011  Saarland University (Author: Arnab Ghoshal);
+//                      Microsoft Corporation;  Georg Stemmer;  Yanmin Qian
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,13 +59,13 @@ void AccumAmDiagGmm::Init(const AmDiagGmm &model,
 }
 
 void AccumAmDiagGmm::SetZero(GmmFlagsType flags) {
-  for (size_t i = 0; i < gmm_accumulators_.size(); ++i) {
+  for (size_t i = 0; i < gmm_accumulators_.size(); i++) {
     gmm_accumulators_[i]->SetZero(flags);
   }
 }
 
 BaseFloat AccumAmDiagGmm::AccumulateForGmm(
-    const AmDiagGmm &model, const VectorBase<BaseFloat>& data,
+    const AmDiagGmm &model, const VectorBase<BaseFloat> &data,
     int32 gmm_index, BaseFloat weight) {
   KALDI_ASSERT(static_cast<size_t>(gmm_index) < gmm_accumulators_.size());
   BaseFloat log_like =
@@ -78,8 +78,8 @@ BaseFloat AccumAmDiagGmm::AccumulateForGmm(
 
 BaseFloat AccumAmDiagGmm::AccumulateForGmmTwofeats(
     const AmDiagGmm &model,
-    const VectorBase<BaseFloat>& data1,
-    const VectorBase<BaseFloat>& data2,
+    const VectorBase<BaseFloat> &data1,
+    const VectorBase<BaseFloat> &data2,
     int32 gmm_index,
     BaseFloat weight) {
   KALDI_ASSERT(static_cast<size_t>(gmm_index) < gmm_accumulators_.size());
@@ -96,15 +96,15 @@ BaseFloat AccumAmDiagGmm::AccumulateForGmmTwofeats(
 
 
 void AccumAmDiagGmm::AccumulateFromPosteriors(
-    const AmDiagGmm &model, const VectorBase<BaseFloat>& data,
-    int32 gmm_index, const VectorBase<BaseFloat>& posteriors) {
+    const AmDiagGmm &model, const VectorBase<BaseFloat> &data,
+    int32 gmm_index, const VectorBase<BaseFloat> &posteriors) {
   KALDI_ASSERT(gmm_index >= 0 && gmm_index < NumAccs());
   gmm_accumulators_[gmm_index]->AccumulateFromPosteriors(data, posteriors);
   total_frames_ += posteriors.Sum();
 }
 
 void AccumAmDiagGmm::AccumulateForGaussian(
-    const AmDiagGmm &am, const VectorBase<BaseFloat>& data,
+    const AmDiagGmm &am, const VectorBase<BaseFloat> &data,
     int32 gmm_index, int32 gauss_index, BaseFloat weight) {
   KALDI_ASSERT(gmm_index >= 0 && gmm_index < NumAccs());
   KALDI_ASSERT(gauss_index >= 0
@@ -112,7 +112,7 @@ void AccumAmDiagGmm::AccumulateForGaussian(
   gmm_accumulators_[gmm_index]->AccumulateForComponent(data, gauss_index, weight);
 }
 
-void AccumAmDiagGmm::Read(std::istream& in_stream, bool binary,
+void AccumAmDiagGmm::Read(std::istream &in_stream, bool binary,
                           bool add) {
   int32 num_pdfs;
   ExpectToken(in_stream, binary, "<NUMPDFS>");
@@ -148,7 +148,7 @@ void AccumAmDiagGmm::Read(std::istream& in_stream, bool binary,
   }
 }
 
-void AccumAmDiagGmm::Write(std::ostream& out_stream, bool binary) const {
+void AccumAmDiagGmm::Write(std::ostream &out_stream, bool binary) const {
   int32 num_pdfs = gmm_accumulators_.size();
   WriteToken(out_stream, binary, "<NUMPDFS>");
   WriteBasicType(out_stream, binary, num_pdfs);
@@ -164,12 +164,12 @@ void AccumAmDiagGmm::Write(std::ostream& out_stream, bool binary) const {
 }
 
 
-//BaseFloat AccumAmDiagGmm::TotCount() const {
+// BaseFloat AccumAmDiagGmm::TotCount() const {
 //  BaseFloat ans = 0.0;
 //  for (int32 pdf = 0; pdf < NumAccs(); pdf++)
 //    ans += gmm_accumulators_[pdf]->occupancy().Sum();
 //  return ans;
-//}
+// }
 
 void ResizeModel (int32 dim, AmDiagGmm *am_gmm) {
   for (int32 pdf_id = 0; pdf_id < am_gmm->NumPdfs(); pdf_id++) {
@@ -178,8 +178,8 @@ void ResizeModel (int32 dim, AmDiagGmm *am_gmm) {
     Matrix<BaseFloat> inv_vars(pdf.NumGauss(), dim);
     inv_vars.Set(1.0); // make all vars 1.
     pdf.SetInvVars(inv_vars);
+    pdf.ComputeGconsts();
   }
-  am_gmm->Dim(dim);
 }
 
 void MleAmDiagGmmUpdate (const MleDiagGmmOptions &config,
@@ -205,12 +205,21 @@ void MleAmDiagGmmUpdate (const MleDiagGmmOptions &config,
             *p_count   = (count_out != NULL) ? &tmp_count : NULL;
 
   for (size_t i = 0; i < amdiaggmm_acc.NumAccs(); i++) {
-    MleDiagGmmUpdate(config, amdiaggmm_acc.GetAcc(i), flags, &(am_gmm->GetPdf(i)), p_obj,
-        p_count);
+    MleDiagGmmUpdate(config, amdiaggmm_acc.GetAcc(i), flags,
+                     &(am_gmm->GetPdf(i)), p_obj, p_count);
 
     if (obj_change_out != NULL) *obj_change_out += tmp_obj_change;
     if (count_out != NULL) *count_out += tmp_count;
   }
+}
+
+BaseFloat AccumAmDiagGmm::TotStatsCount() const {
+  double ans = 0.0;
+  for (int32 i = 0; i < NumAccs(); i++) {
+    const AccumDiagGmm &acc = GetAcc(i);
+    ans += acc.occupancy().Sum();
+  }
+  return ans;
 }
 
 void AccumAmDiagGmm::Scale(BaseFloat scale) {
@@ -220,6 +229,16 @@ void AccumAmDiagGmm::Scale(BaseFloat scale) {
   }
   total_frames_ *= scale;
   total_log_like_ *= scale;
+}
+
+void AccumAmDiagGmm::Add(BaseFloat scale, const AccumAmDiagGmm &other) {
+  total_frames_ += scale * other.total_frames_;
+  total_log_like_ += scale * other.total_log_like_;
+  
+  int32 num_accs = NumAccs();
+  KALDI_ASSERT(num_accs == other.NumAccs());
+  for (int32 i = 0; i < num_accs; i++)
+    gmm_accumulators_[i]->Add(scale, *(other.gmm_accumulators_[i]));
 }
 
 }  // namespace kaldi

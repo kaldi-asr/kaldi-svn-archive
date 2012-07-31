@@ -20,7 +20,6 @@
 #include <vector>
 using std::vector;
 
-#include "optimization/kaldi-rprop.h"
 #include "transform/fmllr-diag-gmm.h"
 
 namespace kaldi {
@@ -28,7 +27,7 @@ namespace kaldi {
 void
 FmllrDiagGmmAccs::
 AccumulateFromPosteriors(const DiagGmm &pdf,
-                         const VectorBase<BaseFloat>& data,
+                         const VectorBase<BaseFloat> &data,
                          const VectorBase<BaseFloat> &posterior) {
   size_t num_comp = static_cast<int32>(pdf.NumGauss());
   size_t dim = static_cast<size_t>(dim_);
@@ -40,7 +39,7 @@ AccumulateFromPosteriors(const DiagGmm &pdf,
   scatter.AddVec2(1.0, extended_data);
   Vector<double> inv_var_mean(dim);
   Vector<double> g_scale(dim);  // scale on "scatter" for each dim.
-  for (size_t m = 0; m < num_comp; ++m) {
+  for (size_t m = 0; m < num_comp; m++) {
     BaseFloat this_post = posterior(m);
     if (this_post != 0.0) {
       inv_var_mean.CopyRowFromMat(pdf.means_invvars(), m);
@@ -49,7 +48,7 @@ AccumulateFromPosteriors(const DiagGmm &pdf,
       g_scale.AddVec(this_post, pdf.inv_vars().Row(m));
     }
   }
-  for (size_t d = 0; d < dim; ++d)
+  for (size_t d = 0; d < dim; d++)
     this->G_[d].AddSp(g_scale(d), scatter);
 }
 
@@ -67,7 +66,7 @@ FmllrDiagGmmAccs(const DiagGmm &gmm, const AccumFullGmm &fgmm_accs) {
     SubVector<double> this_mean_acc(fgmm_accs.mean_accumulator(), g);
     Vector<double> this_mean_invvar_dbl(this_mean_invvar);
     Vector<double> this_extended_mean_acc(dim+1);
-    this_extended_mean_acc.Range(0,dim).CopyFromVec(this_mean_acc);
+    this_extended_mean_acc.Range(0, dim).CopyFromVec(this_mean_acc);
     this_extended_mean_acc(dim) = this_occ; // acc of x^+
     Matrix<double> this_cov_acc(fgmm_accs.covariance_accumulator()[g]); // copy to
     // regular Matrix.
@@ -88,7 +87,7 @@ FmllrDiagGmmAccs(const DiagGmm &gmm, const AccumFullGmm &fgmm_accs) {
 
 BaseFloat
 FmllrDiagGmmAccs::AccumulateForGmm(const DiagGmm &pdf,
-                                         const VectorBase<BaseFloat>& data,
+                                         const VectorBase<BaseFloat> &data,
                                          BaseFloat weight) {
   size_t num_comp = static_cast<int32>(pdf.NumGauss());
   Vector<BaseFloat> posterior(num_comp);
@@ -136,7 +135,7 @@ void FmllrDiagGmmAccs::Update(const FmllrOptions &opts,
 
 
 BaseFloat ComputeFmllrMatrixDiagGmm(const MatrixBase<BaseFloat> &in_xform,
-                                    const AffineXformStats& stats,
+                                    const AffineXformStats &stats,
                                     std::string fmllr_type,  // "none", "offset", "diag", "full"
                                     int32 num_iters,
                                     MatrixBase<BaseFloat> *out_xform) {
@@ -160,14 +159,14 @@ BaseFloat ComputeFmllrMatrixDiagGmm(const MatrixBase<BaseFloat> &in_xform,
 
 
 BaseFloat ComputeFmllrMatrixDiagGmmFull(const MatrixBase<BaseFloat> &in_xform,
-                                        const AffineXformStats& stats,
+                                        const AffineXformStats &stats,
                                         int32 num_iters,
                                         MatrixBase<BaseFloat> *out_xform) {
   size_t dim = stats.G_.size();
 
   // Compute the inverse matrices of second-order statistics
   vector< SpMatrix<double> > inv_g(dim);
-  for (size_t d = 0; d < dim; ++d) {
+  for (size_t d = 0; d < dim; d++) {
     inv_g[d].Resize(dim + 1);
     inv_g[d].CopyFromSp(stats.G_[d]);
     inv_g[d].Invert();
@@ -179,7 +178,7 @@ BaseFloat ComputeFmllrMatrixDiagGmmFull(const MatrixBase<BaseFloat> &in_xform,
   double obj_old = obj_improvement, obj_new = 0;
 
   for (int32 iter = 0; iter < num_iters; ++iter) {
-    for (size_t d = 0; d < dim; ++d) {
+    for (size_t d = 0; d < dim; d++) {
       double logdet;
       // Calculating the matrix of cofactors (transpose of adjugate)
       Matrix<double> cofact_mat(dim, dim);
@@ -236,7 +235,7 @@ BaseFloat ComputeFmllrMatrixDiagGmmFull(const MatrixBase<BaseFloat> &in_xform,
 }
 
 BaseFloat ComputeFmllrMatrixDiagGmmDiagonal(const MatrixBase<BaseFloat> &in_xform,
-                                            const AffineXformStats& stats,
+                                            const AffineXformStats &stats,
                                             MatrixBase<BaseFloat> *out_xform) {
   // The "Diagonal" here means a diagonal fMLLR matrix, i.e. like W = [ A;  b] where
   // A is diagonal.
@@ -284,7 +283,7 @@ BaseFloat ComputeFmllrMatrixDiagGmmDiagonal(const MatrixBase<BaseFloat> &in_xfor
   size_t dim = stats.G_.size();
   double beta = stats.beta_;
   out_xform->CopyFromMat(in_xform);
-  if(beta == 0.0) {
+  if (beta == 0.0) {
     KALDI_WARN << "Computing diagonal fMLLR matrix: no stats [using original transform]";
     return 0.0;
   }
@@ -292,17 +291,17 @@ BaseFloat ComputeFmllrMatrixDiagGmmDiagonal(const MatrixBase<BaseFloat> &in_xfor
   KALDI_ASSERT(out_xform->Range(0, dim, 0, dim).IsDiagonal()); // orig transform
   // must be diagonal.
   for(int32 i = 0; i < dim; i++) {
-    double k_ii = stats.K_(i,i), k_id = stats.K_(i,dim),
-        g_iii = stats.G_[i](i,i), g_idd = stats.G_[i](dim,dim),
-        g_idi = stats.G_[i](dim,i);
+    double k_ii = stats.K_(i, i), k_id = stats.K_(i, dim),
+        g_iii = stats.G_[i](i, i), g_idd = stats.G_[i](dim, dim),
+        g_idi = stats.G_[i](dim, i);
     double a = g_idi*g_idi/g_idd - g_iii,
         b = k_ii - g_idi*k_id/g_idd,
         c = beta;
     double s = (-b - std::sqrt(b*b - 4*a*c)) / (2*a);
     KALDI_ASSERT(s > 0.0);
     double o = (k_id - s*g_idi) / g_idd;
-    (*out_xform)(i,i) = s;
-    (*out_xform)(i,dim) = o;
+    (*out_xform)(i, i) = s;
+    (*out_xform)(i, dim) = o;
   }
   BaseFloat new_obj = FmllrAuxFuncDiagGmm(*out_xform, stats);
   KALDI_VLOG(2) << "fMLLR objective function improvement = "
@@ -311,7 +310,7 @@ BaseFloat ComputeFmllrMatrixDiagGmmDiagonal(const MatrixBase<BaseFloat> &in_xfor
 }
 
 BaseFloat ComputeFmllrMatrixDiagGmmOffset(const MatrixBase<BaseFloat> &in_xform,
-                                          const AffineXformStats& stats,
+                                          const AffineXformStats &stats,
                                           MatrixBase<BaseFloat> *out_xform) {
   int32 dim = stats.G_.size();
   KALDI_ASSERT(in_xform.NumRows() == dim && in_xform.NumCols() == dim+1);
@@ -340,78 +339,6 @@ BaseFloat ComputeFmllrMatrixDiagGmmOffset(const MatrixBase<BaseFloat> &in_xform,
   return objf_impr;
 }
 
-
-class FmllrDiagGradientDescent: public OptimizableInterface<BaseFloat> {
- public:
-  explicit FmllrDiagGradientDescent(const AffineXformStats &fmllr_stats)
-      : fmllr_stats_(fmllr_stats) {}
-  void Init();  ///< Allocate memory for the parameter and gardient vectors.
-  /// Compute the gradient for set of params and pass it to gradient_out
-  virtual void ComputeGradient(const Vector<BaseFloat> &params,
-                               Vector<BaseFloat> *gradient_out);
-  /// Compute the value for set of params
-  virtual BaseFloat ComputeValue(const Vector<BaseFloat> &params);
-
- private:
-  /// reference to object containing FMLLR stats
-  const AffineXformStats &fmllr_stats_;
-  Matrix<BaseFloat> xform_;     ///< intermediate copy of transform parameters
-  Matrix<BaseFloat> gradient_;  ///< gradient
-
-  KALDI_DISALLOW_COPY_AND_ASSIGN(FmllrDiagGradientDescent);
-  FmllrDiagGradientDescent();  // disallow default ctor
-};
-
-void FmllrDiagGradientDescent::Init() {
-  size_t dim = fmllr_stats_.dim_;
-  xform_.Resize(dim, dim+1);
-  gradient_.Resize(dim, dim+1);
-}
-
-void FmllrDiagGradientDescent::ComputeGradient(const Vector<BaseFloat> &params,
-                                               Vector<BaseFloat> *grad_out) {
-  xform_.CopyRowsFromVec(params);  // copy input parameter vector to a matrix
-  FmllrAuxfGradient(xform_, fmllr_stats_, &gradient_);
-  grad_out->CopyRowsFromMat(gradient_);  // output vectorized gradient
-}
-
-BaseFloat FmllrDiagGradientDescent::ComputeValue(
-    const Vector<BaseFloat> &params) {
-  xform_.CopyRowsFromVec(params);
-  return FmllrAuxFuncDiagGmm(xform_, fmllr_stats_);
-}
-
-
-BaseFloat ComputeFmllrMatrixDiagGmmGradient(const MatrixBase<BaseFloat> &in_xform,
-                                            const AffineXformStats& stats,
-                                            int32 num_iters,
-                                            MatrixBase<BaseFloat> *out_xform) {
-  size_t dim = stats.G_.size();
-  bool converged;
-  BaseFloat obj_improvement = FmllrAuxFuncDiagGmm(in_xform, stats);
-
-  // vectorized transform matrix to be used the the optimization routine.
-  Vector<BaseFloat> param(dim * (dim + 1));
-  param.CopyRowsFromMat(in_xform);  // copy old transform into param
-
-  // Initialize optimizable object.
-  FmllrDiagGradientDescent opt_obj(stats);
-  opt_obj.Init();
-
-  // initalize options for the RProp algorithm. future work(arnab): pass these.
-  RpropOptions<BaseFloat> opt_opts;
-  opt_opts.maximizing = true;
-  opt_opts.max_iter = num_iters;
-  opt_opts.conv_check_interval = 100;
-  // perform resilient backpropagation algorithm until convergence, or maximum
-  // number of iterations reached
-  converged = Rprop(opt_opts, &opt_obj, &param);
-
-  out_xform->CopyRowsFromVec(param);  // copy param into output ransform
-  obj_improvement = FmllrAuxFuncDiagGmm(*out_xform, stats) - obj_improvement;
-  KALDI_LOG << "Objective function improvement = " << (obj_improvement);
-  return obj_improvement;
-}
 
 void ApplyFeatureTransformToStats(const MatrixBase<BaseFloat> &xform,
                                   AffineXformStats *stats) {
@@ -514,14 +441,14 @@ void ApplyModelTransformToStats(const MatrixBase<BaseFloat> &xform,
 }
 
 float FmllrAuxFuncDiagGmm(const MatrixBase<float> &xform,
-                              const AffineXformStats& stats) {
+                              const AffineXformStats &stats) {
   size_t dim = stats.G_.size();
   Matrix<double> xform_d(xform);
   Vector<double> xform_row_g(dim + 1);
   SubMatrix<double> A(xform_d, 0, dim, 0, dim);
   double obj = stats.beta_ * A.LogDet() +
       TraceMatMat(xform_d, stats.K_, kTrans);
-  for (size_t d = 0; d < dim; ++d) {
+  for (size_t d = 0; d < dim; d++) {
     xform_row_g.AddSpVec(1.0, stats.G_[d], xform_d.Row(d), 0.0);
     obj -= 0.5 * VecVec(xform_row_g, xform_d.Row(d));
   }
@@ -529,13 +456,13 @@ float FmllrAuxFuncDiagGmm(const MatrixBase<float> &xform,
 }
 
 double FmllrAuxFuncDiagGmm(const MatrixBase<double> &xform,
-                           const AffineXformStats& stats) {
+                           const AffineXformStats &stats) {
   size_t dim = stats.G_.size();
   Vector<double> xform_row_g(dim + 1);
   SubMatrix<double> A(xform, 0, dim, 0, dim);
   double obj = stats.beta_ * A.LogDet() +
       TraceMatMat(xform, stats.K_, kTrans);
-  for (size_t d = 0; d < dim; ++d) {
+  for (size_t d = 0; d < dim; d++) {
     xform_row_g.AddSpVec(1.0, stats.G_[d], xform.Row(d), 0.0);
     obj -= 0.5 * VecVec(xform_row_g, xform.Row(d));
   }
@@ -545,7 +472,7 @@ double FmllrAuxFuncDiagGmm(const MatrixBase<double> &xform,
 BaseFloat FmllrAuxfGradient(const MatrixBase<BaseFloat> &xform,
                             // if this is changed back to Matrix<double>
                            // un-comment the Resize() below.
-                            const AffineXformStats& stats,
+                            const AffineXformStats &stats,
                             MatrixBase<BaseFloat> *grad_out) {
   size_t dim = stats.G_.size();
   Matrix<double> xform_d(xform);
@@ -554,7 +481,7 @@ BaseFloat FmllrAuxfGradient(const MatrixBase<BaseFloat> &xform,
   double obj = stats.beta_ * A.LogDet() +
       TraceMatMat(xform_d, stats.K_, kTrans);
   Matrix<double> S(dim, dim + 1);
-  for (size_t d = 0; d < dim; ++d) {
+  for (size_t d = 0; d < dim; d++) {
     xform_row_g.AddSpVec(1.0, stats.G_[d], xform_d.Row(d), 0.0);
     obj -= 0.5 * VecVec(xform_row_g, xform_d.Row(d));
     S.CopyRowFromVec(xform_row_g, d);

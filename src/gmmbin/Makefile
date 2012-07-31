@@ -13,7 +13,7 @@ BINFILES = gmm-init-mono gmm-est gmm-acc-stats-ali gmm-align \
            gmm-et-acc-a gmm-et-est-a gmm-copy-et gmm-et-get-b gmm-et-get-a \
            gmm-make-regtree gmm-decode-faster-regtree-fmllr gmm-post-to-gpost \
            gmm-est-fmllr-gpost gmm-est-fmllr gmm-est-regtree-fmllr-ali \
-           gmm-est-regtree-mllr gmm-decode-kaldi gmm-compute-likes \
+           gmm-est-regtree-mllr gmm-compute-likes \
            gmm-decode-faster-regtree-mllr gmm-et-apply-c gmm-latgen-simple \
            gmm-rescore-lattice gmm-decode-biglm-faster \
            gmm-est-gaussians-ebw gmm-est-weights-ebw gmm-latgen-faster gmm-copy \
@@ -22,8 +22,10 @@ BINFILES = gmm-init-mono gmm-est gmm-acc-stats-ali gmm-align \
            gmm-global-est-fmllr gmm-global-to-fgmm gmm-global-acc-stats-twofeats \
            gmm-global-copy gmm-align-compiled-plusphones gmm-get-feat-deriv \
            gmm-fmpe-acc-stats gmm-acc-stats2 gmm-init-model-flat gmm-info \
-           gmm-scale-accs gmm-get-stats-deriv gmm-est-rescale gmm-boost-silence
-
+           gmm-scale-accs gmm-get-stats-deriv gmm-est-rescale gmm-boost-silence \
+           gmm-diff-accs gmm-basis-fmllr-accs gmm-basis-fmllr-training gmm-est-basis-fmllr \
+           gmm-est-map gmm-latgen-map gmm-basis-fmllr-accs-gpost gmm-est-basis-fmllr-gpost
+ 
 OBJFILES =
 
 all:  $(BINFILES)

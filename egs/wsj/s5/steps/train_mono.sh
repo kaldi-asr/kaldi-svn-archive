@@ -18,6 +18,8 @@ boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
 realign_iters="1 2 3 4 5 6 7 8 9 10 12 14 16 18 20 23 26 29 32 35 38";
 config= # name of config file.
 stage=-4
+power=0.2 # exponent to determine number of gaussians from occurrence counts
+feat_dim=39
 # End configuration section.
 
 if [ -f path.sh ]; then . ./path.sh; fi
@@ -29,6 +31,7 @@ if [ $# != 3 ]; then
   echo "main options (for others, see top of script file)"
   echo "  --config <config-file>                           # config containing options"
   echo "  --nj <nj>                                        # number of parallel jobs"
+  echo "  --feat_dim <dim>                                 # dimension of feature vector (39)"
   echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
   exit 1;
 fi
@@ -56,7 +59,7 @@ shared_phones_opt="--shared-phones=$lang/phones/sets.int"
 if [ $stage -le -3 ]; then
 # Note: JOB=1 just uses the 1st part of the features-- we only need a subset anyway.
   $cmd JOB=1 $dir/log/init.log \
-    gmm-init-mono $shared_phones_opt "--train-feats=$feats subset-feats --n=10 ark:- ark:-|" $lang/topo 39 \
+    gmm-init-mono $shared_phones_opt "--train-feats=$feats subset-feats --n=10 ark:- ark:-|" $lang/topo $feat_dim \
     $dir/0.mdl $dir/tree || exit 1;
 fi
 
@@ -83,7 +86,7 @@ fi
 # we fail to est "rare" phones and later on, they never align properly.
 
 if [ $stage -le 0 ]; then
-  gmm-est --min-gaussian-occupancy=3  --mix-up=$numgauss \
+  gmm-est --min-gaussian-occupancy=3  --mix-up=$numgauss --power=$power \
     $dir/0.mdl "gmm-sum-accs - $dir/0.*.acc|" $dir/1.mdl 2> $dir/log/update.0.log || exit 1;
   rm $dir/0.*.acc
 fi
@@ -108,7 +111,7 @@ while [ $x -lt $num_iters ]; do
       $dir/$x.JOB.acc || exit 1;
 
     $cmd $dir/log/update.$x.log \
-      gmm-est --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss $dir/$x.mdl \
+      gmm-est --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss --power=$power $dir/$x.mdl \
       "gmm-sum-accs - $dir/$x.*.acc|" $dir/$[$x+1].mdl || exit 1;
     rm $dir/$x.mdl $dir/$x.*.acc $dir/$x.occs 2>/dev/null
   fi

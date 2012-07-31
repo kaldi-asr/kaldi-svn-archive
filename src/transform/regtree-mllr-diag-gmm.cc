@@ -82,7 +82,7 @@ void RegtreeMllrDiagGmm::TransformModel(const RegressionTree &regtree,
 void RegtreeMllrDiagGmm::GetTransformedMeans(const RegressionTree &regtree,
                                              const AmDiagGmm &am,
                                              int32 pdf_index,
-                                             MatrixBase<BaseFloat>* out) const {
+                                             MatrixBase<BaseFloat> *out) const {
   KALDI_ASSERT(static_cast<int32>(bclass2xforms_.size()) ==
                regtree.NumBaseclasses());
   int32 num_gauss = am.GetPdf(pdf_index).NumGauss();
@@ -91,7 +91,7 @@ void RegtreeMllrDiagGmm::GetTransformedMeans(const RegressionTree &regtree,
   Vector<BaseFloat> extended_mean(dim_+1);
   extended_mean(dim_) = 1.0;
 
-  for (int32 gauss_index = 0; gauss_index < num_gauss; ++gauss_index) {
+  for (int32 gauss_index = 0; gauss_index < num_gauss; gauss_index++) {
     int32 bclass_index = regtree.Gauss2BaseclassId(pdf_index, gauss_index);
     int32 xform_index = bclass2xforms_[bclass_index];
     if (xform_index > -1) {  // use a transform
@@ -182,7 +182,7 @@ void RegtreeMllrDiagGmmAccs::SetZero() {
 
 BaseFloat RegtreeMllrDiagGmmAccs::AccumulateForGmm(
     const RegressionTree &regtree, const AmDiagGmm &am,
-    const VectorBase<BaseFloat>& data, int32 pdf_index, BaseFloat weight) {
+    const VectorBase<BaseFloat> &data, int32 pdf_index, BaseFloat weight) {
   const DiagGmm &pdf = am.GetPdf(pdf_index);
   int32 num_comp = static_cast<int32>(pdf.NumGauss());
   Vector<BaseFloat> posterior(num_comp);
@@ -219,7 +219,7 @@ BaseFloat RegtreeMllrDiagGmmAccs::AccumulateForGmm(
 
 void RegtreeMllrDiagGmmAccs::AccumulateForGaussian(
     const RegressionTree &regtree, const AmDiagGmm &am,
-    const VectorBase<BaseFloat>& data, int32 pdf_index, int32 gauss_index,
+    const VectorBase<BaseFloat> &data, int32 pdf_index, int32 gauss_index,
     BaseFloat weight) {
   const DiagGmm &pdf = am.GetPdf(pdf_index);
   Vector<double> data_d(data);
@@ -304,13 +304,13 @@ static void ComputeMllrMatrix(const Matrix<double> &K,
 }
 
 static BaseFloat MllrAuxFunction(const Matrix<BaseFloat> &xform,
-                                 const AffineXformStats& stats) {
+                                 const AffineXformStats &stats) {
   int32 dim = stats.G_.size();
   Matrix<double> xform_d(xform);
   Vector<double> xform_row_g(dim + 1);
   SubMatrix<double> A(xform_d, 0, dim, 0, dim);
   double obj = TraceMatMat(xform_d, stats.K_, kTrans);
-  for (int32 d = 0; d < dim; ++d) {
+  for (int32 d = 0; d < dim; d++) {
     xform_row_g.AddSpVec(1.0, stats.G_[d], xform_d.Row(d), 0.0);
     obj -= 0.5 * VecVec(xform_row_g, xform_d.Row(d));
   }

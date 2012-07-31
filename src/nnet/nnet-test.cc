@@ -24,7 +24,7 @@
 
 using namespace kaldi;
 
-//:TODO:
+// :TODO:
 static void UnitTestSomething() {
   KALDI_ERR << "Unimeplemented";
 }
@@ -33,7 +33,7 @@ static void UnitTestSomething() {
 static void UnitTestNnet() {
   try {
     UnitTestSomething();
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     std::cerr << e.what();
   }
 }

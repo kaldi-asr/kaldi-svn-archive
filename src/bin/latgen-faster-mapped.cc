@@ -1,7 +1,7 @@
 // gmmbin/gmm-latgen-faster.cc
 
 // Copyright 2009-2012  Microsoft Corporation, Karel Vesely
-
+ 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
     if (word_syms) delete word_syms;
     if (num_success != 0) return 0;
     else return 1;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

@@ -30,27 +30,30 @@ function readint () {
   echo $retval
 }
 
-njobs=4   # Default number of jobs
-stage=-4  # Default starting stage (start with calculating CMN/CVN stats)
-qcmd=""   # Options for the submit_jobs.sh script
+nj=4       # Default number of jobs
+qcmd=""    # Options for the submit_jobs.sh script
+sjopts=""  # Options for the submit_jobs.sh script
 
 PROG=`basename $0`;
 usage="Usage: $PROG [options] <data-dir> <log-dir> <abs-path-to-mfccdir>\n\n
 Options:\n
   --help\t\tPrint this message and exit\n
-  --num-jobs INT\tNumber of parallel jobs to run (default=$njobs).\n
+  --num-jobs INT\tNumber of parallel jobs to run (default=$nj).\n
   --qcmd STRING\tCommand for submitting a job to a grid engine (e.g. qsub) including switches.\n
+  --sjopts STRING\tOptions for the 'submit_jobs.sh' script\n
 ";
 
 while [ $# -gt 0 ]; do
   case "${1# *}" in  # ${1# *} strips any leading spaces from the arguments
     --help) echo -e $usage; exit 0 ;;
     --num-jobs)
-      shift; njobs=`readint $1`;
-      [ $njobs -lt 1 ] && error_exit "--num-jobs arg '$njobs' not positive.";
+      shift; nj=`readint $1`;
+      [ $nj -lt 1 ] && error_exit "--num-jobs arg '$nj' not positive.";
       shift ;;
     --qcmd)
       shift; qcmd="--qcmd=${1}"; shift ;;
+    --sjopts)
+      shift; sjopts="$1"; shift ;;
     -*)  echo "Unknown argument: $1, exiting"; echo -e $usage; exit 1 ;;
     *)   break ;;   # end of options: interpreted as the data-dir
   esac
@@ -88,21 +91,20 @@ done
 # The "for" loop in this style is a special construct.
 
 split_scps=""
-for ((n=1; n<=njobs; n++)); do
+for ((n=1; n<=nj; n++)); do
   split_scps="$split_scps $logdir/wav$n.scp"
 done
 
 split_scp.pl $scp $split_scps || exit 1;
 
-rm -f $logdir/.error.$name 2>/dev/null
-submit_jobs.sh "$qcmd" --njobs=$njobs --log=$logdir/make_mfcc.TASK_ID.log \
+submit_jobs.sh "$qcmd" --njobs=$nj --log=$logdir/make_mfcc.TASK_ID.log $sjopts \
   compute-mfcc-feats --verbose=2 --config=$config scp:$logdir/wavTASK_ID.scp \
   ark,scp:$mfccdir/mfcc_$name.TASK_ID.ark,$mfccdir/mfcc_$name.TASK_ID.scp \
   || error_exit "Error producing mfcc features for $name:"`tail $logdir/make_mfcc.*.log`
 
 # concatenate the .scp files together.
 rm $data/feats.scp 2>/dev/null
-for ((n=1; n<=njobs; n++)); do
+for ((n=1; n<=nj; n++)); do
   cat $mfccdir/mfcc_$name.$n.scp >> $data/feats.scp
 done
 

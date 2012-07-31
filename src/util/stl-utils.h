@@ -221,6 +221,20 @@ struct VectorHasher {  // hashing function for vector<Int>.
   static const int kPrime = 7853;
 };
 
+/// A hashing function-object for pairs of ints
+template<typename Int>
+struct PairHasher { // hashing function for pair<int>
+  size_t operator()(const std::pair<Int,Int> &x) const {
+    return x.first + x.second * kPrime;
+  }
+  PairHasher() {  // Check we're instantiated with an integer type.
+    KALDI_ASSERT_IS_INTEGER_TYPE(Int);
+  }
+ private:
+  static const int kPrime = 7853;
+};
+
+
 /// A hashing function object for strings.
 struct StringHasher {  // hashing function for std::string
   size_t operator()(const std::string &str) const {
@@ -251,7 +265,7 @@ template<class A, class B>
 struct CompareFirstMemberOfPair {
   inline bool operator() (const std::pair<A, B> &p1,
                           const std::pair<A, B> &p2) {
-    return (p1.first < p2.first);
+    return p1.first < p2.first;
   }
 };
 
@@ -282,7 +296,6 @@ inline void MergePairVectorSumming(std::vector<std::pair<I, F> > *vec) {
   }
   vec->erase(out, end);
 }
-
 
 }  // namespace kaldi
 

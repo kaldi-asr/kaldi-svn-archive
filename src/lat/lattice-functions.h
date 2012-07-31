@@ -47,7 +47,14 @@ int32 CompactLatticeStateTimes(const CompactLattice &lat,
 /// This function does the forward-backward over lattices and computes the
 /// posterior probabilities of the arcs. It returns the total log-probability
 /// of the lattice.
-BaseFloat LatticeForwardBackward(const Lattice &lat, Posterior *arc_post);
+/// If the pointer "acoustic_like_sum" is provided, this value is set to
+/// the sum over the arcs, of the posterior of the arc times the
+/// acoustic likelihood [i.e. negated acoustic score] on that link.
+/// This is used in combination with other quantities to work out
+/// the objective function in MMI discriminative training.
+BaseFloat LatticeForwardBackward(const Lattice &lat,
+                                 Posterior *arc_post,
+                                 double *acoustic_like_sum = NULL);
 
 /// Given a lattice, and a transition model to map pdf-ids to phones,
 /// outputs for each frame the set of phones active on that frame.  If
@@ -96,7 +103,9 @@ int32 LatticePhoneFrameAccuracy(const Lattice &hyp, const TransitionModel &trans
 BaseFloat LatticeForwardBackwardMpe(const Lattice &lat,
                                     const TransitionModel &trans,
                                     const vector< std::map<int32, char> > &arc_accs,
-                                    Posterior *arc_post);
+                                    Posterior *arc_post,
+                                    const std::vector<int32> &silence_phones);
+
 
 /// This function takes a CompactLattice that should only contain
 /// a single linear sequence (e.g. derived from lattice-1best), and

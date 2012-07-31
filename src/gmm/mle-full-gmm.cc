@@ -52,7 +52,7 @@ void AccumFullGmm::ResizeVarAccumulator(int32 num_comp, int32 dim) {
   KALDI_ASSERT(num_comp > 0 && dim > 0);
   if (covariance_accumulator_.size() != static_cast<size_t>(num_comp))
     covariance_accumulator_.resize(num_comp);
-  for (int32 i = 0; i < num_comp; ++i) {
+  for (int32 i = 0; i < num_comp; i++) {
     if (covariance_accumulator_[i].NumRows() != dim)
       covariance_accumulator_[i].Resize(dim);
   }
@@ -69,7 +69,7 @@ void AccumFullGmm::SetZero(GmmFlagsType flags) {
     mean_accumulator_.SetZero();
   
   if (flags & kGmmVariances) {
-    for (int32 i = 0, end = covariance_accumulator_.size(); i < end; ++i)
+    for (int32 i = 0, end = covariance_accumulator_.size(); i < end; i++)
       covariance_accumulator_[i].SetZero();
   }
 }
@@ -86,13 +86,13 @@ void AccumFullGmm::Scale(BaseFloat f, GmmFlagsType flags) {
     mean_accumulator_.Scale(d);
   
   if (flags & kGmmVariances) {
-    for (int32 i = 0, end = covariance_accumulator_.size(); i < end; ++i)
+    for (int32 i = 0, end = covariance_accumulator_.size(); i < end; i++)
       covariance_accumulator_[i].Scale(d);
   }
 }
 
 void AccumFullGmm::AccumulateForComponent(
-    const VectorBase<BaseFloat>& data, int32 comp_index, BaseFloat weight) {
+    const VectorBase<BaseFloat> &data, int32 comp_index, BaseFloat weight) {
   assert(data.Dim() == Dim());
   double wt = static_cast<double>(weight);
 
@@ -108,8 +108,8 @@ void AccumFullGmm::AccumulateForComponent(
 }
 
 void AccumFullGmm::AccumulateFromPosteriors(
-    const VectorBase<BaseFloat>& data,
-    const VectorBase<BaseFloat>& gauss_posteriors) {
+    const VectorBase<BaseFloat> &data,
+    const VectorBase<BaseFloat> &gauss_posteriors) {
   assert(gauss_posteriors.Dim() == NumGauss());
   assert(data.Dim() == Dim());
   Vector<double> data_d(data.Dim());
@@ -131,7 +131,7 @@ void AccumFullGmm::AccumulateFromPosteriors(
     if (flags_ & kGmmVariances) {
       SpMatrix<double> data_sq_d(data_d.Dim());
       data_sq_d.AddVec2(1.0, data_d);
-      for (int32 mix = 0; mix < NumGauss(); ++mix)
+      for (int32 mix = 0; mix < NumGauss(); mix++)
         if (post_d(mix) !=  0.0)
           covariance_accumulator_[mix].AddSp(post_d(mix), data_sq_d);
     }
@@ -139,7 +139,7 @@ void AccumFullGmm::AccumulateFromPosteriors(
 }
 
 BaseFloat AccumFullGmm::AccumulateFromFull(const FullGmm &gmm,
-    const VectorBase<BaseFloat>& data, BaseFloat frame_posterior) {
+    const VectorBase<BaseFloat> &data, BaseFloat frame_posterior) {
   assert(gmm.NumGauss() == NumGauss());
   assert(gmm.Dim() == Dim());
 
@@ -153,7 +153,7 @@ BaseFloat AccumFullGmm::AccumulateFromFull(const FullGmm &gmm,
 }
 
 BaseFloat AccumFullGmm::AccumulateFromDiag(const DiagGmm &gmm,
-    const VectorBase<BaseFloat>& data, BaseFloat frame_posterior) {
+    const VectorBase<BaseFloat> &data, BaseFloat frame_posterior) {
   assert(gmm.NumGauss() == NumGauss());
   assert(gmm.Dim() == Dim());
 
@@ -210,7 +210,7 @@ void AccumFullGmm::Read(std::istream &in_stream, bool binary, bool add) {
       if (!add) mean_accumulator_.SetZero();
       mean_accumulator_.AddMat(1.0, tmp_means);
     } else if (token == "<FULLVARACCS>") {
-      for (int32 i = 0; i < num_components; ++i) {
+      for (int32 i = 0; i < num_components; i++) {
         SpMatrix<double> tmp_acc;
         tmp_acc.Read(in_stream, binary, add);
         if (tmp_occs(i) != 0) tmp_acc.AddVec2(1.0 / tmp_occs(i), tmp_means.Row(
@@ -245,7 +245,7 @@ void AccumFullGmm::Write(std::ostream &out_stream, bool binary) const {
       == (covariance_accumulator_.size() != 0));  // sanity check.
   if (covariance_accumulator_.size() != 0) {
     WriteToken(out_stream, binary, "<FULLVARACCS>");
-    for (int32 i = 0; i < num_comp_; ++i) {
+    for (int32 i = 0; i < num_comp_; i++) {
       SpMatrix<double> tmp_acc(covariance_accumulator_[i]);
       if (occupancy_(i) != 0) tmp_acc.AddVec2(-1.0 / occupancy_(i),
           mean_accumulator_.Row(i));
@@ -256,7 +256,7 @@ void AccumFullGmm::Write(std::ostream &out_stream, bool binary) const {
   WriteToken(out_stream, binary, "</GMMACCS>");
 }
 
-BaseFloat MlObjective(const FullGmm& gmm, const AccumFullGmm &fullgmm_acc) {
+BaseFloat MlObjective(const FullGmm &gmm, const AccumFullGmm &fullgmm_acc) {
   GmmFlagsType flags = fullgmm_acc.Flags();
   Vector<BaseFloat> occ_bf(fullgmm_acc.occupancy());
   Matrix<BaseFloat> mean_accs_bf(fullgmm_acc.mean_accumulator());
@@ -268,7 +268,7 @@ BaseFloat MlObjective(const FullGmm& gmm, const AccumFullGmm &fullgmm_acc) {
     obj += TraceMatMat(mean_accs_bf, gmm.means_invcovars(), kTrans);
   
   if (flags & kGmmVariances) {
-    for (int32 i = 0; i < gmm.NumGauss(); ++i) {
+    for (int32 i = 0; i < gmm.NumGauss(); i++) {
       covar_accs_bf.CopyFromSp(fullgmm_acc.covariance_accumulator()[i]);
       obj -= 0.5 * TraceSpSp(covar_accs_bf, gmm.inv_covars()[i]);
     }
@@ -306,7 +306,7 @@ void MleFullGmmUpdate(const MleFullGmmOptions &config,
   FullGmmNormal ngmm(*gmm);
 
   std::vector<int32> to_remove;
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     double occ = fullgmm_acc.occupancy()(i);
     double prob;
     if (occ_sum > 0.0)

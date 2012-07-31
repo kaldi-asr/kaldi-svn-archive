@@ -72,14 +72,14 @@ if [[ ! -s $clg || $clg -ot $lang/tmp/LG.fst ]]; then
   fstisstochastic $clg  || echo "[info]: CLG not stochastic."
 fi
 
-if [[ ! -f $dir/Ha.fst || $dir/Ha.fst -ot $model  \
+if [[ ! -s $dir/Ha.fst || $dir/Ha.fst -ot $model  \
     || $dir/Ha.fst -ot $lang/tmp/ilabels_${N}_${P} ]]; then
   make-h-transducer --disambig-syms-out=$dir/disambig_tid.int \
     --transition-scale=$tscale $lang/tmp/ilabels_${N}_${P} $tree $model \
      > $dir/Ha.fst  || exit 1;
 fi
 
-if [[ ! -f $dir/HCLGa.fst || $dir/HCLGa.fst -ot $dir/Ha.fst || \
+if [[ ! -s $dir/HCLGa.fst || $dir/HCLGa.fst -ot $dir/Ha.fst || \
       $dir/HCLGa.fst -ot $clg ]]; then
   fsttablecompose $dir/Ha.fst $clg | fstdeterminizestar --use-log=true \
     | fstrmsymbols $dir/disambig_tid.int | fstrmepslocal | \
@@ -87,7 +87,7 @@ if [[ ! -f $dir/HCLGa.fst || $dir/HCLGa.fst -ot $dir/Ha.fst || \
   fstisstochastic $dir/HCLGa.fst || echo "HCLGa is not stochastic"
 fi
 
-if [[ ! -f $dir/HCLG.fst || $dir/HCLG.fst -ot $dir/HCLGa.fst ]]; then
+if [[ ! -s $dir/HCLG.fst || $dir/HCLG.fst -ot $dir/HCLGa.fst ]]; then
   add-self-loops --self-loop-scale=$loopscale --reorder=true \
     $model < $dir/HCLGa.fst > $dir/HCLG.fst || exit 1;
 
@@ -103,7 +103,8 @@ fi
 
 cp $lang/words.txt $dir/ || exit 1;
 mkdir -p $dir/phones
-cp $lang/phones/word_boundary.int $dir/phones/ # might be needed for ctm scoring.
+cp $lang/phones/word_boundary.int $dir/phones/ 2>/dev/null # might be needed for ctm scoring,
+  # but ignore the error if it's not there.
 cp $lang/phones/silence.csl $dir/phones/ || exit 1;
 
 # to make const fst:

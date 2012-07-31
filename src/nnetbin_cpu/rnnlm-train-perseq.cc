@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         dict_rtxt = po.GetArg(3);
         
     std::string target_model_filename;
-    if(!crossvalidate) {
+    if (!crossvalidate) {
       target_model_filename = po.GetArg(4);
     }
 
@@ -86,11 +86,11 @@ int main(int argc, char *argv[]) {
 
     kaldi::int64 tot_w = 0;
 
-    //read the dictionary
-    std::map<std::string,int32> dict;
-    RnnlmAux::ReadDict(dict_rtxt,&dict);
+    // read the dictionary
+    std::map<std::string, int32> dict;
+    RnnlmAux::ReadDict(dict_rtxt, &dict);
 
-    //open the training data
+    // open the training data
     std::ifstream traindata(traindata_rtxt.c_str());
     if (!traindata.good()) {
       KALDI_ERR << "Cannot open training data: " << traindata_rtxt;
@@ -106,10 +106,10 @@ int main(int argc, char *argv[]) {
 
     int32 num_done = 0, num_oov_error = 0;
     while (!traindata.eof()) {
-      //read input sequence
+      // read input sequence
       input_seq.clear();
-      while(input_seq.size() < min_seq_len && !traindata.eof()) {
-        if (!RnnlmAux::AddLine(traindata,dict,&input_seq)) {
+      while (input_seq.size() < min_seq_len && !traindata.eof()) {
+        if (!RnnlmAux::AddLine(traindata, dict, &input_seq)) {
           num_oov_error++;
         } else {
           if(num_done % 100000 == 0) std::cout << num_done << ", " << std::flush;
@@ -117,32 +117,32 @@ int main(int argc, char *argv[]) {
         }
       }
 
-      rnnlm.Propagate(input_seq,&rnnlm_out);
+      rnnlm.Propagate(input_seq, &rnnlm_out);
         
-      //prepare target vector
+      // prepare target vector
       std::vector<int32> target(input_seq);
       target.erase(target.begin());
 
-      //add one more dummy word as target
+      // add one more dummy word as target
       target.push_back(1);
 
-      xent.Eval(rnnlm_out,target,&glob_err);
+      xent.Eval(rnnlm_out, target, &glob_err);
 
-      //set zero error for prediction of dummy word
+      // set zero error for prediction of dummy word
       glob_err.Row(glob_err.NumRows()-1).SetZero();
 
-      if(!crossvalidate) {
+      if (!crossvalidate) {
         rnnlm.Backpropagate(glob_err);
       }
 
       tot_w += input_seq.size();
     }
 
-    //clean up
+    // clean up
     traindata.close();
 
-    if(!crossvalidate) {
-      rnnlm.Write(target_model_filename,binary);
+    if (!crossvalidate) {
+      rnnlm.Write(target_model_filename, binary);
     }
     
     std::cout << "\n" << std::flush;
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << xent.Report();
 
     return 0;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

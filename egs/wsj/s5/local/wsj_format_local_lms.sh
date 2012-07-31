@@ -2,6 +2,7 @@
 
 # Copyright Johns Hopkins University (Author: Daniel Povey) 2012
 
+. ./path.sh
 
 [ ! -d data/lang_bd ] && echo "Expect data/local/lang_bd to exist" && exit 1;
 
@@ -41,3 +42,4 @@ gunzip -c $lm_srcdir_4g/lm_unpruned.gz | \
      fstrmepsilon > data/lang_test_bd_fg/G.fst || exit 1;
   fstisstochastic data/lang_test_bd_fg/G.fst
 
+exit 0;

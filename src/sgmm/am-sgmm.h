@@ -1,7 +1,9 @@
 // sgmm/am-sgmm.h
 
-// Copyright 2009-2011  Microsoft Corporation;  Lukas Burget;
-//                      Saarland University;  Ondrej Glembek;  Yanmin Qian
+// Copyright 2009-2012  Microsoft Corporation;  Lukas Burget;
+//                      Saarland University (Author: Arnab Ghoshal);
+//                      Ondrej Glembek;  Yanmin Qian;
+//                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,7 +40,6 @@ struct SgmmGselectConfig {
   /// Number of highest-scoring diagonal-covariance Gaussians per frame.
   int32 diag_gmm_nbest;
 
-
   SgmmGselectConfig() {
     full_gmm_nbest = 15;
     diag_gmm_nbest = 50;
@@ -51,30 +52,6 @@ struct SgmmGselectConfig {
         " diagonal-covariance Gaussians selected per frame.");
   }
 };
-
-
-/** \class GaussSelectionRecord
- *  Used to select the top scoring Gaussians for each frame.
- */
-class GaussSelectionRecord {
- public:
-  GaussSelectionRecord(int32 i, BaseFloat l) : gauss_index_(i), log_like_(l) {}
-  int32 Gaussian() const { return gauss_index_; }
-  BaseFloat LogLike() const { return log_like_; }
-  static bool CompareByLike(const GaussSelectionRecord &a,
-                            const GaussSelectionRecord &b) {
-    return a.log_like_ > b.log_like_;
-  }
-  static bool CompareByIndex(const GaussSelectionRecord a,
-                             const GaussSelectionRecord b) {
-    return a.gauss_index_ > b.gauss_index_;
-  }
-
- private:
-  int32 gauss_index_;
-  BaseFloat log_like_;
-};
-
 
 /** \struct SgmmPerFrameDerivedVars
  *  Holds the per-frame precomputed quantities x(t), x_{i}(t), z_{i}(t), and
@@ -154,7 +131,6 @@ class AmSgmm {
   /// Copies the global parameters from the supplied model, but sets
   /// the state vectors to zero.  Supports reducing the phonetic
   /// and speaker subspace dimensions.
-  /// , and initializes the rest of the parameters from the UBM.
   void CopyGlobalsInitVecs(const AmSgmm &other, int32 phn_subspace_dim,
                            int32 spk_subspace_dim, int32 num_pdfs);
 
@@ -178,12 +154,12 @@ class AmSgmm {
   /// 'logdet_s' term is the log determinant of the FMLLR transform, or 0.0 if
   /// no FMLLR is used or it's single-class fMLLR applied in the feature
   /// extraction, and we're not keeping track of it here.
-  void ComputePerFrameVars(const VectorBase<BaseFloat>& data,
+  void ComputePerFrameVars(const VectorBase<BaseFloat> &data,
                            const std::vector<int32> &gselect,
                            const SgmmPerSpkDerivedVars &spk_vars,
                            BaseFloat logdet_s,
                            SgmmPerFrameDerivedVars *per_frame_vars) const;
-
+  
   /// Computes the per-speaker derived vars; assumes vars->v_s is already
   /// set up.
   void ComputePerSpkDerivedVars(SgmmPerSpkDerivedVars *vars) const;
@@ -200,10 +176,12 @@ class AmSgmm {
   BaseFloat ComponentPosteriors(const SgmmPerFrameDerivedVars &per_frame_vars,
                                 int32 state, Matrix<BaseFloat> *post) const;
 
-  /// Increases the total number of substates bases on the state occupancies.
+  /// Increases the total number of substates based on the state occupancies.
   void SplitSubstates(const Vector<BaseFloat> &state_occupancies,
-                      int32 target_nsubstates, BaseFloat perturb,
-                      BaseFloat power, BaseFloat max_cond);
+                      int32 target_nsubstates,
+                      BaseFloat perturb,
+                      BaseFloat power, 
+                      BaseFloat cond);
 
   /// Functions for increasing the phonetic and speaker space dimensions.
   /// The argument norm_xform is a LDA-like feature normalizing transform,
@@ -245,8 +223,8 @@ class AmSgmm {
   void RemoveSpeakerSpace() { N_.clear(); }
 
   /// Accessors
-  const FullGmm& full_ubm() const { return full_ubm_; }
-  const DiagGmm& diag_ubm() const { return diag_ubm_; }
+  const FullGmm & full_ubm() const { return full_ubm_; }
+  const DiagGmm & diag_ubm() const { return diag_ubm_; }
 
   const Matrix<BaseFloat>& StateVectors(int32 state_index) const {
     return v_[state_index];
@@ -254,16 +232,16 @@ class AmSgmm {
   const SpMatrix<BaseFloat>& GetInvCovars(int32 gauss_index) const {
     return SigmaInv_[gauss_index];
   }
+  const Matrix<BaseFloat>& GetPhoneProjection(int32 gauss_index) const {
+    return M_[gauss_index];
+  }
 
   /// Templated accessors (used to accumulate in different precision)
   template<typename Real>
   void GetInvCovars(int32 gauss_index, SpMatrix<Real> *out) const;
 
   template<typename Real>
-  void GetNtransSigmaInv(std::vector< Matrix<Real> > *out) const;
-
-  template<typename Real>
-  void GetSubstateMean(int32 state, int32 substate, int32 gauss,
+  void GetSubstateMean(int32 j, int32 m, int32 i,
                        VectorBase<Real> *mean_out) const;
 
   template<typename Real>
@@ -276,6 +254,9 @@ class AmSgmm {
                                        int32 gauss,
                                        const SgmmPerSpkDerivedVars &spk,
                                        VectorBase<Real> *mean_out) const;
+  
+  template<typename Real>
+  void GetNtransSigmaInv(std::vector< Matrix<Real> > *out) const;
 
   /// Computes quantities H = M_i Sigma_i^{-1} M_i^T.
   template<class Real>
@@ -331,9 +312,11 @@ class AmSgmm {
   std::vector< Matrix<BaseFloat> > n_;
 
   KALDI_DISALLOW_COPY_AND_ASSIGN(AmSgmm);
+  friend class EbwAmSgmmUpdater;
   friend class MleAmSgmmUpdater;
   friend class MleSgmmSpeakerAccs;
   friend class AmSgmmFunctions;  // misc functions that need access.
+  friend class MleAmSgmmUpdaterMulti;
 };
 
 template<typename Real>
@@ -373,6 +356,7 @@ void AmSgmm::GetVarScaledSubstateSpeakerMean(int32 j, int32 m, int32 i,
   tmp_mean2.AddSpVec(1.0, SigmaInv_[i], tmp_mean, 0.0);
   mean_out->CopyFromVec(tmp_mean2);
 }
+
 
 /// Computes the inverse of an LDA transform (without dimensionality reduction)
 /// The computed transform is used in initializing the phonetic and speaker
@@ -414,7 +398,7 @@ class AmSgmmFunctions {
   /// "State-Level Data Borrowing for Low-Resource Speech Recognition based on
   ///  Subspace GMMs", by Yanmin Qian et. al, Interspeech 2011.
   /// Model must have one substate per state.
-  static void ComputeDistances(const AmSgmm& model,
+  static void ComputeDistances(const AmSgmm &model,
                                const Vector<BaseFloat> &state_occs,
                                MatrixBase<BaseFloat> *dists);
 };

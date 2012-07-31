@@ -1,3 +1,22 @@
+// cudamatrix/cu-math.h
+
+// Copyright 2009-2012  Karel Vesely
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+
+
 #ifndef KALDI_CUDAMATRIX_CUMATH_H_
 #define KALDI_CUDAMATRIX_CUMATH_H_
 
@@ -10,94 +29,56 @@
 
 namespace kaldi {
   
-  
 /**
  * Hide the CUDA kernel ANSI-C wrappers to subnamespace cu::
  */
 namespace cu {
-  
-  /*
-   * Float version of functions
-   */
-  /// Y = Sigmoid(X)
-  void Sigmoid(const CuMatrix<float>& X, CuMatrix<float>* Y);
 
-  /// Eout = E(1-E) * Y
-  void DiffSigmoid(const CuMatrix<float>& Ein, const CuMatrix<float>& Y, CuMatrix<float>* Eout);
-    
-  /// Y = Softmax(X)
-  void Softmax(const CuMatrix<float>& X, CuMatrix<float>* Y);
+  /// Logistic sigmoid
+  /// Y = Sigmoid(X) : y = 1/(1+exp(-x))
+  template<typename Real>
+  void Sigmoid(const CuMatrix<Real>& X, CuMatrix<Real>* Y);
 
-  /// check match in the classification for Xentropy
-  void CheckClass(const CuMatrix<float>& out, const CuMatrix<float> &des, CuVector<float>* match);
+  /// Derivative of Logistic sigmoid
+  /// Eout = Y(1-Y) .* Ein
+  template<typename Real>
+  void DiffSigmoid(const CuMatrix<Real>& Ein, const CuMatrix<Real>& Y, CuMatrix<Real>* Eout);
 
-  /// apply the L1 regularization, sets zero to wei and grad elements on zero-crossing
-  void RegularizeL1(CuMatrix<float>* wei, CuMatrix<float>* grad, float l1, float lr);
+  /// Softmax nonlinearity
+  /// Y = Softmax(X) : Yij = e^Xij / sum_k(e^Xik)
+  /// for each row, the max value is first subtracted for good numerical stability
+  template<typename Real>
+  void Softmax(const CuMatrix<Real>& X, CuMatrix<Real>* Y);
+
+  /// apply the L1 regularization
+  template<typename Real>
+  void RegularizeL1(CuMatrix<Real> *wei, CuMatrix<Real> *grad, Real l1, Real lr);
 
   /// Find the id of the maximal element for each row
-  void FindRowMaxId(const CuMatrix<float>& mat, CuStlVector<int32>* id);
+  template<typename Real>
+  void FindRowMaxId(const CuMatrix<Real> &mat, CuStlVector<int32> *id);
 
-  /// Differentiate cross-entropy+softmax coupling (subtract post - tgt)
-  /// extract per-frame cross-entropy to vector log_post_tgt_
-  void DiffXent(const CuStlVector<int32>& tgt, CuMatrix<BaseFloat>* net_out_or_diff, CuVector<BaseFloat>* log_post_tgt_);
-
-  /// Sum each row of the matrix
-  void SumRowsVec(const CuMatrix<BaseFloat>& mat, CuVector<BaseFloat>* sum);
+  /// Differentiate the block [softmax+cross-entropy] :
+  /// dE/da = posterior_mat - target_mat, 
+  /// 'E' is error function, 'a' is activation on softmax input
+  ///
+  /// Interface:
+  /// tgt ... index vector, encodes the matrix of targets
+  /// net_out_or_diff ... before invocation net output, after diff dE/da
+  /// log_post_tgt ... per-frame statistics for cross-entropy computations :
+  ///                  log(sum_row(posterior_mat .* target_mat))
+  template<typename Real>
+  void DiffXent(const CuStlVector<int32> &tgt, CuMatrix<Real> *net_out_or_diff, CuVector<Real> *log_post_tgt);
 
   /// ie. switch rows according to copyFrom   
-  void Randomize(const CuMatrix<BaseFloat>& src, const CuStlVector<int32>& copy_from_idx, CuMatrix<BaseFloat>* tgt);
+  template<typename Real>
+  void Randomize(const CuMatrix<Real> &src, const CuStlVector<int32> &copy_from_idx, CuMatrix<Real> *tgt);
 
-  /*
-   * Templated implementation to make it always compilable
-   */
-  template<typename _ElemT>
-  void Sigmoid(const CuMatrix<_ElemT>& X, CuMatrix<_ElemT>* Y) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
 
-  template<typename _ElemT>
-  void DiffSigmoid(const CuMatrix<_ElemT>& Ein, const CuMatrix<_ElemT>& Y, CuMatrix<_ElemT>* Eout) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
+} // namespace cu
+} // namespace kaldi
 
-  template<typename _ElemT>
-  void Softmax(const CuMatrix<_ElemT>& X, CuMatrix<_ElemT>* Y) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
 
-  template<typename _ElemT>
-  void CheckClass(const CuMatrix<_ElemT>& out, const CuMatrix<_ElemT> &des, CuVector<float>& match) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-  template<typename _ElemT>
-  void RegularizeL1(CuMatrix<_ElemT>* wei, CuMatrix<_ElemT>* grad, _ElemT l1, _ElemT lr) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
- 
-  template<typename _ElemT>
-  void FindRowMaxId(const CuMatrix<float>& mat, CuStlVector<int32>* id) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-    
-  template<typename _ElemT>
-  void DiffXent(const CuStlVector<int32>& tgt, CuMatrix<_ElemT>* net_out_or_diff, CuVector<_ElemT>* log_post_tgt_) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-  template<typename _ElemT>
-  void SumRowsVec(const CuMatrix<_ElemT>& mat, CuVector<_ElemT>* sum) {
-    KALDI_ERR << __func__ << " Not implemented"; 
-  }
-
-  template<typename _ElemT>
-  void Randomize(const CuMatrix<_ElemT>& src, const CuStlVector<int32>& copy_from_idx, CuMatrix<_ElemT>* tgt) { 
-    KALDI_ERR << __func__ << " Not implemented";
-  }
-
-} //namespace cu
-
-} //namespace kaldi
+#include "cu-math-inl.h"
 
 #endif

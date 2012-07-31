@@ -134,12 +134,12 @@ static void UnitTestHTKCompare1() {
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
-    100000,  //10ms
+    100000,  // 10ms
     sizeof(float)*kaldi_features.NumCols(),
     021413  // PLP_D_A_0
   };
   {
-    std::ofstream os("test_data/test.wav.plp_kaldi.1",
+    std::ofstream os("tmp.test.wav.plp_kaldi.1",
                      std::ios::out|std::ios::binary);
     WriteHtk(os, kaldi_features, header);
   }
@@ -155,7 +155,7 @@ static void UnitTestFeat() {
     UnitTestSimple();
     UnitTestHTKCompare1();
     std::cout << "Tests succeeded.\n";
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     std::cerr << e.what();
   }
 }

@@ -53,7 +53,7 @@ class DiagGmm {
   
   /// Resizes arrays to this dim. Does not initialize data.
   void Resize(int32 nMix, int32 dim);
-
+  
   /// Returns the number of mixture components in the GMM
   int32 NumGauss() const { return weights_.Dim(); }
   /// Returns the dimensionality of the Gaussian mean vectors
@@ -115,8 +115,8 @@ class DiagGmm {
                    ClusterKMeansOptions cfg = ClusterKMeansOptions());
                    
   
-  void Write(std::ostream &rOut, bool binary) const;
-  void Read(std::istream &rIn, bool binary);
+  void Write(std::ostream &os, bool binary) const;
+  void Read(std::istream &in, bool binary);
 
   /// this = rho x source + (1-rho) x this
   void Interpolate(BaseFloat rho, const DiagGmm &source, 
@@ -126,13 +126,13 @@ class DiagGmm {
                    GmmFlagsType flags = kGmmAll);
 
   /// Const accessors
-  const Vector<BaseFloat>& gconsts() const {
+  const Vector<BaseFloat> &gconsts() const {
     KALDI_ASSERT(valid_gconsts_);
     return gconsts_;
   }
-  const Vector<BaseFloat>& weights() const { return weights_; }
-  const Matrix<BaseFloat>& means_invvars() const { return means_invvars_; }
-  const Matrix<BaseFloat>& inv_vars() const { return inv_vars_; }
+  const Vector<BaseFloat> &weights() const { return weights_; }
+  const Matrix<BaseFloat> &means_invvars() const { return means_invvars_; }
+  const Matrix<BaseFloat> &inv_vars() const { return inv_vars_; }
   bool valid_gconsts() const { return valid_gconsts_; }
 
   /// Removes single component from model
@@ -143,22 +143,22 @@ class DiagGmm {
 
   /// Mutators for both float or double
   template<class Real>
-  void SetWeights(const VectorBase<Real>& w);    ///< Set mixure weights
+  void SetWeights(const VectorBase<Real> &w);    ///< Set mixure weights
 
   /// Use SetMeans to update only the Gaussian means (and not variances)
   template<class Real>
-  void SetMeans(const MatrixBase<Real>& m);
+  void SetMeans(const MatrixBase<Real> &m);
   /// Use SetInvVarsAndMeans if updating both means and (inverse) variances
   template<class Real>
-  void SetInvVarsAndMeans(const MatrixBase<Real>& invvars,
-                          const MatrixBase<Real>& means);
+  void SetInvVarsAndMeans(const MatrixBase<Real> &invvars,
+                          const MatrixBase<Real> &means);
   /// Set the (inverse) variances and recompute means_invvars_
   template<class Real>
-  void SetInvVars(const MatrixBase<Real>& v);
+  void SetInvVars(const MatrixBase<Real> &v);
 
   /// Accessor for covariances.
   template<class Real>
-  void GetVars(Matrix<Real>* v) const;
+  void GetVars(Matrix<Real> *v) const;
   /// Accessor for means.
   template<class Real>
   void GetMeans(Matrix<Real> *m) const;
@@ -166,21 +166,21 @@ class DiagGmm {
   /// Mutators for single component, supports float or double
   /// Set mean for a single component - internally multiplies with inv(var)
   template<class Real>
-  void SetComponentMean(int32 gauss, const VectorBase<Real>& in);
+  void SetComponentMean(int32 gauss, const VectorBase<Real> &in);
   /// Set inv-var for single component (recommend to do this before
   /// setting the mean, if doing both, for numerical reasons).
   template<class Real>
-  void SetComponentInvVar(int32 gauss, const VectorBase<Real>& in);
+  void SetComponentInvVar(int32 gauss, const VectorBase<Real> &in);
   /// Set weight for single component.
   inline void SetComponentWeight(int32 gauss, BaseFloat weight);
   
   /// Accessor for single component mean
   template<class Real>
-  void GetComponentMean(int32 gauss, VectorBase<Real>* out) const;
+  void GetComponentMean(int32 gauss, VectorBase<Real> *out) const;
 
   /// Accessor for single component variance.
   template<class Real>
-  void GetComponentVariance(int32 gauss, VectorBase<Real>* out) const;
+  void GetComponentVariance(int32 gauss, VectorBase<Real> *out) const;
 
  private:
   /// Equals log(weight) - 0.5 * (log det(var) + mean*mean*inv(var))
@@ -205,10 +205,10 @@ class DiagGmm {
 
 /// ostream operator that calls DiagGMM::Write()
 std::ostream &
-operator << (std::ostream & rOut, const kaldi::DiagGmm &gmm);
+operator << (std::ostream &os, const kaldi::DiagGmm &gmm);
 /// istream operator that calls DiagGMM::Read()
 std::istream &
-operator >> (std::istream & rIn, kaldi::DiagGmm &gmm);
+operator >> (std::istream &is, kaldi::DiagGmm &gmm);
 
 }  // End namespace kaldi
 

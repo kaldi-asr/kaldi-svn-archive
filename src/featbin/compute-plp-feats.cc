@@ -166,7 +166,7 @@ int main(int argc, char *argv[]) {
         p.first.CopyFromMat(features);
         HtkHeader header = {
           features.NumRows(),
-          100000,  //10ms shift
+          100000,  // 10ms shift
           sizeof(float)*features.NumCols(),
           013 | // PLP
           020000 // C0 [no option currently to use energy in PLP.
@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
         p.second = header;
         htk_writer.Write(utt, p);
       }
-      if(num_utts % 10 == 0)
+      if (num_utts % 10 == 0)
         KALDI_LOG << "Processed " << num_utts << " utterances";
       KALDI_VLOG(2) << "Processed features for key " << utt;
       num_success++;
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << " Done " << num_success << " out of " << num_utts
               << " utterances.";
     return (num_success != 0 ? 0 : 1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

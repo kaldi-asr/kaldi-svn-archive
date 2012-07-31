@@ -37,12 +37,12 @@ static bool EBWUpdateGaussian(
     VectorBase<double> *mean,
     VectorBase<double> *var,
     double *auxf_impr) {
-  if (! (flags&(kGmmMeans|kGmmVariances)) || occ <= 0.0) { // nothing to do.
+  if (! (flags&(kGmmMeans|kGmmVariances))) { // nothing to do.
     if (auxf_impr) *auxf_impr = 0.0;
     mean->CopyFromVec(orig_mean);
     var->CopyFromVec(orig_var);
     return true; 
-  }    
+  }   
   KALDI_ASSERT(!( (flags&kGmmVariances) && !(flags&kGmmMeans))
                && "We didn't make the update cover this case sensibly (update vars not means)");
   
@@ -149,6 +149,11 @@ void UpdateEbwDiagGmm(const AccumDiagGmm &num_stats, // with I-smoothing, if use
         var_stats.AddVec(-1.0, den_stats.variance_accumulator().Row(g));
     }
     double D = (opts.tau + opts.E * den_count) / 2;
+    if (D+num_count-den_count <= 0.0) {
+      // ensure +ve-- can be problem if num count == 0 and E=2.
+      D = -1.0001*(num_count-den_count) + 1.0e-10;
+      KALDI_ASSERT(D+num_count-den_count > 0.0);
+    }
     // We initialize to half the value of D that would be dictated by E (and
     // tau); this is part of the strategy used to ensure that the value of D we
     // use is at least twice the value that would ensure positive variances.
@@ -165,12 +170,12 @@ void UpdateEbwDiagGmm(const AccumDiagGmm &num_stats, // with I-smoothing, if use
         // So double D and commit changes.
         D *= 2.0;
         double auxf_impr = 0.0;
-        EBWUpdateGaussian(D, flags,
-                          diaggmmnormal.means_.Row(g),
-                          diaggmmnormal.vars_.Row(g),
-                          mean_stats, var_stats, num_count-den_count,
-                          &mean, &var, &auxf_impr);
-        
+        bool ans = EBWUpdateGaussian(D, flags,
+                                     diaggmmnormal.means_.Row(g),
+                                     diaggmmnormal.vars_.Row(g),
+                                     mean_stats, var_stats, num_count-den_count,
+                                     &mean, &var, &auxf_impr);
+        KALDI_ASSERT(ans);
         if (auxf_change_out) *auxf_change_out += auxf_impr;
         if (count_out) *count_out += den_count; // The idea is that for MMI, this will
         // reflect the actual #frames trained on (the numerator one would be I-smoothed).
@@ -206,16 +211,20 @@ void UpdateEbwWeightsDiagGmm(const AccumDiagGmm &num_stats, // should have no I-
   Vector<double> weights(diaggmmnormal.weights_),
       num_occs(num_stats.occupancy()),
       den_occs(den_stats.occupancy());
-  if (num_occs.Sum() + den_occs.Sum() < opts.min_num_count_weight_update) {
+  if (opts.tau == 0.0 &&
+      num_occs.Sum() + den_occs.Sum() < opts.min_num_count_weight_update) {
     KALDI_LOG << "Not updating weights for this state because total count is "
               << num_occs.Sum() + den_occs.Sum() << " < "
               << opts.min_num_count_weight_update;
+    if (count_out)
+      *count_out += num_occs.Sum();
     return;
   }
+  num_occs.AddVec(opts.tau, weights);
   KALDI_ASSERT(weights.Dim() == num_occs.Dim() && num_occs.Dim() == den_occs.Dim());
   if (weights.Dim() == 1) return; // Nothing to do: only one mixture.
   double weight_auxf_at_start = 0.0, weight_auxf_at_end = 0.0;
-
+  
   int32 num_comp = weights.Dim();
   for (int32 g = 0; g < num_comp; g++) {   // c.f. eq. 4.32 in Dan Povey's thesis.
     weight_auxf_at_start +=
@@ -249,8 +258,9 @@ void UpdateEbwWeightsDiagGmm(const AccumDiagGmm &num_stats, // should have no I-
   if (auxf_change_out)
     *auxf_change_out += weight_auxf_at_end - weight_auxf_at_start;
   if (count_out)
-    *count_out += num_occs.Sum(); // only really valid for MMI.
-
+    *count_out += num_occs.Sum(); // only really valid for MMI [not MPE, or MMI
+  // with canceled stats]
+  
   diaggmmnormal.weights_.CopyFromVec(weights);
 
   // copy to natural representation

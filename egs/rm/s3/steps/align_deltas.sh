@@ -46,12 +46,9 @@ srcdir=$3
 dir=$4
 
 
-model=$srcdir/final.mdl
-
 
 mkdir -p $dir
-cp $model $dir/final.mdl || exit 1;  # Create copy of that model...
-cp $srcdir/tree $dir/tree || exit 1; # and the tree...
+cp $srcdir/{tree,final.mdl,final.occs} $dir || exit 1;  # Create copy of the tree and model and occs...
 
 scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
 
@@ -70,11 +67,11 @@ if [ -z "$graphs" ]; then # --graphs option not supplied [-z means empty string]
   # compute integer form of transcripts.
   scripts/sym2int.pl --ignore-first-field $lang/words.txt < $data/text > $dir/train.tra \
     || exit 1;
-  gmm-align $scale_opts --beam=8 --retry-beam=40 $srcdir/tree $model $lang/L.fst \
+  gmm-align $scale_opts --beam=8 --retry-beam=40 $dir/tree $dir/final.mdl $lang/L.fst \
    "$feats" ark:$dir/train.tra ark:$dir/ali 2> $dir/align.log || exit 1;
   rm $dir/train.tra
 else
-  gmm-align-compiled $scale_opts --beam=8 --retry-beam=40 $model  \
+  gmm-align-compiled $scale_opts --beam=8 --retry-beam=40 $dir/final.mdl \
    "$graphs" "$feats" ark:$dir/ali 2> $dir/align.log || exit 1;
 fi
 

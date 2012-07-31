@@ -5,7 +5,7 @@ include ../kaldi.mk
 
 LDFLAGS += $(CUDA_LDFLAGS)
 
-BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-train-mse-tgtmat-frmshuff nnet-forward nnet-copy
+BINFILES = nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-train-mse-tgtmat-frmshuff nnet-forward nnet-copy rbm-train-cd1-frmshuff rbm-convert-to-nnet nnet-trim-n-last-transforms
 
 OBJFILES =
 
@@ -27,10 +27,10 @@ $(BINFILES): ../nnet/kaldi-nnet.a ../cudamatrix/cuda-matrix.a ../matrix/kaldi-ma
 	$(MAKE) -C ${@D} ${@F}
 
 clean:
-	rm *.o *.a $(TESTFILES) $(BINFILES)
+	rm *.o $(TESTFILES) $(BINFILES)
 
 test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >&/dev/null || (echo "***test $$x failed***"; exit 1); done  
+	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || (echo "***test $$x failed***"; exit 1); done  
 	echo Tests succeeded
 
 .valgrind: $(TESTFILES)

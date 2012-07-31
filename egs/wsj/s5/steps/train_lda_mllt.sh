@@ -16,8 +16,10 @@ dim=40
 beam=10
 retry_beam=40
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
+power=0.2 # Exponent for number of gaussians according to occurrence counts
 randprune=4.0 # This is approximately the ratio by which we will speed up the
               # LDA and MLLT calculations via randomized pruning.
+splice_opts=
 # End configuration.
 
 [ -f path.sh ] && . ./path.sh
@@ -54,12 +56,14 @@ ciphonelist=`cat $lang/phones/context_indep.csl` || exit 1;
 
 mkdir -p $dir/log
 echo $nj >$dir/num_jobs
+echo "$splice_opts" >$dir/splice_opts # keep track of frame-splicing options
+           # so that later stages of system building can know what they were.
 
 sdata=$data/split$nj;
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
 
-splicedfeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- |"
+splicedfeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- |"
 # Note: $feats gets overwritten later in the script.
 feats="$splicedfeats transform-feats $dir/0.mat ark:- ark:- |"
 
@@ -72,7 +76,8 @@ if [ $stage -le -4 ]; then
       weight-silence-post 0.0 $silphonelist $alidir/final.mdl ark:- ark:- \| \
       acc-lda --rand-prune=$randprune $alidir/final.mdl "$splicedfeats" ark,s,cs:- \
        $dir/lda.JOB.acc || exit 1;
-  est-lda --dim=$dim $dir/0.mat $dir/lda.*.acc 2>$dir/log/lda_est.log || exit 1;
+  est-lda --write-full-matrix=$dir/full.mat --dim=$dim $dir/0.mat $dir/lda.*.acc \
+      2>$dir/log/lda_est.log || exit 1;
   rm $dir/lda.*.acc
 fi
 
@@ -164,8 +169,8 @@ while [ $x -lt $num_iters ]; do
       gmm-acc-stats-ali  $dir/$x.mdl "$feats" \
       "ark,s,cs:gunzip -c $dir/ali.JOB.gz|" $dir/$x.JOB.acc || exit 1;
     $cmd $dir/log/update.$x.log \
-      gmm-est --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss $dir/$x.mdl \
-       "gmm-sum-accs - $dir/$x.*.acc |" $dir/$[$x+1].mdl || exit 1;
+      gmm-est --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss --power=$power \
+        $dir/$x.mdl "gmm-sum-accs - $dir/$x.*.acc |" $dir/$[$x+1].mdl || exit 1;
     rm $dir/$x.mdl $dir/$x.*.acc $dir/$x.occs 
   fi
   [ $x -le $max_iter_inc ] && numgauss=$[$numgauss+$incgauss];

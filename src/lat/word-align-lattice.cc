@@ -206,7 +206,7 @@ class LatticeWordAligner {
     // epsilon-sequencing rules encoded by the filters in
     // composition.
     CompactLatticeArc lat_arc;
-    Tuple tuple2(tuple); //temp
+    Tuple tuple2(tuple); // temp
     if (tuple.comp_state.OutputArc(info_, tmodel_, &lat_arc, &error_)) {
       // note: this function changes the tuple (when it returns true).
       lat_arc.nextstate = GetStateForTuple(tuple, true); // true == add to queue,
@@ -640,7 +640,7 @@ WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
   Input ki(word_boundary_file, &binary_in);
   KALDI_ASSERT(!binary_in && "Not expecting binary word-boundary file.");
   std::string line;
-  while(std::getline(ki.Stream(), line)) {
+  while (std::getline(ki.Stream(), line)) {
     std::vector<std::string> split_line;  
     SplitStringToVector(line, " \t\r", &split_line, true);// split the line by space or tab
     int32 p;
@@ -697,7 +697,7 @@ class WordAlignedLatticeTester {
         TestFinal(aligned_lat_.Final(s));
       }
     }
-    if(was_ok_)
+    if (was_ok_)
       TestEquivalent();
   }
  private:
@@ -849,7 +849,8 @@ class WordAlignedLatticeTester {
 
     if (!RandEquivalent(lat_, aligned_lat, 5/*paths*/, 1.0e+10/*delta*/, rand()/*seed*/,
                         200/*path length (max?)*/))
-      KALDI_ERR << "Equivalence test failed (testing word-alignment of lattices.)";
+      KALDI_ERR << "Equivalence test failed (testing word-alignment of lattices.) "
+                << "Make sure your model and lattices match!";
   }
   
   const CompactLattice &lat_;

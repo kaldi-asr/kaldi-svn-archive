@@ -49,22 +49,22 @@ void AccumAmTiedDiagGmm::Init(const AmTiedDiagGmm &model,
   tied_gmm_accumulators_.resize(model.NumTiedPdfs(), NULL);
 
   /// codebook accumulators
-  for (int32 i = 0; i < model.NumCodebooks(); ++i) {
+  for (int32 i = 0; i < model.NumCodebooks(); i++) {
     gmm_accumulators_[i] = new AccumDiagGmm();
     gmm_accumulators_[i]->Resize(model.GetCodebook(i), flags);
   }
 
   /// tied gmm accumulators
-  for (int32 i = 0; i < model.NumTiedPdfs(); ++i) {
+  for (int32 i = 0; i < model.NumTiedPdfs(); i++) {
     tied_gmm_accumulators_[i] = new AccumTiedGmm();
     tied_gmm_accumulators_[i]->Resize(model.GetTiedPdf(i), flags);
   }
 }
 
 void AccumAmTiedDiagGmm::SetZero(GmmFlagsType flags) {
-  for (size_t i = 0; i < gmm_accumulators_.size(); ++i)
+  for (size_t i = 0; i < gmm_accumulators_.size(); i++)
     gmm_accumulators_[i]->SetZero(flags);
-  for (size_t i = 0; i < tied_gmm_accumulators_.size(); ++i)
+  for (size_t i = 0; i < tied_gmm_accumulators_.size(); i++)
     tied_gmm_accumulators_[i]->SetZero(flags);
 }
 
@@ -111,7 +111,7 @@ void AccumAmTiedDiagGmm::AccumulateFromPosteriors(
     AccumulateFromPosteriors(posteriors);
 }
 
-void AccumAmTiedDiagGmm::Read(std::istream& in_stream, bool binary, bool add) {
+void AccumAmTiedDiagGmm::Read(std::istream &in_stream, bool binary, bool add) {
   int32 num_pdfs, num_tied;
   ExpectToken(in_stream, binary, "<NUMPDFS>");
   ReadBasicType(in_stream, binary, &num_pdfs);
@@ -156,7 +156,7 @@ void AccumAmTiedDiagGmm::Read(std::istream& in_stream, bool binary, bool add) {
   }
 }
 
-void AccumAmTiedDiagGmm::Write(std::ostream& out_stream, bool binary) const {
+void AccumAmTiedDiagGmm::Write(std::ostream &out_stream, bool binary) const {
   int32 num_pdfs = gmm_accumulators_.size();
   int32 num_tied = tied_gmm_accumulators_.size();
   WriteToken(out_stream, binary, "<NUMPDFS>");
@@ -251,19 +251,19 @@ void MleAmTiedDiagGmmUpdate(
 
     // tied pdfs (weights)
     if ((flags & kGmmWeights) && config_tied.interpolate_weights) {
-      for (int32 i = 0; i < model->NumTiedPdfs(); ++i)
+      for (int32 i = 0; i < model->NumTiedPdfs(); i++)
         model->GetTiedPdf(i).Interpolate(wt, oldm->GetTiedPdf(i));
     }
 
     // codebooks
     if ((flags & kGmmMeans) && config_tied.interpolate_means) {
-      for (int32 i = 0; i < model->NumCodebooks(); ++i)
+      for (int32 i = 0; i < model->NumCodebooks(); i++)
         model->GetCodebook(i).Interpolate(wt, oldm->GetCodebook(i),
                                           kGmmMeans);
     }
 
     if ((flags & kGmmVariances) && config_tied.interpolate_variances) {
-      for (int32 i = 0; i < model->NumCodebooks(); ++i)
+      for (int32 i = 0; i < model->NumCodebooks(); i++)
         model->GetCodebook(i).Interpolate(wt, oldm->GetCodebook(i),
                                           kGmmVariances);
     }

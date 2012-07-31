@@ -154,9 +154,8 @@ fsttablecompose data/lang_test/L_disambig.fst data/lang_test/G.fst | \
    fstdeterminizestar >/dev/null || echo Error
 
 # Checking that LG is stochastic:
-fsttablecompose data/lang/L.fst data/lang_test/G.fst | \
+fsttablecompose data/lang_test/L_disambig.fst data/lang_test/G.fst | \
    fstisstochastic || echo LG is not stochastic
 
 
 echo swbd_p1_format_data succeeded.
-

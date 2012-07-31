@@ -87,11 +87,11 @@ int main(int argc, char *argv[]) {
     FullGmm fgmm;
     Output sizes_ko(sizes_out_filename, false); // false == not binary.
     
-    for (int i = 3, max = po.NumArgs(); i <= max; ++i) {
+    for (int i = 3, max = po.NumArgs(); i <= max; i++) {
       std::string stats_in_filename = po.GetArg(i);
       bool binary_read;
       Input ki(stats_in_filename, &binary_read);
-      if(i==3) {
+      if (i==3) {
         fgmm.Read(ki.Stream(), binary_read);
         sizes_ko.Stream() << fgmm.NumGauss() << ' ';
       } else {
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
     // Write out the model
     WriteKaldiObject(fgmm, fgmm_out_filename, binary);
     KALDI_LOG << "Written merged GMM to " << fgmm_out_filename;
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';
     return -1;
   }

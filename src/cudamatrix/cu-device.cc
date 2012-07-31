@@ -1,3 +1,21 @@
+// cudamatrix/cu-devide.cc
+
+// Copyright 2009-2012  Karel Vesely
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+
 
 #if HAVE_CUDA==1
 
@@ -13,8 +31,8 @@ namespace kaldi {
 
 CuDevice::CuDevice()
  : enabled_(false), verbose_(true) {
-  int ret;
-  if((ret = cublasInit()) == 0) {
+  int32 ret;
+  if ((ret = cublasInit()) == 0) {
     enabled_ = true;
   } else {
     KALDI_WARN << "CUDA will NOT be used!!! The cublasInit() returns: " << ret;
@@ -23,7 +41,7 @@ CuDevice::CuDevice()
 
 
 CuDevice::~CuDevice() {
-  if(enabled_) {
+  if (enabled_) {
     cuSafeCall(cublasShutdown());
   } else {
     KALDI_WARN << "CUDA was NOT used!";
@@ -31,8 +49,8 @@ CuDevice::~CuDevice() {
 }
 
 
-void CuDevice::AccuProfile(const std::string& key,double time) { 
-  if(profile_map_.find(key) == profile_map_.end()) {
+void CuDevice::AccuProfile(const std::string &key, double time) { 
+  if (profile_map_.find(key) == profile_map_.end()) {
     profile_map_[key] = 0.0;
   }
   profile_map_[key] += time;
@@ -40,7 +58,7 @@ void CuDevice::AccuProfile(const std::string& key,double time) {
 
 
 void CuDevice::PrintProfile() {
-  if(verbose_ && enabled_) { 
+  if (verbose_ && enabled_) { 
     std::ostringstream os;
     os << "-----\n[cudevice profile]\n";
     std::map<std::string, double>::iterator it;
@@ -54,7 +72,13 @@ void CuDevice::PrintProfile() {
 
 
 std::string CuDevice::GetFreeMemory() {
+//fix the 64-bit compilation issue,
+//the CUDA API is inconsistent!
+#if (CUDA_VERSION >= 4000)
   size_t mem_free, mem_total;
+#else
+  unsigned int mem_free, mem_total;
+#endif
   cuMemGetInfo(&mem_free, &mem_total);
   std::ostringstream os;
   os << "Free:" << mem_free/(1024*1024) << "MB "
@@ -77,4 +101,4 @@ CuDevice CuDevice::msDevice;
 }
 
 
-#endif //HAVE_CUDA
+#endif // HAVE_CUDA

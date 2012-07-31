@@ -3,17 +3,17 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare -O3
 include ../kaldi.mk
 
-# Removing kaldi-decoder-test because it doesn't work without access
-# to certain files...
-#TESTFILES =  kaldi-decoder-test
 TESTFILES = 
 
-OBJFILES = decodable-am-diag-gmm.o training-graph-compiler.o decodable-am-sgmm.o decodable-am-tied-diag-gmm.o decodable-am-tied-full-gmm.o
+OBJFILES = decodable-am-diag-gmm.o training-graph-compiler.o decodable-am-sgmm.o \
+   decodable-am-tied-diag-gmm.o decodable-am-tied-full-gmm.o \
+   lattice-simple-decoder.o lattice-faster-decoder.o faster-decoder.o \
+   decodable-am-sgmm2.o
 
 LIBFILE = kaldi-decoder.a
 
 
-all:  $(LIBFILE) $(TESTFILES)
+all:  $(LIBFILE)
 
 
 $(LIBFILE): $(OBJFILES)

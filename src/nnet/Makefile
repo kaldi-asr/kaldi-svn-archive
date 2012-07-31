@@ -12,7 +12,7 @@ OBJFILES = nnet-nnet.o nnet-component.o nnet-loss.o nnet-cache.o nnet-cache-tgtm
 
 LIBFILE = kaldi-nnet.a 
 
-all:  $(LIBFILE) $(TESTFILES)
+all:  $(LIBFILE)
 
 $(LIBFILE): $(OBJFILES)
 	$(AR) -cru $(LIBFILE) $(OBJFILES)
@@ -33,7 +33,7 @@ clean:
 	rm *.o *.a $(TESTFILES)
 
 test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >&/dev/null || (echo "***test $$x failed***"; exit 1); done  
+	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || (echo "***test $$x failed***"; exit 1); done  
 	echo Tests succeeded
 
 .valgrind: $(TESTFILES)

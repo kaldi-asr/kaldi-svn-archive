@@ -1,7 +1,8 @@
 // sgmm/am-sgmm.cc
 
-// Copyright 2009-2011  Microsoft Corporation;  Lukas Burget;
-//                      Saarland University;  Ondrej Glembek;  Yanmin Qian
+// Copyright 2009-2012  Microsoft Corporation;  Lukas Burget;
+//                      Saarland University (Author: Arnab Ghoshal);
+//                      Ondrej Glembek;  Yanmin Qian
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,38 +52,38 @@ void AmSgmm::Read(std::istream &in_stream, bool binary) {
       ExpectToken(in_stream, binary, "<NUMGaussians>");
       ReadBasicType(in_stream, binary, &num_gauss);
       SigmaInv_.resize(num_gauss);
-      for (int32 i = 0; i < num_gauss; ++i) {
+      for (int32 i = 0; i < num_gauss; i++) {
         SigmaInv_[i].Read(in_stream, binary);
       }
     } else if (token == "<M>") {
       ExpectToken(in_stream, binary, "<NUMGaussians>");
       ReadBasicType(in_stream, binary, &num_gauss);
       M_.resize(num_gauss);
-      for (int32 i = 0; i < num_gauss; ++i) {
+      for (int32 i = 0; i < num_gauss; i++) {
         M_[i].Read(in_stream, binary);
       }
     } else if (token == "<N>") {
       ExpectToken(in_stream, binary, "<NUMGaussians>");
       ReadBasicType(in_stream, binary, &num_gauss);
       N_.resize(num_gauss);
-      for (int32 i = 0; i < num_gauss; ++i) {
+      for (int32 i = 0; i < num_gauss; i++) {
         N_[i].Read(in_stream, binary);
       }
     } else if (token == "<w>") {
       w_.Read(in_stream, binary);
     } else if (token == "<v>") {
       v_.resize(num_states);
-      for (int32 j = 0; j < num_states; ++j) {
+      for (int32 j = 0; j < num_states; j++) {
         v_[j].Read(in_stream, binary);
       }
     } else if (token == "<c>") {
       c_.resize(num_states);
-      for (int32 j = 0; j < num_states; ++j) {
+      for (int32 j = 0; j < num_states; j++) {
         c_[j].Read(in_stream, binary);
       }
     } else if (token == "<n>") {
       n_.resize(num_states);
-      for (int32 j = 0; j < num_states; ++j) {
+      for (int32 j = 0; j < num_states; j++) {
         n_[j].Read(in_stream, binary);
       }
     } else {
@@ -122,14 +123,14 @@ void AmSgmm::Write(std::ostream &out_stream, bool binary,
     WriteToken(out_stream, binary, "<NUMGaussians>");
     WriteBasicType(out_stream, binary, num_gauss);
     if (!binary) out_stream << "\n";
-    for (int32 i = 0; i < num_gauss; ++i) {
+    for (int32 i = 0; i < num_gauss; i++) {
       SigmaInv_[i].Write(out_stream, binary);
     }
     WriteToken(out_stream, binary, "<M>");
     WriteToken(out_stream, binary, "<NUMGaussians>");
     WriteBasicType(out_stream, binary, num_gauss);
     if (!binary) out_stream << "\n";
-    for (int32 i = 0; i < num_gauss; ++i) {
+    for (int32 i = 0; i < num_gauss; i++) {
       M_[i].Write(out_stream, binary);
     }
     if (N_.size() != 0) {
@@ -137,7 +138,7 @@ void AmSgmm::Write(std::ostream &out_stream, bool binary,
       WriteToken(out_stream, binary, "<NUMGaussians>");
       WriteBasicType(out_stream, binary, num_gauss);
       if (!binary) out_stream << "\n";
-      for (int32 i = 0; i < num_gauss; ++i) {
+      for (int32 i = 0; i < num_gauss; i++) {
         N_[i].Write(out_stream, binary);
       }
     }
@@ -147,11 +148,11 @@ void AmSgmm::Write(std::ostream &out_stream, bool binary,
 
   if (write_params & kSgmmStateParams) {
     WriteToken(out_stream, binary, "<v>");
-    for (int32 j = 0; j < num_states; ++j) {
+    for (int32 j = 0; j < num_states; j++) {
       v_[j].Write(out_stream, binary);
     }
     WriteToken(out_stream, binary, "<c>");
-    for (int32 j = 0; j < num_states; ++j) {
+    for (int32 j = 0; j < num_states; j++) {
       c_[j].Write(out_stream, binary);
     }
   }
@@ -161,7 +162,7 @@ void AmSgmm::Write(std::ostream &out_stream, bool binary,
     if (n_.empty())
       KALDI_WARN << "Not writing normalizers since they are not present.";
     else
-      for (int32 j = 0; j < num_states; ++j)
+      for (int32 j = 0; j < num_states; j++)
         n_[j].Write(out_stream, binary);
   }
 
@@ -320,7 +321,7 @@ void AmSgmm::CopyGlobalsInitVecs(const AmSgmm &other,
       data_dim = other.FeatureDim();
   M_.resize(num_gauss);
   w_.Resize(num_gauss, phn_subspace_dim);
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     M_[i].Resize(data_dim, phn_subspace_dim);
     M_[i].CopyFromMat(other.M_[i].Range(0, data_dim, 0, phn_subspace_dim),
                       kNoTrans);
@@ -329,7 +330,7 @@ void AmSgmm::CopyGlobalsInitVecs(const AmSgmm &other,
 
   if (spk_subspace_dim > 0) {
     N_.resize(num_gauss);
-    for (int32 i = 0; i < num_gauss; ++i) {
+    for (int32 i = 0; i < num_gauss; i++) {
       N_[i].Resize(data_dim, spk_subspace_dim);
       N_[i].CopyFromMat(other.N_[i].Range(0, data_dim, 0, spk_subspace_dim),
                         kNoTrans);
@@ -341,7 +342,7 @@ void AmSgmm::CopyGlobalsInitVecs(const AmSgmm &other,
 }
 
 
-void AmSgmm::ComputePerFrameVars(const VectorBase<BaseFloat>& data,
+void AmSgmm::ComputePerFrameVars(const VectorBase<BaseFloat> &data,
                                  const std::vector<int32> &gselect,
                                  const SgmmPerSpkDerivedVars &spk_vars,
                                  BaseFloat logdet_s,
@@ -356,14 +357,14 @@ void AmSgmm::ComputePerFrameVars(const VectorBase<BaseFloat>& data,
   per_frame_vars->gselect = gselect;
   per_frame_vars->xt.CopyFromVec(data);
 
-  for (int32 ki = 0, last = gselect.size(); ki < last; ++ki) {
+  for (int32 ki = 0, last = gselect.size(); ki < last; ki++) {
     int32 i = gselect[ki];
     per_frame_vars->xti.Row(ki).CopyFromVec(per_frame_vars->xt);
     if (spk_vars.v_s.Dim() != 0)
       per_frame_vars->xti.Row(ki).AddVec(-1.0, spk_vars.o_s.Row(i));
   }
   Vector<BaseFloat> SigmaInv_xt(FeatureDim());
-  for (int32 ki = 0, last = gselect.size(); ki < last; ++ki) {
+  for (int32 ki = 0, last = gselect.size(); ki < last; ki++) {
     int32 i = gselect[ki];
     SigmaInv_xt.AddSpVec(1.0, SigmaInv_[i], per_frame_vars->xti.Row(ki), 0.0);
     // Eq (35): z_{i}(t) = M_{i}^{T} \Sigma_{i}^{-1} x_{i}(t)
@@ -386,7 +387,7 @@ BaseFloat AmSgmm::LogLikelihood(const SgmmPerFrameDerivedVars &per_frame_vars,
   // via more effective pruning.
   Matrix<BaseFloat> logp_x(gselect.size(), NumSubstates(j));
 
-  for (int32 ki = 0, last = gselect.size();  ki < last; ++ki) {
+  for (int32 ki = 0, last = gselect.size();  ki < last; ki++) {
     SubVector<BaseFloat> logp_xi(logp_x, ki);
     int32 i = gselect[ki];
     // for all substates, compute z_{i}^T v_{jm}
@@ -405,11 +406,12 @@ AmSgmm::ComponentPosteriors(const SgmmPerFrameDerivedVars &per_frame_vars,
   KALDI_ASSERT(j < NumPdfs());
   if (post == NULL) KALDI_ERR << "NULL pointer passed as return argument.";
   const vector<int32> &gselect = per_frame_vars.gselect;
-  post->Resize(gselect.size(), NumSubstates(j));
+  int32 num_gselect = gselect.size();
+  post->Resize(num_gselect, NumSubstates(j));
 
   // Eq.(37): log p(x(t), m, i|j) = z_{i}^T v_{jm} (for all substates)
   post->AddMatMat(1.0, per_frame_vars.zti, kNoTrans, v_[j], kTrans, 0.0);
-  for (int32 ki = 0, last = gselect.size();  ki < last; ++ki) {
+  for (int32 ki = 0; ki < num_gselect; ki++) {
     int32 i = gselect[ki];
     // Eq. (37): log p(x(t), m, i|j) += n_{jim} + n_{i}(t) (for all substates)
     post->Row(ki).AddVec(1.0, n_[j].Row(i));
@@ -446,12 +448,10 @@ void AmSgmm::SplitSubstates(const Vector<BaseFloat> &state_occupancies,
   Vector<BaseFloat> rand_vec(phn_dim), v_shift(phn_dim);
 
   for (int32 j = 0; j < NumPdfs(); j++) {
-    // work out the sub-model's prob from the sum of 'c'.;
-    BaseFloat gamma_p = pow(state_occupancies(j) * c_[j].Sum(), power);
+    BaseFloat gamma_p = pow(state_occupancies(j), power);
     substate_counts.push(SubstateCounter(j, NumSubstates(j), gamma_p));
     tot_n_substates_old += NumSubstates(j);
   }
-
   if (target_nsubstates <= tot_n_substates_old || tot_n_substates_old == 0) {
     KALDI_WARN << "Cannot split from " << (tot_n_substates_old) <<
         " to " << (target_nsubstates) << " substates.";
@@ -479,7 +479,7 @@ void AmSgmm::SplitSubstates(const Vector<BaseFloat> &state_occupancies,
 
     if (n_substates_j == tgt_n_substates_j) continue;
 
-    // Resize v[j][k] and c[j][k] to fit new substates
+    // Resize v[j] and c[j] to fit new substates
     Matrix<BaseFloat> tmp_v_j(v_[j]);
     v_[j].Resize(tgt_n_substates_j, phn_dim);
     v_[j].Range(0, n_substates_j, 0, phn_dim).CopyFromMat(tmp_v_j);
@@ -534,7 +534,7 @@ void AmSgmm::IncreasePhoneSpaceDim(int32 target_dim,
 
   if (initial_dim < target_dim) {
     Matrix<BaseFloat> tmp_M(feat_dim, initial_dim);
-    for (int32 i = 0; i < NumGauss(); ++i) {
+    for (int32 i = 0; i < NumGauss(); i++) {
       tmp_M.CopyFromMat(M_[i]);
       M_[i].Resize(feat_dim, target_dim);
       M_[i].Range(0, feat_dim, 0, tmp_M.NumCols()).CopyFromMat(tmp_M);
@@ -546,7 +546,7 @@ void AmSgmm::IncreasePhoneSpaceDim(int32 target_dim,
     w_.Resize(tmp_w.NumRows(), target_dim);
     w_.Range(0, tmp_w.NumRows(), 0, tmp_w.NumCols()).CopyFromMat(tmp_w);
 
-    for (int32 j = 0; j < NumPdfs(); ++j) {
+    for (int32 j = 0; j < NumPdfs(); j++) {
       // Resize v[j]
       Matrix<BaseFloat> tmp_v_j = v_[j];
       v_[j].Resize(tmp_v_j.NumRows(), target_dim);
@@ -586,7 +586,7 @@ void AmSgmm::IncreaseSpkSpaceDim(int32 target_dim,
     int32 dim_change = target_dim - initial_dim;
     Matrix<BaseFloat> tmp_N((initial_dim != 0) ? feat_dim : 0,
                             initial_dim);
-    for (int32 i = 0; i < NumGauss(); ++i) {
+    for (int32 i = 0; i < NumGauss(); i++) {
       if (initial_dim != 0) tmp_N.CopyFromMat(N_[i]);
       N_[i].Resize(feat_dim, target_dim);
       if (initial_dim != 0) {
@@ -692,7 +692,7 @@ void AmSgmm::ComputeNormalizersInternal(int32 num_threads, int32 thread,
   int block_size = (NumPdfs() + num_threads-1) / num_threads;
   int j_start = thread * block_size, j_end = std::min(NumPdfs(), j_start + block_size);
   
-  for (int32 j = j_start; j < j_end; ++j) {
+  for (int32 j = j_start; j < j_end; j++) {
     Matrix<BaseFloat> log_w_jm(NumSubstates(j), NumGauss());
     n_[j].Resize(NumGauss(), NumSubstates(j));
     Matrix<BaseFloat> mu_jmi(NumSubstates(j), FeatureDim());
@@ -710,7 +710,7 @@ void AmSgmm::ComputeNormalizersInternal(int32 num_threads, int32 thread,
       }
     }      
     
-    for (int32 i = 0; i < NumGauss(); ++i) {    
+    for (int32 i = 0; i < NumGauss(); i++) {    
       // mu_jmi = M_{i} * v_{jm}
       mu_jmi.AddMatMat(1.0, v_[j], kNoTrans, M_[i], kTrans, 0.0);
       SigmaInv_mu.AddMatSp(1.0, mu_jmi, kNoTrans, SigmaInv_[i], 0.0);
@@ -774,7 +774,7 @@ void AmSgmm::ComputeNormalizersNormalized(
   }
 
   n_.resize(NumPdfs());
-  for (int32 j = 0; j < NumPdfs(); ++j) {
+  for (int32 j = 0; j < NumPdfs(); j++) {
     Vector<BaseFloat> log_w_jm(NumGauss());
 
     n_[j].Resize(NumGauss(), NumSubstates(j));
@@ -795,7 +795,7 @@ void AmSgmm::ComputeNormalizersNormalized(
           log_w_jm(this_set[p]) += offset;
       }
 
-      for (int32 i = 0; i < NumGauss(); ++i) {
+      for (int32 i = 0; i < NumGauss(); i++) {
         // mu_jmi = M_{i} * v_{jm}
         mu_jmi.AddMatVec(1.0, M_[i], kNoTrans, v_[j].Row(m), 0.0);
 
@@ -860,13 +860,13 @@ void AmSgmm::ComputeFmllrPreXform(const Vector<BaseFloat> &state_occs,
   Vector<BaseFloat> gauss_weight(num_gauss);  // weights for within-class vars.
   Vector<BaseFloat> w_jm(num_gauss);
   BaseFloat substate_weight;
-  for (int32 j = 0; j < num_states; ++j) {
-    for (int32 m = 0; m < NumSubstates(j); ++m) {
+  for (int32 j = 0; j < num_states; j++) {
+    for (int32 m = 0; m < NumSubstates(j); m++) {
       // Eq. (7): w_jm = softmax([w_{1}^T ... w_{D}^T] * v_{jm})
       w_jm.AddMatVec(1.0, w_, kNoTrans, v_[j].Row(m), 0.0);
       w_jm.ApplySoftMax();
 
-      for (int32 i = 0; i < num_gauss; ++i) {
+      for (int32 i = 0; i < num_gauss; i++) {
         substate_weight = state_posteriors(j) * c_[j](m) * w_jm(i);
         mu_jmi.AddMatVec(1.0, M_[i], kNoTrans, v_[j].Row(m), 0.0);  // Eq. (6)
         // Eq. (B.3): \mu_avg = \sum_{jmi} p(j) c_{jm} w_{jmi} \mu_{jmi}
@@ -879,7 +879,7 @@ void AmSgmm::ComputeFmllrPreXform(const Vector<BaseFloat> &state_occs,
   }
   between_class_covar.AddVec2(-1.0, global_mean);  // Eq. (B.4)
 
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     SpMatrix<BaseFloat> Sigma(SigmaInv_[i]);
     Sigma.InvertDouble();
     // Eq. (B.2): \Sigma_W = \sum_{jmi} p(j) c_{jm} w_{jmi} \Sigma_i
@@ -940,7 +940,7 @@ void AmSgmm::GetNtransSigmaInv(vector< Matrix<Real> > *out) const {
   out->resize(NumGauss());
   Matrix<Real> tmpcov(FeatureDim(), FeatureDim());
   Matrix<Real> tmp_n(FeatureDim(), SpkSpaceDim());
-  for (int32 i = 0; i < NumGauss(); ++i) {
+  for (int32 i = 0; i < NumGauss(); i++) {
     tmpcov.CopyFromSp(SigmaInv_[i]);
     tmp_n.CopyFromMat(N_[i]);
     (*out)[i].Resize(SpkSpaceDim(), FeatureDim());
@@ -961,7 +961,7 @@ void AmSgmm::ComputeH(std::vector< SpMatrix<Real> > *H_i) const {
   KALDI_ASSERT(NumGauss() != 0);
   (*H_i).resize(NumGauss());
   SpMatrix<BaseFloat> H_i_tmp(PhoneSpaceDim());
-  for (int32 i = 0; i < NumGauss(); ++i) {
+  for (int32 i = 0; i < NumGauss(); i++) {
     (*H_i)[i].Resize(PhoneSpaceDim());
     H_i_tmp.AddMat2Sp(1.0, M_[i], kTrans, SigmaInv_[i], 0.0);
     (*H_i)[i].CopyFromSp(H_i_tmp);
@@ -987,7 +987,7 @@ void AmSgmm::InitializeMw(int32 phn_subspace_dim,
   int32 num_gauss = full_ubm_.NumGauss();
   w_.Resize(num_gauss, phn_subspace_dim);
   M_.resize(num_gauss);
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     full_ubm_.GetComponentMean(i, &mean);
     Matrix<BaseFloat> &thisM(M_[i]);
     thisM.Resize(ddim, phn_subspace_dim);
@@ -1008,7 +1008,7 @@ void AmSgmm::InitializeN(int32 spk_subspace_dim,
 
   int32 num_gauss = full_ubm_.NumGauss();
   N_.resize(num_gauss);
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     N_[i].Resize(ddim, spk_subspace_dim);
     // Eq. (28): N_{i} = [ (J)_{1:D, 1:T)}]
     N_[i].CopyFromMat(norm_xform.Range(0, ddim, 0, spk_subspace_dim), kNoTrans);
@@ -1023,7 +1023,7 @@ void AmSgmm::InitializeVecs(int32 num_states) {
 
   v_.resize(num_states);
   c_.resize(num_states);
-  for (int32 j = 0; j < num_states; ++j) {
+  for (int32 j = 0; j < num_states; j++) {
     v_[j].Resize(1, phn_subspace_dim);
     c_[j].Resize(1);
     v_[j](0, 0) = 1.0;  // Eq. (26): v_{j1} = [1 0 0 ... 0]
@@ -1037,7 +1037,7 @@ void AmSgmm::InitializeCovars() {
   int32 num_gauss = full_ubm_.NumGauss();
   int32 dim = full_ubm_.Dim();
   SigmaInv_.resize(num_gauss);
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     SigmaInv_[i].Resize(dim);
     SigmaInv_[i].CopyFromSp(inv_covars[i]);
   }
@@ -1059,7 +1059,7 @@ void AmSgmm::ComputeSmoothingTermsFromModel(
   for (int32 j = 0; j < NumPdfs(); j++) {
     int32 M_j = NumSubstates(j);
     KALDI_ASSERT(M_j > 0);
-    for (int32 m = 0; m < M_j; ++m) {
+    for (int32 m = 0; m < M_j; m++) {
       w_jm.AddMatVec(1.0, w_, kNoTrans, v_[j].Row(m), 0.0);
       w_jm.ApplySoftMax();
       gamma_i.AddVec(state_occupancies(j) * c_[j](m), w_jm);
@@ -1103,7 +1103,7 @@ void ComputeFeatureNormalizer(const FullGmm &gmm, Matrix<BaseFloat> *xform) {
     std::vector< SpMatrix<BaseFloat> > tmp_covars;
     tmp_weight.CopyFromVec(gmm.weights());
     gmm.GetCovarsAndMeans(&tmp_covars, &tmp_means);
-    for (int32 i = 0; i < num_gauss; ++i) {
+    for (int32 i = 0; i < num_gauss; i++) {
       BaseFloat w_i = tmp_weight(i);
       total_weight += w_i;
       within_class_covar.AddSp(w_i, tmp_covars[i]);
@@ -1321,7 +1321,7 @@ void SgmmGauPost::Read(std::istream &is, bool binary) {
 }
 
 
-void AmSgmmFunctions::ComputeDistances(const AmSgmm& model,
+void AmSgmmFunctions::ComputeDistances(const AmSgmm &model,
                                        const Vector<BaseFloat> &state_occs,
                                        MatrixBase<BaseFloat> *dists) {
   int32 num_states = model.NumPdfs(),
@@ -1333,7 +1333,7 @@ void AmSgmmFunctions::ComputeDistances(const AmSgmm& model,
   KALDI_ASSERT(prior.Sum() != 0.0);
   prior.Scale(1.0 / prior.Sum());  // Normalize.
   SpMatrix<BaseFloat> H(phn_space_dim);  // The same as H_sm in some other code.
-  for (int32 i = 0; i < num_gauss; ++i) {
+  for (int32 i = 0; i < num_gauss; i++) {
     SpMatrix<BaseFloat> Hi(phn_space_dim);
     Hi.AddMat2Sp(1.0, model.M_[i], kTrans, model.SigmaInv_[i], 0.0);
     H.AddSp(prior(i), Hi);
@@ -1352,7 +1352,5 @@ void AmSgmmFunctions::ComputeDistances(const AmSgmm& model,
     }
   }
 }
-
-
 
 }  // namespace kaldi

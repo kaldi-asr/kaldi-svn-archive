@@ -184,18 +184,20 @@ class MatrixBase {
   Real Min() const;
 
   /// Element by element multiplication with a given matrix.
-  void MulElements(const MatrixBase<Real>& a);
+  void MulElements(const MatrixBase<Real> &a);
 
   /// Divide each element by the corresponding element of a given matrix.
-  void DivElements(const MatrixBase<Real>& a);
+  void DivElements(const MatrixBase<Real> &a);
 
   /// Multiply each element with a scalar value.
   void Scale(Real alpha);
 
-  /// Equivalent to (*this) = (*this) * diag(scale).
+  /// Equivalent to (*this) = (*this) * diag(scale).  Scaling
+  /// each column by a scalar taken from that dimension of the vector.
   void MulColsVec(const VectorBase<Real> &scale);
 
-  /// Equivalent to (*this) = diag(scale) * (*this);
+  /// Equivalent to (*this) = diag(scale) * (*this).  Scaling
+  /// each row by a scalar taken from that dimension of the vector.
   void MulRowsVec(const VectorBase<Real> &scale);
 
   /// Returns logdet of matrix.
@@ -225,8 +227,11 @@ class MatrixBase {
   /// Applies floor to all matrix elements
   void ApplyFloor(Real floor_val);
 
-  /// Calculates log to all the matrix elemnts
+  /// Calculates log of all the matrix elemnts
   void ApplyLog();
+
+  /// Exponentiate each of the elements.
+  void ApplyExp();
 
   /// Applies power to all matrix elements
   void ApplyPow(Real power);
@@ -269,7 +274,7 @@ class MatrixBase {
      expect that S.Dim() == m, U is either NULL or m by n,
      and v is either NULL or n by n. */
   void DestructiveSvd(VectorBase<Real> *s, MatrixBase<Real> *U,
-                        MatrixBase<Real> *Vt);  // Destroys calling matrix.
+                      MatrixBase<Real> *Vt);  // Destroys calling matrix.
 
   /// Compute SVD (*this) = U diag(s) Vt.   Note that the v in the call is already
   /// transposed; the normal formulation is U diag(s) V^T.
@@ -326,7 +331,7 @@ class MatrixBase {
   /// Apply soft-max to the collection of all elements of the
   /// matrix and return normalizer (log sum of exponentials).
   Real ApplySoftMax();
-
+  
   /** Uses Svd to compute the eigenvalue decomposition of a symmetric positive
    * semi-definite matrix: (*this) = rP * diag(rS) * rP^T, with rP an
    * orthogonal matrix so rP^{-1} = rP^T.   Throws exception if input was not
@@ -348,9 +353,17 @@ class MatrixBase {
 
   /// *this += alpha * a * b^T
   template<class OtherReal>
-  void AddVecVec(const Real alpha, const VectorBase<OtherReal>& a,
-                 const VectorBase<OtherReal>& b);
+  void AddVecVec(const Real alpha, const VectorBase<OtherReal> &a,
+                 const VectorBase<OtherReal> &b);
 
+  /// [each row of *this] += alpha * v
+  template<class OtherReal>
+  void AddVecToRows(const Real alpha, const VectorBase<OtherReal> &v);
+  
+  /// [each col of *this] += alpha * v
+  template<class OtherReal>
+  void AddVecToCols(const Real alpha, const VectorBase<OtherReal> &v);      
+  
   /// *this += alpha * M [or M^T]
   void AddMat(const Real alpha, const MatrixBase<Real> &M,
                MatrixTransposeType transA = kNoTrans);
@@ -455,7 +468,7 @@ class MatrixBase {
  protected:
 
   ///  Initializer, callable only from child.
-  explicit MatrixBase(Real* data, MatrixIndexT cols, MatrixIndexT rows, MatrixIndexT stride) :
+  explicit MatrixBase(Real *data, MatrixIndexT cols, MatrixIndexT rows, MatrixIndexT stride) :
     data_(data), num_cols_(cols), num_rows_(rows), stride_(stride) {
     KALDI_ASSERT_IS_FLOATING_TYPE(Real);
   }

@@ -103,7 +103,6 @@ int main(int argc, char *argv[]) {
 
     double tot_impr = 0.0, tot_t = 0.0;
     int32 num_done = 0, num_no_gpost = 0, num_other_error = 0;
-    std::vector<std::vector<int32> > empty_gselect;
 
     if (!spk2utt_rspecifier.empty()) {  // per-speaker adaptation
       SequentialTokenVectorReader spk2utt_reader(spk2utt_rspecifier);
@@ -214,7 +213,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "Overall auxf impr per frame is " << (tot_impr / tot_t)
               << " over " << tot_t << " frames.";
     return (num_done != 0 ? 0 : 1);
-  } catch(const std::exception& e) {
+  } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;
   }

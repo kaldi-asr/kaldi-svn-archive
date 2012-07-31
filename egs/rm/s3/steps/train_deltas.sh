@@ -57,9 +57,6 @@ mkdir -p $dir
 
 feats="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk ark:$alidir/cmvn.ark scp:$data/feats.scp ark:- | add-deltas ark:- ark:- |"
 
-# compute integer form of transcripts.
-scripts/sym2int.pl --ignore-first-field $lang/words.txt < $data/text > $dir/train.tra \
-  || exit 1;
 
 
 echo "Accumulating tree stats"
@@ -90,7 +87,7 @@ gmm-init-model  --write-occs=$dir/1.occs  \
 gmm-mixup --mix-up=$numgauss $dir/1.mdl $dir/1.occs $dir/1.mdl \
    2>$dir/mixup.log || exit 1;
 
-rm $dir/treeacc
+#rm $dir/treeacc
 
 # Convert alignments generated from monophone model, to use as initial alignments.
 
@@ -101,8 +98,9 @@ convert-ali $alidir/final.mdl $dir/1.mdl $dir/tree ark:$alidir/ali ark:$dir/cur.
 
 # Make training graphs
 echo "Compiling training graphs"
-compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst ark:$dir/train.tra \
-    "ark:|gzip -c >$dir/graphs.fsts.gz"  2>$dir/compile_graphs.log  || exit 1;
+compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst  \
+  "ark:scripts/sym2int.pl --ignore-first-field $lang/words.txt < $data/text |" \
+  "ark:|gzip -c >$dir/graphs.fsts.gz"  2>$dir/compile_graphs.log  || exit 1;
 
 x=1
 while [ $x -lt $numiters ]; do

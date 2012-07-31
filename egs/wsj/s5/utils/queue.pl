@@ -213,7 +213,7 @@ if (!defined $jobname) { # not an array job.
 
 $num_failed = 0;
 foreach $l (@logfiles) {
-  @wait_times = (0.1, 1.0, 5.0);
+  @wait_times = (0.1, 0.2, 0.2, 0.3, 0.5, 0.5, 1.0, 2.0, 5.0, 5.0, 5.0, 10.0, 25.0);
   for ($iter = 0; $iter <= @wait_times; $iter++) {
     $line = `tail -1 $l 2>/dev/null`;
     if ($line =~ m/with status (\d+)/) {
@@ -242,14 +242,14 @@ if ($num_failed == 0) { exit(0); }
 else { # we failed.
   if (@logfiles == 1) {
     if (defined $jobname) { $logfile =~ s/\$SGE_TASK_ID/$jobstart/g; }
-    print STDERR "queue.pl: job writing to $logfile failed with status $status\n";
+    print STDERR "queue.pl: job failed with status $status, log is in $logfile\n";
     if ($logfile =~ m/JOB/) {
       print STDERR "queue.pl: probably you forgot to put JOB=1:\$nj in your script.\n";
     }
   } else {
     if (defined $jobname) { $logfile =~ s/\$SGE_TASK_ID/*/g; }
     $numjobs = 1 + $jobend - $jobstart;
-    print STDERR "queue.pl: $num_failed / $numjobs writing to $logfile failed.\n";
+    print STDERR "queue.pl: $num_failed / $numjobs failed, log is in $logfile\n";
   }
   exit(1);
 }

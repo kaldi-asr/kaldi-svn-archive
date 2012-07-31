@@ -41,11 +41,11 @@ class Nnet {
 
  public:
   /// Perform forward pass through the network
-  void Propagate(const Matrix<BaseFloat>& in, Matrix<BaseFloat>* out); 
+  void Propagate(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out); 
   /// Perform backward pass through the network
-  void Backpropagate(const Matrix<BaseFloat>& in_err, Matrix<BaseFloat>* out_err);
+  void Backpropagate(const Matrix<BaseFloat> &in_err, Matrix<BaseFloat> *out_err);
   /// Perform forward pass through the network, don't keep buffers (use it when not training)
-  void Feedforward(const Matrix<BaseFloat>& in, Matrix<BaseFloat>* out); 
+  void Feedforward(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out); 
 
   MatrixIndexT InputDim() const; ///< Dimensionality of the input features
   MatrixIndexT OutputDim() const; ///< Dimensionality of the desired vectors
@@ -69,17 +69,17 @@ class Nnet {
   }
   
   /// Read the MLP from file (can add layers to exisiting instance of Nnet)
-  void Read(const std::string& file);  
+  void Read(const std::string &file);  
   /// Read the MLP from stream (can add layers to exisiting instance of Nnet)
-  void Read(std::istream& in, bool binary);  
+  void Read(std::istream &in, bool binary);  
   /// Write MLP to file
-  void Write(const std::string& file, bool binary); 
+  void Write(const std::string &file, bool binary); 
   /// Write MLP to stream 
-  void Write(std::ostream& out, bool binary);    
+  void Write(std::ostream &out, bool binary);    
   
   /// Set the learning rate values to trainable layers, 
   /// factors can disable training of individual layers
-  void LearnRate(BaseFloat lrate, const char* lrate_factors); 
+  void LearnRate(BaseFloat lrate, const char *lrate_factors); 
   /// Get the global learning rate value
   BaseFloat LearnRate() { 
     return learn_rate_; 
@@ -93,9 +93,9 @@ class Nnet {
 
  private:
   /// Creates a component by reading from stream, return NULL if no more components
-  static Component* ComponentFactory(std::istream& in, bool binary, Nnet* nnet);
+  static Component* ComponentFactory(std::istream &in, bool binary, Nnet *nnet);
   /// Dumps individual component to stream
-  static void ComponentDumper(std::ostream& out, bool binary, const Component& comp);
+  static void ComponentDumper(std::ostream &out, bool binary, const Component &comp);
 
   typedef std::vector<Component*> NnetType;
   
@@ -111,7 +111,7 @@ class Nnet {
   
 
 inline Nnet::~Nnet() {
-  //delete all the components
+  // delete all the components
   NnetType::iterator it;
   for(it=nnet_.begin(); it!=nnet_.end(); ++it) {
     delete *it;
@@ -120,7 +120,7 @@ inline Nnet::~Nnet() {
 
    
 inline MatrixIndexT Nnet::InputDim() const { 
-  if(LayerCount() > 0) {
+  if (LayerCount() > 0) {
    return nnet_.front()->InputDim(); 
   } else {
    KALDI_ERR << "No layers in MLP"; 
@@ -129,7 +129,7 @@ inline MatrixIndexT Nnet::InputDim() const {
 
 
 inline MatrixIndexT Nnet::OutputDim() const { 
-  if(LayerCount() > 0) {
+  if (LayerCount() > 0) {
     return nnet_.back()->OutputDim(); 
   } else {
     KALDI_ERR << "No layers in MLP"; 
@@ -137,9 +137,9 @@ inline MatrixIndexT Nnet::OutputDim() const {
 }
 
 
-inline int32 Nnet::IndexOfLayer(const Component& comp) const {
+inline int32 Nnet::IndexOfLayer(const Component &comp) const {
   for(int32 i=0; i<LayerCount(); i++) {
-    if(&comp == nnet_[i]) return i;
+    if (&comp == nnet_[i]) return i;
   }
   KALDI_ERR << "Component:" << &comp 
             << " type:" << comp.GetType() 
@@ -148,31 +148,31 @@ inline int32 Nnet::IndexOfLayer(const Component& comp) const {
 }
  
   
-inline void Nnet::Read(const std::string& file) {
+inline void Nnet::Read(const std::string &file) {
   bool binary;
-  Input in(file,&binary);
-  Read(in.Stream(),binary);
+  Input in(file, &binary);
+  Read(in.Stream(), binary);
   in.Close();
 }
 
 
-inline void Nnet::Write(const std::string& file, bool binary) {
+inline void Nnet::Write(const std::string &file, bool binary) {
   Output out(file, binary, true);
-  Write(out.Stream(),binary);
+  Write(out.Stream(), binary);
   out.Close();
 }
 
 
-inline void Nnet::Write(std::ostream& out, bool binary) {
+inline void Nnet::Write(std::ostream &out, bool binary) {
   for(int32 i=0; i<LayerCount(); i++) {
-    nnet_[i]->Write(out,binary);
+    nnet_[i]->Write(out, binary);
   }
 }
 
     
 inline void Nnet::Momentum(BaseFloat mmt) {
   for(int32 i=0; i<LayerCount(); i++) {
-    if(nnet_[i]->IsUpdatable()) {
+    if (nnet_[i]->IsUpdatable()) {
       dynamic_cast<UpdatableComponent*>(nnet_[i])->Momentum(mmt);
     }
   }
@@ -181,7 +181,7 @@ inline void Nnet::Momentum(BaseFloat mmt) {
 
 inline void Nnet::L2Penalty(BaseFloat l2) {
   for(int32 i=0; i<LayerCount(); i++) {
-    if(nnet_[i]->IsUpdatable()) {
+    if (nnet_[i]->IsUpdatable()) {
       dynamic_cast<UpdatableComponent*>(nnet_[i])->L2Penalty(l2);
     }
   }
@@ -190,7 +190,7 @@ inline void Nnet::L2Penalty(BaseFloat l2) {
 
 inline void Nnet::L1Penalty(BaseFloat l1) {
   for(int32 i=0; i<LayerCount(); i++) {
-    if(nnet_[i]->IsUpdatable()) {
+    if (nnet_[i]->IsUpdatable()) {
       dynamic_cast<UpdatableComponent*>(nnet_[i])->L1Penalty(l1);
     }
   }
@@ -199,7 +199,7 @@ inline void Nnet::L1Penalty(BaseFloat l1) {
 
 
 
-} //namespace kaldi
+} // namespace kaldi
 
 #endif
 

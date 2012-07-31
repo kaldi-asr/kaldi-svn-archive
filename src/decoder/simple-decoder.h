@@ -159,14 +159,16 @@ class SimpleDecoder {
       // This makes sense for log + tropical semiring.
     }
 
-    ~Token() {
-      KALDI_ASSERT(ref_count_ == 1);
-      if (prev_ != NULL) TokenDelete(prev_);
-    }
     static void TokenDelete(Token *tok) {
-      if (tok->ref_count_ == 1) delete tok;
-      else
-        tok->ref_count_--;
+      while (--tok->ref_count_ == 0) {
+        Token *prev = tok->prev_;
+        delete tok;
+        if (prev == NULL) return;
+        else tok = prev;
+      }
+#ifdef KALDI_PARANOID
+      KALDI_ASSERT(tok->ref_count_ > 0);
+#endif
     }
   };
 
@@ -187,8 +189,8 @@ class SimpleDecoder {
         if (arc.ilabel != 0) {  // propagate..
           arc.weight = Times(arc.weight,
                              Weight(-decodable->LogLikelihood(frame, arc.ilabel)));
-          if(arc.weight.Value() > cutoff) continue;
-          if(arc.weight.Value() + beam_  < cutoff)
+          if (arc.weight.Value() > cutoff) continue;
+          if (arc.weight.Value() + beam_  < cutoff)
             cutoff = arc.weight.Value() + beam_;
           Token *new_tok = new Token(arc, tok);
           unordered_map<StateId, Token*>::iterator find_iter

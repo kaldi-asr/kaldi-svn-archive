@@ -11,15 +11,16 @@
 
 # Begin configuration section.
 cmd=run.pl
-schedule="fmmi mmi fmmi mmi fmmi mmi fmmi mmi"
+schedule="fmmi fmmi fmmi fmmi mmi mmi mmi mmi"
 boost=0.0
 learning_rate=0.01
-tau=200 # For model.  Note: we're doing smoothing "to the previous iteration",
-    # so --smooth-from-model so 200 seems like a more sensible default
+tau=400 # For model.  Note: we're doing smoothing "to the previous iteration",
+    # so --smooth-from-model so 400 seems like a more sensible default
     # than 100.  We smooth to the previous iteration because now
     # we are discriminatively training the features (and not using
     # the indirect differential), so it seems like it wouldn't make 
     # sense to use any element of ML.
+weight_tau=10 # for model weights.
 cancel=true # if true, cancel num and den counts as described in 
      # the boosted MMI paper. 
 indirect=true # if true, use indirect derivative.
@@ -69,7 +70,9 @@ nj=`cat $alidir/num_jobs` || exit 1;
 [ "$nj" -ne "`cat $denlatdir/num_jobs`" ] && \
   echo "$alidir and $denlatdir have different num-jobs" && exit 1;
 sdata=$data/split$nj
+splice_opts=`cat $alidir/splice_opts 2>/dev/null` # frame-splicing options.
 mkdir -p $dir/log
+cp $alidir/splice_opts $dir 2>/dev/null # frame-splicing options.
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
 
@@ -79,7 +82,7 @@ echo "$0: feature type is $feat_type"
 # Note: $feats is the features before fMPE.
 case $feat_type in
   delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "Invalid feature type $feat_type" && exit 1;
@@ -183,7 +186,7 @@ while [ $x -lt $num_iters ]; do
       # make smoothing to ML impossible without accumulating extra stats.
       $cmd $dir/log/update.$x.log \
         gmm-est-gaussians-ebw --tau=$tau $dir/$x.mdl $dir/num_acc.$x.acc $dir/den_acc.$x.acc - \| \
-        gmm-est-weights-ebw - $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl || exit 1;
+        gmm-est-weights-ebw --weight-tau=$weight_tau - $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl || exit 1;
     else 
       echo "not doing this iteration because --stage=$stage"
     fi
@@ -194,7 +197,7 @@ while [ $x -lt $num_iters ]; do
     objf_nf=`grep Overall $dir/log/acc.$x.*.log | grep gmm-acc-stats2 | awk '{ p+=$10*$12; nf+=$12; } END{print p/nf, nf;}'`
     objf=`echo $objf_nf | awk '{print $1}'`;
     nf=`echo $objf_nf | awk '{print $2}'`;
-    impr=`grep Overall $dir/log/update.$x.log | head -1 | awk '{print $10*$12;}'`
+    impr=`grep -w Overall $dir/log/update.$x.log | awk '{x += $10*$12;} END{print x;}'`
     impr=`perl -e "print ($impr/$nf);"` # renormalize by "real" #frames, to correct
     # for the canceling of stats.
     echo On iter $x, objf was $objf, auxf improvement was $impr | tee $dir/objf.$x.log

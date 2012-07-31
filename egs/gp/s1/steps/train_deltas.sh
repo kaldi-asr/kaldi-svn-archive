@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Copyright 2010-2012  Microsoft Corporation;  Arnab Ghoshal
+# Copyright 2012  Arnab Ghoshal
+# Copyright 2010-2011  Microsoft Corporation
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,17 +73,19 @@ function readint () {
   echo $retval
 }
 
-njobs=4    # Default number of jobs
+nj=4       # Default number of jobs
 stage=-4   # Default starting stage (start with tree building)
-qcmd=""  # Options for the submit_jobs.sh script
+qcmd=""    # Options for the submit_jobs.sh script
+sjopts=""  # Options for the submit_jobs.sh script
 
 PROG=`basename $0`;
 usage="Usage: $PROG [options] <num-leaves> <tot-gauss> <data-dir> <lang-dir> <ali-dir> <exp-dir>\n
 e.g.: $PROG 2000 10000 data/train_si84 data/lang exp/mono_ali exp/tri1\n\n
 Options:\n
   --help\t\tPrint this message and exit\n
-  --num-jobs INT\tNumber of parallel jobs to run (default=$njobs).\n
+  --num-jobs INT\tNumber of parallel jobs to run (default=$nj).\n
   --qcmd STRING\tCommand for submitting a job to a grid engine (e.g. qsub) including switches.\n
+  --sjopts STRING\tOptions for the 'submit_jobs.sh' script\n
   --stage INT\tStarting stage (e.g. -4 for tree building; 2 for iter 2; default=$stage)\n
 ";
 
@@ -90,11 +93,13 @@ while [ $# -gt 0 ]; do
   case "${1# *}" in  # ${1# *} strips any leading spaces from the arguments
     --help) echo -e $usage; exit 0 ;;
     --num-jobs) 
-      shift; njobs=`readint $1`;
-      [ $njobs -lt 1 ] && error_exit "--num-jobs arg '$njobs' not positive.";
+      shift; nj=`readint $1`;
+      [ $nj -lt 1 ] && error_exit "--num-jobs arg '$nj' not positive.";
       shift ;;
     --qcmd)
       shift; qcmd=" --qcmd=${1}"; shift ;;
+    --sjopts)
+      shift; sjopts="$1"; shift ;;
     --stage)
       shift; stage=`readint $1`; shift ;;
     -*)  echo "Unknown argument: $1, exiting"; echo -e $usage; exit 1 ;;
@@ -130,23 +135,21 @@ numgauss=$numleaves
 incgauss=$[($totgauss-$numgauss)/$maxiterinc] # per-iter increment for #Gauss
 
 mkdir -p $dir/log
-if [ ! -d $data/split$njobs -o $data/split$njobs -ot $data/feats.scp ]; then
-  split_data.sh $data $njobs
+if [ ! -d $data/split$nj -o $data/split$nj -ot $data/feats.scp ]; then
+  split_data.sh $data $nj
 fi
 
-# for n in `get_splits.pl $njobs`; do
-featspart="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/split$njobs/TASK_ID/utt2spk ark:$alidir/TASK_ID.cmvn scp:$data/split$njobs/TASK_ID/feats.scp ark:- | add-deltas ark:- ark:- |"
+# for n in `get_splits.pl $nj`; do
+featspart="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/split$nj/TASK_ID/utt2spk ark:$alidir/TASK_ID.cmvn scp:$data/split$nj/TASK_ID/feats.scp ark:- | add-deltas ark:- ark:- |"
 
 if [ $stage -le -3 ]; then
 # The next stage assumes we won't need the context of silence, which
 # assumes something about $lang/roots.txt, but it seems pretty safe.
   echo "Accumulating tree stats"
-  # for n in `get_splits.pl $njobs`; do
-  submit_jobs.sh "$qcmd" --njobs=$njobs --log=$dir/log/acc_tree.TASK_ID.log \
-    acc-tree-stats  --ci-phones=$silphonelist $alidir/final.mdl "$featspart" \
-      "ark:gunzip -c $alidir/TASK_ID.ali.gz|" $dir/TASK_ID.treeacc \
-      || error_exit "Error accumulating tree stats";
-  
+  submit_jobs.sh "$qcmd" --njobs=$nj --log=$dir/log/acc_tree.TASK_ID.log \
+    $sjopts acc-tree-stats --ci-phones=$silphonelist $alidir/final.mdl \
+    "$featspart" "ark:gunzip -c $alidir/TASK_ID.ali.gz|" $dir/TASK_ID.treeacc \
+    || error_exit "Error accumulating tree stats";
   sum-tree-stats $dir/treeacc $dir/*.treeacc 2>$dir/log/sum_tree_acc.log \
       || error_exit "Error summing tree stats.";
   rm $dir/*.treeacc
@@ -155,19 +158,19 @@ fi
 if [ $stage -le -2 ]; then
 # preparing questions, roots file...
   echo "Computing questions for tree clustering"
-  ( sym2int.pl $lang/phones.txt $lang/phonesets_cluster.txt > $dir/phonesets.txt
+  ( set -e
+    sym2int.pl $lang/phones.txt $lang/phonesets_cluster.txt > $dir/phonesets.txt
     cluster-phones $dir/treeacc $dir/phonesets.txt $dir/questions.txt \
       2> $dir/log/questions.log
-    [ -f $lang/extra_questions.txt ] && \
-      sym2int.pl $lang/phones.txt $lang/extra_questions.txt \
-      >> $dir/questions.txt
+    [ -f $lang/extra_questions.txt ] && sym2int.pl $lang/phones.txt \
+      $lang/extra_questions.txt >> $dir/questions.txt
     compile-questions $lang/topo $dir/questions.txt $dir/questions.qst \
       2>$dir/log/compile_questions.log
     sym2int.pl --ignore-oov $lang/phones.txt $lang/roots.txt > $dir/roots.txt
   ) || error_exit "Error in generating questions for tree clustering."
 
   echo "Building tree"
-  submit_jobs.sh "$qcmd" --log=$dir/log/train_tree.log \
+  submit_jobs.sh "$qcmd" --log=$dir/log/train_tree.log $sjopts \
     build-tree --verbose=1 --max-leaves=$numleaves $dir/treeacc $dir/roots.txt \
       $dir/questions.qst $lang/topo $dir/tree \
       || error_exit "Error in building tree.";
@@ -185,11 +188,11 @@ fi
 
 if [ $stage -le -1 ]; then
 # Convert alignments in $alidir, to use as initial alignments.
-# This assumes that $alidir was split in $njobs pieces, just like the
+# This assumes that $alidir was split in $nj pieces, just like the
 # current dir.  Just do this locally-- it's very fast.
   echo "Converting old alignments"
-  # for n in `get_splits.pl $njobs`; do
-  submit_jobs.sh --njobs=$njobs --log=$dir/log/convertTASK_ID.log \
+  # for n in `get_splits.pl $nj`; do
+  submit_jobs.sh --njobs=$nj --log=$dir/log/convertTASK_ID.log $sjopts \
     convert-ali $alidir/final.mdl $dir/1.mdl $dir/tree \
       "ark:gunzip -c $alidir/TASK_ID.ali.gz|" \
       "ark:|gzip -c >$dir/TASK_ID.ali.gz" \
@@ -197,12 +200,12 @@ if [ $stage -le -1 ]; then
 fi
 
 if [ $stage -le 0 ]; then
-# Make training graphs (this is split in $njobs parts).
+# Make training graphs (this is split in $nj parts).
   echo "Compiling training graphs"
-  # for n in `get_splits.pl $njobs`; do
-  submit_jobs.sh "$qcmd" --njobs=$njobs --log=$dir/log/compile_graphsTASK_ID.log \
-    compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst  \
-      "ark:sym2int.pl --map-oov \"$oov_sym\" --ignore-first-field $lang/words.txt < $data/split$njobs/TASK_ID/text |" \
+  # for n in `get_splits.pl $nj`; do
+  submit_jobs.sh "$qcmd" --njobs=$nj --log=$dir/log/compile_graphsTASK_ID.log \
+    $sjopts compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst  \
+      "ark:sym2int.pl --map-oov \"$oov_sym\" --ignore-first-field $lang/words.txt < $data/split$nj/TASK_ID/text |" \
       "ark:|gzip -c >$dir/TASK_ID.fsts.gz" \
       || error_exit "Error compiling training graphs";
 fi
@@ -213,21 +216,21 @@ while [ $x -lt $numiters ]; do
   if [ $stage -le $x ]; then
     if echo $realign_iters | grep -w $x >/dev/null; then
       echo "Aligning data"
-      # for n in `get_splits.pl $njobs`; do
-      submit_jobs.sh "$qcmd" --njobs=$njobs --log=$dir/log/align.$x.TASK_ID.log \
-        gmm-align-compiled $scale_opts --beam=10 --retry-beam=40 $dir/$x.mdl \
-          "ark:gunzip -c $dir/TASK_ID.fsts.gz|" "$featspart" \
+      # for n in `get_splits.pl $nj`; do
+      submit_jobs.sh "$qcmd" --njobs=$nj --log=$dir/log/align.$x.TASK_ID.log \
+        $sjopts gmm-align-compiled $scale_opts --beam=10 --retry-beam=40 \
+	  $dir/$x.mdl "ark:gunzip -c $dir/TASK_ID.fsts.gz|" "$featspart" \
           "ark:|gzip -c >$dir/TASK_ID.ali.gz" \
 	  || error_exit "Error aligning data on iteration $x";
     fi  # Realign iters
 
-    # for n in `get_splits.pl $njobs`; do
-    submit_jobs.sh "$qcmd" --njobs=$njobs --log=$dir/log/acc.$x.TASK_ID.log \
-      gmm-acc-stats-ali  $dir/$x.mdl "$featspart" \
+    # for n in `get_splits.pl $nj`; do
+    submit_jobs.sh "$qcmd" --njobs=$nj --log=$dir/log/acc.$x.TASK_ID.log \
+      $sjopts gmm-acc-stats-ali  $dir/$x.mdl "$featspart" \
         "ark,s,cs:gunzip -c $dir/TASK_ID.ali.gz|" $dir/$x.TASK_ID.acc \
 	|| error_exit "Error accumulating stats on iteration $x";
 
-    submit_jobs.sh "$qcmd" --log=$dir/log/update.$x.log \
+    submit_jobs.sh "$qcmd" --log=$dir/log/update.$x.log $sjopts \
       gmm-est --write-occs=$dir/$[$x+1].occs --mix-up=$numgauss $dir/$x.mdl \
 	"gmm-sum-accs - $dir/$x.*.acc |" $dir/$[$x+1].mdl \
 	|| error_exit "Error in pass $x extimation.";
