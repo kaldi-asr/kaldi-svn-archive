@@ -20,8 +20,8 @@ $(LIBFILE): $(OBJFILES)
 	$(RANLIB) $(LIBFILE)
 
 
-$(TESTFILES): $(LIBFILE) ../base/kaldi-base.a ../util/kaldi-util.a ../matrix/kaldi-matrix.a \
-	../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../transform/kaldi-transform.a
+$(TESTFILES): $(LIBFILE) ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../transform/kaldi-transform.a \
+   ../thread/kaldi-thread.a ../base/kaldi-base.a ../util/kaldi-util.a ../matrix/kaldi-matrix.a
 
 
 # Rule below would expand to, e.g.:
