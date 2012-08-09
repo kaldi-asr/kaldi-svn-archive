@@ -24,8 +24,8 @@
 
 namespace kaldi {
 
-// This is a base-class for statistics for neural-network
-// training.  This is for multi-threaded training.  The general idea is
+// This code uses multi-threaded training for neural nets, for systems
+// with many tens of CPUs.  The general idea is
 // as follows.  Each update in SGD is of the form
 // [parameter-matrix] += \alpha v w^T
 // where \alpha is the current learning rate.  If we were to do that
@@ -61,6 +61,7 @@ namespace kaldi {
 
 
 class ChunkManager {
+ public:
   enum {
     kEmpty,
     kFull,
@@ -204,6 +205,12 @@ class SoftmaxLayer {
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
                        MatrixBase<BaseFloat> *sum_deriv);
+
+  // Propagate derivative back from sum at nodes, to input.
+  void ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
+                         const MatrixBase<BaseFloat> &sum_deriv,
+                         MatrixBase<BaseFloat> *input_deriv);
+
   
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
 
@@ -241,6 +248,8 @@ class SoftmaxLayerStats {
   Matrix<BaseFloat> output_sums_;  // sums of output, one row per chunk.
 };
 
+
+class TanhLayerStats;
 
 class TanhLayer {
   // This sigmoid is a symmetric sigmoid that goes from -1 to +1, i.e. the tanh function.

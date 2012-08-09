@@ -35,7 +35,7 @@ static void SpliceFrames(const MatrixBase<BaseFloat> &input,
   KALDI_ASSERT(spliced_out->NumRows() == input.NumRows() - num_splice + 1);
   for (int32 s = 0; s < num_splice; s++) {
     SubMatrix<BaseFloat> src(input, s, num_output_rows, 0, small_dim);
-    SubMatrix<BaseFloat> dst(spliced_out, 0, num_output_rows,
+    SubMatrix<BaseFloat> dst(*spliced_out, 0, num_output_rows,
                              small_dim * s, small_dim * (s+1));
     dst.CopyFromMat(src);
   }
@@ -54,11 +54,11 @@ void LinearLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
     chunk_manager_.GetTask(&chunk1, &chunk2);
     if (chunk2 == -1) { // Store the stats, and return.
       int32 chunk = chunk1, chunk_size = config_.chunk_size;
-      SubMatrix input_chunk(input_stats_, chunk * chunk_size,
-                            chunk_size, 0, input_stats_.NumCols());
+      SubMatrix<BaseFloat> input_chunk(input_stats_, chunk * chunk_size,
+                                       chunk_size, 0, input_stats_.NumCols());
       input_chunk.CopyFromMat(input);
-      SubMatrix output_chunk(output_stats_, chunk * chunk_size,
-                             chunk_size, 0, output_chunk.NumCols());
+      SubMatrix<BaseFloat> output_chunk(output_stats_, chunk * chunk_size,
+                                        chunk_size, 0, output_chunk.NumCols());
       output_chunk.CopyFromMat(output_deriv);
       chunk_manager_.SetToFull(chunk);
       break;
@@ -81,13 +81,13 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
                     chunk_size * (chunk_end - chunk_start),
                     0, output_stats_.NumCols());
 
-  // layer_to_update->params_ += learning_rate * output_chunks^T * input_chunks
-  layer_to_update->params_.AddMatMat(config_.learning_rate, output_chunks, kTrans,
+  // layer_to_update_->params_ += learning_rate * output_chunks^T * input_chunks
+  layer_to_update_->params_.AddMatMat(config_.learning_rate, output_chunks, kTrans,
                                      input_chunks, kNoTrans, 1.0);
 }
 
 void TanhLayer::Forward(const MatrixBase<BaseFloat> &input,
-                           MatrixBase<BaseFloat> *output) {
+                        MatrixBase<BaseFloat> *output) {
   // This would be simpler if we didn't allow frame splicing.  For
   // the case with no frame splicing, assume input_dim == full_input_dim.
   
@@ -118,7 +118,7 @@ void TanhLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                                 MatrixBase<BaseFloat> *sum_deriv) {
   /*
     Note on the derivative of the tanh function:
-     tanh'(x) = sech^2(x) = -(tanh(x)+1) (tanh(x)-1) = 1 - tanh^2(x)
+    tanh'(x) = sech^2(x) = -(tanh(x)+1) (tanh(x)-1) = 1 - tanh^2(x)
   */
   sum_deriv->CopyFromMat(output);
   sum_deriv->ApplyPow(2.0);
@@ -162,7 +162,7 @@ void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
   int32 chunk_size = output.NumRows(); // Number of frames in this chunk.  This is fixed
   // during training; the stats take it as part of the initializer.
   int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output->NumCols();
+      output_dim = output.NumCols();
   int32 num_spliced = full_input_dim / input_dim;
   KALDI_ASSERT(output_dim == params_.NumRows());
   KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
@@ -174,8 +174,8 @@ void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
     SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
     SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
                                      input_dim * s, input_dim);
-    input_deriv_part->AddMatMat(1.0, output, kNoTrans, params_part, kNoTrans,
-                                1.0);
+    input_deriv_part.AddMatMat(1.0, output, kNoTrans, params_part, kNoTrans,
+                               1.0);
   }
 }
 
@@ -214,11 +214,11 @@ void TanhLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
     chunk_manager_.GetTask(&chunk1, &chunk2);
     if (chunk2 == -1) { // Store the stats, and return.
       int32 chunk = chunk1, chunk_size = config_.chunk_size;
-      SubMatrix input_chunk(input_stats_, chunk * chunk_size,
-                            chunk_size, 0, input_stats_.NumCols());
+      SubMatrix<BaseFloat> input_chunk(input_stats_, chunk * chunk_size,
+                                       chunk_size, 0, input_stats_.NumCols());
       SpliceFrames(input, &input_chunk);
-      SubMatrix output_chunk(output_stats_, chunk * chunk_size,
-                             chunk_size, 0, output_stats_.NumCols());
+      SubMatrix<BaseFloat> output_chunk(output_stats_, chunk * chunk_size,
+                                        chunk_size, 0, output_stats_.NumCols());
       output_chunk.CopyFromMat(output_deriv);
       chunk_manager_.SetToFull(chunk);
       break;
@@ -257,8 +257,8 @@ void SoftmaxLayer::Forward(const MatrixBase<BaseFloat> &input,
 
 void SoftmaxLayer::ApplySoftmax(MatrixBase<BaseFloat> *output) {
   // Apply softmax to each row of the output.
-  for (int32 row = 0; row < output->NumRows(); row++) {
-    SubVector<BaseFloat> row(*output, row);
+  for (int32 r = 0; r < output->NumRows(); r++) {
+    SubVector<BaseFloat> row(*output, r);
     row.ApplySoftMax();
   }
 }
@@ -269,19 +269,22 @@ void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                                    MatrixBase<BaseFloat> *sum_deriv) {
   /*
     Note on the derivative of the softmax function: let it be
-      p_i = exp(x_i) / sum_i exp_i
-    The [matrix-valued] 2nd derivative of this function is
-       diag(p) - p p^T
+    p_i = exp(x_i) / sum_i exp_i
+    The [matrix-valued] Jacobian of this function is
+    diag(p) - p p^T
     Let the derivative vector at the output be e, and at the input be
     d.  We have
-       d = diag(p) e - p (p^T e).
+    d = diag(p) e - p (p^T e).
     d_i = p_i e_i - p_i (p^T e).    
   */
-  const MatrixBase<BaseFloat> &p(output), &e(output_deriv);
-  MatrixBase<BaseFloat> &d (*sum_deriv);
-  d.AddVecVec(1.0, p, e, 0.0); // d_i = p_i e_i.
-  BaseFloat pT_e = VecVec(p, e); // p^T e.
-  d.AddVec(-pT_e, p); // d_i -= (p^T e) p_i
+  const MatrixBase<BaseFloat> &P(output), &E(output_deriv);
+  MatrixBase<BaseFloat> &D (*sum_deriv);
+  for (int32 r = 0; r < P.NumRows(); r++) {
+    SubVector<BaseFloat> p(P, r), e(E, r), d(D, r);
+    d.AddVecVec(1.0, p, e, 0.0); // d_i = p_i e_i.
+    BaseFloat pT_e = VecVec(p, e); // p^T e.
+    d.AddVec(-pT_e, p); // d_i -= (p^T e) p_i
+  }
 }
 
 // Called from Backward().  Computes "input_deriv".
@@ -295,7 +298,7 @@ void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
   int32 chunk_size = output.NumRows(); // Number of frames in this chunk.  This is fixed
   // during training; the stats take it as part of the initializer.
   int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output->NumCols();
+      output_dim = output.NumCols();
   int32 num_spliced = full_input_dim / input_dim;
   KALDI_ASSERT(output_dim == params_.NumRows());
   KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
@@ -307,8 +310,8 @@ void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
     SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
     SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
                                      input_dim * s, input_dim);
-    input_deriv_part->AddMatMat(1.0, output, kNoTrans, params_part, kNoTrans,
-                                1.0);
+    input_deriv_part.AddMatMat(1.0, output, kNoTrans, params_part, kNoTrans,
+                               1.0);
   }
 }
 
@@ -319,7 +322,7 @@ void SoftmaxLayer::Backward(
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input, which we add to.
-    TanhLayerStats *stats) {
+    SoftmaxLayerStats *stats) {
 
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
   // before the sigmoid is applied.
@@ -347,11 +350,11 @@ void SoftmaxLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
     chunk_manager_.GetTask(&chunk1, &chunk2);
     if (chunk2 == -1) { // Store the stats, and return.
       int32 chunk = chunk1, chunk_size = config_.chunk_size;
-      SubMatrix input_chunk(input_stats_, chunk * chunk_size,
-                            chunk_size, 0, input_stats_.NumCols());
+      SubMatrix<BaseFloat> input_chunk(input_stats_, chunk * chunk_size,
+                                       chunk_size, 0, input_stats_.NumCols());
       SpliceFrames(input, &input_chunk);
-      SubMatrix output_chunk(output_stats_, chunk * chunk_size,
-                             chunk_size, 0, output_stats_.NumCols());
+      SubMatrix<BaseFloat> output_chunk(output_stats_, chunk * chunk_size,
+                                        chunk_size, 0, output_stats_.NumCols());
       output_chunk.CopyFromMat(sum_deriv);
 
       // Store the sum of the output-- this is an occupancy-like quantity.
