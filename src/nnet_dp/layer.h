@@ -20,7 +20,7 @@
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-#include "thread/mutex.h"
+#include "thread/kaldi-mutex.h"
 
 namespace kaldi {
 
@@ -56,23 +56,16 @@ namespace kaldi {
 //  lock any more.]
 // 
 // A thread will acquire a lock in order to get access to a chunk of
-// rows.  We'll store the state of the rows in 3 different states:
-// "free", "full", and "working".  In the "free" case, a row is empty;
-// in the "full" case it has data in it; in the "working" case, it means
-// some process is doing something with it [e.g. writing data to it,
-// or committing data to the parameter matrix.]
-//
+// rows.  The chunks will have 4 different states:
+// "empty", "full", "filling" and "emptying".
 
-
-
-  
 
 class ChunkManager {
   enum {
-    kEmpty;
-    kFull;
-    kFilling;
-    kEmptying;
+    kEmpty,
+    kFull,
+    kFilling,
+    kEmptying
   };
   
   ChunkManager(int32 num_chunks, // note: num_chunks must be >= num_threads.
@@ -95,48 +88,31 @@ class ChunkManager {
   // them to state kEmptying, and return this range as *chunk1, *chunk2 [so the
   // range is from *chunk1 to (*chunk2)-1].
   //
-  // It's up to the discretion of GetTask() which of these to do.  In order to
-  // avoid nasty synchronization issues that are beyond my (DP)'s parallel
-  // programming skills (and also to ensure that processes never block for very
-  // long), we have the following policy: only one range at a time may be in the
-  // kEmptying state, and the range must be no larger than (num_chunks -
-  // num_threads + 1).  This ensures that even if all the other threads start
-  // "filling" a chunk while that one thread is emptying the range, they won't
-  // need to block.
-  // This also means that we don't have to have a separate mutex to stop
-  // more than one thread at a time from attempting to update that part of
-  // the model.
+  // It's up to the discretion of GetTask() which of these to do. 
   void GetTask(int32 *chunk1, int32 *chunk2);
-  
-  // This function returns the largest contiguous sequence of stats that are in
-  // state kFull.  Sets them to status kEmptying.  Blocks if the result would
-  // be
-  std::pair<int32,int32> GetLargestFullRange();
   
  private:
   Mutex mutex_; // generic lock used while changing chunk_status_.
   Mutex get_task_mutex_; // lock held while calling GetTask(), or when
   // no task is available because all statuses are kFilling or kEmptying.
   
-  vector<int32> chunk_status_;
+  std::vector<int32> chunk_status_;
 };
 
 struct GenericLayerUpdateConfig {
   // A configuration class for the update of the layers-- this one
-  // is generic to all the layer types. [can be used as a base class
+  // is generic to all the layer types; it can be used as a base class
   // if needed.  Note: although the class itself is generic, some
   // members (e.g. chunk_size) will typically be different for
   // different layers.
   double learning_rate;
-  bool use_fisher;
   int num_chunks; // Number of chunks that the stats class should store.
-  int num_threads; // The chunk manager needs to know how many threads we have.
   int chunk_size; // This is layer-specific-- the number of frames in each chunk of
   // features.  [typically in the range 5 to 10.]
-  double fisher_average_frames; // Number of frames that the (diagonal) Fisher matrix is
-  // averaged over.
 };
 
+
+class LinearLayerStats;
 
 // This class is for a special type of neural-network layer that we have
 // at the very end, after the soft-max.  We constrain each column of the
@@ -149,7 +125,7 @@ struct GenericLayerUpdateConfig {
 class LinearLayer {
  public:
   LinearLayer(int size, BaseFloat diagonal_element);
-
+  
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary) const;
   
@@ -157,19 +133,16 @@ class LinearLayer {
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output);
 
-  // each row of the args to this function is one frame.  
-  void Backward(const MatrixBase<BaseFloat> &output_deriv,
-                const MatrixBase<BaseFloat> &input,
+  // each row of the args to this function is one frame.
+  void Backward(const MatrixBase<BaseFloat> &input, 
+                const MatrixBase<BaseFloat> &output,
+                const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
                 LinearLayerStats *stats);
   
   friend class LinearLayerStats;
  private:
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
-  
-  // This is in effect the diagonal of the Fisher matrix, computed using
-  // a weighted average over time..
-  Matrix<BaseFloat> average_derivative_variance_;
 };
 
 // Note: this class is not just a passive container of stats; it
@@ -181,19 +154,16 @@ class LinearLayerStats {
                     LinearLayer *layer_to_update); // this is the layer we'll update;
   // also gives size info to initialize the stats.  Does not have to be the same
   // as the layer we got the stats from [this is useful in getting derivative w.r.t.
-  // parameters, on held-out set.
+  // parameters, on held-out set.]
   
-  // Will accumulate stats [may also update the model.]
-  void AccStats(const MatrixBase<BaseFloat> &output_deriv,
-                const MatrixBase<BaseFloat> &input);
-  
+  // Accumulate stats [may also update the model.]
+  void AccStats(const MatrixBase<BaseFloat> &input,
+                const MatrixBase<BaseFloat> &output_deriv);
+                
  private:
 
-  void Update(int32 row_start, int32 row_end); // This is
-  // called from AccStats and from the destructor.
-  
-              double learning_rate,
-              bool use_fisher); // Updates the layer; also clears the stats.
+  void Update(int32 chunk_start, int32 chunk_end); // This is
+  // called from AccStats.
 
   LinearLayer *layer_to_update_;
   GenericLayerUpdateConfig config_;
@@ -203,6 +173,7 @@ class LinearLayerStats {
   SubMatrix<BaseFloat> output_stats_; // sub-matrix of stats_; each row is deriv at output.
 };
 
+class SoftmaxLayerStats;
 
 class SoftmaxLayer {
  public:
@@ -213,55 +184,73 @@ class SoftmaxLayer {
   void Read(std::istream &in, bool binary) const;
 
   // each row of the args to this function is one frame.
+  // Note: support frame splicing, so if input.NumCols() is < input_size,
+  // splice input, and shift by one each time.
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output);
-
-  // each row of the args to this function is one frame.
-  void Backward(const MatrixBase<BaseFloat> &output_deriv,
+  
+  void Backward(const MatrixBase<BaseFloat> &input, 
+                const MatrixBase<BaseFloat> &output,
+                const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
                 SoftmaxLayerStats *stats);
   
   friend class SoftmaxLayerStats;
 
  private:
-  Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
+  void ApplySoftmax(MatrixBase<BaseFloat> *output);
+
+  // Propagate the derivative back through the nonlinearity.
+  void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
+                       const MatrixBase<BaseFloat> &output_deriv,
+                       MatrixBase<BaseFloat> *sum_deriv);
   
-  // This is in effect the diagonal of the Fisher matrix, computed using a
-  // weighted average over time... but we store the average of this over all
-  // input-indexes, for each output-index [the assumption is that the input
-  // variables are all distributed in about the same way.]
-  Vector<BaseFloat> average_derivative_variance_;
+  Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
+
+  // A quasi-occupancy count, accumulated from the data and used for splitting.
+  Vector<BaseFloat> occupancy_;
 };
   
 class SoftmaxLayerStats {
  public:
-  void SawFrame() { num_frames_++; } // must be incremented each time
-  // we saw a frame-- this is necessary for getting average_derivative_variance_
-  // in LinearLayer correctly updated.
-  SoftmaxLayerStats (const SoftmaxLayer &layer,
-                     int num_rows);
+  SoftmaxLayerStats (GenericLayerUpdateConfig &config,
+                     SoftmaxLayer *layer_to_update); // this is the layer we'll update;
+  // also gives size info to initialize the stats.  Does not have to be the same
+  // as the layer we got the stats from [this is useful in getting derivative w.r.t.
+  // parameters, on held-out set.]
   
-  void Update(LinearLayer *layer,
-              double learning_rate,
-              bool use_fisher); // Updates the layer; also clears the stats.
-
+  // Accumulate stats [may also update the model.]
+  // Note: this type of layer supports frame splicing, so the "input" vector
+  // may have to be spliced together.
+  // Note: the "output" is only needed for storing occupancies, which we'll use
+  // for splitting output indices (like splitting Gaussians).
+  void AccStats(const MatrixBase<BaseFloat> &input,
+                const MatrixBase<BaseFloat> &output, // special to this layer type: for getting occupancies.
+                const MatrixBase<BaseFloat> &sum_deriv); // sum_deriv is deriv w.r.t. sum before sigmoid.
+  
  private:
-  Mutex mutex_;
-  Matrix<BaseFloat> deriv_;
-  Matrix<BaseFloat> deriv_variance_; // accumulates the variance of the derivative
-  // [just summed up.]
-  int num_frames_;
+  void Update(int32 chunk_start, int32 chunk_end); // This is
+  // called from AccStats.
+
+  SoftmaxLayer *layer_to_update_;
+  GenericLayerUpdateConfig config_;
+  ChunkManager chunk_manager_;
+  Matrix<BaseFloat> stats_;
+  SubMatrix<BaseFloat> input_stats_; // sub-matrix of stats_; each row is input vector.
+  SubMatrix<BaseFloat> output_stats_; // sub-matrix of stats_; each row is objf derivative w.r.t output.
+  Matrix<BaseFloat> output_sums_;  // sums of output, one row per chunk.
 };
 
 
-class SigmoidLayer { // "symmetric sigmoid" that goes from -1 to +1.
+class TanhLayer {
+  // This sigmoid is a symmetric sigmoid that goes from -1 to +1, i.e. the tanh function.
  public:
   // We initialize the weights to be uniformly distributed on
   // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
   // Apparently this is widely used: see  glorot10a.pdf (search term), 
   // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
-  SigmoidLayer(int input_size,
-               int output_size);
+  TanhLayer(int input_size,
+            int output_size);
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary) const;
@@ -273,43 +262,61 @@ class SigmoidLayer { // "symmetric sigmoid" that goes from -1 to +1.
   // of the input, then shift by one each time.
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output);
-
+  
   // The backward pass.  Similar note about sizes and frame-splicing
   // applies as in "Forward".
-  void Backward(const MatrixBase<BaseFloat> &output_deriv,
-                MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-                SigmoidLayerStats *stats);
+  void Backward(const MatrixBase<BaseFloat> &input,
+                const MatrixBase<BaseFloat> &output,
+                const MatrixBase<BaseFloat> &output_deriv,                
+                MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
+                TanhLayerStats *stats);
   
-  friend class SigmoidLayerStats;
+  void ClearOccupancy() { occupancy_.SetZero(); }
+  friend class TanhLayerStats;
   
  private:
+  // Propagate the derivative back through the nonlinearity.
+  void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
+                       const MatrixBase<BaseFloat> &output_deriv,
+                       MatrixBase<BaseFloat> *sum_deriv);
+      
+  // Called from Backward().
+  void ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
+                         const MatrixBase<BaseFloat> &sum_deriv,
+                         MatrixBase<BaseFloat> *input_deriv);
+
+  
+  void ApplyTanh(MatrixBase<BaseFloat> *output);
+  
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
-  
-  // This is in effect the diagonal of the Fisher matrix, computed using a
-  // weighted average over time... but we store the average of this over all
-  // input-indexes, for each output-index.  The assumption is that the input
-  // variables are all distributed in about the same way.
-  Vector<BaseFloat> average_derivative_variance_;
+  Vector<BaseFloat> occupancy_; // Accumulate the occupation count during training.
 };
   
-class SigmoidLayerStats {
+class TanhLayerStats {
  public:
-  void SawFrame() { num_frames_++; } // must be incremented each time
-  // we saw a frame-- this is necessary for getting average_derivative_variance_
-  // in SigmoidLayer correctly updated.
-  SigmoidLayerStats (const SigmoidLayer &layer);
-
-  void Update(SigmoidLayer *layer,
-              double learning_rate,
-              bool use_fisher); // Updates the layer; also clears the stats.
+  TanhLayerStats (GenericLayerUpdateConfig &config,
+                     TanhLayer *layer_to_update); // this is the layer we'll update;
+  // also gives size info to initialize the stats.  Does not have to be the same
+  // as the layer we got the stats from [this is useful in getting derivative w.r.t.
+  // parameters, on held-out set.]
   
- private:  
-  Matrix<BaseFloat> deriv_;
-  Matrix<BaseFloat> deriv_variance_; // accumulates the variance of the derivative
-  // [just summed up.]
-  int num_frames_;
-};
+  // Accumulate stats [may also update the model.]
+  // Note: this type of layer supports frame splicing, so the "input" vector
+  // may have to be spliced together by this function.
+  void AccStats(const MatrixBase<BaseFloat> &input,
+                const MatrixBase<BaseFloat> &sum_deriv); // sum_deriv is deriv w.r.t. sum before sigmoid.
+  
+ private:
+  void Update(int32 chunk_start, int32 chunk_end); // This is
+  // called from AccStats.
 
+  TanhLayer *layer_to_update_;
+  GenericLayerUpdateConfig config_;
+  ChunkManager chunk_manager_;
+  Matrix<BaseFloat> stats_;
+  SubMatrix<BaseFloat> input_stats_; // sub-matrix of stats_; each row is input vector.
+  SubMatrix<BaseFloat> output_stats_; // sub-matrix of stats_; each row is objf derivative w.r.t output.
+};
 
 
 
