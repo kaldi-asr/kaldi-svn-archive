@@ -71,6 +71,29 @@ void LinearLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
 
 // Update model parameters.
 void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
+  /*
+    Note: for this particular type of layer [which transforms probabilities], we
+    store the stats as they relate to the actual probabilities in the matrix, with
+    a sum-to-one constraint on each row; but we do the gradient descent in the
+    space of unnormalized log probabilities.  This is useful both in terms of
+    preconditioning and in order to easily enforce the sum-to-one constraint on
+    each column.
+
+    For a column c of the matrix, we have a gradient g.
+    Let l be the vector of unnormalized log-probs of that row; it has an arbitrary
+    offset, but we just choose the point where it coincides with correctly normalized
+    log-probs, so for each element:
+    l_i = log(c_i).
+    The functional relationship between l_i and c_i is:
+    c_i = exp(l_i) / sum_j exp(l_j) . [softmax function from l to c.]
+    Let h_i be the gradient w.r.t l_i.  We can compute this as follows.  The softmax function
+    has a Jacobian equal to diag(c) - c c^T.  We have:
+    h = (diag(c) - c c^T)  g
+    We do the gradient-descent step on h, and when we convert back to c, we renormalize.
+    [note: the renormalization would not even be necessary if the step size were infinitesimal;
+    it's only needed due to second-order effects which slightly unnormalize each column.]
+  */        
+  
   KALDI_ASSERT(chunk_start >= 0 && chunk_end >= 0 && chunk_end > chunk_start &&
                chunk_end < config_.num_chunks);
   int32 chunk_size = config_.chunk_size;
@@ -81,9 +104,38 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
                     chunk_size * (chunk_end - chunk_start),
                     0, output_stats_.NumCols());
 
-  // layer_to_update_->params_ += learning_rate * output_chunks^T * input_chunks
-  layer_to_update_->params_.AddMatMat(config_.learning_rate, output_chunks, kTrans,
-                                     input_chunks, kNoTrans, 1.0);
+  if (layer_to_update_->is_gradient_) {
+    // We just want the gradient: do a "vanilla" SGD type of update as
+    // we would do on any layer.
+    KALDI_ASSERT(config_.learning_rate == 1.0); // Just an expectation, really.
+    layer_to_update_->params_.AddMatMat(config_.learning_rate,
+                                        output_chunks, kTrans,
+                                        input_chunks, kNoTrans, 1.0); 
+  } else { // the "real" update which takes place in unnormalized-log
+    // parameter space.
+    Matrix<BaseFloat> &params(layer_to_update_->params_);
+    int32 num_rows = params.NumRows(), num_cols = params.NumCols();
+    Matrix<BaseFloat> gradient(num_rows, num_cols); // objf gradient on this chunk.
+    gradient.AddMatMat(1.0, output_chunks, kTrans,
+                       input_chunks, kNoTrans, 1.0); 
+    
+    for (int32 col = 0; col < num_cols; col++) {
+      Vector<BaseFloat> param_col(num_rows);
+      param_col.CopyColFromMat(params, col);
+      Vector<BaseFloat> log_param_col(param_col);
+      log_param_col.ApplyLog(); // note: works even for zero.
+      Vector<BaseFloat> gradient_col(num_rows);
+      gradient_col.CopyColFromMat(gradient, col);
+      Vector<BaseFloat> log_gradient(num_rows);
+      log_gradient.AddVecVec(1.0, param_col, gradient_col, 0.0); // h <-- diag(c) g.
+      BaseFloat cT_g = VecVec(param_col, gradient_col);
+      log_gradient.AddVec(-cT_g, param_col); // h += (c^T g) c .
+      log_param_col.AddVec(config_.learning_rate, log_gradient); // Gradient step,
+      // in unnormalized log-prob space.
+      log_param_col.ApplySoftMax(); // Go back to probabilities.
+      params.CopyColFromVec(log_param_col, col); // Write back to parameters.
+    }
+  }
 }
 
 void TanhLayer::Forward(const MatrixBase<BaseFloat> &input,
@@ -336,6 +388,27 @@ void SoftmaxLayer::Backward(
 }
 
 
+void SoftmaxLayerStats::Update(int32 chunk_start, int32 chunk_end) {
+  // Update model parameters.  Vanilla SGD.
+  KALDI_ASSERT(chunk_start >= 0 && chunk_end >= 0 && chunk_end > chunk_start &&
+               chunk_end < config_.num_chunks);
+  int32 chunk_size = config_.chunk_size;
+  SubMatrix<BaseFloat> input_chunks(input_stats_, chunk_size * chunk_start,
+                                    chunk_size * (chunk_end - chunk_start),
+                                    0, input_stats_.NumCols()),
+      output_chunks(output_stats_, chunk_size * chunk_start,
+                    chunk_size * (chunk_end - chunk_start),
+                    0, output_stats_.NumCols()),
+      output_sums_part(output_sums_, chunk_start, (chunk_end - chunk_start),
+                       0, output_sums_.NumCols());
+  
+  layer_to_update_->params_.AddMatMat(config_.learning_rate,
+                                      output_chunks, kTrans,
+                                      input_chunks, kNoTrans, 1.0);
+  layer_to_update_->occupancy_.AddRowSumMat(output_sums_part);  
+}
+
+
 void SoftmaxLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
                                  const MatrixBase<BaseFloat> &output,
                                  const MatrixBase<BaseFloat> &sum_deriv) {
@@ -369,6 +442,129 @@ void SoftmaxLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
   }
 }
 
+bool ChunkManager::TaskIsAvailable() {
+  bool saw_full = false, saw_emptying = false;
+  for (size_t i = 0; i < chunk_status_.size(); i++) {
+    if (chunk_status_[i] == kEmpty) return true;
+    if (chunk_status_[i] == kFull) saw_full = true;
+    if (chunk_status_[i] == saw_emptying) saw_emptying = true;
+  }
+  return (saw_full && !saw_emptying);
+}
+
+void ChunkManager::SetToFull(int32 chunk) {
+  mutex_.Lock(); // we lock this mutex before changing anything...
+  KALDI_ASSERT(chunk >= 0 && chunk < NumChunks());
+  KALDI_ASSERT(chunk_status_[chunk] == kFilling);
+  bool task_was_available = TaskIsAvailable();
+  chunk_status_[chunk] = kFull;
+  if (!task_was_available) { // Task was not available and is now,
+    // so need to unlock get_task_mutex_.
+    get_task_mutex_.Unlock();
+  }
+  mutex_.Unlock();
+}
+
+// Sets chunks in range begin ... end-1
+// [which should be in status kEmptying] to status kEmpty.
+void ChunkManager::SetToEmpty(int32 begin, int32 end) {
+  mutex_.Lock(); // we lock this mutex before changing anything..
+  KALDI_ASSERT(begin >= 0 && end > begin && end <= NumChunks());
+  bool task_was_available = TaskIsAvailable();
+  for (int32 i = begin; i < end; i++) {
+    KALDI_ASSERT(chunk_status_[i] == kFilling);
+    chunk_status_[i] = kFull;
+  }
+  if (!task_was_available) { // Task was not available and is now,
+    // so need to unlock get_task_mutex_.
+    get_task_mutex_.Unlock();
+  }
+  mutex_.Unlock();
+}
+
+// If we end up spending a lot of time in this routine, we'll have to
+// modify this class so as to store the counts directly in the class.
+// We did it like this for simplicity and ease of programming.
+void ChunkManager::GetCounts(int32 *num_full_ptr, int32 *num_empty_ptr,
+                             int32 *num_emptying_ptr) {
+  int32 num_full = 0, num_empty = 0, num_emptying = 0;
+  for (size_t i = 0; i < NumChunks(); i++) {
+    if (chunk_status_[i] == kFull) num_full++;
+    if (chunk_status_[i] == kEmpty) num_empty++;
+    if (chunk_status_[i] == kEmptying) num_emptying++;
+  }
+  *num_full_ptr = num_full;
+  *num_empty_ptr = num_empty;
+  *num_emptying_ptr = num_emptying;
+}
+
+// This function sets a and b to the [begin, end] of the
+// largest range of chunks that are all in state kFull.
+// Dies if resulting range is empty.
+void ChunkManager::GetLargestFullRange(int32 *a, int32 *b) {
+  int32 cur_start = -1;
+  int32 largest_range_size = 0;
+  for (int32 i = 0; i < NumChunks(); i++) {
+    if (chunk_status_[i] != kFull) {
+      cur_start = -1;
+    } else {
+      if (cur_start == -1) { cur_start = i; }
+      int32 this_range_size = i - cur_start + 1;
+      if (this_range_size > largest_range_size) {
+        *a = cur_start;
+        *b = i + 1;
+        largest_range_size = i - cur_start + 1;
+      }
+    }
+  }
+  KALDI_ASSERT(largest_range_size != 0);
+}
+void ChunkManager::GetTask(int32 *chunk1, int32 *chunk2) {
+  get_task_mutex_.Lock();
+  mutex_.Lock();
+  // If we are more than two thirds full and nothing is in state kEmptying
+  // (i.e. no other process is updating the model), then the task
+  // is to update the model [so set chunk1 and chunk2]; else
+  int32 num_full, num_empty, num_emptying;
+  GetCounts(&num_full, &num_empty, &num_emptying);
+  // A task must be availbale, or we shouldn't have been able
+  // to lock get_task_mutex_.
+  bool task_is_avail = (num_empty > 0 || (num_full != 0 && num_emptying == 0));
+  KALDI_ASSERT(task_is_avail);
+
+  if (num_empty == 0 ||
+      (num_full + num_full/2 > NumChunks() && num_emptying == 0)) {
+    // task is to empty a range of chunks.
+    GetLargestFullRange(chunk1, chunk2);
+    for (int32 i = *chunk1; i < *chunk2; i++) {
+      KALDI_ASSERT(chunk_status_[i] == kFull);
+      chunk_status_[i] = kEmptying;
+    }
+    task_is_avail = (num_empty != 0); // The task of emptying a range
+    // is not available now, so only possible task is to fill a chunk.
+  } else {
+    *chunk2 = -1; // indicates we're returning the task to full a chunk.
+    int32 i;
+    for (i = 0; i < NumChunks(); i++) {
+      if (chunk_status_[i] == kEmpty) {
+        *chunk2 = i;
+        chunk_status_[i] = kFilling;
+        break;
+      }
+    }
+    num_empty--;
+    task_is_avail = (num_empty > 0 || (num_full != 0 && num_emptying == 0));
+    // We shouldn't have been able to get the mutex get_task_mutex_,
+    // if no task was available, and since we fell off the loop,
+    // this appears to be the case.
+    KALDI_ASSERT(i < NumChunks() && "Parallel programming error.");
+  }
+  if (task_is_avail)
+    get_task_mutex_.Unlock();
+  // else leave it locked-- no tasks is available so no other process
+  // should be allowed to enter this function until a task becomes
+  // available.
+}
 
 
-}  // namespace kaldi
+} // namespace kaldi

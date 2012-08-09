@@ -62,17 +62,14 @@ namespace kaldi {
 
 class ChunkManager {
  public:
-  enum {
+  enum ChunkStatus {
     kEmpty,
     kFull,
     kFilling,
     kEmptying
   };
-  
-  ChunkManager(int32 num_chunks, // note: num_chunks must be >= num_threads.
-               int32 num_threads); // initializer.  Sets
-  // all chunks from 0 ... num_chunks-1 to status kEmpty.
-  // num_chunks_update (<=num_chunks) is how full
+
+  ChunkManager(int32 num_chunks): chunk_status_(num_chunks, kEmpty) { }
   
   void SetToFull(int32 chunk); // Sets chunk [which should be in status kFilling]
   // to kFull.
@@ -91,13 +88,18 @@ class ChunkManager {
   //
   // It's up to the discretion of GetTask() which of these to do. 
   void GetTask(int32 *chunk1, int32 *chunk2);
-  
+
+  int32 NumChunks() { return chunk_status_.size(); }
  private:
+  bool TaskIsAvailable(); // This function returns true if
+  // some element of chunk_status_ is either kEmpty or kFull.
+  void GetCounts(int32 *num_full, int32 *num_empty, int32 *num_emptying);
+  void GetLargestFullRange(int32 *a, int32 *b);
+  
   Mutex mutex_; // generic lock used while changing chunk_status_.
   Mutex get_task_mutex_; // lock held while calling GetTask(), or when
   // no task is available because all statuses are kFilling or kEmptying.
-  
-  std::vector<int32> chunk_status_;
+  std::vector<ChunkStatus> chunk_status_;
 };
 
 struct GenericLayerUpdateConfig {
@@ -140,10 +142,15 @@ class LinearLayer {
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
                 LinearLayerStats *stats);
-  
+
+  void SetZero(); // used if we're using this to store gradients on a held out
+  // set.  zeroes params_ and sets is_gradient_ = true.
   friend class LinearLayerStats;
  private:
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
+  bool is_gradient_; // If true, this class is just a holder for the gradient,
+  // e.g. on a held out set.  This affects how we do the update [since we
+  // don't use simple gradient descent for this type of layer.]
 };
 
 // Note: this class is not just a passive container of stats; it
@@ -160,9 +167,9 @@ class LinearLayerStats {
   // Accumulate stats [may also update the model.]
   void AccStats(const MatrixBase<BaseFloat> &input,
                 const MatrixBase<BaseFloat> &output_deriv);
-                
+  
  private:
-
+  
   void Update(int32 chunk_start, int32 chunk_end); // This is
   // called from AccStats.
 
@@ -197,7 +204,7 @@ class SoftmaxLayer {
                 SoftmaxLayerStats *stats);
   
   friend class SoftmaxLayerStats;
-
+  
  private:
   void ApplySoftmax(MatrixBase<BaseFloat> *output);
 
@@ -280,9 +287,7 @@ class TanhLayer {
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
                 TanhLayerStats *stats);
   
-  void ClearOccupancy() { occupancy_.SetZero(); }
   friend class TanhLayerStats;
-  
  private:
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
@@ -298,7 +303,6 @@ class TanhLayer {
   void ApplyTanh(MatrixBase<BaseFloat> *output);
   
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
-  Vector<BaseFloat> occupancy_; // Accumulate the occupation count during training.
 };
   
 class TanhLayerStats {
