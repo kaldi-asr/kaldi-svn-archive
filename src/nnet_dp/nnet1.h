@@ -57,48 +57,79 @@ namespace kaldi {
 //     of the gradients for that layer... but not for the last layer.]
 
 
-// This configuration class is only used when initializing a neural
-// network.
-struct Nnet1Config {
+// This configuration class is only used when initializing a neural network.
+// There are some aspects of the neural net's setup that are not covered in this
+// config because they're done at a later stage [UBM switching, mixing-up], or
+// because they're worked out from other information [sizes of different
+// final layers.]
+
+struct Nnet1InitConfig {
   std::string layer_size; // e.g. 23:512:512:512.  Only covers the
   // input and hidden layers; we work out the number of leaves etc.
   // from other information which is supplied to this program.  does
   // not include the frames of context...
   
-  std::string switched; // For each layer (matrix), t or f (or T or F)
-  // depending on whether it's switched.  E.g. T:F:F:F. 
-
   std::string context_frames; // For each layer, the number of (left and right)
   // frames of context at the input.  For instance: 1,1:1,1:1,1:0,0.
 
-  int32 num_ubm_gauss; // If >0, the number of Gaussians in the UBM.  Note:
-  // you have to specify this if any of the "switched" variables are true.
-  
-  Nnet1Config(): num_ubm_gauss(0) { }
+  Nnet1InitConfig(): num_ubm_gauss(0) { }
   
   void Register (ParseOptions *po) {
     po->Register("layer-size", &layer_size,
                  "Sizes of input and hidden units (before splicing), e.g. \"23:512:512:512\"");
-    po->Register("switched", &switched,
-                 "For each matrix, t/f (or T/F) depending whether it is switched "
-                 "by the UBM.  E.g. \"T:F:F:F\"");
     po->Register("context-frames", &context_frames,
                  "For each matrix, the (left,right) frames of temporal context at the input "
                  "E.g. \"1,1:1,1:1,1:0,0\"");
-    po->Register("num-ubm-gauss", &num_ubm_gauss,
-                 "Number of Gaussians in UBM, required for systems in which any of "
-                 "the elements of \"--switched\" are true.");
   }
 };
 
 
+// Nnet1 is a sequence of TanhLayers, then a SoftmaxLayer, then a LinearLayer [which
+// is similar to Gaussian mixture weights].  But it's a bit more complicated than
+// this, because the TanhLayers may be "switched" by UBM Gaussians so the parameters
+// we use are dependent on the place in acoustic space; also the TanhLayers and the
+// SoftmaxLayer may see temporal context of the previous layer; also the final
+// sequence (SoftmaxLayer, LinearLayer) may exist in many different versions each with
+// different parameters and different numbers of output neurons.  These different
+// versions are called "categories" and are used for two things: two-level tree
+// [where we predict first a coarse then fine version of the leaf-- this helps for
+//  efficiency in training], and multilingual experiments.
 
 class Nnet1 {
 
   // Returns number of linear transforms / number of layers of neurons
-  int32 NumLayers() { return layer_size_.size() + 1; }
+  int32 NumLayers() { return initial_layers_.size() + 2; }
+
+  // Returns number of layers before the softmax and linear layers.
+  int32 NumTanhLayers() { return initial_layers_.size(); }
 
   int32 NumCategoriesLastLayer();
+
+
+
+  struct InitialLayerInfo {
+    int left_context; // >= 0, left temporal context.
+    int right_contet; // >= 0, right temporal context.
+    std::vector<TanhLayer*> layers; // one for each UBM Gaussian
+    // or just a vector of size one, if not using switching.
+  };
+
+  std::vector<InitialLayerInfo> initial_layers_;
+
+  struct FinalLayerInfo {
+    int left_context; // >= 0, left temporal context for softmax layer.
+    int right_context; // >= 0, right temporal context for softmax layer.
+
+    // Note: the sigmoid_layers and linear_layers are indexed by the
+    // same index; this corresponds to the "category" of output
+    // label.
+    std::vector<SoftmaxLayer*> softmax_layers;
+    std::vector<LinearLayer*> linear_layers;
+  };
+
+  std::vector<FinalLayerInfo> final_layers_;    
+  
+
 
   Nnet1() { }
 
