@@ -145,7 +145,7 @@ class LinearLayer {
   LinearLayer(int size, BaseFloat diagonal_element);
   
   void Write(std::ostream &out, bool binary) const;
-  void Read(std::istream &in, bool binary) const;
+  void Read(std::istream &in, bool binary);
   
   // each row of the args to this function is one frame.
   void Forward(const MatrixBase<BaseFloat> &input,
@@ -204,7 +204,7 @@ class SoftmaxLayer {
   // this layer is initialized to zero.
   
   void Write(std::ostream &out, bool binary) const;
-  void Read(std::istream &in, bool binary) const;
+  void Read(std::istream &in, bool binary);
 
   // each row of the args to this function is one frame.
   // Note: support frame splicing, so if input.NumCols() is < input_size,
@@ -274,7 +274,10 @@ class SoftmaxLayerStats {
 class TanhLayerStats;
 
 class TanhLayer {
-  // This sigmoid is a symmetric sigmoid that goes from -1 to +1, i.e. the tanh function.
+  // Note: the tanh function is the same as the sigmoid, except modified to go
+  // from -1 to +1 (instead of 0 to 1), and with the input (x) multiplied by
+  // two-- so it's stretched vertically and squashed horizontally, relative to
+  // the sigmoid.
  public:
   // We initialize the weights to be uniformly distributed on
   // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
@@ -284,7 +287,7 @@ class TanhLayer {
             int output_size);
   
   void Write(std::ostream &out, bool binary) const;
-  void Read(std::istream &in, bool binary) const;
+  void Read(std::istream &in, bool binary);
   
   // The forward pass.  Note: in this function we support doing the operation
   // on multiple frames at a time.  If the dimension of each row of the input

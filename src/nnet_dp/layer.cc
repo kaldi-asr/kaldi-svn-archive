@@ -138,6 +138,36 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
   }
 }
 
+
+// We initialize the weights to be uniformly distributed on
+// [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
+// Apparently this is widely used: see  glorot10a.pdf (search term), 
+// Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
+TanhLayer::TanhLayer(int input_size, int output_size):
+    params_(output_size, input_size) {
+  KALDI_ASSERT(input_size > 0 && output_size > 0);
+  BaseFloat end_range = 1.0 / sqrt(input_size),
+      begin_range = -end_range;
+  for (int32 i = 0; i < output_size; i++) {
+    for (int32 j = 0; j < input_size; j++) {
+      BaseFloat r = begin_range + RandUniform() * (end_range - begin_range);
+      params_(i, j) = r;
+    }
+  }
+}
+
+void TanhLayer::Write(std::ostream &out, bool binary) const {
+  WriteToken(out, binary, "<TanhLayer>");
+  params_.Write(out, binary);
+  WriteToken(out, binary, "</TanhLayer>");  
+}
+
+void TanhLayer::Read(std::istream &in, bool binary) {
+  ExpectToken(in, binary, "<TanhLayer>");
+  params_.Read(in, binary);
+  ExpectToken(in, binary, "</TanhLayer>");  
+}
+
 void TanhLayer::Forward(const MatrixBase<BaseFloat> &input,
                         MatrixBase<BaseFloat> *output) {
   // This would be simpler if we didn't allow frame splicing.  For
@@ -279,6 +309,20 @@ void TanhLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
       chunk_manager_.SetToEmpty(chunk1, chunk2);
     }
   }
+}
+
+void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
+  WriteToken(out, binary, "<SoftmaxLayer>");
+  params_.Write(out, binary);
+  occupancy_.Write(out, binary);
+  WriteToken(out, binary, "</SoftmaxLayer>");  
+}
+
+void SoftmaxLayer::Read(std::istream &in, bool binary) {
+  ExpectToken(in, binary, "<SoftmaxLayer>");
+  params_.Read(in, binary);
+  occupancy_.Read(in, binary);
+  ExpectToken(in, binary, "</SoftmaxLayer>");  
 }
 
 void SoftmaxLayer::Forward(const MatrixBase<BaseFloat> &input,
@@ -592,6 +636,8 @@ int32 ChunkManager::GetNextEmptyChunk() {
   KALDI_ERR << "Parallel programming error: empty chunk requested but none exists.";
   return 0; // silence warning.
 }
+
+
 
 
 } // namespace kaldi

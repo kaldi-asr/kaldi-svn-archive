@@ -4,9 +4,9 @@ all:
 
 include ../kaldi.mk
 
-TESTFILES = 
+TESTFILES = layer-test
 
-OBJFILES = nnet1.o layer.o
+OBJFILES = layer.o
 
 LIBFILE = kaldi-nnet-dp.a 
 
