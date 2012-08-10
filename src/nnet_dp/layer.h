@@ -69,7 +69,8 @@ class ChunkManager {
     kEmptying
   };
 
-  ChunkManager(int32 num_chunks): chunk_status_(num_chunks, kEmpty) { }
+  ChunkManager(int32 num_chunks): chunk_status_(num_chunks, kEmpty),
+                                  next_chunk_to_fill_(0) { }
   
   void SetToFull(int32 chunk); // Sets chunk [which should be in status kFilling]
   // to kFull.
@@ -77,7 +78,7 @@ class ChunkManager {
   void SetToEmpty(int32 begin, int32 end); // Sets chunks in range begin ... end-1
   // [which should be in status kEmptying] to status kEmpty.
 
-  
+
   // GetTask() will either:
   // (a) find a chunk in state kEmpty, change it to
   // kFilling and return it in *chunk1, setting *chunk2 to -1
@@ -86,8 +87,13 @@ class ChunkManager {
   // them to state kEmptying, and return this range as *chunk1, *chunk2 [so the
   // range is from *chunk1 to (*chunk2)-1].
   //
-  // It's up to the discretion of GetTask() which of these to do. 
+  // It's up to the discretion of GetTask() which of these to do.
+  // If neither task is available it will block.  [it will wait till
+  // another thread calls SetToFull() or SetToEmpty()].
   void GetTask(int32 *chunk1, int32 *chunk2);
+  
+  // GetFullRange() 
+  bool GetFullRange(int32 *chunk1, int32 *chunk2);
 
   int32 NumChunks() { return chunk_status_.size(); }
  private:
@@ -95,11 +101,20 @@ class ChunkManager {
   // some element of chunk_status_ is either kEmpty or kFull.
   void GetCounts(int32 *num_full, int32 *num_empty, int32 *num_emptying);
   void GetLargestFullRange(int32 *a, int32 *b);
+  int32 GetNextEmptyChunk(); // Gets next empty chunk to fill.
+  // Crashes if none exists.  Modifies next_chunk_to_fill_.  
   
   Mutex mutex_; // generic lock used while changing chunk_status_.
   Mutex get_task_mutex_; // lock held while calling GetTask(), or when
   // no task is available because all statuses are kFilling or kEmptying.
   std::vector<ChunkStatus> chunk_status_;
+
+  // next_chunk_to_fill_ is an integer that encodes a position in the array
+  // [as abs(next_chunk_to_fill_) and direction (as its sign).  It helps to
+  // ensure that we attempt to fill chunks in a specific order, from left to
+  // right and then right to left.  This is part of a strategy to ensure that
+  // chunks are emptied roughly in the order they were filled.  
+  int32 next_chunk_to_fill_;
 };
 
 struct GenericLayerUpdateConfig {

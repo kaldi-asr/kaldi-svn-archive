@@ -472,8 +472,8 @@ void ChunkManager::SetToEmpty(int32 begin, int32 end) {
   KALDI_ASSERT(begin >= 0 && end > begin && end <= NumChunks());
   bool task_was_available = TaskIsAvailable();
   for (int32 i = begin; i < end; i++) {
-    KALDI_ASSERT(chunk_status_[i] == kFilling);
-    chunk_status_[i] = kFull;
+    KALDI_ASSERT(chunk_status_[i] == kEmptying);
+    chunk_status_[i] = kEmpty;
   }
   if (!task_was_available) { // Task was not available and is now,
     // so need to unlock get_task_mutex_.
@@ -485,7 +485,8 @@ void ChunkManager::SetToEmpty(int32 begin, int32 end) {
 // If we end up spending a lot of time in this routine, we'll have to
 // modify this class so as to store the counts directly in the class.
 // We did it like this for simplicity and ease of programming.
-void ChunkManager::GetCounts(int32 *num_full_ptr, int32 *num_empty_ptr,
+void ChunkManager::GetCounts(int32 *num_full_ptr,
+                             int32 *num_empty_ptr,
                              int32 *num_emptying_ptr) {
   int32 num_full = 0, num_empty = 0, num_emptying = 0;
   for (size_t i = 0; i < NumChunks(); i++) {
@@ -519,19 +520,22 @@ void ChunkManager::GetLargestFullRange(int32 *a, int32 *b) {
   }
   KALDI_ASSERT(largest_range_size != 0);
 }
+
 void ChunkManager::GetTask(int32 *chunk1, int32 *chunk2) {
   get_task_mutex_.Lock();
   mutex_.Lock();
   // If we are more than two thirds full and nothing is in state kEmptying
   // (i.e. no other process is updating the model), then the task
-  // is to update the model [so set chunk1 and chunk2]; else
+  // is to update the model [so set chunk1 and chunk2, meaning a range
+  // of chunks to write to the model]; else give a chunk to fill.
   int32 num_full, num_empty, num_emptying;
   GetCounts(&num_full, &num_empty, &num_emptying);
   // A task must be availbale, or we shouldn't have been able
   // to lock get_task_mutex_.
   bool task_is_avail = (num_empty > 0 || (num_full != 0 && num_emptying == 0));
-  KALDI_ASSERT(task_is_avail);
-
+  KALDI_ASSERT(task_is_avail); // Or we shouldn't have been able to
+  // acquire the lock "get_task_mutex_".
+  
   if (num_empty == 0 ||
       (num_full + num_full/2 > NumChunks() && num_emptying == 0)) {
     // task is to empty a range of chunks.
@@ -544,26 +548,49 @@ void ChunkManager::GetTask(int32 *chunk1, int32 *chunk2) {
     // is not available now, so only possible task is to fill a chunk.
   } else {
     *chunk2 = -1; // indicates we're returning the task to full a chunk.
-    int32 i;
-    for (i = 0; i < NumChunks(); i++) {
-      if (chunk_status_[i] == kEmpty) {
-        *chunk2 = i;
-        chunk_status_[i] = kFilling;
-        break;
-      }
-    }
+    *chunk1 = GetNextEmptyChunk();
     num_empty--;
     task_is_avail = (num_empty > 0 || (num_full != 0 && num_emptying == 0));
-    // We shouldn't have been able to get the mutex get_task_mutex_,
-    // if no task was available, and since we fell off the loop,
-    // this appears to be the case.
-    KALDI_ASSERT(i < NumChunks() && "Parallel programming error.");
   }
   if (task_is_avail)
     get_task_mutex_.Unlock();
   // else leave it locked-- no tasks is available so no other process
   // should be allowed to enter this function until a task becomes
   // available.
+  mutex_.Unlock();
+}
+
+int32 ChunkManager::GetNextEmptyChunk() {
+  /* This might be a little hard to understand.  It's a mechanism to
+     cycle backward and forward, e.g. suppose NumChunks() = 4, we'd
+     cycle through positions 0, 1, 2, 3, 2, 1, 0, 1, ...
+     This is necessary when finding an empty chunk to fill, due to
+     the interaction with GetLargestFullRange(): we need to ensure
+     that not too much time elapses between
+     filling a chunk and having it emptied.  If we always filled
+     the leftmost available chunk, there would be positions on the
+     right that would be only rarely committed to the model.
+     
+     next_chunk_to_fill_ encodes both the position and direction, so
+     it cycles through 0, 1, 2, 3, -2, -1, 0, 1, 2, 3, etc.
+  */
+  int32 num_chunks = NumChunks(), max_loop = num_chunks * 2;
+  for (int32 loop = 0; loop < max_loop; loop++) { // This for
+    // statement could be while(1); it's a for loop in order
+    // to detect an infinite loop which would be a bug.
+    int32 cur_sign = (next_chunk_to_fill_ >= 0 ? 1 : -1);
+    int32 cur_pos = abs(next_chunk_to_fill_);
+
+    int32 next_pos = cur_sign * (cur_sign + cur_pos);
+    if (next_pos == num_chunks)
+      next_pos = -(num_chunks-2); // bounce off the end; change
+    // direction.
+    next_chunk_to_fill_ = next_pos;
+    if (chunk_status_[cur_pos] == kEmpty)
+      return cur_pos;
+  }
+  KALDI_ERR << "Parallel programming error: empty chunk requested but none exists.";
+  return 0; // silence warning.
 }
 
 
