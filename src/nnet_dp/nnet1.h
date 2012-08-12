@@ -65,14 +65,18 @@ namespace kaldi {
 
 struct Nnet1InitConfig {
   std::string layer_size; // e.g. 23:512:512:512.  Only covers the
-  // input and hidden layers; we work out the number of leaves etc.
-  // from other information which is supplied to this program.  does
-  // not include the frames of context...
+  // input and hidden layers; for the last layer, we work out the number of
+  // leaves etc.  from other information which is supplied to this program.
+  // These sizes do not include the frames of context...
   
   std::string context_frames; // For each layer, the number of (left and right)
   // frames of context at the input.  For instance: 1,1:1,1:1,1:0,0.
 
-  Nnet1InitConfig(): num_ubm_gauss(0) { }
+  std::string learning_rates; // For each layer, the learning rate.  (colon-separated).
+  // If just one element, all the learning rates will be set the same.  Note:
+  // these are adjusted during training, we're just setting the initial one.
+  
+  Nnet1InitConfig() { }
   
   void Register (ParseOptions *po) {
     po->Register("layer-size", &layer_size,
@@ -80,6 +84,10 @@ struct Nnet1InitConfig {
     po->Register("context-frames", &context_frames,
                  "For each matrix, the (left,right) frames of temporal context at the input "
                  "E.g. \"1,1:1,1:1,1:0,0\"");
+    po->Register("learning-rates", &learning_rates,
+                 "Colon-separated list of initial learning rates, one for each layer; or just a single "
+                 "learning rate, shared between layers.  Note: not too critical, as learning rates "
+                 "are automatically adjusted during training. ");
   }
 };
 
@@ -100,148 +108,134 @@ class Nnet1 {
   // Returns number of linear transforms / number of layers of neurons
   int32 NumLayers() { return initial_layers_.size() + 2; }
 
+  int32 LeftContext(); // Returns #frames of left context needed [just the sum
+  // of left_context for each layer.]
+
+  int32 RightContext(); // Returns #frames of right context needed [just the sum
+  // of right_context for each layer.]
+  
   // Returns number of layers before the softmax and linear layers.
   int32 NumTanhLayers() { return initial_layers_.size(); }
+  
+  int32 NumCategories();
 
-  int32 NumCategoriesLastLayer();
+  int32 NumLabelsForCategory(int32 category);
+  
+  Nnet1(const Nnet1 &other); // Copy constructor
+  
+  const Nnet1 &operator = (const Nnet1 &other) = 0; // Disallow assignment.
+  
+  Nnet1() { }
 
+  Nnet1(const Nnet1Config &config,
+        const std::vector<int32> &category_sizes) { Init(config, category_sizes); }
+  
+  ~Nnet1() { Destroy(); }
 
+  void Init(const Nnet1Config &config,
+            const std::vector<int32> &category_sizes); // category_sizes gives number of
+  // labels in each category.  For single-language, will be [# first-level nodes in tree],
+  // then for each first-level node that has >1 leaf, the # second-level nodes for that
+  // first-level node.
 
+  void Destroy();
+  
+  void Write(std::ostream &os, bool binary) const;
+
+  void Read(std::istream &is, bool binary);
+
+  void Check(); // Checks that the parameters make sense.
+  
+ private:
   struct InitialLayerInfo {
+    int32 num_ubm_gauss; // Relates to switching by the UBM: the number of Gaussians
+    // in the UBM.  It is set to one if we don't use this feature.  Note:
+    // for now, these would be the same for all layers that don't use UBM switching.
+    
     int left_context; // >= 0, left temporal context.
     int right_contet; // >= 0, right temporal context.
     std::vector<TanhLayer*> layers; // one for each UBM Gaussian
     // or just a vector of size one, if not using switching.
   };
-
-  std::vector<InitialLayerInfo> initial_layers_;
-
-  struct FinalLayerInfo {
-    int left_context; // >= 0, left temporal context for softmax layer.
-    int right_context; // >= 0, right temporal context for softmax layer.
-
-    // Note: the sigmoid_layers and linear_layers are indexed by the
-    // same index; this corresponds to the "category" of output
-    // label.
-    std::vector<SoftmaxLayer*> softmax_layers;
-    std::vector<LinearLayer*> linear_layers;
+  
+  std::vector<InitialLayerInfo> initial_layers_; // Info for the initial
+  // layers, indexed by the layer index (0 for the first layer, 1 for
+  // the second...)
+  
+  struct FinalLayerInfo { // Info for the two final layers [softmax and linear.]
+    SoftmaxLayer *softmax_layer;
+    LinearLayer *linear_layer;
   };
-
-  std::vector<FinalLayerInfo> final_layers_;    
   
-
-
-  Nnet1() { }
-
-  void Init(const Nnet1Config &config,
-            std::vector<int32> category_sizes); // category_sizes gives number of
-  // labels in each category.  For single-language, will be [# first-level nodes in tree],
-  // then for each first-level node that has >1 leaf, the # second-level nodes for that
-  // first-level node.
-  
-  int32 num_ubm_gauss_; // Relates to switching by the UBM: the number of Gaussians
-  // in the UBM.
-  
-  vector<int32> layer_size_no_last_; // For the input layer and the hidden layers,
-  // this gives the sizes (raw, before splicing.)  Note: for
-  // the input, if layer_size_ is the actual input size + 1, we append a 1.
-  
-  vector<int32> last_layer_sizes_; // Sizes of the different "categories"
-  // of output at the last layer.
-    
-  vector<bool> switched_; // For each layer, true if switched by the UBM.
-  vector<int> left_context_frames_; // Number of left frames of context at the
-  // input to each layer.
-  vector<int> right_context_frames_; // Number of left frames of context at the
-  // input to each layer.
-
-  // For all but final frames,
-  // indexed [layer][UBM-index][output-index][input-index].
-  // Use UBM-index = 0 for non-switched layers.
-
-  // For final frame, indexed [category][output-index][input-index].
-  // The "category" is the category of things we want to predict; this
-  // mostly relates to multi-level trees but also to multi-lingual.
-  // Basically we have soft-max within each category.
-
-  std::vector<std::vector<Matrix<BaseFloat> > > data_; // the parameters of the
-  // neural net.
-
-  // Indexed by layer, then (UBM-index or, for last layer, the category);
-  // then by the neuron index; each "gradient_variance" is the
-  // average variance of the derivatives w.r.t. the input 
-  // weights to that neuron.  The average is over the input weights,
-  // and then a weighted average over time.
-  // This is only used if --use-fisher-preconditioning is true (yes by default).
-  // We keep this as part of the neural net class because we generally
-  // want to read and write it with the neural net itself.
-  std::vector<std::vector<Vector<double> > > gradient_variance_;
-
-  // Derived from gradient_variance [inversed and copied, each time
-  // we update gradient_variance].
-  std::vector<std::vector<Vector<float> > > inverse_gradient_variance_;
-  void ComputeInverseGradientVariance(); // derive inverse_gradient_variance_
-  // from gradient_variance_.
-
-  void Write(std::ostream &os, bool binary) const;
-
-  void Read(std::istream &is, bool binary);  
+  std::vector<FinalLayerInfo> final_layers_;  // Info for the last two layers,
+  // indexed by category.
 };
 
 
-struct Nnet1LearningRateConfig {
-  std::string learning_rates; // Learning rate for each layer: floats, separated by colon.
-  // Note: if --use-fisher-preconditioning is true, these get multiplied by the inverse
-  // of the scatter of gradients.
-  
-  bool use_fisher_preconditioning;
-  
-  double fisher_average_frames; // Number of observations
-  // over which to average the Fisher information.  Needs to be
-  // comfortably more than the number of classes, in order to
-  // get a smooth average.
-  
-  Nnet1LearningRateConfig(): use_fisher_preconditioning(true),
-                             fisher_average_frames(20000) { }
-  
-  void Register (ParseOptions *po) {
-    po->Register("learning-rates", &learning_rates,
-                 "Learning rates for layers (from bottom).");
-    po->Register("use-fisher-preconditioning",
-                 &use_fisher_preconditioning, "If true, use a preconditioning for the "
-                 "learning rate that's based on the diagonal of the Fisher matrix.");
-  }
-  
-  vector<BaseFloat> learning_rates_float; // Vector that's set up from "learning_rates".
-  
-}
-  
-struct Nnet1LearningRatePolicy {
-  Nnet1LearningRatePolicy(const Nnet1 &nnet1,
-                          const Nnet1LearningRateConfig &config);
-  
+class Nnet1Stats {
+  // Note: although this is a class called "stats", it's not the kind of passive
+  // container class that we normally expect for statistics.  It actively
+  // updates the neural net with SGD.  If we actually want to compute the
+  // gradient on some data set (e.g.  a held-out set), the gradient would be
+  // stored in a neural net, whose parameters we'd initialize to zero.  The
+  // Nnet1Stats class stores in memory some temporary stats, basically
+  // consisting of a pair of vectors for each data-point for each layer we need
+  // to update; and occasionally these are committed to the neural net in a kind
+  // of batched SGD update.  This is mostly managed by classes called
+  // {Tanh,Softmax,Linear}LayerStats, defined in ./layer.h, and this class is
+  // mostly a container for those classes, but it also manages issues relating
+  // to "chunk sizes" [a chunk size is a small, fixed number, e.g. in the range
+  // 5 to 10, where we process a small sequence of frames together.]
+  //
+  // Note: in a multi-threaded context, we'll have just one Nnet1Stats class
+  // for all the threads, but the Nnet1Computation classes will be
+  // specific to each thread.
+  Nnet1Stats(Nnet1 *nnet_to_update,
+             int32 output_chunk_size);
 
-  vector<BaseFloat> layer_learning_rates; // A global factor on
-  // the learning rates for each layer.  These might all be the same.
+  ~Nnet1Stats();
+
+  friend class Nnet1Foo; // Not sure who.
+ private:
+  KALDI_DISALLOW_COPY_AND_ASSIGN(Nnet1Stats);
+  Nnet1 *nnet_to_update;
   
-  bool use_fisher_preconditioning; // If true, use our diagonal-Fisher preconditioning:
-  // note, this is applied at the level of each neuron (we average over all
-  // the parameters that weight the inputs for that neuron), so it's really
-  // a diagonal matrix with certain sets of the diagonal elements constrained
-  // to be the same.
-  
-  double fisher_average_frames; // Number of frames to average the
-  // variance of derivatives over for the Fisher preconditioning.  
+  std::vector<std::vector<TanhLayerStats*> > tanh_stats_; // indexed by [layer index]
+  // [UBM-Gaussian], stats for initial layer.
+  std::vector<SoftmaxLayerStats*> softmax_stats_; // indexed by category; for the
+  // last-but-one layer.
+  std::vector<LinearLayerStats*> linear_stats_; // indexed by category; for the
+  // final layer.
 };
+
+
+class Nnet1ForwardComputation {
+  // This class handles the "forward" computation for the neural net.  Note:
+  // it's for a number of consecutive frames, not just one frame.
+
+  // Initialize the arrays, etc. 
+  Nnet1ForwardComputation(const Nnet1 &nnet1,
+                          int32 num_frames_output);
+
+  // Do the forward computation for a particular input.  Note regarding left and
+  // right context: the input is expected to be either of size (num_frames_output
+  //  + nnet1.LeftContext() + nnet1.RightContext()), in which case it's the actual
+  // input, or of size (num_frames_output), in which case we pad with zero input.
+  void Forward(const Matrix<BaseFloat> &input);
   
+  const Matrix<BaseFloat> &GetOutput();
 
-
-
+ private:
+  
+  Matrix<BaseFloat> input_; // The input data.
+  std::vector<Matrix<BaseFloat> > initial_data_; // The first element
+  
+};
 
 // This class stores temporary variables for
 // the forward and backward passes of calculation
 // for the neural net Nnet1.
-class Nnet1Calculation {
+class Nnet1alculation {
   // This initializer sets up the sizes and the storage.
   //
   Nnet1Calculation(Nnet1 &nnet1,
@@ -270,14 +264,6 @@ class Nnet1Calculation {
   void BackpropSgd(const Nnet1LearningRatePolicy &policy,
                    Nnet1 *nnet1);
   
-  // Does the back-propagation: it's plain SGD, with the given learning rate,
-  // but with additional preconditioning by the inverse of the Fisher information
-  // matrix; this routine also has to keep the fisher information updated.
-  void BackpropSgdFisher(const Nnet1LearningRatePolicy &policy,
-                         Nnet1FisherInfo *fisher,
-                         Nnet1 *nnet1);
-  
-
   // This function treats the "nnet1" in the pointer as a place to put
   // the sum of the gradients; it would be initialized with zero parameters.
   // This may be used to get the gradient on the validation set.

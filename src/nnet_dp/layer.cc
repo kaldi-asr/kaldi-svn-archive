@@ -41,6 +41,22 @@ static void SpliceFrames(const MatrixBase<BaseFloat> &input,
   }
 }
 
+LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
+                         BaseFloat learning_rate):
+    learning_rate_(learning_rate) {
+  KALDI_ASSERT(learning_rate >= 0.0 && learning_rate <= 1.0); // > 1.0 doesn't make sense.
+  // 0 may be used just to disable learning.
+  // Note: if diagonal_element == 1.0, learning will never move away from that
+  // point (this is due to the preconditioning).
+  KALDI_ASSERT(size > 0 && diagonal_element > 0.0 && diagonal_element <= 1.0);
+  params_.Resize(size, size);
+  double off_diag = (1.0 - diagonal_element) / (size - 1); // value of
+  // off-diagonal elements that's needed if we want each column to sum to one.
+  params_.Set(off_diag);
+  for (int32 i = 0; i < size; i++)
+    params_(i, i) = diagonal_element;
+}
+
 void LinearLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
                                 const MatrixBase<BaseFloat> &output_deriv) {
   KALDI_ASSERT(output_deriv.NumRows() == config_.chunk_size
@@ -107,8 +123,7 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
   if (layer_to_update_->is_gradient_) {
     // We just want the gradient: do a "vanilla" SGD type of update as
     // we would do on any layer.
-    KALDI_ASSERT(config_.learning_rate == 1.0); // Just an expectation, really.
-    layer_to_update_->params_.AddMatMat(config_.learning_rate,
+    layer_to_update_->params_.AddMatMat(layer_to_update_->learning_rate,
                                         output_chunks, kTrans,
                                         input_chunks, kNoTrans, 1.0); 
   } else { // the "real" update which takes place in unnormalized-log
@@ -123,14 +138,18 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
       Vector<BaseFloat> param_col(num_rows);
       param_col.CopyColFromMat(params, col);
       Vector<BaseFloat> log_param_col(param_col);
-      log_param_col.ApplyLog(); // note: works even for zero.
+      log_param_col.ApplyLog(); // note: works even for zero, but may have -inf
+      for (int32 i = 0; i < num_rows; i++)
+        if (log_param_col(i) < -1.0e+20)
+          log_param_col(i) = -1.0e+20; // get rid of -inf's,as
+      // as we're not sure exactly how BLAS will deal with them.
       Vector<BaseFloat> gradient_col(num_rows);
       gradient_col.CopyColFromMat(gradient, col);
       Vector<BaseFloat> log_gradient(num_rows);
       log_gradient.AddVecVec(1.0, param_col, gradient_col, 0.0); // h <-- diag(c) g.
       BaseFloat cT_g = VecVec(param_col, gradient_col);
       log_gradient.AddVec(-cT_g, param_col); // h += (c^T g) c .
-      log_param_col.AddVec(config_.learning_rate, log_gradient); // Gradient step,
+      log_param_col.AddVec(layer_to_update_->learning_rate, log_gradient); // Gradient step,
       // in unnormalized log-prob space.
       log_param_col.ApplySoftMax(); // Go back to probabilities.
       params.CopyColFromVec(log_param_col, col); // Write back to parameters.
@@ -311,6 +330,16 @@ void TanhLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
   }
 }
 
+<<<<<<< .mine
+SoftmaxLayer::SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate):
+    params_(output_size, input_size), occupancy_(output_size),
+    learning_rate_(learning_rate) {
+  KALDI_ASSERT(learning_rate_ > 0.0 && learning_rate_ <= 1.0); // Note:
+  // learning rate of zero may be used to disable learning for a particular
+  // layer, but for this type of layer that doesn't really make sense, in
+  // the usage situations we envisage.
+}
+
 void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<SoftmaxLayer>");
   params_.Write(out, binary);
@@ -446,7 +475,7 @@ void SoftmaxLayerStats::Update(int32 chunk_start, int32 chunk_end) {
       output_sums_part(output_sums_, chunk_start, (chunk_end - chunk_start),
                        0, output_sums_.NumCols());
   
-  layer_to_update_->params_.AddMatMat(config_.learning_rate,
+  layer_to_update_->params_.AddMatMat(layer_to_update_->learning_rate,
                                       output_chunks, kTrans,
                                       input_chunks, kNoTrans, 1.0);
   layer_to_update_->occupancy_.AddRowSumMat(output_sums_part);  

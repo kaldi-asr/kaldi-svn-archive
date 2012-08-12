@@ -123,7 +123,6 @@ struct GenericLayerUpdateConfig {
   // if needed.  Note: although the class itself is generic, some
   // members (e.g. chunk_size) will typically be different for
   // different layers.
-  double learning_rate;
   int num_chunks; // Number of chunks that the stats class should store.
   int chunk_size; // This is layer-specific-- the number of frames in each chunk of
   // features.  [typically in the range 5 to 10.]
@@ -142,7 +141,7 @@ class LinearLayerStats;
 // to the 2-level tree.].
 class LinearLayer {
  public:
-  LinearLayer(int size, BaseFloat diagonal_element);
+  LinearLayer(int size, BaseFloat diagonal_element, BaseFloat learning_rate);
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
@@ -160,8 +159,11 @@ class LinearLayer {
 
   void SetZero(); // used if we're using this to store gradients on a held out
   // set.  zeroes params_ and sets is_gradient_ = true.
+  BaseFloat GetLearningRate() const { return learning_rate_; }
+  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
   friend class LinearLayerStats;
  private:
+  BaseFloat learning_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
   bool is_gradient_; // If true, this class is just a holder for the gradient,
   // e.g. on a held out set.  This affects how we do the update [since we
@@ -200,7 +202,7 @@ class SoftmaxLayerStats;
 
 class SoftmaxLayer {
  public:
-  SoftmaxLayer(int input_size, int output_size); // Note:
+  SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate); // Note:
   // this layer is initialized to zero.
   
   void Write(std::ostream &out, bool binary) const;
@@ -218,8 +220,11 @@ class SoftmaxLayer {
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
                 SoftmaxLayerStats *stats);
   
+
+  BaseFloat GetLearningRate() const { return learning_rate_; }
+  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
+
   friend class SoftmaxLayerStats;
-  
  private:
   void ApplySoftmax(MatrixBase<BaseFloat> *output);
 
@@ -233,9 +238,9 @@ class SoftmaxLayer {
                          const MatrixBase<BaseFloat> &sum_deriv,
                          MatrixBase<BaseFloat> *input_deriv);
 
-  
+  BaseFloat learning_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
-
+  
   // A quasi-occupancy count, accumulated from the data and used for splitting.
   Vector<BaseFloat> occupancy_;
 };
@@ -284,7 +289,8 @@ class TanhLayer {
   // Apparently this is widely used: see  glorot10a.pdf (search term), 
   // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
   TanhLayer(int input_size,
-            int output_size);
+            int output_size,
+            BaseFloat learning_rate);
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
@@ -305,6 +311,9 @@ class TanhLayer {
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
                 TanhLayerStats *stats);
   
+  BaseFloat GetLearningRate() const { return learning_rate_; }
+  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
+
   friend class TanhLayerStats;
  private:
   // Propagate the derivative back through the nonlinearity.
@@ -319,7 +328,8 @@ class TanhLayer {
 
   
   void ApplyTanh(MatrixBase<BaseFloat> *output);
-  
+
+  BaseFloat learning_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
 };
   
