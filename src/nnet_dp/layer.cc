@@ -57,36 +57,70 @@ LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
     params_(i, i) = diagonal_element;
 }
 
-void LinearLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
-                                const MatrixBase<BaseFloat> &output_deriv) {
-  KALDI_ASSERT(output_deriv.NumRows() == config_.chunk_size
-               && input.NumRows() == config_.chunk_size);
-  KALDI_ASSERT(input.NumCols() == input_stats_.NumCols());
-  KALDI_ASSERT(output_deriv.NumCols() == output_stats_.NumCols());
 
-  while (1) { // We try to store the stuff we've been given, but we may have to update
-    // the model first, to make space for it.
-    int32 chunk1, chunk2;
-    chunk_manager_.GetTask(&chunk1, &chunk2);
-    if (chunk2 == -1) { // Store the stats, and return.
-      int32 chunk = chunk1, chunk_size = config_.chunk_size;
-      SubMatrix<BaseFloat> input_chunk(input_stats_, chunk * chunk_size,
-                                       chunk_size, 0, input_stats_.NumCols());
-      input_chunk.CopyFromMat(input);
-      SubMatrix<BaseFloat> output_chunk(output_stats_, chunk * chunk_size,
-                                        chunk_size, 0, output_chunk.NumCols());
-      output_chunk.CopyFromMat(output_deriv);
-      chunk_manager_.SetToFull(chunk);
-      break;
-    } else { // We need to update the model parameters, to free space.
-      Update(chunk1, chunk2);
-      chunk_manager_.SetToEmpty(chunk1, chunk2);
-    }
+// Called from Backward().  Computes "input_deriv".
+void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
+                                  MatrixBase<BaseFloat> *input_deriv) {
+  
+  // This would be simpler if we didn't allow frame splicing.  For
+  // the case with no frame splicing, assume input_dim == full_input_dim.
+  
+  int32 chunk_size = sum_deriv.NumRows(); // Number of frames in this chunk.  This is fixed
+  // during training; the stats take it as part of the initializer.
+  int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
+      output_dim = sum_deriv.NumCols();
+  int32 num_spliced = full_input_dim / input_dim;
+  KALDI_ASSERT(output_dim == params_.NumRows());
+  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
+  KALDI_ASSERT(chunk_size + num_spliced - 1 == input_deriv->NumRows()); // We'll shift the
+  // input row by 1 each time... this equality has to hold for the splicing to work.
+
+  input_deriv->SetZero();
+  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, only do this once.
+    SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
+    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
+                                     input_dim * s, input_dim);
+    input_deriv_part.AddMatMat(1.0, sum_deriv, kNoTrans, params_part, kNoTrans,
+                               1.0);
   }
 }
 
-// Update model parameters.
-void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
+
+
+
+// The backward pass.  Similar note about sizes and frame-splicing
+// applies as in "Forward" [this affects "input" and "input_deriv"].
+void LinearLayer::Backward(
+    const MatrixBase<BaseFloat> &input,
+    const MatrixBase<BaseFloat> &output_deriv,
+    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
+    LinearLayer *model_to_update) {
+  
+  input_deriv->AddMatMat(1.0, output_deriv, kNoTrans, params_, kNoTrans, 0.0);
+
+  if (model_to_update != NULL)
+    model_to_update->Update(input, output_deriv);
+}
+
+
+void LinearLayer::Write(std::ostream &out, bool binary) const {
+  WriteToken(out, binary, "<LinearLayer>");
+  WriteBasicType(out, binary, learning_rate_);
+  params_.Write(out, binary);
+  WriteToken(out, binary, "</LinearLayer>");  
+}
+
+void LinearLayer::Read(std::istream &in, bool binary) {
+  ExpectToken(in, binary, "<LinearLayer>");
+  ReadBasicType(in, binary, &learning_rate_);
+  params_.Read(in, binary);
+  ExpectToken(in, binary, "</LinearLayer>");  
+}
+
+
+// Update model parameters for linear layer.
+void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
+                         const MatrixBase<BaseFloat> &output_deriv) {
   /*
     Note: for this particular type of layer [which transforms probabilities], we
     store the stats as they relate to the actual probabilities in the matrix, with
@@ -110,33 +144,23 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
     it's only needed due to second-order effects which slightly unnormalize each column.]
   */        
   
-  KALDI_ASSERT(chunk_start >= 0 && chunk_end >= 0 && chunk_end > chunk_start &&
-               chunk_end < config_.num_chunks);
-  int32 chunk_size = config_.chunk_size;
-  SubMatrix<BaseFloat> input_chunks(input_stats_, chunk_size * chunk_start,
-                                    chunk_size * (chunk_end - chunk_start),
-                                    0, input_stats_.NumCols()),
-      output_chunks(output_stats_, chunk_size * chunk_start,
-                    chunk_size * (chunk_end - chunk_start),
-                    0, output_stats_.NumCols());
-
-  if (layer_to_update_->is_gradient_) {
+  if (is_gradient_) {
     // We just want the gradient: do a "vanilla" SGD type of update as
     // we would do on any layer.
-    layer_to_update_->params_.AddMatMat(layer_to_update_->learning_rate,
-                                        output_chunks, kTrans,
-                                        input_chunks, kNoTrans, 1.0); 
-  } else { // the "real" update which takes place in unnormalized-log
-    // parameter space.
-    Matrix<BaseFloat> &params(layer_to_update_->params_);
-    int32 num_rows = params.NumRows(), num_cols = params.NumCols();
+    params_.AddMatMat(learning_rate_,
+                      output_deriv, kTrans,
+                      input, kNoTrans, 1.0); 
+  } else {
+    // This is the update; it is stochastic gradient descent, but
+    // it's done in unnormalized-log parameter space.
+    int32 num_rows = params_.NumRows(), num_cols = params_.NumCols();
     Matrix<BaseFloat> gradient(num_rows, num_cols); // objf gradient on this chunk.
-    gradient.AddMatMat(1.0, output_chunks, kTrans,
-                       input_chunks, kNoTrans, 1.0); 
+    gradient.AddMatMat(1.0, output_deriv, kTrans,
+                       input, kNoTrans, 1.0); 
     
     for (int32 col = 0; col < num_cols; col++) {
       Vector<BaseFloat> param_col(num_rows);
-      param_col.CopyColFromMat(params, col);
+      param_col.CopyColFromMat(params_, col);
       Vector<BaseFloat> log_param_col(param_col);
       log_param_col.ApplyLog(); // note: works even for zero, but may have -inf
       for (int32 i = 0; i < num_rows; i++)
@@ -149,10 +173,10 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
       log_gradient.AddVecVec(1.0, param_col, gradient_col, 0.0); // h <-- diag(c) g.
       BaseFloat cT_g = VecVec(param_col, gradient_col);
       log_gradient.AddVec(-cT_g, param_col); // h += (c^T g) c .
-      log_param_col.AddVec(layer_to_update_->learning_rate, log_gradient); // Gradient step,
+      log_param_col.AddVec(learning_rate_, log_gradient); // Gradient step,
       // in unnormalized log-prob space.
       log_param_col.ApplySoftMax(); // Go back to probabilities.
-      params.CopyColFromVec(log_param_col, col); // Write back to parameters.
+      params_.CopyColFromVec(log_param_col, col); // Write back to parameters.
     }
   }
 }
@@ -162,7 +186,8 @@ void LinearLayerStats::Update(int32 chunk_start, int32 chunk_end) {
 // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
 // Apparently this is widely used: see  glorot10a.pdf (search term), 
 // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
-TanhLayer::TanhLayer(int input_size, int output_size):
+TanhLayer::TanhLayer(int input_size, int output_size, BaseFloat learning_rate):
+    learning_rate_(learning_rate),
     params_(output_size, input_size) {
   KALDI_ASSERT(input_size > 0 && output_size > 0);
   BaseFloat end_range = 1.0 / sqrt(input_size),
@@ -177,12 +202,14 @@ TanhLayer::TanhLayer(int input_size, int output_size):
 
 void TanhLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<TanhLayer>");
+  WriteBasicType(out, binary, learning_rate_);
   params_.Write(out, binary);
   WriteToken(out, binary, "</TanhLayer>");  
 }
 
 void TanhLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<TanhLayer>");
+  ReadBasicType(in, binary, &learning_rate_);
   params_.Read(in, binary);
   ExpectToken(in, binary, "</TanhLayer>");  
 }
@@ -239,7 +266,7 @@ void TanhLayer::Backward(
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input, which we add to.
-    TanhLayerStats *stats) {
+    TanhLayer *layer_to_update) {
 
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
   // before the sigmoid is applied.
@@ -247,38 +274,11 @@ void TanhLayer::Backward(
                               kUndefined);
   ComputeSumDeriv(output, output_deriv, &sum_deriv);
   
-  ComputeInputDeriv(output, sum_deriv, input_deriv);
+  ComputeInputDeriv(sum_deriv, input_deriv);
 
-  stats->AccStats(input, sum_deriv);  
+  layer_to_update->Update(input, sum_deriv);
 }
 
-// Called from Backward().  Computes "input_deriv".
-void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
-                                  const MatrixBase<BaseFloat> &sum_deriv,
-                                  MatrixBase<BaseFloat> *input_deriv) {
-  
-  // This would be simpler if we didn't allow frame splicing.  For
-  // the case with no frame splicing, assume input_dim == full_input_dim.
-  
-  int32 chunk_size = output.NumRows(); // Number of frames in this chunk.  This is fixed
-  // during training; the stats take it as part of the initializer.
-  int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output.NumCols();
-  int32 num_spliced = full_input_dim / input_dim;
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(chunk_size + num_spliced - 1 == input_deriv->NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
-
-  input_deriv->SetZero();
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, only do this once.
-    SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    input_deriv_part.AddMatMat(1.0, output, kNoTrans, params_part, kNoTrans,
-                               1.0);
-  }
-}
 
 void TanhLayer::ApplyTanh(MatrixBase<BaseFloat> *output) {
   // Apply tanh function to each element of the output...
@@ -302,38 +302,34 @@ void TanhLayer::ApplyTanh(MatrixBase<BaseFloat> *output) {
 }
 
 
-void TanhLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
-                              const MatrixBase<BaseFloat> &output_deriv) {
-  KALDI_ASSERT(output_deriv.NumRows() == config_.chunk_size);
-  KALDI_ASSERT(output_deriv.NumCols() == output_stats_.NumCols());
-  // Don't check input size is correct, as affected by splicing:
-  // will be checked in SpliceFrames().
+
+void TanhLayer::Update(const MatrixBase<BaseFloat> &input,
+                       const MatrixBase<BaseFloat> &sum_deriv) {
+  // Note: "input" may have to be spliced.
+  int32 input_dim = input.NumCols(), full_input_dim = params_.NumCols(),
+      output_dim = sum_deriv.NumCols(),
+      num_spliced = full_input_dim / input_dim;
   
-  while (1) { // We try to store the stuff we've been given, but we may have to update
-    // the model first, to make space for it.
-    int32 chunk1, chunk2;
-    chunk_manager_.GetTask(&chunk1, &chunk2);
-    if (chunk2 == -1) { // Store the stats, and return.
-      int32 chunk = chunk1, chunk_size = config_.chunk_size;
-      SubMatrix<BaseFloat> input_chunk(input_stats_, chunk * chunk_size,
-                                       chunk_size, 0, input_stats_.NumCols());
-      SpliceFrames(input, &input_chunk);
-      SubMatrix<BaseFloat> output_chunk(output_stats_, chunk * chunk_size,
-                                        chunk_size, 0, output_stats_.NumCols());
-      output_chunk.CopyFromMat(output_deriv);
-      chunk_manager_.SetToFull(chunk);
-      break;
-    } else { // We need to update the model parameters, to free space.
-      Update(chunk1, chunk2);
-      chunk_manager_.SetToEmpty(chunk1, chunk2);
-    }
+  KALDI_ASSERT(output_dim == params_.NumRows());
+  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
+  KALDI_ASSERT(sum_deriv.NumRows() + num_spliced - 1 == input.NumRows()); // We'll shift the
+  // input row by 1 each time... this equality has to hold for the splicing to work.
+  
+  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, we'd only do this once.
+    SubMatrix<BaseFloat> input_part(input, s, sum_deriv.NumRows(), 0, input_dim);
+    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
+                                     input_dim * s, input_dim);
+    params_part.AddMatMat(learning_rate_,
+                          sum_deriv, kTrans,
+                          input_part, kNoTrans, 1.0);
   }
 }
 
-<<<<<<< .mine
+
 SoftmaxLayer::SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate):
-    params_(output_size, input_size), occupancy_(output_size),
-    learning_rate_(learning_rate) {
+    learning_rate_(learning_rate),
+    params_(output_size, input_size), occupancy_(output_size)
+     {
   KALDI_ASSERT(learning_rate_ > 0.0 && learning_rate_ <= 1.0); // Note:
   // learning rate of zero may be used to disable learning for a particular
   // layer, but for this type of layer that doesn't really make sense, in
@@ -342,6 +338,7 @@ SoftmaxLayer::SoftmaxLayer(int input_size, int output_size, BaseFloat learning_r
 
 void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<SoftmaxLayer>");
+  WriteBasicType(out, binary, learning_rate_);
   params_.Write(out, binary);
   occupancy_.Write(out, binary);
   WriteToken(out, binary, "</SoftmaxLayer>");  
@@ -349,6 +346,7 @@ void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
 
 void SoftmaxLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<SoftmaxLayer>");
+  ReadBasicType(in, binary, &learning_rate_);
   params_.Read(in, binary);
   occupancy_.Read(in, binary);
   ExpectToken(in, binary, "</SoftmaxLayer>");  
@@ -413,17 +411,16 @@ void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
 }
 
 // Called from Backward().  Computes "input_deriv".
-void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
-                                     const MatrixBase<BaseFloat> &sum_deriv,
+void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
                                      MatrixBase<BaseFloat> *input_deriv) {
   
   // This would be simpler if we didn't allow frame splicing.  For
   // the case with no frame splicing, assume input_dim == full_input_dim.
   
-  int32 chunk_size = output.NumRows(); // Number of frames in this chunk.  This is fixed
+  int32 chunk_size = sum_deriv.NumRows(); // Number of frames in this chunk.  This is fixed
   // during training; the stats take it as part of the initializer.
   int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output.NumCols();
+      output_dim = sum_deriv.NumCols();
   int32 num_spliced = full_input_dim / input_dim;
   KALDI_ASSERT(output_dim == params_.NumRows());
   KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
@@ -435,7 +432,7 @@ void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
     SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
     SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
                                      input_dim * s, input_dim);
-    input_deriv_part.AddMatMat(1.0, output, kNoTrans, params_part, kNoTrans,
+    input_deriv_part.AddMatMat(1.0, sum_deriv, kNoTrans, params_part, kNoTrans,
                                1.0);
   }
 }
@@ -447,7 +444,7 @@ void SoftmaxLayer::Backward(
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input, which we add to.
-    SoftmaxLayerStats *stats) {
+    SoftmaxLayer *layer_to_update) {
 
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
   // before the sigmoid is applied.
@@ -455,217 +452,34 @@ void SoftmaxLayer::Backward(
                               kUndefined);
   ComputeSumDeriv(output, output_deriv, &sum_deriv);
   
-  ComputeInputDeriv(output, sum_deriv, input_deriv);
-
-  stats->AccStats(input, output, sum_deriv);  
-}
-
-
-void SoftmaxLayerStats::Update(int32 chunk_start, int32 chunk_end) {
-  // Update model parameters.  Vanilla SGD.
-  KALDI_ASSERT(chunk_start >= 0 && chunk_end >= 0 && chunk_end > chunk_start &&
-               chunk_end < config_.num_chunks);
-  int32 chunk_size = config_.chunk_size;
-  SubMatrix<BaseFloat> input_chunks(input_stats_, chunk_size * chunk_start,
-                                    chunk_size * (chunk_end - chunk_start),
-                                    0, input_stats_.NumCols()),
-      output_chunks(output_stats_, chunk_size * chunk_start,
-                    chunk_size * (chunk_end - chunk_start),
-                    0, output_stats_.NumCols()),
-      output_sums_part(output_sums_, chunk_start, (chunk_end - chunk_start),
-                       0, output_sums_.NumCols());
+  ComputeInputDeriv(sum_deriv, input_deriv);
   
-  layer_to_update_->params_.AddMatMat(layer_to_update_->learning_rate,
-                                      output_chunks, kTrans,
-                                      input_chunks, kNoTrans, 1.0);
-  layer_to_update_->occupancy_.AddRowSumMat(output_sums_part);  
+  layer_to_update->Update(input, sum_deriv, output);
 }
 
 
-void SoftmaxLayerStats::AccStats(const MatrixBase<BaseFloat> &input,
-                                 const MatrixBase<BaseFloat> &output,
-                                 const MatrixBase<BaseFloat> &sum_deriv) {
-  KALDI_ASSERT(sum_deriv.NumRows() == config_.chunk_size);
-  KALDI_ASSERT(sum_deriv.NumCols() == output_stats_.NumCols());
-  // Don't check input size is correct, as it's affected by splicing:
-  // will be checked in SpliceFrames().
+void SoftmaxLayer::Update(const MatrixBase<BaseFloat> &input,
+                          const MatrixBase<BaseFloat> &sum_deriv,
+                          const MatrixBase<BaseFloat> &output) {
+  // Note: "input" may have to be spliced.
+  int32 input_dim = input.NumCols(), full_input_dim = params_.NumCols(),
+      output_dim = output.NumCols(), num_spliced = full_input_dim / input_dim;
   
-  while (1) { // We try to store the stuff we've been given, but we may have to update
-    // the model first, to make space for it.
-    int32 chunk1, chunk2;
-    chunk_manager_.GetTask(&chunk1, &chunk2);
-    if (chunk2 == -1) { // Store the stats, and return.
-      int32 chunk = chunk1, chunk_size = config_.chunk_size;
-      SubMatrix<BaseFloat> input_chunk(input_stats_, chunk * chunk_size,
-                                       chunk_size, 0, input_stats_.NumCols());
-      SpliceFrames(input, &input_chunk);
-      SubMatrix<BaseFloat> output_chunk(output_stats_, chunk * chunk_size,
-                                        chunk_size, 0, output_stats_.NumCols());
-      output_chunk.CopyFromMat(sum_deriv);
-
-      // Store the sum of the output-- this is an occupancy-like quantity.
-      SubVector<BaseFloat> output_sum(output_sums_, chunk);
-      output_sum.AddRowSumMat(output);
-      chunk_manager_.SetToFull(chunk);
-      break;
-    } else { // We need to update the model parameters, to free space.
-      Update(chunk1, chunk2);
-      chunk_manager_.SetToEmpty(chunk1, chunk2);
-    }
-  }
-}
-
-bool ChunkManager::TaskIsAvailable() {
-  bool saw_full = false, saw_emptying = false;
-  for (size_t i = 0; i < chunk_status_.size(); i++) {
-    if (chunk_status_[i] == kEmpty) return true;
-    if (chunk_status_[i] == kFull) saw_full = true;
-    if (chunk_status_[i] == saw_emptying) saw_emptying = true;
-  }
-  return (saw_full && !saw_emptying);
-}
-
-void ChunkManager::SetToFull(int32 chunk) {
-  mutex_.Lock(); // we lock this mutex before changing anything...
-  KALDI_ASSERT(chunk >= 0 && chunk < NumChunks());
-  KALDI_ASSERT(chunk_status_[chunk] == kFilling);
-  bool task_was_available = TaskIsAvailable();
-  chunk_status_[chunk] = kFull;
-  if (!task_was_available) { // Task was not available and is now,
-    // so need to unlock get_task_mutex_.
-    get_task_mutex_.Unlock();
-  }
-  mutex_.Unlock();
-}
-
-// Sets chunks in range begin ... end-1
-// [which should be in status kEmptying] to status kEmpty.
-void ChunkManager::SetToEmpty(int32 begin, int32 end) {
-  mutex_.Lock(); // we lock this mutex before changing anything..
-  KALDI_ASSERT(begin >= 0 && end > begin && end <= NumChunks());
-  bool task_was_available = TaskIsAvailable();
-  for (int32 i = begin; i < end; i++) {
-    KALDI_ASSERT(chunk_status_[i] == kEmptying);
-    chunk_status_[i] = kEmpty;
-  }
-  if (!task_was_available) { // Task was not available and is now,
-    // so need to unlock get_task_mutex_.
-    get_task_mutex_.Unlock();
-  }
-  mutex_.Unlock();
-}
-
-// If we end up spending a lot of time in this routine, we'll have to
-// modify this class so as to store the counts directly in the class.
-// We did it like this for simplicity and ease of programming.
-void ChunkManager::GetCounts(int32 *num_full_ptr,
-                             int32 *num_empty_ptr,
-                             int32 *num_emptying_ptr) {
-  int32 num_full = 0, num_empty = 0, num_emptying = 0;
-  for (size_t i = 0; i < NumChunks(); i++) {
-    if (chunk_status_[i] == kFull) num_full++;
-    if (chunk_status_[i] == kEmpty) num_empty++;
-    if (chunk_status_[i] == kEmptying) num_emptying++;
-  }
-  *num_full_ptr = num_full;
-  *num_empty_ptr = num_empty;
-  *num_emptying_ptr = num_emptying;
-}
-
-// This function sets a and b to the [begin, end] of the
-// largest range of chunks that are all in state kFull.
-// Dies if resulting range is empty.
-void ChunkManager::GetLargestFullRange(int32 *a, int32 *b) {
-  int32 cur_start = -1;
-  int32 largest_range_size = 0;
-  for (int32 i = 0; i < NumChunks(); i++) {
-    if (chunk_status_[i] != kFull) {
-      cur_start = -1;
-    } else {
-      if (cur_start == -1) { cur_start = i; }
-      int32 this_range_size = i - cur_start + 1;
-      if (this_range_size > largest_range_size) {
-        *a = cur_start;
-        *b = i + 1;
-        largest_range_size = i - cur_start + 1;
-      }
-    }
-  }
-  KALDI_ASSERT(largest_range_size != 0);
-}
-
-void ChunkManager::GetTask(int32 *chunk1, int32 *chunk2) {
-  get_task_mutex_.Lock();
-  mutex_.Lock();
-  // If we are more than two thirds full and nothing is in state kEmptying
-  // (i.e. no other process is updating the model), then the task
-  // is to update the model [so set chunk1 and chunk2, meaning a range
-  // of chunks to write to the model]; else give a chunk to fill.
-  int32 num_full, num_empty, num_emptying;
-  GetCounts(&num_full, &num_empty, &num_emptying);
-  // A task must be availbale, or we shouldn't have been able
-  // to lock get_task_mutex_.
-  bool task_is_avail = (num_empty > 0 || (num_full != 0 && num_emptying == 0));
-  KALDI_ASSERT(task_is_avail); // Or we shouldn't have been able to
-  // acquire the lock "get_task_mutex_".
+  KALDI_ASSERT(output_dim == params_.NumRows());
+  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
+  KALDI_ASSERT(output.NumRows() + num_spliced - 1 == input.NumRows()); // We'll shift the
+  // input row by 1 each time... this equality has to hold for the splicing to work.
   
-  if (num_empty == 0 ||
-      (num_full + num_full/2 > NumChunks() && num_emptying == 0)) {
-    // task is to empty a range of chunks.
-    GetLargestFullRange(chunk1, chunk2);
-    for (int32 i = *chunk1; i < *chunk2; i++) {
-      KALDI_ASSERT(chunk_status_[i] == kFull);
-      chunk_status_[i] = kEmptying;
-    }
-    task_is_avail = (num_empty != 0); // The task of emptying a range
-    // is not available now, so only possible task is to fill a chunk.
-  } else {
-    *chunk2 = -1; // indicates we're returning the task to full a chunk.
-    *chunk1 = GetNextEmptyChunk();
-    num_empty--;
-    task_is_avail = (num_empty > 0 || (num_full != 0 && num_emptying == 0));
+  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, we'd only do this once.
+    SubMatrix<BaseFloat> input_part(input, s, output.NumRows(), 0, input_dim);
+    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
+                                     input_dim * s, input_dim);
+    params_part.AddMatMat(learning_rate_,
+                          sum_deriv, kTrans,
+                          input_part, kNoTrans, 1.0);
   }
-  if (task_is_avail)
-    get_task_mutex_.Unlock();
-  // else leave it locked-- no tasks is available so no other process
-  // should be allowed to enter this function until a task becomes
-  // available.
-  mutex_.Unlock();
+  occupancy_.AddRowSumMat(output);
 }
-
-int32 ChunkManager::GetNextEmptyChunk() {
-  /* This might be a little hard to understand.  It's a mechanism to
-     cycle backward and forward, e.g. suppose NumChunks() = 4, we'd
-     cycle through positions 0, 1, 2, 3, 2, 1, 0, 1, ...
-     This is necessary when finding an empty chunk to fill, due to
-     the interaction with GetLargestFullRange(): we need to ensure
-     that not too much time elapses between
-     filling a chunk and having it emptied.  If we always filled
-     the leftmost available chunk, there would be positions on the
-     right that would be only rarely committed to the model.
-     
-     next_chunk_to_fill_ encodes both the position and direction, so
-     it cycles through 0, 1, 2, 3, -2, -1, 0, 1, 2, 3, etc.
-  */
-  int32 num_chunks = NumChunks(), max_loop = num_chunks * 2;
-  for (int32 loop = 0; loop < max_loop; loop++) { // This for
-    // statement could be while(1); it's a for loop in order
-    // to detect an infinite loop which would be a bug.
-    int32 cur_sign = (next_chunk_to_fill_ >= 0 ? 1 : -1);
-    int32 cur_pos = abs(next_chunk_to_fill_);
-
-    int32 next_pos = cur_sign * (cur_sign + cur_pos);
-    if (next_pos == num_chunks)
-      next_pos = -(num_chunks-2); // bounce off the end; change
-    // direction.
-    next_chunk_to_fill_ = next_pos;
-    if (chunk_status_[cur_pos] == kEmpty)
-      return cur_pos;
-  }
-  KALDI_ERR << "Parallel programming error: empty chunk requested but none exists.";
-  return 0; // silence warning.
-}
-
 
 
 

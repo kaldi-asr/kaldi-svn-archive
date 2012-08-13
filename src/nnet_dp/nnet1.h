@@ -172,24 +172,75 @@ class Nnet1 {
 };
 
 
-class Nnet1Stats {
-  // Note: although this is a class called "stats", it's not the kind of passive
-  // container class that we normally expect for statistics.  It actively
-  // updates the neural net with SGD.  If we actually want to compute the
-  // gradient on some data set (e.g.  a held-out set), the gradient would be
-  // stored in a neural net, whose parameters we'd initialize to zero.  The
-  // Nnet1Stats class stores in memory some temporary stats, basically
-  // consisting of a pair of vectors for each data-point for each layer we need
-  // to update; and occasionally these are committed to the neural net in a kind
-  // of batched SGD update.  This is mostly managed by classes called
-  // {Tanh,Softmax,Linear}LayerStats, defined in ./layer.h, and this class is
-  // mostly a container for those classes, but it also manages issues relating
-  // to "chunk sizes" [a chunk size is a small, fixed number, e.g. in the range
-  // 5 to 10, where we process a small sequence of frames together.]
-  //
-  // Note: in a multi-threaded context, we'll have just one Nnet1Stats class
-  // for all the threads, but the Nnet1Computation classes will be
-  // specific to each thread.
+// TrainingExample is the labels and input supervision for
+// one chunk of the input.  The "chunk size" is a small fixed
+// number, e.g. 5 or 10, and is the length of the "labels"
+// vector.  The "input" data member has more rows than the
+// chunk size-- it has nnet1.LeftContext() extra rows on the
+// left and nnet1.RightContext() extra rows on the right.
+
+struct TrainingExample {
+  BaseFloat weight; // Allows us to put a weight on each training
+  // sample.
+
+  std::vector<std::vector<std::pair<int32, int32> > > labels;
+  // each element of "labels" is a list of pairs (category, label).
+  // For a typical, monolingual setup with a two-level tree we'll
+  // have two pairs: something
+  // like ((0, first-level-tree-node),
+  // (first-level-tree-node, second-level-tree-node))-- although
+  // there may be some integer offsets involved here.
+  
+  Matrix<BaseFloat> input; // The input data; will typically have more rows
+  // than the size of "labels", due to required context.  Context that does
+  // not exist due to frame splicing, will be given a zero value but still
+  // supplied.
+  
+};
+
+
+
+// This class Nnet1Trainer basically contains functions for
+// updating the neural net, given a set of "chunks" of features
+// and corresponding labels.  A "chunk" is a short sequence, of size
+// fixed in advance [we do it in these chunks for efficiency, because
+// with the left and right context, some of the computation would be
+// shared.
+
+
+
+class Nnet1Trainer {
+
+  // Note: in the case of training with SGD, "nnet" and "nnet_to_update" will
+  // be identical.  They'll be different if we're accumulating the gradient
+  // for a held-out set and don't want to update the model.
+  Nnet1Trainer(const Nnet1 &nnet,
+               int32 chunk_size_at_output, // size of chunks (number of output labels).
+               int32 num_chunks, // number of chunks we process at the same time.
+               Nnet1 *nnet_to_update);
+
+
+  void TrainStep(const std::vector<TrainingExample> &data);
+
+ private:
+  std::vector<Matrix<BaseFloat> > tanh_data; // The forward and also backward data; indexed by [layer][t][dim];
+  // tanh_forward[i] is the input of layer i.
+  
+  Matrix<BaseFloat> last_tanh_backward; // This is used to store the backward derivative for the last
+  // tanh layer; for other layers we use the "tanh_data" for both forward and backward but in this
+  // case we can't do this (relates to the fact that there are multiple linear/softmax layers).
+  
+  Matrix<BaseFloat> softmax_data; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
+  Matrix<BaseFloat> linear_data; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
+};
+
+
+  
+  
+
+  
+
+
   Nnet1Stats(Nnet1 *nnet_to_update,
              int32 output_chunk_size);
 

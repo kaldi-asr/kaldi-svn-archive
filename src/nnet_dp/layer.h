@@ -24,112 +24,6 @@
 
 namespace kaldi {
 
-// This code uses multi-threaded training for neural nets, for systems
-// with many tens of CPUs.  The general idea is
-// as follows.  Each update in SGD is of the form
-// [parameter-matrix] += \alpha v w^T
-// where \alpha is the current learning rate.  If we were to do that
-// each time we saw a sample, it would involve a lot of writes to memory
-// and a lot of work for the system bus.  So we batch them up so that
-// we can do something like:
-// [parameter-matrix] += \alpha W V^T
-// where V and W are wide, short matrices, each row of which comes
-// from a separate training example.  Note: the rows of v would
-// be derivatives w.r.t. the input to those neurons, and the rows of
-// w would be the outputs of the previous layer.  We use rows not
-// columns because BLAS stores matrices with row-major indexing, so this
-// gives us more memory locality.
-// Every so often we'll call some kind of BLAS matrix-multiply routine
-// to make the change.
-// [note: it's slightly more complicated than this because we use
-//  somewhat neuron-specific learning rates, using an idea based on
-//  preconditioning with the Fisher matrix.]
-//
-// We should first mention something else: since each thread processes
-// a small window of frames, of a fixed size (e.g. 5 to 10) each time,
-// it's easier to not think of rows, but of chunks of rows.  So let
-// this "chunk" be the small fixed quantity, e.g. 5 or 10.
-//
-// Anyway, in a multi-threaded situation, the main issue is allocating
-// which chunks of rows of the matrix different threads should write to.
-// [once a thread knows which rows to write to, it doesn't need the
-//  lock any more.]
-// 
-// A thread will acquire a lock in order to get access to a chunk of
-// rows.  The chunks will have 4 different states:
-// "empty", "full", "filling" and "emptying".
-
-
-class ChunkManager {
- public:
-  enum ChunkStatus {
-    kEmpty,
-    kFull,
-    kFilling,
-    kEmptying
-  };
-
-  ChunkManager(int32 num_chunks): chunk_status_(num_chunks, kEmpty),
-                                  next_chunk_to_fill_(0) { }
-  
-  void SetToFull(int32 chunk); // Sets chunk [which should be in status kFilling]
-  // to kFull.
-  
-  void SetToEmpty(int32 begin, int32 end); // Sets chunks in range begin ... end-1
-  // [which should be in status kEmptying] to status kEmpty.
-
-
-  // GetTask() will either:
-  // (a) find a chunk in state kEmpty, change it to
-  // kFilling and return it in *chunk1, setting *chunk2 to -1
-  // or 
-  // (b) Find the largest contiguous range of chunks in state kFull, set
-  // them to state kEmptying, and return this range as *chunk1, *chunk2 [so the
-  // range is from *chunk1 to (*chunk2)-1].
-  //
-  // It's up to the discretion of GetTask() which of these to do.
-  // If neither task is available it will block.  [it will wait till
-  // another thread calls SetToFull() or SetToEmpty()].
-  void GetTask(int32 *chunk1, int32 *chunk2);
-  
-  // GetFullRange() 
-  bool GetFullRange(int32 *chunk1, int32 *chunk2);
-
-  int32 NumChunks() { return chunk_status_.size(); }
- private:
-  bool TaskIsAvailable(); // This function returns true if
-  // some element of chunk_status_ is either kEmpty or kFull.
-  void GetCounts(int32 *num_full, int32 *num_empty, int32 *num_emptying);
-  void GetLargestFullRange(int32 *a, int32 *b);
-  int32 GetNextEmptyChunk(); // Gets next empty chunk to fill.
-  // Crashes if none exists.  Modifies next_chunk_to_fill_.  
-  
-  Mutex mutex_; // generic lock used while changing chunk_status_.
-  Mutex get_task_mutex_; // lock held while calling GetTask(), or when
-  // no task is available because all statuses are kFilling or kEmptying.
-  std::vector<ChunkStatus> chunk_status_;
-
-  // next_chunk_to_fill_ is an integer that encodes a position in the array
-  // [as abs(next_chunk_to_fill_) and direction (as its sign).  It helps to
-  // ensure that we attempt to fill chunks in a specific order, from left to
-  // right and then right to left.  This is part of a strategy to ensure that
-  // chunks are emptied roughly in the order they were filled.  
-  int32 next_chunk_to_fill_;
-};
-
-struct GenericLayerUpdateConfig {
-  // A configuration class for the update of the layers-- this one
-  // is generic to all the layer types; it can be used as a base class
-  // if needed.  Note: although the class itself is generic, some
-  // members (e.g. chunk_size) will typically be different for
-  // different layers.
-  int num_chunks; // Number of chunks that the stats class should store.
-  int chunk_size; // This is layer-specific-- the number of frames in each chunk of
-  // features.  [typically in the range 5 to 10.]
-};
-
-
-class LinearLayerStats;
 
 // This class is for a special type of neural-network layer that we have
 // at the very end, after the soft-max.  We constrain each column of the
@@ -149,56 +43,27 @@ class LinearLayer {
   // each row of the args to this function is one frame.
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output);
-
+  
   // each row of the args to this function is one frame.
-  void Backward(const MatrixBase<BaseFloat> &input, 
-                const MatrixBase<BaseFloat> &output,
+  void Backward(const MatrixBase<BaseFloat> &input,
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-                LinearLayerStats *stats);
+                LinearLayer *layer_to_update);
 
   void SetZero(); // used if we're using this to store gradients on a held out
   // set.  zeroes params_ and sets is_gradient_ = true.
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-  friend class LinearLayerStats;
  private:
+  void Update(const MatrixBase<BaseFloat> &input,
+              const MatrixBase<BaseFloat> &output_deriv);
+      
   BaseFloat learning_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
   bool is_gradient_; // If true, this class is just a holder for the gradient,
   // e.g. on a held out set.  This affects how we do the update [since we
   // don't use simple gradient descent for this type of layer.]
 };
-
-// Note: this class is not just a passive container of stats; it
-// also updates the model when it gets full [or when it's deinitialized.]
-// So we need to initialize it with the learning rate.
-class LinearLayerStats {
- public:
-  LinearLayerStats (GenericLayerUpdateConfig &config,
-                    LinearLayer *layer_to_update); // this is the layer we'll update;
-  // also gives size info to initialize the stats.  Does not have to be the same
-  // as the layer we got the stats from [this is useful in getting derivative w.r.t.
-  // parameters, on held-out set.]
-  
-  // Accumulate stats [may also update the model.]
-  void AccStats(const MatrixBase<BaseFloat> &input,
-                const MatrixBase<BaseFloat> &output_deriv);
-  
- private:
-  
-  void Update(int32 chunk_start, int32 chunk_end); // This is
-  // called from AccStats.
-
-  LinearLayer *layer_to_update_;
-  GenericLayerUpdateConfig config_;
-  ChunkManager chunk_manager_;
-  Matrix<BaseFloat> stats_;
-  SubMatrix<BaseFloat> input_stats_; // sub-matrix of stats_; each row is input vector.
-  SubMatrix<BaseFloat> output_stats_; // sub-matrix of stats_; each row is deriv at output.
-};
-
-class SoftmaxLayerStats;
 
 class SoftmaxLayer {
  public:
@@ -218,14 +83,16 @@ class SoftmaxLayer {
                 const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-                SoftmaxLayerStats *stats);
-  
+                SoftmaxLayer *layer_to_update);
 
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
 
-  friend class SoftmaxLayerStats;
  private:
+  void Update(const MatrixBase<BaseFloat> &input,
+              const MatrixBase<BaseFloat> &sum_deriv,
+              const MatrixBase<BaseFloat> &output);
+  
   void ApplySoftmax(MatrixBase<BaseFloat> *output);
 
   // Propagate the derivative back through the nonlinearity.
@@ -234,8 +101,7 @@ class SoftmaxLayer {
                        MatrixBase<BaseFloat> *sum_deriv);
 
   // Propagate derivative back from sum at nodes, to input.
-  void ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
-                         const MatrixBase<BaseFloat> &sum_deriv,
+  void ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
                          MatrixBase<BaseFloat> *input_deriv);
 
   BaseFloat learning_rate_;
@@ -245,38 +111,6 @@ class SoftmaxLayer {
   Vector<BaseFloat> occupancy_;
 };
   
-class SoftmaxLayerStats {
- public:
-  SoftmaxLayerStats (GenericLayerUpdateConfig &config,
-                     SoftmaxLayer *layer_to_update); // this is the layer we'll update;
-  // also gives size info to initialize the stats.  Does not have to be the same
-  // as the layer we got the stats from [this is useful in getting derivative w.r.t.
-  // parameters, on held-out set.]
-  
-  // Accumulate stats [may also update the model.]
-  // Note: this type of layer supports frame splicing, so the "input" vector
-  // may have to be spliced together.
-  // Note: the "output" is only needed for storing occupancies, which we'll use
-  // for splitting output indices (like splitting Gaussians).
-  void AccStats(const MatrixBase<BaseFloat> &input,
-                const MatrixBase<BaseFloat> &output, // special to this layer type: for getting occupancies.
-                const MatrixBase<BaseFloat> &sum_deriv); // sum_deriv is deriv w.r.t. sum before sigmoid.
-  
- private:
-  void Update(int32 chunk_start, int32 chunk_end); // This is
-  // called from AccStats.
-
-  SoftmaxLayer *layer_to_update_;
-  GenericLayerUpdateConfig config_;
-  ChunkManager chunk_manager_;
-  Matrix<BaseFloat> stats_;
-  SubMatrix<BaseFloat> input_stats_; // sub-matrix of stats_; each row is input vector.
-  SubMatrix<BaseFloat> output_stats_; // sub-matrix of stats_; each row is objf derivative w.r.t output.
-  Matrix<BaseFloat> output_sums_;  // sums of output, one row per chunk.
-};
-
-
-class TanhLayerStats;
 
 class TanhLayer {
   // Note: the tanh function is the same as the sigmoid, except modified to go
@@ -309,21 +143,22 @@ class TanhLayer {
                 const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,                
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-                TanhLayerStats *stats);
+                TanhLayer *layer_to_update);
   
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
 
-  friend class TanhLayerStats;
  private:
+  void Update(const MatrixBase<BaseFloat> &input,
+              const MatrixBase<BaseFloat> &sum_deriv);
+
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
                        MatrixBase<BaseFloat> *sum_deriv);
       
   // Called from Backward().
-  void ComputeInputDeriv(const MatrixBase<BaseFloat> &output,
-                         const MatrixBase<BaseFloat> &sum_deriv,
+  void ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
                          MatrixBase<BaseFloat> *input_deriv);
 
   
@@ -333,33 +168,6 @@ class TanhLayer {
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
 };
   
-class TanhLayerStats {
- public:
-  TanhLayerStats (GenericLayerUpdateConfig &config,
-                     TanhLayer *layer_to_update); // this is the layer we'll update;
-  // also gives size info to initialize the stats.  Does not have to be the same
-  // as the layer we got the stats from [this is useful in getting derivative w.r.t.
-  // parameters, on held-out set.]
-  
-  // Accumulate stats [may also update the model.]
-  // Note: this type of layer supports frame splicing, so the "input" vector
-  // may have to be spliced together by this function.
-  void AccStats(const MatrixBase<BaseFloat> &input,
-                const MatrixBase<BaseFloat> &sum_deriv); // sum_deriv is deriv w.r.t. sum before sigmoid.
-  
- private:
-  void Update(int32 chunk_start, int32 chunk_end); // This is
-  // called from AccStats.
-
-  TanhLayer *layer_to_update_;
-  GenericLayerUpdateConfig config_;
-  ChunkManager chunk_manager_;
-  Matrix<BaseFloat> stats_;
-  SubMatrix<BaseFloat> input_stats_; // sub-matrix of stats_; each row is input vector.
-  SubMatrix<BaseFloat> output_stats_; // sub-matrix of stats_; each row is objf derivative w.r.t output.
-};
-
-
 
 } // namespace
 
