@@ -15,8 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_DP_NNET1_H_
-#define KALDI_NNET_DP_NNET1_H_
+#ifndef KALDI_NNET_DP_LAYER_H_
+#define KALDI_NNET_DP_LAYER_H_
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
@@ -35,6 +35,9 @@ namespace kaldi {
 // to the 2-level tree.].
 class LinearLayer {
  public:
+  int32 InputDim() const { return params_.NumCols(); }
+  int32 OutputDim() const { return params_.NumRows(); }
+  
   LinearLayer(int size, BaseFloat diagonal_element, BaseFloat learning_rate);
   
   void Write(std::ostream &out, bool binary) const;
@@ -67,6 +70,9 @@ class LinearLayer {
 
 class SoftmaxLayer {
  public:
+  int32 InputDim() const { return params_.NumCols(); }
+  int32 OutputDim() const { return params_.NumRows(); }
+  
   SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate); // Note:
   // this layer is initialized to zero.
   
@@ -84,7 +90,7 @@ class SoftmaxLayer {
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
                 SoftmaxLayer *layer_to_update);
-
+  
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
 
@@ -122,6 +128,9 @@ class TanhLayer {
   // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
   // Apparently this is widely used: see  glorot10a.pdf (search term), 
   // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
+  int32 InputDim() const { return params_.NumCols(); }
+  int32 OutputDim() const { return params_.NumRows(); }
+
   TanhLayer(int input_size,
             int output_size,
             BaseFloat learning_rate);

@@ -19,7 +19,9 @@
 #define KALDI_NNET_DP_NNET1_H_
 
 #include "base/kaldi-common.h"
+#include "util/common-utils.h"
 #include "matrix/matrix-lib.h"
+#include "nnet_dp/layer.h"
 
 namespace kaldi {
 
@@ -92,16 +94,14 @@ struct Nnet1InitConfig {
 };
 
 
-// Nnet1 is a sequence of TanhLayers, then a SoftmaxLayer, then a LinearLayer [which
-// is similar to Gaussian mixture weights].  But it's a bit more complicated than
-// this, because the TanhLayers may be "switched" by UBM Gaussians so the parameters
-// we use are dependent on the place in acoustic space; also the TanhLayers and the
-// SoftmaxLayer may see temporal context of the previous layer; also the final
-// sequence (SoftmaxLayer, LinearLayer) may exist in many different versions each with
-// different parameters and different numbers of output neurons.  These different
-// versions are called "categories" and are used for two things: two-level tree
-// [where we predict first a coarse then fine version of the leaf-- this helps for
-//  efficiency in training], and multilingual experiments.
+// Nnet1 is a sequence of TanhLayers, then a SoftmaxLayer, then a LinearLayer
+// [which is similar to Gaussian mixture weights].  The TanhLayers may see
+// temporal context of the previous layer; also the final sequence
+// (SoftmaxLayer, LinearLayer) may exist in many different versions each with
+// different parameters and different numbers of output neurons.  These
+// different versions are called "categories" and are used for two things:
+// two-level tree [where we predict first a coarse then fine version of the
+// leaf-- this helps for efficiency in training], and multilingual experiments.
 
 class Nnet1 {
 
@@ -113,6 +113,15 @@ class Nnet1 {
 
   int32 RightContext(); // Returns #frames of right context needed [just the sum
   // of right_context for each layer.]
+
+  int32 LeftContextForLayer(int32 layer) {
+    KALDI_ASSERT(layer >= 0 && layer < initial_layers_.size());
+    return initial_layers_[layer].left_context;
+  }
+  int32 RightContextForLayer(int32 layer) {
+    KALDI_ASSERT(layer >= 0 && layer < initial_layers_.size());
+    return initial_layers_[layer].right_context;
+  }
   
   // Returns number of layers before the softmax and linear layers.
   int32 NumTanhLayers() { return initial_layers_.size(); }
@@ -122,17 +131,15 @@ class Nnet1 {
   int32 NumLabelsForCategory(int32 category);
   
   Nnet1(const Nnet1 &other); // Copy constructor
-  
-  const Nnet1 &operator = (const Nnet1 &other) = 0; // Disallow assignment.
-  
+ 
   Nnet1() { }
 
-  Nnet1(const Nnet1Config &config,
+  Nnet1(const Nnet1InitConfig &config,
         const std::vector<int32> &category_sizes) { Init(config, category_sizes); }
   
   ~Nnet1() { Destroy(); }
 
-  void Init(const Nnet1Config &config,
+  void Init(const Nnet1InitConfig &config,
             const std::vector<int32> &category_sizes); // category_sizes gives number of
   // labels in each category.  For single-language, will be [# first-level nodes in tree],
   // then for each first-level node that has >1 leaf, the # second-level nodes for that
@@ -147,15 +154,12 @@ class Nnet1 {
   void Check(); // Checks that the parameters make sense.
   
  private:
+  const Nnet1 &operator = (const Nnet1 &other);  // Disallow assignment.
+  
   struct InitialLayerInfo {
-    int32 num_ubm_gauss; // Relates to switching by the UBM: the number of Gaussians
-    // in the UBM.  It is set to one if we don't use this feature.  Note:
-    // for now, these would be the same for all layers that don't use UBM switching.
-    
     int left_context; // >= 0, left temporal context.
-    int right_contet; // >= 0, right temporal context.
-    std::vector<TanhLayer*> layers; // one for each UBM Gaussian
-    // or just a vector of size one, if not using switching.
+    int right_context; // >= 0, right temporal context.
+    TanhLayer* layer; 
   };
   
   std::vector<InitialLayerInfo> initial_layers_; // Info for the initial
@@ -199,6 +203,20 @@ struct TrainingExample {
 };
 
 
+void SpliceFrames(const MatrixBase<BaseFloat> &input,
+                  int32 chunk_size_input,
+                  int32 chunk_size_output,
+                  int32 num_chunks,
+                  MatrixBase<BaseFloat> *spliced_out);
+
+
+void UnSpliceDerivative(const MatrixBase<BaseFloat> &output_deriv,
+                        int32 chunk_size_input,
+                        int32 chunk_size_output,
+                        int32 num_chunks,
+                        MatrixBase<BaseFloat> *input_deriv);
+
+
 
 // This class Nnet1Trainer basically contains functions for
 // updating the neural net, given a set of "chunks" of features
@@ -206,7 +224,6 @@ struct TrainingExample {
 // fixed in advance [we do it in these chunks for efficiency, because
 // with the left and right context, some of the computation would be
 // shared.
-
 
 
 class Nnet1Trainer {
@@ -223,136 +240,59 @@ class Nnet1Trainer {
   void TrainStep(const std::vector<TrainingExample> &data);
 
  private:
-  std::vector<Matrix<BaseFloat> > tanh_data; // The forward and also backward data; indexed by [layer][t][dim];
-  // tanh_forward[i] is the input of layer i.
+  void FormatInput(const std::vector<TrainingExample> &data); // takes the
+  // input and formats as a single matrix, in tanh_data[0].
+
+  void ForwardTanh(); // Does the forward computation for the initial (tanh)
+  // layers.
+
+  // This function gets lists of which categories are referenced in the
+  // training data "data".  It outputs as two lists: one "common_categories"
+  // that are referenced on every single frame; and one "other_categories"
+  // that are not, and which will be listed in decreasing order of
+  // frequency.
+  static void ListCategories(const std::vector<TrainingExample> &data,
+                             std::vector<int32> *common_categories,
+                             std::vector<int32> *other_categories);
+
+  void ForwardAndBackwardFinal(const std::vector<TrainingExample> &data); // Does the forward and backward computation for the final two
+  // layers (softmax and linear).
+
+  // Does the forward and backward computation for the final two layers (softmax
+  // and linear), but just considering one of the categories of output labels.
+  void ForwardAndBackwardFinalForCategory(const std::vector<TrainingExample> &data,
+                                          int32 category,
+                                          bool common_category);
+
+  // The vector chunk_sizes_ gives the sizes of the chunks at each layer, with
+  // chunk_sizes_[0] being the size of the chunk at input, and
+  // chunk_sizes_.back() being the size of the chunk at output, which is the
+  // same as chunk_size_at_output.  The chunk sizes at earlier layers may be
+  // larger, due to frame splicing.  Note: each chunk size is the chunk size at
+  // the *input* to that layer, before frame splicing; when we do frame
+  // splicing, the chunk sizes will get smaller and be the same as the chunk
+  // size at the output to that layer [i.e. the input to the next layer].  
+  std::vector<int32> chunk_sizes_;
   
-  Matrix<BaseFloat> last_tanh_backward; // This is used to store the backward derivative for the last
+  int32 num_chunks_;
+  const Nnet1 &nnet_;
+  Nnet1 *nnet_to_update_;
+
+  std::vector<Matrix<BaseFloat> > tanh_data_; // The forward and also backward data
+  // (we reuse the same memory) for the input layer [with ones appended, if
+  // needed], and for the outputs of the tanh layers.  Indexed by
+  // [layer][t][dim]; tanh_forward[i] is the input of layer i.
+  
+  Matrix<BaseFloat> last_tanh_backward_; // This is used to store the backward derivative for the last
   // tanh layer; for other layers we use the "tanh_data" for both forward and backward but in this
   // case we can't do this (relates to the fact that there are multiple linear/softmax layers).
   
-  Matrix<BaseFloat> softmax_data; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
-  Matrix<BaseFloat> linear_data; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
+  Matrix<BaseFloat> softmax_data_; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
+  Matrix<BaseFloat> linear_data_; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
 };
 
 
   
-  
-
-  
-
-
-  Nnet1Stats(Nnet1 *nnet_to_update,
-             int32 output_chunk_size);
-
-  ~Nnet1Stats();
-
-  friend class Nnet1Foo; // Not sure who.
- private:
-  KALDI_DISALLOW_COPY_AND_ASSIGN(Nnet1Stats);
-  Nnet1 *nnet_to_update;
-  
-  std::vector<std::vector<TanhLayerStats*> > tanh_stats_; // indexed by [layer index]
-  // [UBM-Gaussian], stats for initial layer.
-  std::vector<SoftmaxLayerStats*> softmax_stats_; // indexed by category; for the
-  // last-but-one layer.
-  std::vector<LinearLayerStats*> linear_stats_; // indexed by category; for the
-  // final layer.
-};
-
-
-class Nnet1ForwardComputation {
-  // This class handles the "forward" computation for the neural net.  Note:
-  // it's for a number of consecutive frames, not just one frame.
-
-  // Initialize the arrays, etc. 
-  Nnet1ForwardComputation(const Nnet1 &nnet1,
-                          int32 num_frames_output);
-
-  // Do the forward computation for a particular input.  Note regarding left and
-  // right context: the input is expected to be either of size (num_frames_output
-  //  + nnet1.LeftContext() + nnet1.RightContext()), in which case it's the actual
-  // input, or of size (num_frames_output), in which case we pad with zero input.
-  void Forward(const Matrix<BaseFloat> &input);
-  
-  const Matrix<BaseFloat> &GetOutput();
-
- private:
-  
-  Matrix<BaseFloat> input_; // The input data.
-  std::vector<Matrix<BaseFloat> > initial_data_; // The first element
-  
-};
-
-// This class stores temporary variables for
-// the forward and backward passes of calculation
-// for the neural net Nnet1.
-class Nnet1alculation {
-  // This initializer sets up the sizes and the storage.
-  //
-  Nnet1Calculation(Nnet1 &nnet1,
-                   const Matrix<BaseFloat> &feats,
-                   const std::vector<int> &gselect, // one-best Gaussian from Gaussian selection.
-                   int start_frame_at_output,
-                   int end_frame_at_output,
-                   bool do_backward):
-      nnet1_(nnet1) {
-    // TODO: set up sizes and data_ with storage.
-  }
-
-  void ForwardCalculationNoLastLayer(); // Forward calculation, but not the last layer.
-  
-  const Vector<BaseFloat>& LastLayerOutput(int32 t, int32 category); // t must be
-  // >= start_frame_at_output [as supplied to the initializer] and < end_frame_at_output;
-  // this function will compute on-demand
-  
-  // This function AddSupervision says we know the label for this category.
-  // [typically "posterior" will be 1.0; in discriminative training it may take
-  // other values.]
-  void AddSupervision(int32 t, int32 category, BaseFloat posterior = 1.0);
-  
-  // Does the back-propagation: it's plain SGD, with the given learning rate
-  // for each layer dictated by policy.layer_learning_rate.
-  void BackpropSgd(const Nnet1LearningRatePolicy &policy,
-                   Nnet1 *nnet1);
-  
-  // This function treats the "nnet1" in the pointer as a place to put
-  // the sum of the gradients; it would be initialized with zero parameters.
-  // This may be used to get the gradient on the validation set.
-  void BackpropGradient(Nnet1 *nnet1);
-  
-  
- private:
-
-  // The vector start_frame contains, indexed by layer, the first
-  // frame for which we have the input of that layer.  The last
-  // element is the 1st frame for which we have the output of the network.
-  vector<int32> start_frame_;
-  // The vector start_frame contains, indexed by layer, the (last+1)
-  // frame for which we have the input of that layer.
-  vector<int32> end_frame_;
-
-  vector<Matrix<BaseFloat> > data_; // for layer l, the input of that
-  // layer is data_[l][f], where f is a frame index (f=0 is
-  // start_frame_[l].  This goes up to nnet1_.NumLayers()-1.
-  // The very last layer of output is stored differently,
-
-  // output_data_ stores the very last layer of output.  It's in
-  // a slightly different format because we index by the
-  // "output class".  Note: we don't actually size these vectors
-  // until they're needed, in order to avoid wasting time and
-  // memory.  
-  vector<vector<Vector<BaseFloat> > > output_data_;
-  
-  const Nnet1 &nnet1_;
-
-  // The next data structure is a vector (indexed by t -
-  // start_frame_at_output), of a vector [indexed by output class]
-  // of a list of (label in class, 
-  std::vector<std::vector<std::pair<int32, BaseFloat> > > supervision_;
-  
-};
-
-
 
 
 } // namespace
