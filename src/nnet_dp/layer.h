@@ -45,13 +45,13 @@ class LinearLayer {
   
   // each row of the args to this function is one frame.
   void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output);
+               MatrixBase<BaseFloat> *output) const;
   
   // each row of the args to this function is one frame.
   void Backward(const MatrixBase<BaseFloat> &input,
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-                LinearLayer *layer_to_update);
+                LinearLayer *layer_to_update) const;
 
   void SetZero(); // used if we're using this to store gradients on a held out
   // set.  zeroes params_ and sets is_gradient_ = true.
@@ -83,13 +83,13 @@ class SoftmaxLayer {
   // Note: support frame splicing, so if input.NumCols() is < input_size,
   // splice input, and shift by one each time.
   void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output);
+               MatrixBase<BaseFloat> *output) const;
   
   void Backward(const MatrixBase<BaseFloat> &input, 
                 const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-                SoftmaxLayer *layer_to_update);
+                SoftmaxLayer *layer_to_update) const;
   
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
@@ -99,16 +99,16 @@ class SoftmaxLayer {
               const MatrixBase<BaseFloat> &sum_deriv,
               const MatrixBase<BaseFloat> &output);
   
-  void ApplySoftmax(MatrixBase<BaseFloat> *output);
+  void ApplySoftmax(MatrixBase<BaseFloat> *output) const;
 
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
-                       MatrixBase<BaseFloat> *sum_deriv);
+                       MatrixBase<BaseFloat> *sum_deriv) const;
 
   // Propagate derivative back from sum at nodes, to input.
   void ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                         MatrixBase<BaseFloat> *input_deriv);
+                         MatrixBase<BaseFloat> *input_deriv) const;
 
   BaseFloat learning_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
@@ -144,7 +144,7 @@ class TanhLayer {
   // then the first row of the "real" input will be spliced first n rows
   // of the input, then shift by one each time.
   void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output);
+               MatrixBase<BaseFloat> *output) const;
   
   // The backward pass.  Similar note about sizes and frame-splicing
   // applies as in "Forward".
@@ -152,7 +152,7 @@ class TanhLayer {
                 const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,                
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-                TanhLayer *layer_to_update);
+                TanhLayer *layer_to_update) const;
   
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
@@ -164,14 +164,14 @@ class TanhLayer {
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
-                       MatrixBase<BaseFloat> *sum_deriv);
+                       MatrixBase<BaseFloat> *sum_deriv) const;
       
   // Called from Backward().
   void ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                         MatrixBase<BaseFloat> *input_deriv);
+                         MatrixBase<BaseFloat> *input_deriv) const;
 
   
-  void ApplyTanh(MatrixBase<BaseFloat> *output);
+  void ApplyTanh(MatrixBase<BaseFloat> *output) const;
 
   BaseFloat learning_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].

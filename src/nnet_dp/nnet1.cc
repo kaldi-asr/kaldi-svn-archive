@@ -113,9 +113,10 @@ void Nnet1Trainer::ForwardTanh() {
   }  
 }
 
-static void ListCategories(const std::vector<TrainingExample> &data,
-                           std::vector<int32> *common_categories,
-                           std::vector<int32> *other_categories) {
+void Nnet1Trainer::ListCategories(
+    const std::vector<TrainingExample> &data,
+    std::vector<int32> *common_categories,
+    std::vector<int32> *other_categories) {
   unordered_map<int32, int32> category_count;
   int32 num_frames = 0;
   for (int32 chunk = 0; chunk < data.size(); chunk++) {
@@ -162,14 +163,12 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass {
   ForwardAndBackwardFinalClass(Nnet1Trainer &nnet_trainer,
                                const std::vector<TrainingExample> &data,
                                Mutex *mutex,
-                               std::vector<int32> *category_list):
+                               std::vector<int32> *category_list,
+                               double *tot_like_ptr):
       nnet_trainer_(nnet_trainer), data_(data), mutex_(mutex),
-      category_list_(category_list), tot_like_(0), tot_like_ptr_(NULL) { }
-  ForwardAndBackwardFinalClass(ForwardAndBackwardFinalClass &other):
-      nnet_trainer_(other.nnet_trainer_), data_(other.data_),
-      mutex_(other.mutex_), category_list_(other.category_list_), tot_like_(0.0),
-      tot_like_ptr_(&other.tot_like_) { }
-
+      category_list_(category_list), tot_like_(0), tot_like_ptr_(tot_like_ptr)
+  { }
+  
   void operator () () { // does the job of the class...
     while (1) { // while there are remaining categories in category_list_ to process,
       // process them.
@@ -187,12 +186,10 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass {
     }   
   }
 
-  double TotLike() { return tot_like_; }
-  
   ~ForwardAndBackwardFinalClass() {
     // The destructor is responsible for collecting the "tot_like" quantities.
-    if (tot_like_ptr_ != NULL)
-      *tot_like_ptr_ += tot_like_;
+    KALDI_ASSERT(tot_like_ptr_ != NULL);
+    *tot_like_ptr_ += tot_like_;
   }
   
   // This function should be provided. Give it this exact implementation, with
@@ -202,7 +199,13 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass {
     (*c)(); // call operator () on it.
     return NULL;
   }  
-  
+
+
+  // The following class members are not actually needed, as the threads don't
+  // need to know this information, but they are required by the
+  // RunMultiThreaded function.
+  int32 thread_id_; // 0 <= thread_number < num_threads
+  int32 num_threads_;
  private:
   Nnet1Trainer &nnet_trainer_;
   const std::vector<TrainingExample> &data_;
@@ -210,10 +213,6 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass {
   std::vector<int32> *category_list_;
   double tot_like_;
   double *tot_like_ptr_;
-  // The following class members are not actually needed, but are
-  // required by the RunMultiThreaded function.
-  int32 thread_id_; // 0 <= thread_number < num_threads
-  int32 num_threads_;
   
 };
 
@@ -231,7 +230,7 @@ double Nnet1Trainer::ForwardAndBackwardFinal(
   std::vector<int32> common_categories, other_categories;
   
   ListCategories(data, &common_categories, &other_categories);
-
+  
   last_tanh_backward_.SetZero(); // Set this matrix containing
   // the "backward" derivative of the tanh layer, to all zeros.
 
@@ -248,9 +247,11 @@ double Nnet1Trainer::ForwardAndBackwardFinal(
 
   if (!other_categories.empty()) {
     Mutex mutex; // guards "other_categories".
-    ForwardAndBackwardFinalClass c(*this, data, &mutex, &other_categories);
+    double tot_like = 0.0;
+    ForwardAndBackwardFinalClass c(*this, data, &mutex,
+                                   &other_categories, &tot_like);
     RunMultiThreaded(c); // will run with #threads = g_num_threads.
-    ans += c.TotLike();
+    ans += tot_like;
   }
   return ans;
 }
@@ -270,7 +271,7 @@ double Nnet1Trainer::ForwardAndBackwardFinalForCategory(
   Matrix<BaseFloat> &full_input = tanh_forward_data_.back(); // input to
   // softmax layer.
   { // set up labels, weights, orig_index, possibly temp_input_matrix.
-    int32 chunk_size = tanh_forward_data_.back().NumRows() / num_chunks_;
+    int32 chunk_size = tanh_forward_data_.back().NumRows() / num_chunks_,
         input_dim = full_input.NumCols();
     for (int32 i = 0; i < data.size(); i++)
       for (int32 j = 0; j < data[i].labels.size(); j++)
@@ -280,9 +281,9 @@ double Nnet1Trainer::ForwardAndBackwardFinalForCategory(
             weights.push_back(data[i].weight);
             orig_index.push_back(chunk_size*i + j);
           }
+    int32 num_examples = labels.size();
     KALDI_ASSERT((common_category && num_examples == full_input.NumRows()) ||
-                 (!common_category && num_examples < full_input.NumRows())); // or common_category
-    // should be true.
+                 (!common_category && num_examples < full_input.NumRows()));
     if (!common_category) {
       temp_input_matrix.Resize(num_examples, input_dim);
       for (int32 t = 0; t < orig_index.size(); t++) {
@@ -316,7 +317,7 @@ double Nnet1Trainer::ForwardAndBackwardFinalForCategory(
   return ans; // total log-like.
 };
 
-double ForwardAndBackwardFinalInternal(
+double Nnet1Trainer::ForwardAndBackwardFinalInternal(
     const Matrix<BaseFloat> &input, // input to softmax layer
     int32 category,
     const std::vector<BaseFloat> &weights, // one per example.
@@ -326,7 +327,7 @@ double ForwardAndBackwardFinalInternal(
   KALDI_ASSERT(weights.size() == labels.size());
   KALDI_ASSERT(input.NumRows() == input_deriv->NumRows());
   KALDI_ASSERT(input.NumCols() == input_deriv->NumCols());
-  KALDI_ASSERT(category >= 0 && category < nnet.NumCategories());
+  KALDI_ASSERT(category >= 0 && category < nnet_.NumCategories());
 
   const SoftmaxLayer &softmax_layer =
       *nnet_.final_layers_[category].softmax_layer;
@@ -363,8 +364,8 @@ double ForwardAndBackwardFinalInternal(
       KALDI_WARN << "Zero probability in neural net training: " << prob;
       prob = 1.0e-20;
     }
-    linear_backward(i, label) = 1.0 / prob;
-    ans += log(prob);
+    linear_backward(i, label) = weight / prob;
+    ans += weight * log(prob);
   }
 
   Matrix<BaseFloat> softmax_backward(softmax_forward.NumRows(),
@@ -380,26 +381,41 @@ double ForwardAndBackwardFinalInternal(
                          softmax_backward,
                          input_deriv,
                          softmax_layer_to_update);
+  return ans;
 }
 
 void Nnet1Trainer::BackwardTanh() {
   Matrix<BaseFloat> cur_output_deriv;
-  
-  for (int32 layer = initial_layers_.size() - 1; layer >= 0; layer--) {
-    TanhLayer &tanh_layer = nnet_.initial_layers_[layer],
-        *tanh_layer_to_update = &nnet_to_update_->initial_layers_[layer];
-    Matrix<BaseFloat> &output_deriv = (layer == initial_layers_.size() - 1 ?
+  int32 num_layers = nnet_.initial_layers_.size();
+  for (int32 layer = num_layers - 1; layer >= 0; layer--) {
+    TanhLayer &tanh_layer = *nnet_.initial_layers_[layer].tanh_layer,
+        *tanh_layer_to_update = nnet_to_update_->initial_layers_[layer].tanh_layer;
+    Matrix<BaseFloat> &output_deriv = (layer == num_layers - 1 ?
                                        last_tanh_backward_ : cur_output_deriv);
     // spliced_input_deriv is the derivative w.r.t. the input of this
     // layer, but w.r.t. the possibly-spliced input that directly feeds into
     // the layer, not the original un-spliced input.
     Matrix<BaseFloat> spliced_input_deriv(output_deriv.NumRows(),
-                                          tanh_layer.InputDim());
-    tanh_layer.Backward(tanh_forward_data_[i],
-
-                                          
-                                          
-    
+                                          tanh_layer.InputDim()),
+        spliced_input(output_deriv.NumRows(),
+                      tanh_layer.InputDim());
+    SpliceFrames(tanh_forward_data_[layer],
+                 num_chunks_,
+                 &spliced_input);
+    tanh_layer.Backward(spliced_input, // input to this layer.
+                        tanh_forward_data_[layer+1], // output of this layer.
+                        output_deriv, // deriv w.r.t. output of this layer
+                        (layer == 0 ? NULL : &spliced_input_deriv),
+                        tanh_layer_to_update);
+    // Now we have to "un-splice" the input derivative.
+    // This goes in a variable called "cur_output_deriv" which will
+    // be the derivative w.r.t. the output of the previous layer.
+    if (layer != 0) {
+      cur_output_deriv.Resize(tanh_forward_data_[layer-1].NumRows(),
+                              nnet_.initial_layers_[layer-1].tanh_layer->OutputDim());
+      UnSpliceDerivative(spliced_input_deriv, num_chunks_,
+                         &cur_output_deriv);
+    }
   }
 }
 

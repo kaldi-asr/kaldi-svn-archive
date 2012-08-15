@@ -109,10 +109,10 @@ class Nnet1 {
   // Returns number of linear transforms / number of layers of neurons
   int32 NumLayers() { return initial_layers_.size() + 2; }
 
-  int32 LeftContext(); // Returns #frames of left context needed [just the sum
+  int32 LeftContext() const; // Returns #frames of left context needed [just the sum
   // of left_context for each layer.]
 
-  int32 RightContext(); // Returns #frames of right context needed [just the sum
+  int32 RightContext() const; // Returns #frames of right context needed [just the sum
   // of right_context for each layer.]
 
   int32 LeftContextForLayer(int32 layer) const {
@@ -129,11 +129,11 @@ class Nnet1 {
   }
   
   // Returns number of layers before the softmax and linear layers.
-  int32 NumTanhLayers() { return initial_layers_.size(); }
+  int32 NumTanhLayers() const { return initial_layers_.size(); }
   
-  int32 NumCategories();
+  int32 NumCategories() const;
 
-  int32 NumLabelsForCategory(int32 category);
+  int32 NumLabelsForCategory(int32 category) const;
   
   Nnet1(const Nnet1 &other); // Copy constructor
  
@@ -261,9 +261,10 @@ class Nnet1Trainer {
                              std::vector<int32> *common_categories,
                              std::vector<int32> *other_categories);
 
-  double ForwardAndBackwardFinal(const std::vector<TrainingExample> &data); // Does the forward and backward computation for the final two
-  // layers (softmax and linear).
-
+  double ForwardAndBackwardFinal(const std::vector<TrainingExample> &data);
+  // Does the forward and backward computation for the final two layers (softmax
+  // and linear).  Note: returns summed, weighted log-prob.
+  
   // Does the forward and backward computation for the final two layers (softmax
   // and linear), but just considering one of the categories of output labels.
   double ForwardAndBackwardFinalForCategory(const std::vector<TrainingExample> &data,

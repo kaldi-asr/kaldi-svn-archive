@@ -60,7 +60,7 @@ LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
 
 // Called from Backward().  Computes "input_deriv".
 void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                                  MatrixBase<BaseFloat> *input_deriv) {
+                                  MatrixBase<BaseFloat> *input_deriv) const {
   
   // This would be simpler if we didn't allow frame splicing.  For
   // the case with no frame splicing, assume input_dim == full_input_dim.
@@ -94,7 +94,7 @@ void LinearLayer::Backward(
     const MatrixBase<BaseFloat> &input,
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-    LinearLayer *model_to_update) {
+    LinearLayer *model_to_update) const {
   
   input_deriv->AddMatMat(1.0, output_deriv, kNoTrans, params_, kNoTrans, 0.0);
 
@@ -215,7 +215,7 @@ void TanhLayer::Read(std::istream &in, bool binary) {
 }
 
 void TanhLayer::Forward(const MatrixBase<BaseFloat> &input,
-                        MatrixBase<BaseFloat> *output) {
+                        MatrixBase<BaseFloat> *output) const {
   // This would be simpler if we didn't allow frame splicing.  For
   // the case with no frame splicing, assume input_dim == full_input_dim.
   
@@ -243,7 +243,7 @@ void TanhLayer::Forward(const MatrixBase<BaseFloat> &input,
 // Propagate the derivative back through the nonlinearity.
 void TanhLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                                 const MatrixBase<BaseFloat> &output_deriv,
-                                MatrixBase<BaseFloat> *sum_deriv) {
+                                MatrixBase<BaseFloat> *sum_deriv) const {
   /*
     Note on the derivative of the tanh function:
     tanh'(x) = sech^2(x) = -(tanh(x)+1) (tanh(x)-1) = 1 - tanh^2(x)
@@ -266,7 +266,7 @@ void TanhLayer::Backward(
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-    TanhLayer *layer_to_update) {
+    TanhLayer *layer_to_update) const {
 
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
   // before the sigmoid is applied.
@@ -281,7 +281,7 @@ void TanhLayer::Backward(
 }
 
 
-void TanhLayer::ApplyTanh(MatrixBase<BaseFloat> *output) {
+void TanhLayer::ApplyTanh(MatrixBase<BaseFloat> *output) const {
   // Apply tanh function to each element of the output...
   // function is -1 + 2 ( 1 / (1 + e^{-2 x}))
   
@@ -354,7 +354,7 @@ void SoftmaxLayer::Read(std::istream &in, bool binary) {
 }
 
 void SoftmaxLayer::Forward(const MatrixBase<BaseFloat> &input,
-                           MatrixBase<BaseFloat> *output) {
+                           MatrixBase<BaseFloat> *output) const {
   // This would be simpler if we didn't allow frame splicing.  For
   // the case with no frame splicing, assume input_dim == full_input_dim.
   
@@ -379,7 +379,7 @@ void SoftmaxLayer::Forward(const MatrixBase<BaseFloat> &input,
   ApplySoftmax(output);
 }
 
-void SoftmaxLayer::ApplySoftmax(MatrixBase<BaseFloat> *output) {
+void SoftmaxLayer::ApplySoftmax(MatrixBase<BaseFloat> *output) const {
   // Apply softmax to each row of the output.
   for (int32 r = 0; r < output->NumRows(); r++) {
     SubVector<BaseFloat> row(*output, r);
@@ -390,7 +390,7 @@ void SoftmaxLayer::ApplySoftmax(MatrixBase<BaseFloat> *output) {
 // Propagate the derivative back through the nonlinearity.
 void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                                    const MatrixBase<BaseFloat> &output_deriv,
-                                   MatrixBase<BaseFloat> *sum_deriv) {
+                                   MatrixBase<BaseFloat> *sum_deriv) const {
   /*
     Note on the derivative of the softmax function: let it be
     p_i = exp(x_i) / sum_i exp_i
@@ -413,8 +413,7 @@ void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
 
 // Called from Backward().  Computes "input_deriv".
 void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                                     MatrixBase<BaseFloat> *input_deriv) {
-  
+                                     MatrixBase<BaseFloat> *input_deriv) const {
   // This would be simpler if we didn't allow frame splicing.  For
   // the case with no frame splicing, assume input_dim == full_input_dim.
   
@@ -445,7 +444,7 @@ void SoftmaxLayer::Backward(
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-    SoftmaxLayer *layer_to_update) {
+    SoftmaxLayer *layer_to_update) const {
   
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
   // before the sigmoid is applied.
