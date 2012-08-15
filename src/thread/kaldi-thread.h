@@ -19,6 +19,7 @@
 #define KALDI_BASE_KALDI_THREAD_H_ 1
 
 #include <pthread.h>
+#include "thread/kaldi-barrier.h"
 // This header provides a convenient mechanism for parallelization.  The idea is
 // that you have some range of integers, e.g. A ... B-1 (with B > A), and some
 // function call that takes a range of integers, and you partition these up into
@@ -36,6 +37,41 @@ extern int32 g_num_threads; // Maximum number of threads (for programs that
 // used, with --num-threads.  Programs that think they will use threads
 // should register it with their ParseOptions, as something like:
 // po.Register("num-threads", &g_num_threads, "Number of threads to use.");
+
+class MultiThreadable {
+  // To create function that does part of the job, create class that inherits
+  // this one, reimplements operator() and does part of the job based on
+  //  thread_id_ and num_threads_
+  // Note: example implementations are in thread/kaldi-thread-test.cc
+ public:
+  virtual void operator() () = 0;
+  // Does the main function of the class
+  //  Subclasses have to redefine this
+  virtual ~MultiThreadable();
+  // Optional destructure.  Note: the destructor
+  // the object passed by the user will also be called, so
+  // watch out.
+
+ public:
+  // do NOT reimplement thread_id_ and num_threads_ in derived classes, as they
+  // are used in *MultiThreadable context, so the derived classes would not see
+  // the changes made to them like this
+  /* final */ int32 thread_id_; // 0 <= thread_number < num_threads
+  /* final */ int32 num_threads_;
+
+ private:
+  // Have additional member variables as needed.
+};
+
+class ThreadWorker{ // worker thread
+  // handles waiting on barriers and launches it's job classes
+
+ public:
+  Barrier *barrier_;
+  MultiThreadable *job_;
+
+  static void *run(void *ThisPtr);  
+};
 
 class ExampleClass {
  public:
@@ -58,7 +94,7 @@ class ExampleClass {
     ExampleClass *c = static_cast<ExampleClass*>(c_in);
     (*c)(); // call operator () on it.
     return NULL;
-  }  
+  }
  public:
   int32 thread_id_; // 0 <= thread_number < num_threads
   int32 num_threads_;
@@ -97,6 +133,66 @@ template<class C> void RunMultiThreaded(const C &c_in) {
       if (pthread_join(threads[thread], NULL))
         KALDI_ERR << "Error rejoining thread.";
     delete [] threads;
+  }
+}
+
+class TerminateThread: public MultiThreadable { // job used to terminate thread
+ public:
+  TerminateThread() { }
+  // Use default copy constructor and assignment operators.
+  void operator () () {
+    pthread_exit(NULL);
+  }
+};
+
+class MultiThreadPool { // singleton class for managing the thread pool
+ public : 
+  static MultiThreadPool& Instantiate();
+
+  void *run();
+  void SetJobs(MultiThreadable** jobs);
+
+ private : 
+  pthread_t *thread_ids_;
+  std::vector<ThreadWorker> threads_;
+  Barrier *barrier_;
+
+  int32 num_threads_;
+  static bool initialized_;
+
+  void Initialize(); // this function creates the actual thread pool
+  void Reinitialize(); // re-create the thread pool, used when g_num_threads is
+  // changed
+
+ private : 
+  // prevent copying of existing instance etc.
+  inline explicit MultiThreadPool() {}
+  inline ~MultiThreadPool() {}
+  inline explicit MultiThreadPool(MultiThreadPool const&) {}
+  inline MultiThreadPool& operator=(MultiThreadPool const&) { return *this; }
+};
+
+template<class C> void RunMultiThreadedPersistent(C &c_in) {
+  if(g_num_threads == 1){
+    C c(c_in); // copy of c_in, for the consistency
+    c.num_threads_ = 1;
+    c.thread_id_ = 0;
+    c(); // just call the method on object provided
+  }else{
+    MultiThreadPool::Instantiate();
+    // we have to prepare jobs here, because it is the last place the class C is
+    // known
+    MultiThreadable** jobs = new MultiThreadable*[g_num_threads];
+    for (int32 thread = 0; thread < g_num_threads; thread++) {
+      jobs[thread] = new C(c_in);
+    }
+    MultiThreadPool::Instantiate().SetJobs(jobs);
+    MultiThreadPool::Instantiate().run();
+
+    for (int32 thread = 0; thread < g_num_threads; thread++) {
+      delete jobs[thread];
+    }
+    delete [] jobs;
   }
 }
 
