@@ -2,6 +2,7 @@
 
 // Copyright 2012  Daniel Povey
 
+
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -114,13 +115,17 @@ class Nnet1 {
   int32 RightContext(); // Returns #frames of right context needed [just the sum
   // of right_context for each layer.]
 
-  int32 LeftContextForLayer(int32 layer) {
+  int32 LeftContextForLayer(int32 layer) const {
     KALDI_ASSERT(layer >= 0 && layer < initial_layers_.size());
     return initial_layers_[layer].left_context;
   }
-  int32 RightContextForLayer(int32 layer) {
+  int32 RightContextForLayer(int32 layer) const {
     KALDI_ASSERT(layer >= 0 && layer < initial_layers_.size());
     return initial_layers_[layer].right_context;
+  }
+  int32 LayerIsSpliced(int32 layer) const { // return true if input to
+    // layer "layer" is spliced over time.
+    return (LeftContextForLayer(layer) + RightContextForLayer(layer) > 0);
   }
   
   // Returns number of layers before the softmax and linear layers.
@@ -152,14 +157,15 @@ class Nnet1 {
   void Read(std::istream &is, bool binary);
 
   void Check(); // Checks that the parameters make sense.
-  
+
+  friend class Nnet1Trainer;
  private:
   const Nnet1 &operator = (const Nnet1 &other);  // Disallow assignment.
   
   struct InitialLayerInfo {
     int left_context; // >= 0, left temporal context.
     int right_context; // >= 0, right temporal context.
-    TanhLayer* layer; 
+    TanhLayer *tanh_layer; 
   };
   
   std::vector<InitialLayerInfo> initial_layers_; // Info for the initial
@@ -204,18 +210,13 @@ struct TrainingExample {
 
 
 void SpliceFrames(const MatrixBase<BaseFloat> &input,
-                  int32 chunk_size_input,
-                  int32 chunk_size_output,
                   int32 num_chunks,
                   MatrixBase<BaseFloat> *spliced_out);
 
 
 void UnSpliceDerivative(const MatrixBase<BaseFloat> &output_deriv,
-                        int32 chunk_size_input,
-                        int32 chunk_size_output,
                         int32 num_chunks,
                         MatrixBase<BaseFloat> *input_deriv);
-
 
 
 // This class Nnet1Trainer basically contains functions for
@@ -236,34 +237,48 @@ class Nnet1Trainer {
                int32 num_chunks, // number of chunks we process at the same time.
                Nnet1 *nnet_to_update);
 
-
   void TrainStep(const std::vector<TrainingExample> &data);
 
  private:
+  class ForwardAndBackwardFinalClass;
+  
   void FormatInput(const std::vector<TrainingExample> &data); // takes the
-  // input and formats as a single matrix, in tanh_data[0].
+  // input and formats as a single matrix, in tanh_forward_data[0].
 
   void ForwardTanh(); // Does the forward computation for the initial (tanh)
   // layers.
 
+  void BackwardTanh(); // Does the backward computation for the initial (tanh)
+  // layers.
+
+  
   // This function gets lists of which categories are referenced in the
   // training data "data".  It outputs as two lists: one "common_categories"
   // that are referenced on every single frame; and one "other_categories"
-  // that are not, and which will be listed in decreasing order of
+  // that are not, and which will be listed in increasing order of
   // frequency.
   static void ListCategories(const std::vector<TrainingExample> &data,
                              std::vector<int32> *common_categories,
                              std::vector<int32> *other_categories);
 
-  void ForwardAndBackwardFinal(const std::vector<TrainingExample> &data); // Does the forward and backward computation for the final two
+  double ForwardAndBackwardFinal(const std::vector<TrainingExample> &data); // Does the forward and backward computation for the final two
   // layers (softmax and linear).
 
   // Does the forward and backward computation for the final two layers (softmax
   // and linear), but just considering one of the categories of output labels.
-  void ForwardAndBackwardFinalForCategory(const std::vector<TrainingExample> &data,
-                                          int32 category,
-                                          bool common_category);
+  double ForwardAndBackwardFinalForCategory(const std::vector<TrainingExample> &data,
+                                            int32 category,
+                                            bool common_category);
 
+  // Called inside ForwardAndBackwardFinalForCategory, which just handles
+  // some mapping issues and then calls this.
+  double ForwardAndBackwardFinalInternal(
+      const Matrix<BaseFloat> &input, // input to softmax layer
+      int32 category,
+      const std::vector<BaseFloat> &weights, // one per example.
+      const std::vector<int32> &labels, // one per example
+      Matrix<BaseFloat> *input_deriv); //derivative w.r.t "input".
+  
   // The vector chunk_sizes_ gives the sizes of the chunks at each layer, with
   // chunk_sizes_[0] being the size of the chunk at input, and
   // chunk_sizes_.back() being the size of the chunk at output, which is the
@@ -278,10 +293,10 @@ class Nnet1Trainer {
   const Nnet1 &nnet_;
   Nnet1 *nnet_to_update_;
 
-  std::vector<Matrix<BaseFloat> > tanh_data_; // The forward and also backward data
-  // (we reuse the same memory) for the input layer [with ones appended, if
-  // needed], and for the outputs of the tanh layers.  Indexed by
-  // [layer][t][dim]; tanh_forward[i] is the input of layer i.
+  std::vector<Matrix<BaseFloat> > tanh_forward_data_; // The forward data
+  // for the input layer [with ones appended, if needed], and for the outputs of
+  // the tanh layers.  Indexed by [layer][t][dim]; tanh_forward[i] is the input
+  // of layer i.
   
   Matrix<BaseFloat> last_tanh_backward_; // This is used to store the backward derivative for the last
   // tanh layer; for other layers we use the "tanh_data" for both forward and backward but in this
@@ -298,4 +313,3 @@ class Nnet1Trainer {
 } // namespace
 
 #endif
-

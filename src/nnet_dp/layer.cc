@@ -265,7 +265,7 @@ void TanhLayer::Backward(
     const MatrixBase<BaseFloat> &input,
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
-    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input, which we add to.
+    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
     TanhLayer *layer_to_update) {
 
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
@@ -273,8 +273,9 @@ void TanhLayer::Backward(
   Matrix<BaseFloat> sum_deriv(output.NumRows(), output.NumCols(),
                               kUndefined);
   ComputeSumDeriv(output, output_deriv, &sum_deriv);
-  
-  ComputeInputDeriv(sum_deriv, input_deriv);
+
+  if (input_deriv)
+    ComputeInputDeriv(sum_deriv, input_deriv);
 
   layer_to_update->Update(input, sum_deriv);
 }
@@ -443,9 +444,9 @@ void SoftmaxLayer::Backward(
     const MatrixBase<BaseFloat> &input,
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
-    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input, which we add to.
+    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
     SoftmaxLayer *layer_to_update) {
-
+  
   // sum_deriv will be the derivative of the objective function w.r.t. the sum
   // before the sigmoid is applied.
   Matrix<BaseFloat> sum_deriv(output.NumRows(), output.NumCols(),
