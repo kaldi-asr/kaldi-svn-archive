@@ -45,7 +45,7 @@
 // ThreadWorker is given a pointer to a copy of c and calls c() in it's thread.
 // After doing this, it Waits on barrier to sync with all the threads and the
 // main one, then Waits again until it receives another job.
-/
+
 namespace kaldi {
 
 extern int32 g_num_threads;  // Maximum number of threads (for programs that
