@@ -30,6 +30,22 @@
 // multi-threading.
 
 
+// Description of MultiThreadPool and it's usage:
+//
+// Usage of the RunMultiThreadedPersistent is the same as the usage of
+// RunMultiThreaded, except that the object provided ust inherit MultiThreadable
+// and it's run method isn't called, but operator() is called directly instead.
+// Member variables num_threads_ and thread_id_ must NOT be redefined in the
+// classes used, as they are called when using MultiThreadable*
+//
+// MultiThreadPool is a singleton class, it's instance is obtained using
+// MultiThreadable::Instantiate(). First instantiation initializes the thread
+// pool using g_num_threads threads, each of those threads runs infinite loop in
+// ThreadWorker::run(). When RunMultiThreadedPersistent(c) is called, each
+// ThreadWorker is given a pointer to a copy of c and calls c() in it's thread.
+// After doing this, it Waits on barrier to sync with all the threads and the
+// main one, then Waits again until it receives another job.
+/
 namespace kaldi {
 
 extern int32 g_num_threads;  // Maximum number of threads (for programs that
