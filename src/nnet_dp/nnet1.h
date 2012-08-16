@@ -148,7 +148,7 @@ class Nnet1 {
   int32 NumTanhLayers() const { return initial_layers_.size(); }
   
   int32 NumCategories() const { return final_layers_.size(); }
-  
+
   int32 NumLabelsForCategory(int32 category) const {
     return final_layers_[category].linear_layer->OutputDim();
   }
@@ -163,6 +163,9 @@ class Nnet1 {
 
   void Init(const Nnet1InitInfo &init_info);
 
+  void ClearFinalLayers();
+  void ClearInitialLayers();
+
   void Destroy();
   
   void Write(std::ostream &os, bool binary) const;
@@ -176,6 +179,7 @@ class Nnet1 {
   const Nnet1 &operator = (const Nnet1 &other);  // Disallow assignment.
   
   struct InitialLayerInfo {
+    // should probably use short for left and right context?
     int left_context; // >= 0, left temporal context.
     int right_context; // >= 0, right temporal context.
     TanhLayer *tanh_layer; 

@@ -137,7 +137,31 @@ void UnSpliceDerivative(const MatrixBase<BaseFloat> &spliced_deriv,
     }
   }
 }
-  
+
+Nnet1::Nnet1(const Nnet1 &other){
+  int32 num_tanh_layers = other.NumTanhLayers();
+  for (int32 layer = 0; layer < num_tanh_layers; layer++) {
+    InitialLayerInfo layer_info ;
+    layer_info.left_context = other.initial_layers_[layer].left_context;
+    layer_info.right_context = other.initial_layers_[layer].right_context;
+    // using default copy constructor here for tanh_layer. 
+    layer_info.tanh_layer = new TanhLayer(
+                          *other.initial_layers_[layer].tanh_layer);
+    initial_layers_.push_back(layer_info);
+  }
+
+  int32 num_categories = other.NumCategories(); 
+  for (int32 categ = 0; categ < num_categories; categ++) {
+    FinalLayerInfo categ_info ;
+    // using default copy constructor here for tanh_categ. 
+    categ_info.softmax_layer = new SoftmaxLayer(
+                          *other.final_layers_[categ].softmax_layer);
+    categ_info.linear_layer = new LinearLayer(
+                          *other.final_layers_[categ].linear_layer);
+    final_layers_.push_back(categ_info);
+  }
+}
+ 
 void Nnet1Trainer::TrainStep(const std::vector<TrainingExample> &data) {
   FormatInput(data);
   ForwardTanh();
@@ -472,6 +496,155 @@ void Nnet1Trainer::BackwardTanh() {
 }
 
 
+void Nnet1::ClearInitialLayers() {
+  for (std::vector<InitialLayerInfo>::iterator iter = initial_layers_.begin();
+       iter != initial_layers_.end(); ++iter) {
+    if (iter->tanh_layer != NULL) {
+      delete iter->tanh_layer ; 
+    }
+  }
+  initial_layers_.clear() ; 
+}
+
+void Nnet1::ClearFinalLayers() {
+  for (std::vector<FinalLayerInfo>::iterator iter = final_layers_.begin();
+       iter != final_layers_.end(); ++iter) {
+    if (iter->softmax_layer != NULL) {
+      delete iter->softmax_layer ; 
+    }
+    if (iter->linear_layer != NULL) {
+      delete iter->linear_layer ; 
+    }
+  }
+  final_layers_.clear() ; 
+}
+
+void Nnet1::Destroy() {
+  ClearInitialLayers();
+  ClearFinalLayers();
+}
+
+int32 Nnet1::LeftContext() const {
+  int32 left_context = 0;
+  for (int32 i = 0, end = NumTanhLayers(); i < end; i++) 
+    left_context += LeftContextForLayer(i);
+  return left_context ; 
+}
+
+int32 Nnet1::RightContext() const {
+  int32 right_context = 0;
+  for (int32 i = 0, end = NumTanhLayers(); i < end; i++) 
+    right_context += RightContextForLayer(i);
+  return right_context ; 
+}
+
+void Nnet1::Write(std::ostream &os, bool binary) const {
+  int32 num_tanh_layers = NumTanhLayers() ; 
+  if (num_tanh_layers == 0) {
+    KALDI_WARN << "Trying to write empty Nnet1 object.";
+  }
+  WriteToken(os, binary, "<NumTanhLayers>");
+  WriteBasicType(os, binary, num_tanh_layers);
+
+  // Category information may end up being derivative
+  // of other information. If so, remove the following
+  // parts about categories and their labels, and
+  // derive from the rest of the information.
+  int32 num_categories = NumCategories() ; 
+  if (num_categories == 0) {
+    KALDI_WARN << "NumCategories is 0." ;
+  }
+  WriteToken(os, binary, "<NumCategories>");
+  WriteBasicType(os, binary, num_categories);
+
+  WriteToken(os, binary, "<NumLabelsForCategories>");
+  for (int i = 0; i < num_categories; i++)
+    WriteBasicType(os, binary, NumLabelsForCategory(i)) ;
+
+  WriteToken(os, binary, "<InitialLayers>");
+  // InitialLayerInfo is a small enough struct that we 
+  // are not adding a Read/Write functionality to it.
+  for (std::vector<InitialLayerInfo>::const_iterator 
+        it = initial_layers_.begin(), end = initial_layers_.end(); 
+        it != end; ++it) {
+    WriteToken(os, binary, "<left_context>");
+    WriteBasicType(os, binary, it->left_context);
+    WriteToken(os, binary, "<right_context>");
+    WriteBasicType(os, binary, it->right_context);
+    it->tanh_layer->Write(os, binary);
+  }
+
+  WriteToken(os, binary, "<FinalLayers>");
+  // FinalLayerInfo is a small enough struct that we 
+  // are not adding a Read/Write functionality to it.
+  for (std::vector<FinalLayerInfo>::const_iterator 
+        it = final_layers_.begin(), end = final_layers_.end(); 
+        it != end; ++it) {
+    it->softmax_layer->Write(os, binary);
+    it->linear_layer->Write(os, binary);
+  }
+}
+
+void Nnet1::Read(std::istream &is, bool binary) {
+  if (NumTanhLayers() != 0)
+    KALDI_WARN << "Adding to a neural network that is already initialized" ;
+
+  int32 num_tanh_layers = 0;
+  ExpectToken(is, binary, "<NumTanhLayers>");
+  ReadBasicType(is, binary, &num_tanh_layers);
+  if (num_tanh_layers == 0) {
+    KALDI_WARN << "Read NumLayers = 0";
+  }
+
+  // Category information may end up being derivative
+  // of other information. If so, remove the following
+  // parts about categories and their labels, and
+  // derive from the rest of the information.
+  int32 num_categories = 0;
+  ExpectToken(is, binary, "<NumCategories>");
+  ReadBasicType(is, binary, &num_categories);
+  KALDI_WARN << "NumCategories read but not yet used!";
+  if (num_categories == 0) {
+    KALDI_WARN << "Read NumCategories = 0." ;
+  }
+
+  ExpectToken(is, binary, "<NumLabelsForCategories>");
+  for (int32 i = 0; i < num_categories; i++) {
+    int32 num_categ_lay = 0;
+    ReadBasicType(is, binary, &num_categ_lay);
+    KALDI_WARN << "NumLabels for category read by not yet used!";
+    if (num_categ_lay == 0) {
+      KALDI_WARN << "NumLabels for category " << i << " is zero.";
+    }
+  }
+
+  ExpectToken(is, binary, "<InitialLayers>");
+  // InitialLayerInfo is a small enough struct that we 
+  // are not adding a Read/Write functionality to it.
+  for (int32 i = 0; i < num_tanh_layers; i++) {
+    InitialLayerInfo layer_info;
+    ExpectToken(is, binary, "<left_context>");
+    ReadBasicType(is, binary, &layer_info.left_context);
+    ExpectToken(is, binary, "<right_context>");
+    ReadBasicType(is, binary, &layer_info.right_context);
+    // Dan, it is possible that for consistency's sake,
+    // you want to use a call to TanhLayer->Read here. 
+    // I did it this way, to avoid using the default 
+    // constructor.
+    layer_info.tanh_layer = new TanhLayer(is, binary);
+    initial_layers_.push_back(layer_info);
+  }
+
+  ExpectToken(is, binary, "<FinalLayers>");
+  for (int32 i =0; i < num_categories; i++){
+    FinalLayerInfo layer_info;
+    // see comment above about the way TanhLayer is constructed
+    // using a constructor taking the input stream as argument.
+    layer_info.softmax_layer = new SoftmaxLayer(is, binary);
+    layer_info.linear_layer = new LinearLayer(is, binary);
+    final_layers_.push_back(layer_info);
+  }
+}
 
 
 } // namespace kaldi

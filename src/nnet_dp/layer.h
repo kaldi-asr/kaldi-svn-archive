@@ -39,6 +39,7 @@ class LinearLayer {
   int32 OutputDim() const { return params_.NumRows(); }
   
   LinearLayer(int size, BaseFloat diagonal_element, BaseFloat learning_rate);
+  LinearLayer(std::istream &in, bool binary) { Read(in, binary); }
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
@@ -74,6 +75,7 @@ class SoftmaxLayer {
   int32 InputDim() const { return params_.NumCols(); }
   int32 OutputDim() const { return params_.NumRows(); }
   
+  SoftmaxLayer(std::istream &is, bool binary) { Read(is, binary); }
   SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate); // Note:
   // this layer is initialized to zero.
   
@@ -135,6 +137,8 @@ class TanhLayer {
   TanhLayer(int input_size,
             int output_size,
             BaseFloat learning_rate);
+
+  TanhLayer(std::istream &in, bool binary) { Read(in, binary); };
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
