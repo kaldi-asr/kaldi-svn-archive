@@ -57,6 +57,7 @@ class LinearLayer {
   // set.  zeroes params_ and sets is_gradient_ = true.
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
+  // Use default copy constructor and assignment oeprator.
  private:
   void Update(const MatrixBase<BaseFloat> &input,
               const MatrixBase<BaseFloat> &output_deriv);
@@ -93,7 +94,7 @@ class SoftmaxLayer {
   
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-
+  // Use default copy constructor and assignment oeprator.
  private:
   void Update(const MatrixBase<BaseFloat> &input,
               const MatrixBase<BaseFloat> &sum_deriv,
@@ -156,11 +157,11 @@ class TanhLayer {
   
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-
+  // Use default copy constructor and assignment oeprator.
  private:
   void Update(const MatrixBase<BaseFloat> &input,
               const MatrixBase<BaseFloat> &sum_deriv);
-
+  
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,

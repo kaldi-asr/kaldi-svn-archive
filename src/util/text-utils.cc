@@ -20,6 +20,41 @@
 
 namespace kaldi {
 
+
+template<class F>
+bool SplitStringToFloats(const std::string &full,
+                         const char *delim,
+                         bool omit_empty_strings, // typically false
+                         std::vector<F> *out) {
+  assert(out != NULL);
+  if ( *(full.c_str()) == '\0') {
+    out->clear();
+    return true;
+  }
+  std::vector<std::string> split;
+  SplitStringToVector(full, delim, &split, omit_empty_strings);
+  out->resize(split.size());
+  for (size_t i = 0; i < split.size(); i++) {
+    F f = 0;
+    if (!ConvertStringToReal(split[i], &f))
+      return false;
+    (*out)[i] = f;
+  }
+  return true;
+}
+
+// Instantiate the template above for float and double.
+template
+bool SplitStringToFloats(const std::string &full,
+                         const char *delim,
+                         bool omit_empty_strings,
+                         std::vector<float> *out);
+template
+bool SplitStringToFloats(const std::string &full,
+                         const char *delim,
+                         bool omit_empty_strings,
+                         std::vector<double> *out);
+
 void SplitStringToVector(const std::string &full, const char *delim,
                          std::vector<std::string> *out,
                          bool omit_empty_strings) {

@@ -20,6 +20,58 @@
 
 namespace kaldi {
 
+
+Nnet1InitInfo::Nnet1InitInfo(const Nnet1InitConfig &config,
+                             const std::vector<int32> &category_sizes_in) {
+  SplitStringToIntegers(config.layer_sizes, ":", false, &layer_sizes);
+  if (layer_sizes.size() < 2 ||
+      *std::min_element(layer_sizes.begin(), layer_sizes.end()) < 1)
+    KALDI_ERR << "Invalid option --layer-sizes="
+              << config.layer_sizes;
+  std::vector<std::string> context_frames_vec;
+  SplitStringToVector(config.context_frames, ":", &context_frames_vec, false);
+  context_frames.clear();
+  for (size_t i = 0; i < context_frames_vec.size(); i++) {
+    std::vector<int32> this_context_frames; // vector of size 2.
+    SplitStringToIntegers(context_frames_vec[i], ",", false,
+                          &this_context_frames);
+    if (this_context_frames.size() != 2 ||
+        this_context_frames[0] < 0 || this_context_frames[1] > 0)
+      KALDI_ERR << "Invalid option --context-frames=" << config.context_frames;
+    context_frames.push_back(std::make_pair(this_context_frames[0],
+                                            this_context_frames[1]));
+  }
+  SplitStringToFloats(config.learning_rates, ":", false,
+                      &learning_rates);
+  int32 n = context_frames.size(); // Number of tanh layers.
+  if (layer_sizes.size() != n+1)
+    KALDI_ERR << "Inconsistent layer sizes: from --context-frames, number of tanh "
+        "layers seems to be " << n << ", expecting " << (n+1) << " entries in "
+        "--layer-sizes option but got --layer-sizes=" << config.layer_sizes;
+  if (learning_rates.size() == 1)
+    learning_rates.resize(n+2, learning_rates[0]); // all the same.
+  if (learning_rates.size() != n+2)
+    KALDI_ERR << "Inconsistent layer sizes: from --context-frames, number of tanh "
+        "layers seems to be " << n << ", expecting 1 or " << (n+2) << " entries "
+        "in --learning-rates option but got --learning-rates="
+              << config.learning_rates;
+  category_sizes = category_sizes_in;
+  KALDI_ASSERT(category_sizes.size() > 0 &&
+               *std::min_element(category_sizes.begin(),
+                                 category_sizes.end()) > 0);
+}
+
+
+void Nnet1::Init(const Nnet1InitInfo &info) {
+  // category_sizes gives number of
+  // labels in each category.  For single-language, will be [# first-level nodes in tree],
+  // then for each first-level node that has >1 leaf, the # second-level nodes for that
+  // first-level node.
+
+  
+}
+
+
 void SpliceFrames(const MatrixBase<BaseFloat> &input,
                   int32 num_chunks,
                   MatrixBase<BaseFloat> *output) { // splice together

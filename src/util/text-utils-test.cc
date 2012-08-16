@@ -108,6 +108,30 @@ void TestSplitStringToIntegers() {
   }
 }
 
+
+
+void TestSplitStringToFloats() {
+  {
+    std::vector<float> v;
+    assert(SplitStringToFloats("-1:2.5:4", ":", false, &v) == true
+           && v.size() == 3 && v[0] == -1 && v[1] == 2.5 && v[2] == 4);
+    assert(SplitStringToFloats("-1:2.5:4:", ":", false, &v) == false);
+    assert(SplitStringToFloats(":-1::2:4:", ":", true, &v) == true
+           && v.size() == 3 && v[0] == -1 && v[1] == 2 && v[2] == 4);
+    assert(SplitStringToFloats("-1\n2.5\t4", " \n\t\r", false, &v) == true
+           && v.size() == 3 && v[0] == -1 && v[1] == 2.5 && v[2] == 4);
+    assert(SplitStringToFloats(" ", " \n\t\r", true, &v) == true
+           && v.size() == 0);
+    assert(SplitStringToFloats("", " \n\t\r", false, &v) == true
+           && v.size() == 0);
+  }
+
+  {
+    std::vector<double> v;
+    assert(SplitStringToFloats("-1:2:4", ":", false, &v) == true);
+  }
+}
+
 void TestConvertStringToInteger() {
   int32 i;
   assert(ConvertStringToInteger("12345", &i) && i == 12345);
@@ -208,6 +232,7 @@ int main() {
   using namespace kaldi;
   TestSplitStringToVector();
   TestSplitStringToIntegers();
+  TestSplitStringToFloats();
   TestConvertStringToInteger();
   TestConvertStringToReal<float>();
   TestConvertStringToReal<double>();

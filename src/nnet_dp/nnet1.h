@@ -67,7 +67,7 @@ namespace kaldi {
 // final layers.]
 
 struct Nnet1InitConfig {
-  std::string layer_size; // e.g. 23:512:512:512.  Only covers the
+  std::string layer_sizes; // e.g. 23:512:512:512.  Only covers the
   // input and hidden layers; for the last layer, we work out the number of
   // leaves etc.  from other information which is supplied to this program.
   // These sizes do not include the frames of context...
@@ -82,7 +82,7 @@ struct Nnet1InitConfig {
   Nnet1InitConfig() { }
   
   void Register (ParseOptions *po) {
-    po->Register("layer-size", &layer_size,
+    po->Register("layer-sizes", &layer_sizes,
                  "Sizes of input and hidden units (before splicing), e.g. \"23:512:512:512\"");
     po->Register("context-frames", &context_frames,
                  "For each matrix, the (left,right) frames of temporal context at the input "
@@ -94,6 +94,22 @@ struct Nnet1InitConfig {
   }
 };
 
+struct Nnet1InitInfo {
+  // Suppose n is the number of tanh layers....
+  
+  std::vector<int32> layer_sizes; // #neurons for input and outputs of tanh layers.  Size n+1.
+  std::vector<std::pair<int32, int32> > context_frames; // # context frames for tanh layers.  Size n.
+  std::vector<float> learning_rates; // just one learning rate, or a vector, one for
+  // each layer, including the last two layers.  Size n+2.
+
+  std::vector<int32> category_sizes;  // category_sizes gives number of
+  // labels in each category.  For single-language, will be [# first-level nodes in tree],
+  // then for each first-level node that has >1 leaf, the # second-level nodes for that
+  // first-level node.
+
+  Nnet1InitInfo(const Nnet1InitConfig &config,
+                const std::vector<int32> &category_sizes);
+};
 
 // Nnet1 is a sequence of TanhLayers, then a SoftmaxLayer, then a LinearLayer
 // [which is similar to Gaussian mixture weights].  The TanhLayers may see
@@ -131,24 +147,21 @@ class Nnet1 {
   // Returns number of layers before the softmax and linear layers.
   int32 NumTanhLayers() const { return initial_layers_.size(); }
   
-  int32 NumCategories() const;
-
-  int32 NumLabelsForCategory(int32 category) const;
+  int32 NumCategories() const { return final_layers_.size(); }
+  
+  int32 NumLabelsForCategory(int32 category) const {
+    return final_layers_[category].linear_layer->OutputDim();
+  }
   
   Nnet1(const Nnet1 &other); // Copy constructor
  
   Nnet1() { }
 
-  Nnet1(const Nnet1InitConfig &config,
-        const std::vector<int32> &category_sizes) { Init(config, category_sizes); }
-  
+  Nnet1(const Nnet1InitInfo &init_info) { Init(init_info); }
+
   ~Nnet1() { Destroy(); }
 
-  void Init(const Nnet1InitConfig &config,
-            const std::vector<int32> &category_sizes); // category_sizes gives number of
-  // labels in each category.  For single-language, will be [# first-level nodes in tree],
-  // then for each first-level node that has >1 leaf, the # second-level nodes for that
-  // first-level node.
+  void Init(const Nnet1InitInfo &init_info);
 
   void Destroy();
   
@@ -225,7 +238,6 @@ void UnSpliceDerivative(const MatrixBase<BaseFloat> &output_deriv,
 // fixed in advance [we do it in these chunks for efficiency, because
 // with the left and right context, some of the computation would be
 // shared.
-
 
 class Nnet1Trainer {
 

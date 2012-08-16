@@ -19,6 +19,7 @@
 
 namespace kaldi {
 
+// this function is not used.
 static void SpliceFrames(const MatrixBase<BaseFloat> &input,
                          MatrixBase<BaseFloat> *spliced_out) {
   // This function [specific to this .cc file] splices

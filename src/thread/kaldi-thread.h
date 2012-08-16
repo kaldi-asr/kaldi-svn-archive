@@ -48,7 +48,7 @@ class MultiThreadable {
   // Does the main function of the class
   //  Subclasses have to redefine this
   virtual ~MultiThreadable();
-  // Optional destructure.  Note: the destructor
+  // Optional destructor.  Note: the destructor
   // the object passed by the user will also be called, so
   // watch out.
 
@@ -83,7 +83,7 @@ class ExampleClass {
     // Does the main function of the class
   }
   ~ExampleClass() {
-    // Optional destructure.  Note: the destructor
+    // Optional destructor.  Note: the destructor
     // the object passed by the user will also be called, so
     // watch out.
   }
@@ -146,13 +146,13 @@ class TerminateThread: public MultiThreadable { // job used to terminate thread
 };
 
 class MultiThreadPool { // singleton class for managing the thread pool
- public : 
+ public:
   static MultiThreadPool& Instantiate();
 
   void *run();
   void SetJobs(MultiThreadable** jobs);
 
- private : 
+ private: 
   pthread_t *thread_ids_;
   std::vector<ThreadWorker> threads_;
   Barrier *barrier_;
@@ -164,7 +164,7 @@ class MultiThreadPool { // singleton class for managing the thread pool
   void Reinitialize(); // re-create the thread pool, used when g_num_threads is
   // changed
 
- private : 
+ private: 
   // prevent copying of existing instance etc.
   inline explicit MultiThreadPool() {}
   inline ~MultiThreadPool() {}
@@ -178,7 +178,7 @@ template<class C> void RunMultiThreadedPersistent(C &c_in) {
     c.num_threads_ = 1;
     c.thread_id_ = 0;
     c(); // just call the method on object provided
-  }else{
+  } else {
     MultiThreadPool::Instantiate();
     // we have to prepare jobs here, because it is the last place the class C is
     // known
