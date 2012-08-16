@@ -7,8 +7,6 @@
 
 =====
 dan's TODO:
- minor: in SplitStringToVector, move the boolean argument to position 3.
-
  change on-disk formats to make memory mapping easier?
  address roundoff issues RE lattice generation?
   

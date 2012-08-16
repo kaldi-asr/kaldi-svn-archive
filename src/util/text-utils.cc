@@ -32,7 +32,7 @@ bool SplitStringToFloats(const std::string &full,
     return true;
   }
   std::vector<std::string> split;
-  SplitStringToVector(full, delim, &split, omit_empty_strings);
+  SplitStringToVector(full, delim, omit_empty_strings, &split);
   out->resize(split.size());
   for (size_t i = 0; i < split.size(); i++) {
     F f = 0;
@@ -56,8 +56,8 @@ bool SplitStringToFloats(const std::string &full,
                          std::vector<double> *out);
 
 void SplitStringToVector(const std::string &full, const char *delim,
-                         std::vector<std::string> *out,
-                         bool omit_empty_strings) {
+                         bool omit_empty_strings,
+                         std::vector<std::string> *out) {
   size_t start = 0, found = 0, end = full.size();
   out->clear();
   while (found != std::string::npos) {

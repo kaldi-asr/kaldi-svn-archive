@@ -29,7 +29,7 @@ Nnet1InitInfo::Nnet1InitInfo(const Nnet1InitConfig &config,
     KALDI_ERR << "Invalid option --layer-sizes="
               << config.layer_sizes;
   std::vector<std::string> context_frames_vec;
-  SplitStringToVector(config.context_frames, ":", &context_frames_vec, false);
+  SplitStringToVector(config.context_frames, ":", false, &context_frames_vec);
   context_frames.clear();
   for (size_t i = 0; i < context_frames_vec.size(); i++) {
     std::vector<int32> this_context_frames; // vector of size 2.

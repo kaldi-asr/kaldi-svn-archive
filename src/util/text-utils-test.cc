@@ -40,11 +40,11 @@ void TestSplitStringToVector() {
 
   {
     std::vector<std::string> str_vec;
-    SplitStringToVector("", " ", &str_vec, false);
+    SplitStringToVector("", " ", false, &str_vec);
     assert(str_vec.size() == 1);  // If this fails it may just mean
     // that someone changed the
     // semantics of SplitStringToVector in a reasonable way.
-    SplitStringToVector("", " ", &str_vec, true);
+    SplitStringToVector("", " ", true, &str_vec);
     assert(str_vec.empty());
   }
   for (int j = 0; j < 100; j++) {
@@ -57,7 +57,7 @@ void TestSplitStringToVector() {
     std::string delim;
     delim.push_back(GetRandDelim());
     bool omit_empty_strings = (rand() %2 == 0)? true : false;
-    SplitStringToVector(full, delim.c_str(), &str_vec, omit_empty_strings);
+    SplitStringToVector(full, delim.c_str(), omit_empty_strings, &str_vec);
     std::string new_full;
     for (size_t i = 0; i < str_vec.size(); i++) {
       if (omit_empty_strings) assert(str_vec[i] != "");
