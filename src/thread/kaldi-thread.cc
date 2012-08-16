@@ -19,7 +19,7 @@
 #include "thread/kaldi-thread.h"
 
 namespace kaldi {
-int32 g_num_threads = 8; // Initialize this global variable.
+int32 g_num_threads = 8;  // Initialize this global variable.
 
 MultiThreadable::~MultiThreadable() {
   // default implementation does nothing
@@ -27,31 +27,31 @@ MultiThreadable::~MultiThreadable() {
 
 void *ThreadWorker::run(void *this_ptr_void) {
   ThreadWorker *this_ptr = static_cast<ThreadWorker*>(this_ptr_void);
-  while(true){
-    this_ptr->barrier_->Wait(); // wait until parent comes with workers
-    (*(this_ptr->job_))(); // call operator () on worker.
-    this_ptr->barrier_->Wait(); // work is done, sync with parent
+  while (true) {
+    this_ptr->barrier_->Wait();  // wait until parent comes with workers
+    (*(this_ptr->job_))();  // call operator () on worker.
+    this_ptr->barrier_->Wait();  // work is done, sync with parent
   }
   return NULL;
-}  
+}
 
 bool MultiThreadPool::initialized_ = false;
 MultiThreadPool& MultiThreadPool::Instantiate() {
-  static MultiThreadPool instance; // Note: static variable inside function 
+  static MultiThreadPool instance;  // Note: static variable inside function
   // gets initialized automatically after first function call
-  if(initialized_ == true && instance.num_threads_ != g_num_threads){
+  if (initialized_ == true && instance.num_threads_ != g_num_threads) {
     instance.Reinitialize();
   }
-  if(initialized_ == false){
+  if (initialized_ == false) {
     instance.Initialize();
   }
   return instance;
 }
 
-void MultiThreadPool::Reinitialize(){ // re-create thread pool, used only if
- // g_num_threads was changed
+void MultiThreadPool::Reinitialize() {  // re-create thread pool, used only if
+  // g_num_threads was changed
 
-  if(this->num_threads_ > 1){
+  if (this->num_threads_ > 1) {
     // if the thread pool was actually created
     // substitute all jobs with the ones that terminate the threads
     MultiThreadable** jobs = new MultiThreadable*[this->num_threads_];
@@ -59,12 +59,13 @@ void MultiThreadPool::Reinitialize(){ // re-create thread pool, used only if
       jobs[thread] = new TerminateThread();
       this->threads_[thread].job_ = (jobs[thread]);
     }
-    this->barrier_->Wait(); // wake up the threads, so they terminate
+    this->barrier_->Wait();  // wake up the threads, so they terminate
 
-    for(int32 thread = 0; thread < this->num_threads_; thread++) {
-      if (pthread_join(this->thread_ids_[thread], NULL)) // wait for it's
+    for (int32 thread = 0; thread < this->num_threads_; thread++) {
+      if (pthread_join(this->thread_ids_[thread], NULL)) {  // wait for it's
         // termination
         KALDI_ERR << "Error rejoining thread.";
+      }
     }
 
     for (int32 thread = 0; thread < this->num_threads_; thread++) {
@@ -77,25 +78,25 @@ void MultiThreadPool::Reinitialize(){ // re-create thread pool, used only if
   this->initialized_ = false;
 }
 
-void MultiThreadPool::Initialize(){ // this function creates the actual thread
+void MultiThreadPool::Initialize() {  // this function creates the actual thread
   // pool
-  KALDI_ASSERT(g_num_threads > 0); // number of threads must be at least one
-  KALDI_ASSERT(this->initialized_ == false); // cannot be initialized more than
+  KALDI_ASSERT(g_num_threads > 0);  // number of threads must be at least one
+  KALDI_ASSERT(this->initialized_ == false);  // cannot be initialized more than
   // once
 
   this->num_threads_ = g_num_threads;
 
-  if(g_num_threads == 1){
+  if (g_num_threads == 1) {
     // there is nothing we have to do...
-  }else{
+  } else {
     pthread_attr_t pthread_attr;
     pthread_attr_init(&pthread_attr);
 
     this->threads_ = std::vector<ThreadWorker>(g_num_threads);
     this->thread_ids_ = new pthread_t[g_num_threads];
 
-    this->barrier_ = new Barrier(g_num_threads+1); // barrier for all the threads
-    // + parent
+    this->barrier_ = new Barrier(g_num_threads+1);  // barrier for all the
+    // threads + parent
 
     for (int32 thread = 0; thread < g_num_threads; thread++) {
       this->threads_[thread].barrier_ = barrier_;
@@ -115,9 +116,9 @@ void MultiThreadPool::Initialize(){ // this function creates the actual thread
   this->initialized_ = true;
 }
 
-void *MultiThreadPool::run(){
-  this->barrier_->Wait(); // wake up the jobs
-  this->barrier_->Wait(); // wait until all of them finish
+void *MultiThreadPool::run() {
+  this->barrier_->Wait();  // wake up the jobs
+  this->barrier_->Wait();  // wait until all of them finish
   return NULL;
 }
 

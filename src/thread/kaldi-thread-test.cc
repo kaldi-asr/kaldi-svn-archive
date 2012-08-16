@@ -23,13 +23,13 @@
 
 namespace kaldi {
 
-class MyThreadClass { // Sums up integers from 0 to max_to_count-1.
+class MyThreadClass {  // Sums up integers from 0 to max_to_count-1.
  public:
   MyThreadClass(int32 max_to_count, int32 *i): max_to_count_(max_to_count),
                                                iptr_(i),
                                                private_counter_(0) { }
   // Use default copy constructor and assignment operators.
-  void operator () () {
+  void operator() () {
     int32 block_size = (max_to_count_+ (num_threads_-1) ) / num_threads_;
     int32 start = block_size * thread_id_,
         end = std::min(max_to_count_, start + block_size);
@@ -39,31 +39,33 @@ class MyThreadClass { // Sums up integers from 0 to max_to_count-1.
   ~MyThreadClass() {
     *iptr_ += private_counter_;
   }
-  
+
   static void *run(void *c_in) {
     MyThreadClass *c = static_cast<MyThreadClass*>(c_in);
-    (*c)(); // call operator () on it.
+    (*c)();  // call operator () on it.
     return NULL;
-  }  
-  
+  }
+
  public:
-  int32 thread_id_; // 0 <= thread_number < num_threads
+  int32 thread_id_;  // 0 <= thread_number < num_threads
   int32 num_threads_;
-  
+
  private:
-  MyThreadClass() { };  // Disallow empty constructor.
+  MyThreadClass() { }  // Disallow empty constructor.
   int32 max_to_count_;
   int32 *iptr_;
   int32 private_counter_;
 };
 
-class MyThreadClassPersist: public MultiThreadable { // variant of previous class for testing of persistent threads
+class MyThreadClassPersist: public MultiThreadable {  // variant of previous
+  // class for testing of persistent threads
  public:
-  MyThreadClassPersist(int32 max_to_count, int32 *i): max_to_count_(max_to_count),
-                                               iptr_(i),
-                                               private_counter_(0) { }
+  MyThreadClassPersist(int32 max_to_count, int32 *i):
+      max_to_count_(max_to_count),
+      iptr_(i),
+      private_counter_(0) { }
   // Use default copy constructor and assignment operators.
-  void operator () () {
+  void operator() () {
     int32 block_size = (max_to_count_+ (num_threads_-1) ) / num_threads_;
     int32 start = block_size * thread_id_,
         end = std::min(max_to_count_, start + block_size);
@@ -73,22 +75,22 @@ class MyThreadClassPersist: public MultiThreadable { // variant of previous clas
   ~MyThreadClassPersist() {
     *iptr_ += private_counter_;
   }
-  
+
  public:
   // do NOT redefine thread_id_ and num_threads_, as they are used in
   // *MultiThreadable context
-  
+
  private:
-  MyThreadClassPersist() { };  // Disallow empty constructor.
+  MyThreadClassPersist() { }  // Disallow empty constructor.
   int32 max_to_count_;
   int32 *iptr_;
   int32 private_counter_;
 };
 
-class MyThreadClassPersist2: public MultiThreadable { // another version, just
+class MyThreadClassPersist2: public MultiThreadable {  // another version, just
   // to be able to check if jobs are exchanged properly
  public:
-  int modif_; // one more variable to make this class of different size
+  int modif_;  // one more variable to make this class of different size
   // (because different sizes of object were problem in early implementation,
   // so it's good to check this)
   MyThreadClassPersist2(int32 max_to_count, int32 *i): modif_(-1),
@@ -97,23 +99,23 @@ class MyThreadClassPersist2: public MultiThreadable { // another version, just
                                                 private_counter_(0)
   { }
   // Use default copy constructor and assignment operators.
-  void operator () () {
+  void operator() () {
     int32 block_size = (max_to_count_+ (num_threads_-1) ) / num_threads_;
     int32 start = block_size * thread_id_,
         end = std::min(max_to_count_, start + block_size);
     for (int32 j = start; j < end; j++)
-      private_counter_ += j*modif_; // just count downwards
+      private_counter_ += j*modif_;  // just count downwards
   }
   ~MyThreadClassPersist2() {
     *iptr_ += private_counter_;
   }
-  
+
  public:
   // do NOT redefine thread_id_ and num_threads_, as they are used in
   // *MultiThreadable context
-  
+
  private:
-  MyThreadClassPersist2() { };  // Disallow empty constructor.
+  MyThreadClassPersist2() { }  // Disallow empty constructor.
   int32 max_to_count_;
   int32 *iptr_;
   int32 private_counter_;
