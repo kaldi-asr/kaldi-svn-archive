@@ -102,7 +102,7 @@ void EbwAmSgmm2Updater::Update(const MleAmSgmm2Accs &num_accs,
 }
 
 
-class EbwUpdatePhoneVectorsClass { // For multi-threaded.
+class EbwUpdatePhoneVectorsClass: public MultiThreadable { // For multi-threaded.
  public:
   EbwUpdatePhoneVectorsClass(const EbwAmSgmm2Updater *updater,
                              const MleAmSgmm2Accs &num_accs,
@@ -123,15 +123,6 @@ class EbwUpdatePhoneVectorsClass { // For multi-threaded.
     updater_->UpdatePhoneVectorsInternal(num_accs_, den_accs_, H_, model_,
                                          &auxf_impr_, num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    EbwUpdatePhoneVectorsClass *c = static_cast<EbwUpdatePhoneVectorsClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   const EbwAmSgmm2Updater *updater_;
   const MleAmSgmm2Accs &num_accs_;
@@ -268,7 +259,7 @@ double EbwAmSgmm2Updater::UpdatePhoneVectors(const MleAmSgmm2Accs &num_accs,
   for (int32 j1 = 0; j1 < J1; j1++) count += num_accs.gamma_[j1].Sum();
   
   EbwUpdatePhoneVectorsClass c(this, num_accs, den_accs, H, model, &auxf_impr);
-  RunMultiThreaded(c);
+  RunMultiThreadedPersistent(c);
 
   auxf_impr /= count;
 
@@ -389,7 +380,7 @@ double EbwAmSgmm2Updater::UpdateW(const MleAmSgmm2Accs &num_accs,
       MleAmSgmm2Updater::ComputeLogA(num_accs, &log_a_num);
     double garbage;
     UpdateWClass c_num(num_accs, *model, w, log_a_num, &F_i_num, &g_i_num, &garbage);
-    RunMultiThreaded(c_num);
+    RunMultiThreadedPersistent(c_num);
   }
   {
     std::vector<Matrix<double> > log_a_den;
@@ -397,7 +388,7 @@ double EbwAmSgmm2Updater::UpdateW(const MleAmSgmm2Accs &num_accs,
       MleAmSgmm2Updater::ComputeLogA(den_accs, &log_a_den);
     double garbage;
     UpdateWClass c_den(den_accs, *model, w, log_a_den, &F_i_den, &g_i_den, &garbage);
-    RunMultiThreaded(c_den);
+    RunMultiThreadedPersistent(c_den);
   }
 
   for (int32 i = 0; i < I; i++) {

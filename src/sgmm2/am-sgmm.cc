@@ -803,7 +803,7 @@ void AmSgmm2::ComputeDerivedVars() {
     ComputeWeights();
 }
 
-class ComputeNormalizersClass { // For multi-threaded.
+class ComputeNormalizersClass: public MultiThreadable { // For multi-threaded.
  public:
   ComputeNormalizersClass(AmSgmm2 *am_sgmm,
                           int32 *entropy_count_ptr,
@@ -824,15 +824,6 @@ class ComputeNormalizersClass { // For multi-threaded.
                                          &entropy_count_,
                                          &entropy_sum_);
   }
-  // Copied from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    ComputeNormalizersClass *c = static_cast<ComputeNormalizersClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   ComputeNormalizersClass() { } // Disallow empty constructor.
   AmSgmm2 *am_sgmm_;
@@ -849,7 +840,7 @@ void AmSgmm2::ComputeNormalizers() {
   int32 entropy_count = 0;
   double entropy_sum = 0.0;
   ComputeNormalizersClass c(this, &entropy_count, &entropy_sum);
-  RunMultiThreaded(c);
+  RunMultiThreadedPersistent(c);
 
   KALDI_LOG << "Entropy of weights in substates is "
             << (entropy_sum / entropy_count) << " over " << entropy_count

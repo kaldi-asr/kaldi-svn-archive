@@ -234,7 +234,7 @@ void Nnet1Trainer::ListCategories(
   }
 }
 
-class Nnet1Trainer::ForwardAndBackwardFinalClass {
+class Nnet1Trainer::ForwardAndBackwardFinalClass: public MultiThreadable {
  public:
   ForwardAndBackwardFinalClass(Nnet1Trainer &nnet_trainer,
                                const std::vector<TrainingExample> &data,
@@ -268,20 +268,6 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass {
     *tot_like_ptr_ += tot_like_;
   }
   
-  // This function should be provided. Give it this exact implementation, with
-  // the class name replaced with your own class's name.
-  static void *run(void *c_in) {
-    ForwardAndBackwardFinalClass *c = static_cast<ForwardAndBackwardFinalClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
-
-
-  // The following class members are not actually needed, as the threads don't
-  // need to know this information, but they are required by the
-  // RunMultiThreaded function.
-  int32 thread_id_; // 0 <= thread_number < num_threads
-  int32 num_threads_;
  private:
   Nnet1Trainer &nnet_trainer_;
   const std::vector<TrainingExample> &data_;
@@ -326,7 +312,7 @@ double Nnet1Trainer::ForwardAndBackwardFinal(
     double tot_like = 0.0;
     ForwardAndBackwardFinalClass c(*this, data, &mutex,
                                    &other_categories, &tot_like);
-    RunMultiThreaded(c); // will run with #threads = g_num_threads.
+    RunMultiThreadedPersistent(c); // will run with #threads = g_num_threads.
     ans += tot_like;
   }
   return ans;

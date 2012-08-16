@@ -725,7 +725,7 @@ void MleAmSgmm2Updater::ComputeSMeans(const MleAmSgmm2Accs &accs,
 }
 
 
-class UpdatePhoneVectorsClass { // For multi-threaded.
+class UpdatePhoneVectorsClass: public MultiThreadable { // For multi-threaded.
  public:
   UpdatePhoneVectorsClass(const MleAmSgmm2Updater &updater,
                           const MleAmSgmm2Accs &accs,
@@ -747,15 +747,6 @@ class UpdatePhoneVectorsClass { // For multi-threaded.
     updater_.UpdatePhoneVectorsInternal(accs_, H_, log_a_, model_,
                                         &auxf_impr_, num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    UpdatePhoneVectorsClass *c = static_cast<UpdatePhoneVectorsClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   const MleAmSgmm2Updater &updater_;
   const MleAmSgmm2Accs &accs_;
@@ -786,7 +777,7 @@ double MleAmSgmm2Updater::UpdatePhoneVectors(
     count += accs.gamma_[j1].Sum();
 
   UpdatePhoneVectorsClass c(*this, accs, H, log_a, model, &auxf_impr);
-  RunMultiThreaded(c);
+  RunMultiThreadedPersistent(c);
 
   double auxf_per_frame = auxf_impr / (count + 1.0e-20);
   
@@ -1164,7 +1155,7 @@ double MleAmSgmm2Updater::UpdateW(const MleAmSgmm2Accs &accs,
     double k_like_before = 0.0;
     
     UpdateWClass c(accs, *model, w, log_a, &F_i, &g_i, &k_like_before);
-    RunMultiThreaded(c);
+    RunMultiThreadedPersistent(c);
     
     Matrix<double> w_orig(w);
     double k_predicted_like_impr = 0.0, k_like_after = 0.0;

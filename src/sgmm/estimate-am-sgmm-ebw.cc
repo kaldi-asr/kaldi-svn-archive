@@ -94,7 +94,7 @@ void EbwAmSgmmUpdater::Update(const MleAmSgmmAccs &num_accs,
 }
 
 
-class EbwUpdatePhoneVectorsClass { // For multi-threaded.
+class EbwUpdatePhoneVectorsClass: public MultiThreadable { // For multi-threaded.
  public:
   EbwUpdatePhoneVectorsClass(const EbwAmSgmmUpdater *updater,
                              const MleAmSgmmAccs &num_accs,
@@ -115,15 +115,6 @@ class EbwUpdatePhoneVectorsClass { // For multi-threaded.
     updater_->UpdatePhoneVectorsInternal(num_accs_, den_accs_, model_, H_,
                                          &auxf_impr_, num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    EbwUpdatePhoneVectorsClass *c = static_cast<EbwUpdatePhoneVectorsClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   const EbwAmSgmmUpdater *updater_;
   const MleAmSgmmAccs &num_accs_;
@@ -252,7 +243,7 @@ double EbwAmSgmmUpdater::UpdatePhoneVectors(const MleAmSgmmAccs &num_accs,
   for (int32 j = 0; j < J; j++) count += num_accs.gamma_[j].Sum();
   
   EbwUpdatePhoneVectorsClass c(this, num_accs, den_accs, model, H, &auxf_impr);
-  RunMultiThreaded(c);
+  RunMultiThreadedPersistent(c);
 
   auxf_impr /= count;
 
@@ -374,12 +365,12 @@ double EbwAmSgmmUpdater::UpdateWParallel(const MleAmSgmmAccs &num_accs,
   {
     double garbage;
     UpdateWParallelClass c_num(num_accs, *model, w, &F_i_num, &g_i_num, &garbage);
-    RunMultiThreaded(c_num);
+    RunMultiThreadedPersistent(c_num);
   }
   {
     double garbage;
     UpdateWParallelClass c_den(den_accs, *model, w, &F_i_den, &g_i_den, &garbage);
-    RunMultiThreaded(c_den);
+    RunMultiThreadedPersistent(c_den);
   }
 
   for (int32 i = 0; i < I; i++) {

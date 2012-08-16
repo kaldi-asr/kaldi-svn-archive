@@ -630,7 +630,7 @@ void MleAmSgmmUpdater::ComputeSmoothingTerms(const MleAmSgmmAccs &accs,
 }
 
 
-class UpdatePhoneVectorsClass { // For multi-threaded.
+class UpdatePhoneVectorsClass: public MultiThreadable { // For multi-threaded.
  public:
   UpdatePhoneVectorsClass(const MleAmSgmmUpdater &updater,
                           const MleAmSgmmAccs &accs,
@@ -656,15 +656,6 @@ class UpdatePhoneVectorsClass { // For multi-threaded.
                                         &auxf_impr_, &like_impr_,
                                         num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    UpdatePhoneVectorsClass *c = static_cast<UpdatePhoneVectorsClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   const MleAmSgmmUpdater &updater_;
   const MleAmSgmmAccs &accs_;
@@ -794,7 +785,7 @@ double MleAmSgmmUpdater::UpdatePhoneVectors(const MleAmSgmmAccs &accs,
 
   UpdatePhoneVectorsClass c(*this, accs, model, H, H_sm, y_sm,
                             &auxf_impr, &like_impr);
-  RunMultiThreaded(c);
+  RunMultiThreadedPersistent(c);
 
   auxf_impr /= (count + 1.0e-20);
   like_impr /= (count + 1.0e-20);
@@ -913,7 +904,7 @@ double MleAmSgmmUpdater::UpdatePhoneVectorsChecked(const MleAmSgmmAccs &accs,
 
 
 
-class UpdatePhoneVectorsCheckedFromClusterableClass { // For multi-threaded.
+class UpdatePhoneVectorsCheckedFromClusterableClass: public MultiThreadable { // For multi-threaded.
  public:
   UpdatePhoneVectorsCheckedFromClusterableClass(
       MleAmSgmmUpdater *updater,
@@ -938,16 +929,6 @@ class UpdatePhoneVectorsCheckedFromClusterableClass { // For multi-threaded.
     updater_->UpdatePhoneVectorsCheckedFromClusterableInternal(
         stats_, H_, model_, &count_, &like_impr_, num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    UpdatePhoneVectorsCheckedFromClusterableClass *c =
-        static_cast<UpdatePhoneVectorsCheckedFromClusterableClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   MleAmSgmmUpdater *updater_;
   const std::vector<SgmmClusterable*> &stats_;
@@ -970,7 +951,7 @@ double MleAmSgmmUpdater::UpdatePhoneVectorsCheckedFromClusterable(
   
   UpdatePhoneVectorsCheckedFromClusterableClass c(this, stats, H, model,
                                                   &count, &like_impr);
-  RunMultiThreaded(c);
+  RunMultiThreadedPersistent(c);
 
   KALDI_LOG << "**Overall objf impr for v is " << (like_impr / count)
             << " over " << count << " frames.";
@@ -1333,7 +1314,7 @@ double MleAmSgmmUpdater::UpdateWParallel(const MleAmSgmmAccs &accs,
     double k_like_before = 0.0;
 
     UpdateWParallelClass c(accs, *model, w, &F_i, &g_i, &k_like_before);
-    RunMultiThreaded(c);
+    RunMultiThreadedPersistent(c);
     
     Matrix<double> w_orig(w);
     double k_predicted_like_impr = 0.0, k_like_after = 0.0;
