@@ -51,31 +51,44 @@ MultiThreadPool& MultiThreadPool::Instantiate() {
 void MultiThreadPool::Reinitialize() {  // re-create thread pool, used only if
   // g_num_threads was changed
 
-  if (this->num_threads_ > 1) {
-    // if the thread pool was actually created
-    // substitute all jobs with the ones that terminate the threads
-    MultiThreadable** jobs = new MultiThreadable*[this->num_threads_];
-    for (int32 thread = 0; thread < this->num_threads_; thread++) {
-      jobs[thread] = new TerminateThread();
-      this->threads_[thread].job_ = (jobs[thread]);
-    }
-    this->barrier_->Wait();  // wake up the threads, so they terminate
-
-    for (int32 thread = 0; thread < this->num_threads_; thread++) {
-      if (pthread_join(this->thread_ids_[thread], NULL)) {  // wait for it's
-        // termination
-        KALDI_ERR << "Error rejoining thread.";
-      }
-    }
-
-    for (int32 thread = 0; thread < this->num_threads_; thread++) {
-      delete jobs[thread];
-    }
-    delete [] jobs;
-    delete [] this->thread_ids_;
-    delete this->barrier_;
-  }
+  this->DeletePool();
   this->initialized_ = false;
+}
+
+MultiThreadPool::~MultiThreadPool() {  // destructor - make sure no threads
+  // are running when terminating
+
+  this->DeletePool();
+  this->initialized_ = false;
+}
+
+void MultiThreadPool::DeletePool() {  // terminate all threads in pool and erase it
+	if (this->initialized_ == true) {
+    if (this->num_threads_ > 1) {
+      // if the thread pool was actually created
+      // substitute all jobs with the ones that terminate the threads
+      MultiThreadable** jobs = new MultiThreadable*[this->num_threads_];
+      for (int32 thread = 0; thread < this->num_threads_; thread++) {
+        jobs[thread] = new TerminateThread();
+        this->threads_[thread].job_ = (jobs[thread]);
+      }
+      this->barrier_->Wait();  // wake up the threads, so they terminate
+
+      for (int32 thread = 0; thread < this->num_threads_; thread++) {
+        if (pthread_join(this->thread_ids_[thread], NULL)) {  // wait for it's
+          // termination
+          KALDI_ERR << "Error rejoining thread.";
+        }
+      }
+
+      for (int32 thread = 0; thread < this->num_threads_; thread++) {
+        delete jobs[thread];
+      }
+      delete [] jobs;
+      delete [] this->thread_ids_;
+      delete this->barrier_;
+    }
+  }
 }
 
 void MultiThreadPool::Initialize() {  // this function creates the actual thread

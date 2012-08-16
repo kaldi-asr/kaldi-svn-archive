@@ -165,11 +165,13 @@ class MultiThreadPool {  // singleton class for managing the thread pool
   void Initialize();  // this function creates the actual thread pool
   void Reinitialize();  // re-create the thread pool, used when g_num_threads is
   // changed
+  void DeletePool();  // used by destructor and reinitialization - terminates
+  // and deletes existing threas in thread pool
+  ~MultiThreadPool();
 
  private:
   // prevent copying of existing instance etc.
   inline explicit MultiThreadPool() {}
-  inline ~MultiThreadPool() {}
   inline explicit MultiThreadPool(MultiThreadPool const&) {}
   inline MultiThreadPool& operator=(MultiThreadPool const&) { return *this; }
 };
