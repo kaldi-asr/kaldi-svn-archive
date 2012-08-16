@@ -21,6 +21,7 @@
 #include "nnet/nnet-activation.h"
 #include "nnet/nnet-biasedlinearity.h"
 #include "nnet/nnet-rbm.h"
+#include "nnet/nnet-various.h"
 
 namespace kaldi {
 
@@ -29,7 +30,9 @@ const struct Component::key_value Component::kMarkerMap[] = {
   { Component::kBiasedLinearity,"<biasedlinearity>" },
   { Component::kSigmoid,"<sigmoid>" },
   { Component::kSoftmax,"<softmax>" },
-  { Component::kRbm,"<rbm>" }
+  { Component::kRbm,"<rbm>" },
+  { Component::kExpand,"<expand>" },
+  { Component::kCopy,"<copy>" }
 };
 
 
@@ -80,6 +83,12 @@ Component* Component::Read(std::istream &is, bool binary, Nnet *nnet) {
       break;
     case Component::kRbm :
       p_comp = new Rbm(dim_in, dim_out, nnet);
+      break;
+    case Component::kExpand :
+      p_comp = new Expand(dim_in, dim_out, nnet);
+      break;
+    case Component::kCopy :
+      p_comp = new Copy(dim_in, dim_out, nnet);
       break;
     case Component::kUnknown :
     default :
