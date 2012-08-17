@@ -185,7 +185,7 @@ class Nnet1 {
 
   void Read(std::istream &is, bool binary);
 
-  friend class Nnet1Trainer;
+  friend class Nnet1Updater;
  private:
   const Nnet1 &operator = (const Nnet1 &other);  // Disallow assignment.
   

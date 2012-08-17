@@ -1,4 +1,4 @@
-// nnet_dp/train_nnet1.h
+// nnet_dp/update_nnet1.h
 
 // Copyright 2012  Johns Hopkins Universit (author: Daniel Povey)
 //                 Navdeep Jaitly
@@ -16,8 +16,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_DP_TRAIN_NNET1_H_
-#define KALDI_NNET_DP_TRAIN_NNET1_H_
+#ifndef KALDI_NNET_DP_UPDATE_NNET1_H_
+#define KALDI_NNET_DP_UPDATE_NNET1_H_
 
 #include "nnet_dp/nnet1.h"
 
@@ -50,19 +50,19 @@ struct TrainingExample {
 };
 
 
-// This class Nnet1Trainer basically contains functions for
+// This class Nnet1Updater basically contains functions for
 // updating the neural net, given a set of "chunks" of features
 // and corresponding labels.  A "chunk" is a short sequence, of size
 // fixed in advance [we do it in these chunks for efficiency, because
 // with the left and right context, some of the computation would be
 // shared.
 
-class Nnet1Trainer {
+class Nnet1Updater {
 
   // Note: in the case of training with SGD, "nnet" and "nnet_to_update" will
   // be identical.  They'll be different if we're accumulating the gradient
   // for a held-out set and don't want to update the model.
-  Nnet1Trainer(const Nnet1 &nnet,
+  Nnet1Updater(const Nnet1 &nnet,
                int32 chunk_size_at_output, // size of chunks (number of output labels).
                int32 num_chunks, // number of chunks we process at the same time.
                Nnet1 *nnet_to_update);

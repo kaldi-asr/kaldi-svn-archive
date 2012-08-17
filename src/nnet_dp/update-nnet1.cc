@@ -1,4 +1,4 @@
-// nnet_dp/train_nnet1.cc
+// nnet_dp/update_nnet1.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -15,13 +15,13 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet_dp/train-nnet1.h"
+#include "nnet_dp/update-nnet1.h"
 #include "thread/kaldi-thread.h"
 
 namespace kaldi {
 
 
-Nnet1Trainer::Nnet1Trainer(
+Nnet1Updater::Nnet1Updater(
     const Nnet1 &nnet,
     int32 chunk_size_at_output, // size of chunks (number of output labels).
     int32 num_chunks, // number of chunks we process at the same time.
@@ -51,7 +51,7 @@ Nnet1Trainer::Nnet1Trainer(
 }
 
 
-void Nnet1Trainer::FormatInput(const std::vector<TrainingExample> &data) {
+void Nnet1Updater::FormatInput(const std::vector<TrainingExample> &data) {
   KALDI_ASSERT(data.size() == num_chunks_);
   int32 chunk_size = tanh_forward_data_[0].NumRows() / num_chunks_;
   int32 input_dim = tanh_forward_data_[0].NumCols(); // Dimension of input
@@ -71,14 +71,14 @@ void Nnet1Trainer::FormatInput(const std::vector<TrainingExample> &data) {
   }
 }
 
-void Nnet1Trainer::TrainStep(const std::vector<TrainingExample> &data) {
+void Nnet1Updater::TrainStep(const std::vector<TrainingExample> &data) {
   FormatInput(data);
   ForwardTanh();
   ForwardAndBackwardFinal(data);
   BackwardTanh();
 }
 
-void Nnet1Trainer::ForwardTanh() {
+void Nnet1Updater::ForwardTanh() {
   // Does the forward computation for the initial (tanh) layers.
   for (int32 layer = 0; layer < nnet_.initial_layers_.size(); layer++) {
 
@@ -98,7 +98,7 @@ void Nnet1Trainer::ForwardTanh() {
   }  
 }
 
-void Nnet1Trainer::ListCategories(
+void Nnet1Updater::ListCategories(
     const std::vector<TrainingExample> &data,
     std::vector<int32> *common_categories,
     std::vector<int32> *other_categories) {
@@ -143,9 +143,9 @@ void Nnet1Trainer::ListCategories(
   }
 }
 
-class Nnet1Trainer::ForwardAndBackwardFinalClass: public MultiThreadable {
+class Nnet1Updater::ForwardAndBackwardFinalClass: public MultiThreadable {
  public:
-  ForwardAndBackwardFinalClass(Nnet1Trainer &nnet_trainer,
+  ForwardAndBackwardFinalClass(Nnet1Updater &nnet_trainer,
                                const std::vector<TrainingExample> &data,
                                Mutex *mutex,
                                std::vector<int32> *category_list,
@@ -178,7 +178,7 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass: public MultiThreadable {
   }
   
  private:
-  Nnet1Trainer &nnet_trainer_;
+  Nnet1Updater &nnet_trainer_;
   const std::vector<TrainingExample> &data_;
   Mutex *mutex_; // pointer to mutex that guards category_list_
   std::vector<int32> *category_list_;
@@ -187,7 +187,7 @@ class Nnet1Trainer::ForwardAndBackwardFinalClass: public MultiThreadable {
   
 };
 
-double Nnet1Trainer::ForwardAndBackwardFinal(
+double Nnet1Updater::ForwardAndBackwardFinal(
     const std::vector<TrainingExample> &data) {
   // returns the objective function summed over all frames.
   
@@ -229,7 +229,7 @@ double Nnet1Trainer::ForwardAndBackwardFinal(
 
 // Does the forward and backward computation for the final two layers (softmax
 // and linear), but just considering one of the categories of output labels.
-double Nnet1Trainer::ForwardAndBackwardFinalForCategory(
+double Nnet1Updater::ForwardAndBackwardFinalForCategory(
     const std::vector<TrainingExample> &data,
     int32 category,
     bool common_category) {      
@@ -288,7 +288,7 @@ double Nnet1Trainer::ForwardAndBackwardFinalForCategory(
   return ans; // total log-like.
 };
 
-double Nnet1Trainer::ForwardAndBackwardFinalInternal(
+double Nnet1Updater::ForwardAndBackwardFinalInternal(
     const Matrix<BaseFloat> &input, // input to softmax layer
     int32 category,
     const std::vector<BaseFloat> &weights, // one per example.
@@ -355,7 +355,7 @@ double Nnet1Trainer::ForwardAndBackwardFinalInternal(
   return ans;
 }
 
-void Nnet1Trainer::BackwardTanh() {
+void Nnet1Updater::BackwardTanh() {
   Matrix<BaseFloat> cur_output_deriv;
   int32 num_layers = nnet_.initial_layers_.size();
   for (int32 layer = num_layers - 1; layer >= 0; layer--) {
