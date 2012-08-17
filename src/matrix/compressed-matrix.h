@@ -1,6 +1,7 @@
 // matrix/compressed-matrix.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
+//                 Frantisek Skala
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +24,7 @@
 namespace kaldi {
 
 /// \addtogroup matrix_group
-/// @{ 
+/// @{
 
 /// This class does lossy compression of a matrix.  It only
 /// supports copying to-from a KaldiMatrix.  For large matrices,
@@ -43,7 +44,7 @@ class CompressedMatrix {
 
   template<class Real>
   CompressedMatrix(const Matrix<Real> &mat): data_(NULL) { CopyFromMat(mat); }
-  
+
   template<class Real>
   void CopyFromMat(const Matrix<Real> &mat);
 
@@ -51,39 +52,49 @@ class CompressedMatrix {
   template<class Real>
   void CopyToMat(Matrix<Real> *mat) const;
 
-  
+
   void Write(std::ostream &os, bool binary) const;
-  
+
   void Read(std::istream &is, bool binary);
 
   /// Returns number of rows (or zero for emtpy matrix).
-  inline int32 NumRows() const { return (data_ == NULL) ? 0 : 
+  inline int32 NumRows() const { return (data_ == NULL) ? 0 :
       (*reinterpret_cast<GlobalHeader*>(data_)).num_rows; }
 
   /// Returns number of columns (or zero for emtpy matrix).
-  inline int32 NumCols() const { return (data_ == NULL) ? 0 : 
+  inline int32 NumCols() const { return (data_ == NULL) ? 0 :
       (*reinterpret_cast<GlobalHeader*>(data_)).num_cols; }
-  
+
+  /// Copies row #row of the matrix into vector v.
+  /// Note: v must have same size as #cols.
+  template<typename Real>
+  void CopyRowToVec(VectorBase<Real> *v, MatrixIndexT row) const;
+
+  /// Copies column #col of the matrix into vector v.
+  /// Note: v must have same size as #rows.
+  template<typename Real>
+  void CopyColToVec(VectorBase<Real> *v, MatrixIndexT col) const;
+
   friend class Matrix<float>;
   friend class Matrix<double>;
   private:
-  
+
   // allocates data using new [], ensures byte alignment
   // sufficient for float.
   static unsigned char *AllocateData(int32 num_bytes);
-  
+
   struct GlobalHeader {
     float min_value;
     float range;
     int32 num_rows;
     int32 num_cols;
   };
-  
+
   static MatrixIndexT DataSize(const GlobalHeader &header) {
     // Returns size in bytes of the data.
     return sizeof(GlobalHeader) +
         header.num_cols * (sizeof(PerColHeader) + header.num_rows);
-  }  
+  }
 
   struct PerColHeader {
     uint16 percentile_0;
@@ -105,7 +116,7 @@ class CompressedMatrix {
 
   static inline uint16 FloatToUint16(const GlobalHeader &global_header,
                                      float value);
-  
+
   static inline float Uint16ToFloat(const GlobalHeader &global_header,
                                      uint16 value);
   static inline unsigned char FloatToChar(float p0, float p25,

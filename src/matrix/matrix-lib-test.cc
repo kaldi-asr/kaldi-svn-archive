@@ -2805,7 +2805,7 @@ template<class Real> static void UnitTestCompressedMatrix() {
     else {
       M.Add(RandGauss());
     }
-    if (rand() % 2 == 0 && num_rows != 0) { // set one row to all the same value,
+    if (rand() % 2 == 0 && num_rows != 0) {  // set one row to all the same value,
       // which is one possible pathology.
       // Give it large dynamic range to increase chance that it
       // is the largest or smallest value in the matrix.
@@ -2825,11 +2825,29 @@ template<class Real> static void UnitTestCompressedMatrix() {
 
     Matrix<Real> M2;
     cmat.CopyToMat(&M2);
-    
+
     Matrix<Real> diff(M2);
     diff.AddMat(-1.0, M);
 
-    if (n < 5) { // test I/O.
+    // test CopyRowToVec
+    for (int i = 0; i < num_rows; i++) {
+      Vector<Real> V(num_cols);
+      cmat.CopyRowToVec(&V, i);  // get row.
+      for (MatrixIndexT k = 0;k < num_cols;k++) {
+        AssertEqual(M2(i, k), V(k));
+      }
+    }
+
+    // test CopyColToVec
+    for (int i = 0; i < num_cols; i++) {
+      Vector<Real> V(num_rows);
+      cmat.CopyColToVec(&V, i);  // get col.
+      for (MatrixIndexT k = 0;k < num_rows;k++) {
+        AssertEqual(M2(k, i), V(k));
+      }
+    }
+
+    if (n < 5) {  // test I/O.
       bool binary = (n % 2 == 1);
       {
         std::ofstream outs("tmpf", std::ios_base::out |std::ios_base::binary);
