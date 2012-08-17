@@ -6,7 +6,7 @@ include ../kaldi.mk
 
 TESTFILES = layer-test
 
-OBJFILES = layer.o nnet1.o
+OBJFILES = layer.o nnet1.o train-nnet1.o
 
 LIBFILE = kaldi-nnet-dp.a 
 

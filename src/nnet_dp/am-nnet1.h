@@ -35,18 +35,19 @@ namespace kaldi {
 
 
 class AmNnet1 {
-  Nnet1 nnet;
 
-  AmNnet1(const Nnet1Config &config,
+  AmNnet1(const Nnet1InitConfig &config,
           std::vector<int32> leaf_mapping);
-
   // The vector "leaf_mapping" is an output from the program build-tree-two-level.
   // This maps from the leaves of the tree ("level-2 leaves") to the coarser "level-1"
   // leaves.  I.e. it's a fine-to-coarse mapping.
   
   void Write(std::ostream &os, bool binary) const;
   
-  void Read(std::istream &is, bool binary);  
+  void Read(std::istream &is, bool binary);
+
+ private:
+  Nnet1 nnet;
 };
 
 
