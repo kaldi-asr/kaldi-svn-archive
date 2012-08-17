@@ -408,5 +408,51 @@ CompressedMatrix::CopyRowToVec(VectorBase<double> *, MatrixIndexT) const;
 template void
 CompressedMatrix::CopyRowToVec(VectorBase<float> *, MatrixIndexT) const;
 
+template<typename Real>
+void CompressedMatrix::CopyToMat(int32 row_offset,
+                                 int32 column_offset,
+                                 MatrixBase<Real> *dest) const {
+  KALDI_PARANOID_ASSERT(row_offset < this->NumRows());
+  KALDI_PARANOID_ASSERT(column_offset < this->NumCols());
+  KALDI_PARANOID_ASSERT(row_offset >= 0);
+  KALDI_PARANOID_ASSERT(column_offset >= 0);
+  KALDI_ASSERT(row_offset+dest->NumRows() < this->NumRows());
+  KALDI_ASSERT(column_offset+dest->NumCols() < this->NumCols());
+  // everything is OK
+  GlobalHeader *h = reinterpret_cast<GlobalHeader*>(data_);
+  PerColHeader *per_col_header = reinterpret_cast<PerColHeader*>(h+1);
+  unsigned char *byte_data = reinterpret_cast<unsigned char*>(per_col_header +
+                                                              h->num_cols);
+  int32 num_rows = h->num_rows;
+  int32 tgt_cols = dest->NumCols(), tgt_rows = dest->NumRows();
+
+  unsigned char *start_of_subcol = byte_data+row_offset;  // skip appropriate
+  // number of columns
+  start_of_subcol += column_offset*num_rows;  // skip appropriate number of rows
+
+  per_col_header += column_offset;  // skip the appropriate number of headers
+
+  for (int32 i = 0;
+       i < tgt_cols;
+       i++, per_col_header++, start_of_subcol+=num_rows) {
+    byte_data = start_of_subcol;
+    float p0 = Uint16ToFloat(*h, per_col_header->percentile_0),
+          p25 = Uint16ToFloat(*h, per_col_header->percentile_25),
+          p75 = Uint16ToFloat(*h, per_col_header->percentile_75),
+          p100 = Uint16ToFloat(*h, per_col_header->percentile_100);
+    for (int32 j = 0; j < tgt_rows; j++, byte_data++) {
+      float f = CharToFloat(p0, p25, p75, p100, *byte_data);
+      (*dest)(j, i) = f;
+    }
+  }
+}
+
+// instantiate the templates.
+template void CompressedMatrix::CopyToMat(int32,
+               int32,
+               MatrixBase<float> *dest) const;
+template void CompressedMatrix::CopyToMat(int32,
+               int32,
+               MatrixBase<double> *dest) const;
 }  // namespace kaldi
 

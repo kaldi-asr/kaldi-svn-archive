@@ -75,6 +75,14 @@ class CompressedMatrix {
   template<typename Real>
   void CopyColToVec(VectorBase<Real> *v, MatrixIndexT col) const;
 
+  /// Copies submatrix of compressed matrix into matrix dest.
+  /// Submatrix starts at row row_offset and column column_offset and it' size
+  /// is defined by size of provided matrix dest
+  template<typename Real>
+  void CopyToMat(int32 row_offset,
+                 int32 column_offset,
+                 MatrixBase<Real> *dest) const;
+
   friend class Matrix<float>;
   friend class Matrix<double>;
   private:

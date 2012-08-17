@@ -2847,6 +2847,27 @@ template<class Real> static void UnitTestCompressedMatrix() {
       }
     }
 
+    //test of getting a submatrix
+    if(num_rows != 0 && num_cols != 0){
+      int32 sub_row_offset = (num_rows == 1 ? 0 : rand() % (num_rows-1)),
+            sub_col_offset = (num_cols == 1 ? 0 : rand() % (num_cols-1));
+            // to make sure we don't mod by zero
+      int32 num_subrows = rand() % (num_rows-sub_row_offset),
+            num_subcols = rand() % (num_cols-sub_col_offset);
+      if(num_subrows == 0 || num_subcols == 0){  // in case we randomized to
+        // empty matrix, at least make it correct
+        num_subrows = 0;
+        num_subcols = 0;
+      }
+      Matrix<Real> Msub(num_subrows, num_subcols);
+      cmat.CopyToMat(sub_row_offset, sub_col_offset, &Msub);
+      for (int i = 0; i < num_subrows; i++) {
+        for (MatrixIndexT k = 0;k < num_subcols;k++) {
+          AssertEqual(M2(i+sub_row_offset, k+sub_col_offset), Msub(i, k));
+        }
+      }
+    }
+
     if (n < 5) {  // test I/O.
       bool binary = (n % 2 == 1);
       {
