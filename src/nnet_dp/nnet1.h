@@ -78,8 +78,11 @@ struct Nnet1InitConfig {
   std::string learning_rates; // For each layer, the learning rate.  (colon-separated).
   // If just one element, all the learning rates will be set the same.  Note:
   // these are adjusted during training, we're just setting the initial one.
+
+  BaseFloat diagonal_element; // Diagonal element we initialize linear_layer with.
+  // E.g. 0.9.
   
-  Nnet1InitConfig() { }
+  Nnet1InitConfig(): diagonal_element(0.9) { }
   
   void Register (ParseOptions *po) {
     po->Register("layer-sizes", &layer_sizes,
@@ -91,6 +94,8 @@ struct Nnet1InitConfig {
                  "Colon-separated list of initial learning rates, one for each layer; or just a single "
                  "learning rate, shared between layers.  Note: not too critical, as learning rates "
                  "are automatically adjusted during training. ");
+    po->Register("diagonal-element", &diagonal_element,
+                 "Diagonal element used when initializing linear layer");
   }
 };
 
@@ -107,6 +112,9 @@ struct Nnet1InitInfo {
   // then for each first-level node that has >1 leaf, the # second-level nodes for that
   // first-level node.
 
+  BaseFloat diagonal_element; // diagonal element when initializing linear
+                              // layer, > 0.0, <= 1.0.
+  
   Nnet1InitInfo(const Nnet1InitConfig &config,
                 const std::vector<int32> &category_sizes);
 };
@@ -143,6 +151,13 @@ class Nnet1 {
     // layer "layer" is spliced over time.
     return (LeftContextForLayer(layer) + RightContextForLayer(layer) > 0);
   }
+
+  int32 InputDim() const { // Input dimension of raw, un-spliced features.
+    // Note: there is no OutputDim(), for each category we have
+    // NumLabelsForCategory(category).
+    return initial_layers_[0].tanh_layer->InputDim() /
+        (1 + LeftContextForLayer(0) + RightContextForLayer(0));
+  }
   
   // Returns number of layers before the softmax and linear layers.
   int32 NumTanhLayers() const { return initial_layers_.size(); }
@@ -163,16 +178,11 @@ class Nnet1 {
 
   void Init(const Nnet1InitInfo &init_info);
 
-  void ClearFinalLayers();
-  void ClearInitialLayers();
-
   void Destroy();
   
   void Write(std::ostream &os, bool binary) const;
 
   void Read(std::istream &is, bool binary);
-
-  void Check(); // Checks that the parameters make sense.
 
   friend class Nnet1Trainer;
  private:
@@ -259,7 +269,7 @@ class Nnet1Trainer {
   class ForwardAndBackwardFinalClass;
   
   void FormatInput(const std::vector<TrainingExample> &data); // takes the
-  // input and formats as a single matrix, in tanh_forward_data[0].
+  // input and formats as a single matrix, in tanh_forward_data_[0].
 
   void ForwardTanh(); // Does the forward computation for the initial (tanh)
   // layers.
@@ -304,23 +314,20 @@ class Nnet1Trainer {
   // the *input* to that layer, before frame splicing; when we do frame
   // splicing, the chunk sizes will get smaller and be the same as the chunk
   // size at the output to that layer [i.e. the input to the next layer].  
-  std::vector<int32> chunk_sizes_;
   
-  int32 num_chunks_;
   const Nnet1 &nnet_;
+  int32 num_chunks_;
   Nnet1 *nnet_to_update_;
-
+  
   std::vector<Matrix<BaseFloat> > tanh_forward_data_; // The forward data
   // for the input layer [with ones appended, if needed], and for the outputs of
   // the tanh layers.  Indexed by [layer][t][dim]; tanh_forward[i] is the input
   // of layer i.
   
-  Matrix<BaseFloat> last_tanh_backward_; // This is used to store the backward derivative for the last
-  // tanh layer; for other layers we use the "tanh_data" for both forward and backward but in this
-  // case we can't do this (relates to the fact that there are multiple linear/softmax layers).
-  
-  Matrix<BaseFloat> softmax_data_; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
-  Matrix<BaseFloat> linear_data_; // indexed by [t][dim], forward and backward data; we do the categories in sequence, reusing the space.
+  Matrix<BaseFloat> last_tanh_backward_; // This is used to store the backward derivative
+  // at the input of the last tanh layer; for other layers we use the
+  // "tanh_data" for both forward and backward but in this case we can't do this
+  // (relates to the fact that there are multiple linear/softmax layers).
 };
 
 

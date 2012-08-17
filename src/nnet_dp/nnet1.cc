@@ -23,6 +23,7 @@ namespace kaldi {
 
 Nnet1InitInfo::Nnet1InitInfo(const Nnet1InitConfig &config,
                              const std::vector<int32> &category_sizes_in) {
+  diagonal_element = config.diagonal_element;
   SplitStringToIntegers(config.layer_sizes, ":", false, &layer_sizes);
   if (layer_sizes.size() < 2 ||
       *std::min_element(layer_sizes.begin(), layer_sizes.end()) < 1)
@@ -63,12 +64,31 @@ Nnet1InitInfo::Nnet1InitInfo(const Nnet1InitConfig &config,
 
 
 void Nnet1::Init(const Nnet1InitInfo &info) {
-  // category_sizes gives number of
-  // labels in each category.  For single-language, will be [# first-level nodes in tree],
-  // then for each first-level node that has >1 leaf, the # second-level nodes for that
-  // first-level node.
-
-  
+  Destroy(); // In case there was anything there.
+  int32 n = info.context_frames.size(); // Number of tanh layers.
+  initial_layers_.resize(n);
+  for (int32 i = 0; i < n; i++) {
+    InitialLayerInfo &layer_info = initial_layers_[i];
+    int32 input_dim = info.layer_sizes[i],
+        output_dim = info.layer_sizes[i+1];
+    layer_info.left_context = info.context_frames[i].first;
+    layer_info.right_context = info.context_frames[i].second;
+    int32 tot_context = 1 + layer_info.left_context + layer_info.right_context;
+    layer_info.tanh_layer = new TanhLayer(input_dim * tot_context,
+                                          output_dim,
+                                          info.learning_rates[i]);
+  }
+  // Now the final layers.
+  final_layers_.resize(info.category_sizes.size());
+  int32 final_layer_size = info.layer_sizes.back();
+  for (int32 category = 0; category < info.category_sizes.size();
+       category++) {
+    int32 category_size = info.category_sizes[category];
+    final_layers_[category].softmax_layer = new SoftmaxLayer(
+        final_layer_size, category_size, info.learning_rates[n]);
+    final_layers_[category].linear_layer = new LinearLayer(
+        category_size, info.diagonal_element, info.learning_rates[n]);
+  }
 }
 
 
@@ -161,7 +181,58 @@ Nnet1::Nnet1(const Nnet1 &other){
     final_layers_.push_back(categ_info);
   }
 }
- 
+
+
+Nnet1Trainer::Nnet1Trainer(
+    const Nnet1 &nnet,
+    int32 chunk_size_at_output, // size of chunks (number of output labels).
+    int32 num_chunks, // number of chunks we process at the same time.
+    Nnet1 *nnet_to_update): nnet_(nnet), num_chunks_(num_chunks),
+                            nnet_to_update_(nnet_to_update) {
+  last_tanh_backward_.Resize(num_chunks * chunk_size_at_output,
+                             nnet_.initial_layers_.back().tanh_layer->OutputDim());
+  
+  int32 cur_chunk_size = chunk_size_at_output; // as we go from the last to
+  // the first tanh layer, this will be the chunk size at the current layer; it
+  // increases as we go back, as we may need more context.
+
+  int32 num_tanh_layers = nnet_.initial_layers_.size();
+  // One for each layer, plus one for the input.
+  tanh_forward_data_.resize(nnet_.initial_layers_.size() + 1);
+  
+  for (int32 l = num_tanh_layers-1; l >= 0; l--) {
+
+    Matrix<BaseFloat> &output_forward_data = tanh_forward_data_[l+1];
+    output_forward_data.Resize(cur_chunk_size * num_chunks,
+                               nnet_.initial_layers_[l].tanh_layer->OutputDim());
+    cur_chunk_size += nnet_.LeftContextForLayer(l) +
+        nnet_.RightContextForLayer(l);
+  }
+  tanh_forward_data_[0].Resize(cur_chunk_size * num_chunks,
+                               nnet_.InputDim());
+}
+
+
+void Nnet1Trainer::FormatInput(const std::vector<TrainingExample> &data) {
+  KALDI_ASSERT(data.size() == num_chunks_);
+  int32 chunk_size = tanh_forward_data_[0].NumRows() / num_chunks_;
+  int32 input_dim = tanh_forward_data_[0].NumCols(); // Dimension of input
+  // data that neural net sees.
+  int32 raw_input_dim = data[0].input.NumCols();
+  if (input_dim != raw_input_dim && input_dim != raw_input_dim + 1) {
+    KALDI_ERR << "Dimension mismatch: neural net expects data of dimension "
+              << input_dim << " but is being trained on data of dim "
+              << raw_input_dim;
+  }
+  for (int32 i = 0; i < num_chunks_; i++) {
+    SubMatrix<BaseFloat> dest(tanh_forward_data_[0],
+                              i * chunk_size, chunk_size, 0, raw_input_dim);
+    if (input_dim == raw_input_dim + 1) // extend features with 1.0.
+      for (int32 j = 0; j < chunk_size; j++)
+        tanh_forward_data_[0](i * chunk_size + j, raw_input_dim) = 1.0;
+  }
+}
+
 void Nnet1Trainer::TrainStep(const std::vector<TrainingExample> &data) {
   FormatInput(data);
   ForwardTanh();
@@ -482,7 +553,7 @@ void Nnet1Trainer::BackwardTanh() {
 }
 
 
-void Nnet1::ClearInitialLayers() {
+void Nnet1::Destroy() {
   for (std::vector<InitialLayerInfo>::iterator iter = initial_layers_.begin();
        iter != initial_layers_.end(); ++iter) {
     if (iter->tanh_layer != NULL) {
@@ -490,9 +561,6 @@ void Nnet1::ClearInitialLayers() {
     }
   }
   initial_layers_.clear() ; 
-}
-
-void Nnet1::ClearFinalLayers() {
   for (std::vector<FinalLayerInfo>::iterator iter = final_layers_.begin();
        iter != final_layers_.end(); ++iter) {
     if (iter->softmax_layer != NULL) {
@@ -503,11 +571,6 @@ void Nnet1::ClearFinalLayers() {
     }
   }
   final_layers_.clear() ; 
-}
-
-void Nnet1::Destroy() {
-  ClearInitialLayers();
-  ClearFinalLayers();
 }
 
 int32 Nnet1::LeftContext() const {
