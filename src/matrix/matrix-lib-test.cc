@@ -2832,7 +2832,7 @@ template<class Real> static void UnitTestCompressedMatrix() {
     // test CopyRowToVec
     for (int i = 0; i < num_rows; i++) {
       Vector<Real> V(num_cols);
-      cmat.CopyRowToVec(&V, i);  // get row.
+      cmat.CopyRowToVec(i, &V);  // get row.
       for (MatrixIndexT k = 0;k < num_cols;k++) {
         AssertEqual(M2(i, k), V(k));
       }
@@ -2841,7 +2841,7 @@ template<class Real> static void UnitTestCompressedMatrix() {
     // test CopyColToVec
     for (int i = 0; i < num_cols; i++) {
       Vector<Real> V(num_rows);
-      cmat.CopyColToVec(&V, i);  // get col.
+      cmat.CopyColToVec(i, &V);  // get col.
       for (MatrixIndexT k = 0;k < num_rows;k++) {
         AssertEqual(M2(k, i), V(k));
       }

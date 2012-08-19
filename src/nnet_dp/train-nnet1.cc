@@ -52,7 +52,7 @@ void Nnet1BasicTrainer::ExtractToMatrix(const CompressedMatrix &input,
       input_row = 0;
     else if (input_row >= input.NumRows())
       input_row = input.NumRows() - 1;
-    input.CopyRowToVec(&dest, input_row);
+    input.CopyRowToVec(input_row, &dest);
   }
 }
 

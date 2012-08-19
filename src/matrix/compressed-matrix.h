@@ -68,12 +68,12 @@ class CompressedMatrix {
   /// Copies row #row of the matrix into vector v.
   /// Note: v must have same size as #cols.
   template<typename Real>
-  void CopyRowToVec(VectorBase<Real> *v, MatrixIndexT row) const;
+  void CopyRowToVec(MatrixIndexT row, VectorBase<Real> *v) const;
 
   /// Copies column #col of the matrix into vector v.
   /// Note: v must have same size as #rows.
   template<typename Real>
-  void CopyColToVec(VectorBase<Real> *v, MatrixIndexT col) const;
+  void CopyColToVec(MatrixIndexT col, VectorBase<Real> *v) const;
 
   /// Copies submatrix of compressed matrix into matrix dest.
   /// Submatrix starts at row row_offset and column column_offset and it' size

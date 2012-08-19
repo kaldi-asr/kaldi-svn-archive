@@ -354,8 +354,8 @@ template
 void CompressedMatrix::CopyToMat(Matrix<double> *mat) const;
 
 template<typename Real>
-void CompressedMatrix::CopyRowToVec(VectorBase<Real> *v,
-                                    MatrixIndexT row) const {
+void CompressedMatrix::CopyRowToVec(MatrixIndexT row,
+                                    VectorBase<Real> *v) const {
   KALDI_ASSERT(row < this->NumRows());
   KALDI_ASSERT(row >= 0);
   KALDI_ASSERT(v->Dim() == this->NumCols());
@@ -376,8 +376,8 @@ void CompressedMatrix::CopyRowToVec(VectorBase<Real> *v,
   }
 }
 template<typename Real>
-void CompressedMatrix::CopyColToVec(VectorBase<Real> *v,
-                                    MatrixIndexT col) const {
+void CompressedMatrix::CopyColToVec(MatrixIndexT col,
+                                    VectorBase<Real> *v) const {
   KALDI_ASSERT(col < this->NumCols());
   KALDI_ASSERT(col >= 0);
   KALDI_ASSERT(v->Dim() == this->NumRows());
@@ -400,13 +400,13 @@ void CompressedMatrix::CopyColToVec(VectorBase<Real> *v,
 
 // instantiate the templates.
 template void
-CompressedMatrix::CopyColToVec(VectorBase<double> *, MatrixIndexT) const;
+CompressedMatrix::CopyColToVec(MatrixIndexT, VectorBase<double> *) const;
 template void
-CompressedMatrix::CopyColToVec(VectorBase<float> *, MatrixIndexT) const;
+CompressedMatrix::CopyColToVec(MatrixIndexT, VectorBase<float> *) const;
 template void
-CompressedMatrix::CopyRowToVec(VectorBase<double> *, MatrixIndexT) const;
+CompressedMatrix::CopyRowToVec(MatrixIndexT, VectorBase<double> *) const;
 template void
-CompressedMatrix::CopyRowToVec(VectorBase<float> *, MatrixIndexT) const;
+CompressedMatrix::CopyRowToVec(MatrixIndexT, VectorBase<float> *) const;
 
 template<typename Real>
 void CompressedMatrix::CopyToMat(int32 row_offset,
