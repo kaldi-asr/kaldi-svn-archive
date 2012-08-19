@@ -1,6 +1,6 @@
 // nnet_dp/update_nnet1.h
 
-// Copyright 2012  Johns Hopkins Universit (author: Daniel Povey)
+// Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Navdeep Jaitly
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,6 +58,7 @@ struct TrainingExample {
 // shared.
 
 class Nnet1Updater {
+ public:
 
   // Note: in the case of training with SGD, "nnet" and "nnet_to_update" will
   // be identical.  They'll be different if we're accumulating the gradient
@@ -67,8 +68,7 @@ class Nnet1Updater {
                int32 num_chunks, // number of chunks we process at the same time.
                Nnet1 *nnet_to_update);
 
-  void TrainStep(const std::vector<TrainingExample> &data);
-
+  void TrainOnOneMinibatch(const std::vector<TrainingExample> &data);
  private:
   class ForwardAndBackwardFinalClass;
   

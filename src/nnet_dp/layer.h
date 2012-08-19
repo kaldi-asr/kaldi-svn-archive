@@ -84,7 +84,9 @@ class SoftmaxLayer {
 
   // each row of the args to this function is one frame.
   // Note: support frame splicing, so if input.NumCols() is < input_size,
-  // splice input, and shift by one each time.
+  // splice input, and shift by one each time. [warning: we're not
+  // using this splicing mechanism in the nnet1 code, that code does it
+  // itself.
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output) const;
   
@@ -147,7 +149,9 @@ class TanhLayer {
   // on multiple frames at a time.  If the dimension of each row of the input
   // is not the same as the input dimension of the layer [but divides it]
   // then the first row of the "real" input will be spliced first n rows
-  // of the input, then shift by one each time.
+  // of the input, then shift by one each time.  [warning: we're not
+  // using this splicing mechanism in the nnet1 code, that code does it
+  // itself.
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output) const;
   

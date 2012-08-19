@@ -1,6 +1,6 @@
 // nnet_dp/nnet1.h
 
-// Copyright 2012  Johns Hopkins Universit (author: Daniel Povey)
+// Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Navdeep Jaitly
 
 
@@ -130,7 +130,7 @@ struct Nnet1InitInfo {
 // leaf-- this helps for efficiency in training], and multilingual experiments.
 
 class Nnet1 {
-
+ public:
   // Returns number of linear transforms / number of layers of neurons
   int32 NumLayers() { return initial_layers_.size() + 2; }
 

@@ -19,28 +19,6 @@
 
 namespace kaldi {
 
-// this function is not used.
-static void SpliceFrames(const MatrixBase<BaseFloat> &input,
-                         MatrixBase<BaseFloat> *spliced_out) {
-  // This function [specific to this .cc file] splices
-  // the rows of "input" into "spliced_out".  E.g. we put the first
-  // 3 rows of "input", spliced together as the 1st row of spliced_out,
-  // and then rows 2,3,4 of "input" spliced together as the 2nd row of
-  // spliced_out.
-  // Actually this is probably not as memory-local as it could be...
-  // we'll redo it if a lot of time is spent here. [TODO: try to make this
-  // row-by-row, not using sub-matrices; or do it using pointers.]
-  int small_dim = input.NumCols(), large_dim = spliced_out->NumCols();
-  int num_splice = large_dim / small_dim, num_output_rows = spliced_out->NumRows();
-  KALDI_ASSERT (small_dim * num_splice == large_dim); // or not a multiple...
-  KALDI_ASSERT(spliced_out->NumRows() == input.NumRows() - num_splice + 1);
-  for (int32 s = 0; s < num_splice; s++) {
-    SubMatrix<BaseFloat> src(input, s, num_output_rows, 0, small_dim);
-    SubMatrix<BaseFloat> dst(*spliced_out, 0, num_output_rows,
-                             small_dim * s, small_dim * (s+1));
-    dst.CopyFromMat(src);
-  }
-}
 
 LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
                          BaseFloat learning_rate):

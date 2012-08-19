@@ -1,4 +1,4 @@
-// nnet_dp/update_nnet1.cc
+// nnet_dp/update-nnet1.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -71,7 +71,7 @@ void Nnet1Updater::FormatInput(const std::vector<TrainingExample> &data) {
   }
 }
 
-void Nnet1Updater::TrainStep(const std::vector<TrainingExample> &data) {
+void Nnet1Updater::TrainOnOneMinibatch(const std::vector<TrainingExample> &data) {
   FormatInput(data);
   ForwardTanh();
   ForwardAndBackwardFinal(data);
