@@ -1,6 +1,7 @@
 // util/parse-options-test.cc
 
-// Copyright 2009-2011  Microsoft Corporation
+// Copyright 2009-2012  Microsoft Corporation
+//                      Frantisek Skala
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +24,8 @@ void UnitTestParseOptions() {
   std::string str;
   int32 num;
   uint32 unum;
-  const char *argv[7] = { "program_name", "--unum=5", "--num=3", "--i=boo", "a", "b", "c" };
+  const char *argv[7] = { "program_name", "--unum=5", "--num=3", "--i=boo",
+    "a", "b", "c" };
   ParseOptions po("my usage msg");
   po.Register("i", &str, "My variable");
   po.Register("num", &num, "My int32 variable");
@@ -39,9 +41,11 @@ void UnitTestParseOptions() {
 
   ParseOptions po2("my another msg");
   int argc2 = 4;
-  const char *argv2[4] = { "program_name", "--i=foo", "--to-be-NORMALIZED=test", "c" };
+  const char *argv2[4] = { "program_name", "--i=foo",
+    "--to-be-NORMALIZED=test", "c" };
   std::string str2;
-  po2.Register("To_Be_Normalized", &str2, "My variable (name has to be normalized)");
+  po2.Register("To_Be_Normalized", &str2,
+               "My variable (name has to be normalized)");
   po2.Register("i", &str, "My variable");
   po2.Read(argc2, argv2);
   assert(po2.NumArgs() == 1);
