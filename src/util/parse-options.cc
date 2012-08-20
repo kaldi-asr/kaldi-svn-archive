@@ -31,79 +31,70 @@
 
 namespace kaldi {
 
-
-
-void ParseOptions::Register(const std::string &name, bool *b,
+template<typename T>
+void ParseOptions::Register(const std::string &name, T *ptr,
                             const std::string &doc) {
-  KALDI_ASSERT(b != NULL);
+  KALDI_ASSERT(ptr != NULL);
   std::string idx = name;
   NormalizeArgName(&idx);
   if (doc_map_.find(idx) != doc_map_.end())
     KALDI_WARN << "Registering option twice, ignoring second time: " << name;
+  this->RegisterSpecific(name, idx, ptr, doc);
+}
+
+void ParseOptions::RegisterSpecific(const std::string &name,
+                                    const std::string &idx,
+                                    bool *b,
+                                    const std::string &doc) {
   bool_map_[idx] = b;
   doc_map_[idx] = DocInfo(name, doc + " (bool, default = "
                           + ((*b)? "true)" : "false)"));
 }
 
-void ParseOptions::Register(const std::string &name, int32 *i,
-                            const std::string &doc) {
-  KALDI_ASSERT(i != NULL);
-  std::string idx = name;
-  NormalizeArgName(&idx);
-  if (doc_map_.find(idx) != doc_map_.end())
-    KALDI_WARN << "Registering option twice, ignoring second time: " << name;
+void ParseOptions::RegisterSpecific(const std::string &name,
+                                    const std::string &idx,
+                                    int32 *i,
+                                    const std::string &doc) {
   int_map_[idx] = i;
   std::ostringstream ss;
   ss << doc << " (int, default = " << *i << ")";
   doc_map_[idx] = DocInfo(name, ss.str());
 }
 
-void ParseOptions::Register(const std::string &name, uint32 *u,
-                            const std::string &doc) {
-  KALDI_ASSERT(u != NULL);
-  std::string idx = name;
-  NormalizeArgName(&idx);
-  if (doc_map_.find(idx) != doc_map_.end())
-    KALDI_WARN << "Registering option twice, ignoring second time: " << name;
+void ParseOptions::RegisterSpecific(const std::string &name,
+                                    const std::string &idx,
+                                    uint32 *u,
+                                    const std::string &doc) {
   uint_map_[idx] = u;
   std::ostringstream ss;
   ss << doc << " (uint, default = " << *u << ")";
   doc_map_[idx] = DocInfo(name, ss.str());
 }
 
-void ParseOptions::Register(const std::string &name, float *f,
-                            const std::string &doc) {
-  KALDI_ASSERT(f != NULL);
-  std::string idx = name;
-  NormalizeArgName(&idx);
-  if (doc_map_.find(idx) != doc_map_.end())
-    KALDI_WARN << "Registering option twice, ignoring second time: " << name;
+void ParseOptions::RegisterSpecific(const std::string &name,
+                                    const std::string &idx,
+                                    float *f,
+                                    const std::string &doc) {
   float_map_[idx] = f;
   std::ostringstream ss;
   ss << doc << " (float, default = " << *f << ")";
   doc_map_[idx] = DocInfo(name, ss.str());
 }
 
-void ParseOptions::Register(const std::string &name, double *f,
-                            const std::string &doc) {
-  KALDI_ASSERT(f != NULL);
-  std::string idx = name;
-  NormalizeArgName(&idx);
-  if (doc_map_.find(idx) != doc_map_.end())
-    KALDI_WARN << "Registering option twice, ignoring second time: " << name;
+void ParseOptions::RegisterSpecific(const std::string &name,
+                                    const std::string &idx,
+                                    double *f,
+                                    const std::string &doc) {
   double_map_[idx] = f;
   std::ostringstream ss;
   ss << doc << " (double, default = " << *f << ")";
   doc_map_[idx] = DocInfo(name, ss.str());
 }
 
-void ParseOptions::Register(const std::string &name, std::string *s,
-                            const std::string &doc) {
-  KALDI_ASSERT(s != NULL);
-  std::string idx = name;
-  NormalizeArgName(&idx);
-  if (doc_map_.find(idx) != doc_map_.end())
-    KALDI_WARN << "Registering option twice, ignoring second time: " << name;
+void ParseOptions::RegisterSpecific(const std::string &name,
+                                    const std::string &idx,
+                                    std::string *s,
+                                    const std::string &doc) {
   string_map_[idx] = s;
   doc_map_[idx] = DocInfo(name, doc + " (string, default = \"" + *s + "\")");
 }
@@ -505,5 +496,19 @@ double ParseOptions::ToDouble(std::string str) {
   }
   return ret;
 }
+
+// instantiate templates
+template void ParseOptions::Register(const std::string &name, bool *ptr,
+                            const std::string &doc);
+template void ParseOptions::Register(const std::string &name, int32 *ptr,
+                            const std::string &doc);
+template void ParseOptions::Register(const std::string &name, uint32 *ptr,
+                            const std::string &doc);
+template void ParseOptions::Register(const std::string &name, float *ptr,
+                            const std::string &doc);
+template void ParseOptions::Register(const std::string &name, double *ptr,
+                            const std::string &doc);
+template void ParseOptions::Register(const std::string &name, std::string *ptr,
+                            const std::string &doc);
 
 }  // namespace kaldi

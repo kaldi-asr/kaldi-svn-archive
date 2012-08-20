@@ -43,20 +43,32 @@ class ParseOptions {
   ~ParseOptions() {}
 
  public:
+  /// Template to various variable types
+  /// Does the common part of the job, then calls RegisterSpecific
+  template<typename T>
+  void Register(const std::string &name,
+                T *ptr, const std::string &doc);
+
+  // Following functions do just the datatype-specific part of the job
   /// Register boolean variable
-  void Register(const std::string &name, bool *b, const std::string &doc);
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        bool *b, const std::string &doc);
   /// Register int32 variable
-  void Register(const std::string &name, int32 *i, const std::string &doc);
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        int32 *i, const std::string &doc);
   /// Register unsinged  int32 variable
-  void Register(const std::string &name, uint32 *u,
-                const std::string &doc);
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        uint32 *u,
+                        const std::string &doc);
   /// Register float variable
-  void Register(const std::string &name, float *f, const std::string &doc);
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        float *f, const std::string &doc);
   /// Register double variable [useful as we change BaseFloat type].
-  void Register(const std::string &name, double *f, const std::string &doc);
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        double *f, const std::string &doc);
   /// Register string variable
-  void Register(const std::string &name, std::string *s,
-                const std::string &doc);
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        std::string *s, const std::string &doc);
 
   /**
    * Parses the command line options and fills the ParseOptions-registered
