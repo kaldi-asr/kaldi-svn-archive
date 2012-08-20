@@ -48,9 +48,10 @@ class CompressedMatrix {
   template<class Real>
   void CopyFromMat(const Matrix<Real> &mat);
 
-  /// Caution: CopyToMat will resize the output matrix if necessary.
+  // Note: mat must have the correct size, CopyToMat no longer attempts
+  // to resize the matrix
   template<class Real>
-  void CopyToMat(Matrix<Real> *mat) const;
+  void CopyToMat(MatrixBase<Real> *mat) const;
 
 
   void Write(std::ostream &os, bool binary) const;

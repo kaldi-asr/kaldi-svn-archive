@@ -324,16 +324,18 @@ void CompressedMatrix::Read(std::istream &is, bool binary) {
 }
 
 template<class Real>
-void CompressedMatrix::CopyToMat(Matrix<Real> *mat) const {
+void CompressedMatrix::CopyToMat(MatrixBase<Real> *mat) const {
   if (data_ == NULL) {
-    mat->Resize(0, 0);
+    KALDI_ASSERT(mat->NumRows() == 0);
+    KALDI_ASSERT(mat->NumCols() == 0);
   } else {
     GlobalHeader *h = reinterpret_cast<GlobalHeader*>(data_);
     PerColHeader *per_col_header = reinterpret_cast<PerColHeader*>(h+1);
     unsigned char *byte_data = reinterpret_cast<unsigned char*>(per_col_header +
                                                                 h->num_cols);
     int32 num_cols = h->num_cols, num_rows = h->num_rows;
-    mat->Resize(num_rows, num_cols, kUndefined);
+    KALDI_ASSERT(mat->NumRows() == num_rows);
+    KALDI_ASSERT(mat->NumCols() == num_cols);
     for (int32 i = 0; i < num_cols; i++, per_col_header++) {
       float p0 = Uint16ToFloat(*h, per_col_header->percentile_0),
           p25 = Uint16ToFloat(*h, per_col_header->percentile_25),
@@ -349,9 +351,9 @@ void CompressedMatrix::CopyToMat(Matrix<Real> *mat) const {
 
 // Instantiate the template for float and double.
 template
-void CompressedMatrix::CopyToMat(Matrix<float> *mat) const;
+void CompressedMatrix::CopyToMat(MatrixBase<float> *mat) const;
 template
-void CompressedMatrix::CopyToMat(Matrix<double> *mat) const;
+void CompressedMatrix::CopyToMat(MatrixBase<double> *mat) const;
 
 template<typename Real>
 void CompressedMatrix::CopyRowToVec(MatrixIndexT row,

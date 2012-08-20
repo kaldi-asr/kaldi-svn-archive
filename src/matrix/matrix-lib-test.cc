@@ -2823,7 +2823,7 @@ template<class Real> static void UnitTestCompressedMatrix() {
     KALDI_ASSERT(cmat.NumRows() == num_rows);
     KALDI_ASSERT(cmat.NumCols() == num_cols);
 
-    Matrix<Real> M2;
+    Matrix<Real> M2(cmat.NumRows(), cmat.NumCols());
     cmat.CopyToMat(&M2);
 
     Matrix<Real> diff(M2);
@@ -2882,7 +2882,7 @@ template<class Real> static void UnitTestCompressedMatrix() {
         InitKaldiInputStream(ins, &binary_in);
         cmat2.Read(ins, binary_in);
       }
-      Matrix<Real> M3;
+      Matrix<Real> M3(cmat2.NumRows(), cmat2.NumCols());
       cmat2.CopyToMat(&M3);
       AssertEqual(M2, M3); // tests I/O of CompressedMatrix.
     }
