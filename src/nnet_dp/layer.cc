@@ -59,11 +59,65 @@ void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
     SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
     SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
                                      input_dim * s, input_dim);
-    input_deriv_part.AddMatMat(1.0, sum_deriv, kNoTrans, params_part, kNoTrans,
-                               1.0);
+    input_deriv_part.AddMatMat(1.0, sum_deriv, kNoTrans,
+                               params_part, kNoTrans, 1.0);
   }
 }
 
+void TanhLayer::AdjustLearningRate(const TanhLayer &previous_value,
+                                   const TanhLayer &validation_gradient,
+                                   BaseFloat learning_rate_ratio) {
+  Matrix<BaseFloat> param_delta(params_);
+  param_delta.AddMat(-1.0, previous_value.params_);
+  BaseFloat dot_prod = TraceMatMat(param_delta, validation_gradient.params_,
+                                   kTrans); // dot product if we view
+  // the matrices as vectors.
+  KALDI_ASSERT(learning_rate_ratio >= 1.0);
+  BaseFloat new_learning_rate = learning_rate_;
+  if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
+  else new_learning_rate /= learning_rate_ratio;
+  KALDI_VLOG(1) << "Tanh layer: dot product is " << dot_prod << ", changing learning rate "
+                << "from " << learning_rate_ << " to " << new_learning_rate;
+  learning_rate_ = new_learning_rate;
+}
+
+void LinearLayer::AdjustLearningRate(const LinearLayer &previous_value,
+                                     const LinearLayer &validation_gradient,
+                                     BaseFloat learning_rate_ratio) {
+  Matrix<BaseFloat> param_delta(params_);
+  param_delta.AddMat(-1.0, previous_value.params_);
+  BaseFloat dot_prod = TraceMatMat(param_delta, validation_gradient.params_,
+                                   kTrans); // dot product if we view
+  // the matrices as vectors.
+  KALDI_ASSERT(learning_rate_ratio >= 1.0);
+  BaseFloat new_learning_rate = learning_rate_;
+  if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
+  else new_learning_rate /= learning_rate_ratio;
+  KALDI_VLOG(1) << "Linear layer: dot product is " << dot_prod
+                << ", changing learning rate " << "from "
+                << learning_rate_ << " to " << new_learning_rate;
+  learning_rate_ = new_learning_rate;
+}
+
+// TODO: these AdjustLearningRate functions are essentially the same; could
+// move them to a base class.
+void SoftmaxLayer::AdjustLearningRate(const SoftmaxLayer &previous_value,
+                                      const SoftmaxLayer &validation_gradient,
+                                      BaseFloat learning_rate_ratio) {
+  Matrix<BaseFloat> param_delta(params_);
+  param_delta.AddMat(-1.0, previous_value.params_);
+  BaseFloat dot_prod = TraceMatMat(param_delta, validation_gradient.params_,
+                                   kTrans); // dot product if we view
+  // the matrices as vectors.
+  KALDI_ASSERT(learning_rate_ratio >= 1.0);
+  BaseFloat new_learning_rate = learning_rate_;
+  if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
+  else new_learning_rate /= learning_rate_ratio;
+  KALDI_VLOG(1) << "Softmax layer: dot product is " << dot_prod
+                << ", changing learning rate " << "from "
+                << learning_rate_ << " to " << new_learning_rate;
+  learning_rate_ = new_learning_rate;
+}
 
 
 

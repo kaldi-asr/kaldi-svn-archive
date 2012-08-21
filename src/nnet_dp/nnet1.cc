@@ -159,31 +159,6 @@ void UnSpliceDerivative(const MatrixBase<BaseFloat> &spliced_deriv,
   }
 }
 
-Nnet1::Nnet1(const Nnet1 &other){
-  int32 num_tanh_layers = other.NumTanhLayers();
-  for (int32 layer = 0; layer < num_tanh_layers; layer++) {
-    InitialLayerInfo layer_info ;
-    layer_info.left_context = other.initial_layers_[layer].left_context;
-    layer_info.right_context = other.initial_layers_[layer].right_context;
-    // using default copy constructor here for tanh_layer. 
-    layer_info.tanh_layer = new TanhLayer(
-                          *other.initial_layers_[layer].tanh_layer);
-    initial_layers_.push_back(layer_info);
-  }
-
-  int32 num_categories = other.NumCategories(); 
-  for (int32 categ = 0; categ < num_categories; categ++) {
-    FinalLayerInfo categ_info ;
-    // using default copy constructor here for tanh_categ. 
-    categ_info.softmax_layer = new SoftmaxLayer(
-                          *other.final_layers_[categ].softmax_layer);
-    categ_info.linear_layer = new LinearLayer(
-                          *other.final_layers_[categ].linear_layer);
-    final_layers_.push_back(categ_info);
-  }
-}
-
-
 void Nnet1::Destroy() {
   for (std::vector<InitialLayerInfo>::iterator iter = initial_layers_.begin();
        iter != initial_layers_.end(); ++iter) {
@@ -316,7 +291,7 @@ void Nnet1::Read(std::istream &is, bool binary) {
   }
 
   ExpectToken(is, binary, "<FinalLayers>");
-  for (int32 i =0; i < num_categories; i++){
+  for (int32 i = 0; i < num_categories; i++){
     FinalLayerInfo layer_info;
     // see comment above about the way TanhLayer is constructed
     // using a constructor taking the input stream as argument.
@@ -325,6 +300,54 @@ void Nnet1::Read(std::istream &is, bool binary) {
     final_layers_.push_back(layer_info);
   }
 }
+
+void Nnet1::SetZero() {
+  for (int32 i = 0; i < initial_layers_.size(); i++)
+    initial_layers_[i].tanh_layer->SetZero();
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    final_layers_[i].softmax_layer->SetZero();
+    final_layers_[i].linear_layer->SetZero();
+  }
+}
+
+Nnet1::Nnet1(const Nnet1 &other):
+    initial_layers_(other.initial_layers_),
+    final_layers_(other.final_layers_) {
+  // This initialization just copied the pointers; now we want a deep copy,
+  // so call New().
+  for (int32 i = 0; i < initial_layers_.size(); i++)
+    initial_layers_[i].tanh_layer =
+        new TanhLayer(*initial_layers_[i].tanh_layer);
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    final_layers_[i].softmax_layer =
+        new SoftmaxLayer(*final_layers_[i].softmax_layer);
+    final_layers_[i].linear_layer =
+        new LinearLayer(*final_layers_[i].linear_layer);
+  }
+}
+
+void Nnet1::AdjustLearningRates(
+    const Nnet1 &previous_value,
+    const Nnet1 &validation_gradient,
+    BaseFloat learning_rate_ratio) {
+  for (int32 i = 0; i < initial_layers_.size(); i++) {
+    initial_layers_[i].tanh_layer->AdjustLearningRate(
+        *previous_value.initial_layers_[i].tanh_layer,
+        *validation_gradient.initial_layers_[i].tanh_layer,
+        learning_rate_ratio);
+  }
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    final_layers_[i].softmax_layer->AdjustLearningRate(
+        *previous_value.final_layers_[i].softmax_layer,
+        *validation_gradient.final_layers_[i].softmax_layer,
+        learning_rate_ratio);
+    final_layers_[i].linear_layer->AdjustLearningRate(
+        *previous_value.final_layers_[i].linear_layer,
+        *validation_gradient.final_layers_[i].linear_layer,
+        learning_rate_ratio);
+  }
+}
+  
 
 
 } // namespace kaldi

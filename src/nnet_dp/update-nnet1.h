@@ -68,7 +68,11 @@ class Nnet1Updater {
                int32 num_chunks, // number of chunks we process at the same time.
                Nnet1 *nnet_to_update);
 
-  void TrainOnOneMinibatch(const std::vector<TrainingExample> &data);
+  BaseFloat TrainOnOneMinibatch(const std::vector<TrainingExample> &data);
+  // returns average objective function over this minibatch.
+
+  Nnet1 *NnetToUpdate() { return nnet_to_update_; }
+  const Nnet1 &Nnet() const { return nnet_; }
  private:
   class ForwardAndBackwardFinalClass;
   
@@ -87,23 +91,27 @@ class Nnet1Updater {
   // that are referenced on every single frame; and one "other_categories"
   // that are not, and which will be listed in increasing order of
   // frequency.
+  // It also outputs into "tot_weight" the total of the weight, summed
+  // over all frames.
   static void ListCategories(const std::vector<TrainingExample> &data,
                              std::vector<int32> *common_categories,
-                             std::vector<int32> *other_categories);
+                             std::vector<int32> *other_categories,
+                             BaseFloat *tot_weight);
 
-  double ForwardAndBackwardFinal(const std::vector<TrainingExample> &data);
+  BaseFloat ForwardAndBackwardFinal(const std::vector<TrainingExample> &data);
   // Does the forward and backward computation for the final two layers (softmax
-  // and linear).  Note: returns summed, weighted log-prob.
+  // and linear).  Note: returns average weighted-log-prob per frame (this will be
+  // divided by the sum of the weights, over all the frames that have labels).
   
   // Does the forward and backward computation for the final two layers (softmax
   // and linear), but just considering one of the categories of output labels.
-  double ForwardAndBackwardFinalForCategory(const std::vector<TrainingExample> &data,
-                                            int32 category,
-                                            bool common_category);
+  BaseFloat ForwardAndBackwardFinalForCategory(const std::vector<TrainingExample> &data,
+                                               int32 category,
+                                               bool common_category);
 
   // Called inside ForwardAndBackwardFinalForCategory, which just handles
   // some mapping issues and then calls this.
-  double ForwardAndBackwardFinalInternal(
+  BaseFloat ForwardAndBackwardFinalInternal(
       const Matrix<BaseFloat> &input, // input to softmax layer
       int32 category,
       const std::vector<BaseFloat> &weights, // one per example.

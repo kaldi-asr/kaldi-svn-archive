@@ -169,14 +169,14 @@ class Nnet1 {
     return final_layers_[category].linear_layer->OutputDim();
   }
   
-  Nnet1(const Nnet1 &other); // Copy constructor
- 
+  Nnet1(const Nnet1 &other); // Copy constructor.
+  
   Nnet1() { }
 
   Nnet1(const Nnet1InitInfo &init_info) { Init(init_info); }
 
   ~Nnet1() { Destroy(); }
-
+  
   void Init(const Nnet1InitInfo &init_info);
 
   void Destroy();
@@ -185,6 +185,20 @@ class Nnet1 {
 
   void Read(std::istream &is, bool binary);
 
+  void SetZero(); // Sets all parameters to zero.  Mostly useful if this
+  // neural net is just being used to store the gradients on a validation set.
+  // Will let the contents know that we'll now treat the layers as a store
+  // of gradients.  [affects the LinearLayer.]
+
+  // This is used to separately adjust learning rates of each layer,
+  // after each "phase" of training.  We basically ask (using the validation
+  // gradient), do we wish we had gone further in this direction?  Yes->
+  // increase learning rate, no -> decrease it.
+  void AdjustLearningRates(
+      const Nnet1 &previous_value,
+      const Nnet1 &validation_gradient,
+      BaseFloat learning_rate_ratio);
+  
   friend class Nnet1Updater;
  private:
   const Nnet1 &operator = (const Nnet1 &other);  // Disallow assignment.

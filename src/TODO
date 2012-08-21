@@ -10,9 +10,7 @@ dan's TODO:
  change on-disk formats to make memory mapping easier?
  address roundoff issues RE lattice generation?
   
- fix SGMM w/ resizing spk vecs. [not fure if done]
- change usage message so standard and program-specific options printed
-  separately.
+ fix SGMM w/ resizing spk vecs. [not sure if done]
 
 minor:
  Add something in training tools, to verify that spk-id is prefix of utt-id.

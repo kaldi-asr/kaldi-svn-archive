@@ -53,12 +53,15 @@ class LinearLayer {
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
                 LinearLayer *layer_to_update) const;
-
-  void SetZero(); // used if we're using this to store gradients on a held out
-  // set.  zeroes params_ and sets is_gradient_ = true.
+  
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-  // Use default copy constructor and assignment oeprator.
+  // Use default copy constructor and assignment operator.
+  
+  void SetZero() { params_.Set(0.0); is_gradient_ = true; }
+  void AdjustLearningRate(const LinearLayer &previous_value,
+                          const LinearLayer &validation_gradient,
+                          BaseFloat learning_rate_ratio);
  private:
   void Update(const MatrixBase<BaseFloat> &input,
               const MatrixBase<BaseFloat> &output_deriv);
@@ -99,6 +102,10 @@ class SoftmaxLayer {
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
   // Use default copy constructor and assignment oeprator.
+  void SetZero() { params_.Set(0.0); }  
+  void AdjustLearningRate(const SoftmaxLayer &previous_value,
+                          const SoftmaxLayer &validation_gradient,
+                          BaseFloat learning_rate_ratio);
  private:
   void Update(const MatrixBase<BaseFloat> &input,
               const MatrixBase<BaseFloat> &sum_deriv,
@@ -166,6 +173,10 @@ class TanhLayer {
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
   // Use default copy constructor and assignment oeprator.
+  void SetZero() { params_.Set(0.0); }
+  void AdjustLearningRate(const TanhLayer &previous_value,
+                          const TanhLayer &validation_gradient,
+                          BaseFloat learning_rate_ratio);
  private:
   void Update(const MatrixBase<BaseFloat> &input,
               const MatrixBase<BaseFloat> &sum_deriv);

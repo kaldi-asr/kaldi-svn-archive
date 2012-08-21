@@ -53,9 +53,8 @@ class CompressedMatrix {
   template<class Real>
   void CopyToMat(MatrixBase<Real> *mat) const;
 
-
   void Write(std::ostream &os, bool binary) const;
-
+  
   void Read(std::istream &is, bool binary);
 
   /// Returns number of rows (or zero for emtpy matrix).

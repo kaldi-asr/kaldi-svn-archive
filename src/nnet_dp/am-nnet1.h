@@ -57,9 +57,10 @@ class AmNnet1 {
                        std::vector<std::pair<int32, int32> > *pairs);
   
  private:
+  // called from constructor and Read function; see .cc file for comments:
   void ComputeCategoryInfo(const std::vector<int32> &leaf_mapping);
-  // see .cc file for comments.
 
+  
   std::vector<int32> leaf_mapping_; // Maps from pdf-ids (zero-based) to
   // a "level-one tree index", also zero-based.
 

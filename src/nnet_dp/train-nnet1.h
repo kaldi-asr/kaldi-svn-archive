@@ -40,8 +40,10 @@ struct Nnet1BasicTrainerConfig {
   }
 };
 
-
+// Class Nnet1BasicTrainer is responsible for randomly selecting a minibatch of training
+// data, and training on the minibatch.
 class Nnet1BasicTrainer {
+ public:
   /*
     The initializer takes: the features [one per training file]; and
     the labels, which are indexed [training file][t][list of pair (category, label)].
@@ -50,15 +52,18 @@ class Nnet1BasicTrainer {
   Nnet1BasicTrainer(
       const Nnet1BasicTrainerConfig &config,
       const std::vector<CompressedMatrix*> &features,
-      const std::vector<std::vector<std::pair<int32, int32> > > &labels,
+      const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels,
       const Nnet1 &nnet,
       Nnet1 *nnet_to_update);
 
 
-  void TrainOnOneMinibatch();
+  BaseFloat TrainOnOneMinibatch(); // returns average objective function over this minibatch.
   
   BaseFloat NumEpochs(); // returns approximate number of epochs we've seen already.
-  
+
+  Nnet1 *NnetToUpdate() { return updater_.NnetToUpdate(); } // note: this may sometimes
+  // point to the same place as "nnet".
+  const Nnet1 &Nnet() const { return updater_.Nnet(); }
  private:
   void GetTrainingExamples(std::vector<TrainingExample> *egs); // gets num_chunks_ training
   // examples.
@@ -69,7 +74,7 @@ class Nnet1BasicTrainer {
   
   Nnet1Updater updater_;
   const std::vector<CompressedMatrix*> &features_;
-  const std::vector<std::vector<std::pair<int32, int32> > > &labels_;
+  const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels_;
 
   int32 chunk_size_;
   int32 num_chunks_;
@@ -85,7 +90,71 @@ class Nnet1BasicTrainer {
   int32 num_chunks_trained_;
   int32 chunks_per_epoch_;
 };
+
+// Class Nnet1ValidationSet computes the objective function and gradient on the
+// validation set.  Note: in this case we don't use the chunk mechanism in quite
+// the same way: since we're summing the gradient, there's no point in breaking
+// things up into small chunks [and we'd lose something at the edges if we did this.]
+// Instead we just treat each file as a single chunk, and in fact use minibatches
+// of just one (typically large) chunk.  We trust ATLAS to just do the right thing.
+class Nnet1ValidationSet {
+ public:
+  Nnet1ValidationSet(
+      const std::vector<CompressedMatrix*> &features,
+      const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels,
+      const Nnet1 &nnet,
+      Nnet1 *gradient); // store the gradient as class Nnet1.
+
+  BaseFloat ComputeGradient(); // Computes the gradient (stored in *gradient)
+  // and returns average objective function over batch.
+  const Nnet1 &Gradient() const { return *gradient_; }
+ private:
+  const std::vector<CompressedMatrix*> &features_;
+  const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels_;
+  const Nnet1 &nnet_;
+  Nnet1 *gradient_; // store the gradient as class Nnet1.
+};
   
+
+struct Nnet1AdaptiveTrainerConfig {
+  int32 num_minibatches;
+  int32 learning_rate_ratio;
+  int32 num_phases;
+
+  Nnet1AdaptiveTrainerConfig():
+      num_minibatches(50), learning_rate_ratio(1.1),
+      num_phases(50) { }
+  
+  void Register (ParseOptions *po) {
+    po->Register("num-minibatches", &num_minibatches,
+                 "Number of minibatches accessed in each phase of training "
+                 "(after each phase we adjust learning rates");
+    po->Register("learning-rate-ratio", &learning_rate_ratio,
+                 "Ratio by which we change the learning rate in each phase of "
+                 "training (can get larger or smaller by this factor).");
+    po->Register("num-phases", &num_phases,
+                 "Number of \"phases\" of training (a phase is a sequence of "
+                 "num-minibatches minibatches; after each phase we modify "
+                 "learning rates.");
+  }  
+};
+
+// Class Nnet1AdaptiveTrainer takes a reference to class Nnet1BasicTrainer, and
+// a reference to class Nnet1ValidationSet (for computation of gradient and
+// objective function on the validation set).  This class is responsible for
+// changing the learning rate using the gradients on the validation set.
+class Nnet1AdaptiveTrainer {
+  Nnet1AdaptiveTrainer(const Nnet1AdaptiveTrainerConfig &config,
+                       Nnet1BasicTrainer *basic_trainer,
+                       Nnet1ValidationSet *validation_set);
+  void Train();
+ private:
+  void TrainOnePhase();
+  
+  Nnet1BasicTrainer *basic_trainer_;
+  Nnet1ValidationSet *validation_set_;
+  Nnet1AdaptiveTrainerConfig config_;
+};
 
 
 

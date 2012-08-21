@@ -71,11 +71,13 @@ void Nnet1Updater::FormatInput(const std::vector<TrainingExample> &data) {
   }
 }
 
-void Nnet1Updater::TrainOnOneMinibatch(const std::vector<TrainingExample> &data) {
+BaseFloat Nnet1Updater::TrainOnOneMinibatch(const std::vector<TrainingExample> &data) {
+  BaseFloat ans;
   FormatInput(data);
   ForwardTanh();
-  ForwardAndBackwardFinal(data);
+  ans = ForwardAndBackwardFinal(data);
   BackwardTanh();
+  return ans;
 }
 
 void Nnet1Updater::ForwardTanh() {
@@ -101,12 +103,15 @@ void Nnet1Updater::ForwardTanh() {
 void Nnet1Updater::ListCategories(
     const std::vector<TrainingExample> &data,
     std::vector<int32> *common_categories,
-    std::vector<int32> *other_categories) {
+    std::vector<int32> *other_categories,
+    BaseFloat *tot_weight_ptr) {
   unordered_map<int32, int32> category_count;
+  double tot_weight = 0.0;
   int32 num_frames = 0;
   for (int32 chunk = 0; chunk < data.size(); chunk++) {
     for (int32 t = 0; t < data[chunk].labels.size(); t++) {
       num_frames++;
+      tot_weight += data[chunk].weight;
       std::vector<int32> check_vec;
       for (int32 idx = 0; idx < data[chunk].labels[t].size(); idx++) { // iterate
         // over the list..
@@ -141,6 +146,7 @@ void Nnet1Updater::ListCategories(
     int32 category = frequency_list[i].second;
     other_categories->push_back(category);
   }
+  *tot_weight_ptr = tot_weight;
 }
 
 class Nnet1Updater::ForwardAndBackwardFinalClass: public MultiThreadable {
@@ -187,7 +193,7 @@ class Nnet1Updater::ForwardAndBackwardFinalClass: public MultiThreadable {
   
 };
 
-double Nnet1Updater::ForwardAndBackwardFinal(
+BaseFloat Nnet1Updater::ForwardAndBackwardFinal(
     const std::vector<TrainingExample> &data) {
   // returns the objective function summed over all frames.
   
@@ -199,8 +205,10 @@ double Nnet1Updater::ForwardAndBackwardFinal(
   // of threads take tasks from a queue.
 
   std::vector<int32> common_categories, other_categories;
+  BaseFloat tot_weight; // normalizer for answer we return (the avg log-prob
+  // per frame).
   
-  ListCategories(data, &common_categories, &other_categories);
+  ListCategories(data, &common_categories, &other_categories, &tot_weight);
   
   last_tanh_backward_.SetZero(); // Set this matrix containing
   // the "backward" derivative of the tanh layer, to all zeros.
@@ -224,12 +232,12 @@ double Nnet1Updater::ForwardAndBackwardFinal(
     RunMultiThreadedPersistent(c); // will run with #threads = g_num_threads.
     ans += tot_like;
   }
-  return ans;
+  return ans / tot_weight;
 }
 
 // Does the forward and backward computation for the final two layers (softmax
 // and linear), but just considering one of the categories of output labels.
-double Nnet1Updater::ForwardAndBackwardFinalForCategory(
+BaseFloat Nnet1Updater::ForwardAndBackwardFinalForCategory(
     const std::vector<TrainingExample> &data,
     int32 category,
     bool common_category) {      
@@ -288,7 +296,7 @@ double Nnet1Updater::ForwardAndBackwardFinalForCategory(
   return ans; // total log-like.
 };
 
-double Nnet1Updater::ForwardAndBackwardFinalInternal(
+BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
     const Matrix<BaseFloat> &input, // input to softmax layer
     int32 category,
     const std::vector<BaseFloat> &weights, // one per example.
