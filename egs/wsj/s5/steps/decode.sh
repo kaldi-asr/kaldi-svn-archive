@@ -79,7 +79,6 @@ if [ ! -z "$transform_dir" ]; then # add transforms to features...
   feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$transform_dir/trans.JOB ark:- ark:- |"
 fi
 
-
 $cmd JOB=1:$nj $dir/log/decode.JOB.log \
  gmm-latgen-faster --max-active=$max_active --beam=$beam --lattice-beam=$latbeam \
    --acoustic-scale=$acwt --allow-partial=true --reverse=$reverse \

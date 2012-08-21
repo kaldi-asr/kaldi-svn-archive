@@ -33,7 +33,7 @@ cmvndir=$3
 cmvndir=`perl -e '($dir,$pwd)= @ARGV; if($dir!~m:^/:) { $dir = "$pwd/$dir"; } print $dir; ' $cmvndir ${PWD}`
 
 # use "name" as part of name of the archive.
-name=`basename $data`
+name=`echo $data | sed s:/:_:g`
 
 mkdir -p $cmvndir || exit 1;
 mkdir -p $logdir || exit 1;
