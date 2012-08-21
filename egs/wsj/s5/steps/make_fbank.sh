@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-# Copyright 2012  Karel Vesely, Daniel Povey
+# Copyright 2012  Karel Vesely  Johns Hopkins University (Author: Daniel Povey)
 # Apache 2.0
 # To be run from .. (one directory up from here)
 # see ../run.sh for example
@@ -12,8 +12,8 @@ fbank_config=conf/fbank.conf
 if [ -f path.sh ]; then . ./path.sh; fi
 . parse_options.sh || exit 1;
 
-if [ $# != 4 ]; then
-   echo "usage: make_fbank.sh [options] <tgt-data-dir> <src-data-dir> <log-dir> <path-to-fbankdir>";
+if [ $# != 3 ]; then
+   echo "usage: make_fbank.sh [options] <data-dir> <log-dir> <path-to-fbankdir>";
    echo "options: "
    echo "  --fbank-config <config-file>                      # config passed to compute-fbank-feats "
    echo "  --nj <nj>                                        # number of parallel jobs"
@@ -22,13 +22,9 @@ if [ $# != 4 ]; then
 fi
 
 data=$1
-srcdata=$2
-logdir=$3
-fbankdir=$4
+logdir=$2
+fbankdir=$3
 
-# copy the dataset metadata from srcdata.
-mkdir -p $data || exit 1;
-cp $srcdata/* $data 2>/dev/null; rm $data/feats.scp;
 
 # make $fbankdir an absolute pathname.
 fbankdir=`perl -e '($dir,$pwd)= @ARGV; if($dir!~m:^/:) { $dir = "$pwd/$dir"; } print $dir; ' $fbankdir ${PWD}`
@@ -39,11 +35,9 @@ name=`basename $data`
 mkdir -p $fbankdir || exit 1;
 mkdir -p $logdir || exit 1;
 
-
-srcscp=$srcdata/wav.scp
 scp=$data/wav.scp
 
-required="$srcscp $scp $fbank_config"
+required="$scp $fbank_config"
 
 for f in $required; do
   if [ ! -f $f ]; then
@@ -110,4 +104,4 @@ if [ $nf -ne $nu ]; then
   echo "consider using utils/fix_data_dir.sh $data"
 fi
 
-echo "Succeeded creating FBANK features for $name"
+echo "Succeeded creating filterbank features for $name"
