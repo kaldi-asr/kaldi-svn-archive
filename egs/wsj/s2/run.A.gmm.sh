@@ -8,10 +8,24 @@
 # you can change these commands to just run.pl to make them run
 # locally, but in that case you should change the num-jobs to
 # the #cpus on your machine or fewer.
+
+#1)BUT
 decode_cmd="queue.pl -q all.q@@blade -l ram_free=1200M,mem_free=1200M"
 train_cmd="queue.pl -q all.q@@blade -l ram_free=700M,mem_free=700M"
-cuda_cmd="queue.pl -q long.q@@pco203 -l gpu=1"
+#cuda_cmd="queue.pl -q long.q@@pco203 -l gpu=1"
+cuda_cmd="queue.pl -q long.q@pcspeech-gpu"
 mkgraph_cmd="queue.pl -q all.q@@servers -l ram_free=4G,mem_free=4G"
+
+#2)JHU
+#export train_cmd="queue.pl -q all.q@a*.clsp.jhu.edu -S /bin/bash"
+#export decode_cmd="queue.pl -q all.q@a*.clsp.jhu.edu -S /bin/bash"
+
+#3)LOCAL
+#export train_cmd=run.pl
+#export decode_cmd=run.pl
+#export cuda_cmd=run.pl
+#export mkgraph_cmd=run.pl
+
 
 # put the scripts to path
 source path.sh
@@ -41,9 +55,8 @@ local/wsj_format_data.sh || exit 1;
 # want to store MFCC features.
 featdir=$PWD/exp/kaldi_wsj_feats
 for x in test_eval92 test_eval93 test_dev93 train_si284; do 
-  steps/make_mfcc.sh data/$x exp/make_mfcc/$x $featdir/mfcc 4
-  steps/make_fbank.sh data/$x exp/make_fbank/$x $featdir/fbank 4
-  ln -s $PWD/data/$x/feats.scp.mfcc data/$x/feats.scp #select mfcc as default
+  steps/make_mfcc.sh data/$x exp/make_mfcc/$x $featdir/mfcc 10
+  steps/make_fbank.sh data-fbank/$x data/$x exp/make_fbank/$x $featdir/fbank 10
 done
 
 
@@ -53,7 +66,7 @@ done
 ######################################################
 
 mkdir data/train_si84
-for x in feats.scp feats.scp.fbank text utt2spk wav.scp; do
+for x in feats.scp text utt2spk wav.scp; do
   head -7138 data/train_si284/$x > data/train_si84/$x
 done
 scripts/utt2spk_to_spk2utt.pl data/train_si84/utt2spk > data/train_si84/spk2utt || exit 1;
@@ -64,6 +77,14 @@ scripts/subset_data_dir.sh --shortest data/train_si84 2000 data/train_si84_2ksho
 
 # Now make subset with half of the data from si-84.
 scripts/subset_data_dir.sh data/train_si84 3500 data/train_si84_half || exit 1;
+
+# subset si84 on fbank feats
+mkdir data-fbank/train_si84
+for x in feats.scp text utt2spk wav.scp; do
+  head -7138 data-fbank/train_si284/$x > data-fbank/train_si84/$x
+done
+scripts/utt2spk_to_spk2utt.pl data-fbank/train_si84/utt2spk > data-fbank/train_si84/spk2utt || exit 1;
+scripts/filter_scp.pl data-fbank/train_si84/spk2utt data-fbank/train_si284/spk2gender > data-fbank/train_si84/spk2gender || exit 1;
 
 
 
@@ -144,30 +165,30 @@ steps/align_deltas.sh --num-jobs 10 --cmd "$train_cmd" \
 # Train tri2a, which is deltas + delta-deltas, on si84 data.
 # This system will produce alignment for MLP training,
 # optionally change number of leaves/PDFs.
-numleavesL=(2500)
-for numleaves in ${numleavesL[@]}; do
-  dir=exp/tri2a-$numleaves
+numleaves=2500
+{
+  dir=exp/tri2a
+  ali=exp/tri1_ali
   # Train
   steps/train_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
-    $numleaves 15000 data/train_si84 data/lang exp/tri1_ali_si84 $dir || exit 1;
+    $numleaves 15000 data/train_si84 data/lang ${ali}_si84 $dir || exit 1;
   # Decode
   (
   $mkgraph_cmd $dir/_mkgraph.log scripts/mkgraph.sh data/lang_test_tgpr $dir $dir/graph_tgpr || exit 1;
   scripts/decode.sh --cmd "$decode_cmd" steps/decode_deltas.sh $dir/graph_tgpr data/test_dev93 $dir/decode_tgpr_dev93 || exit 1;
   scripts/decode.sh --cmd "$decode_cmd" steps/decode_deltas.sh $dir/graph_tgpr data/test_eval92 $dir/decode_tgpr_eval92 || exit 1;
   )&
-  # Align si84 with tri2a-2500
- (steps/align_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align si84 with tri2a
+  (steps/align_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
     --use-graphs data/train_si84 data/lang $dir ${dir}_ali_si84)&
-  # Align si284 with tri2a-2500
- (steps/align_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align si284 with tri2a
+  (steps/align_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
     data/train_si284 data/lang $dir ${dir}_ali_si284)&
-  # Align dev93 with tri2a-2500
- (steps/align_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align dev93 with tri2a
+  (steps/align_deltas.sh  --num-jobs 10 --cmd "$train_cmd" \
     data/test_dev93 data/lang $dir ${dir}_ali_dev93)&
-
-  wait
-done
+}
+wait
 
 
 
@@ -175,42 +196,39 @@ done
 # Train tri2b, which is LDA+MLLT, on si84 data.
 # The alignments from this setup have been found worse
 # for the MLP training than tri2a.
-numleavesL=(2500)
-for numleaves in ${numleavesL[@]}; do
-  dir=exp/tri2b-$numleaves
+numleaves=2500
+{
+  dir=exp/tri2b
+  ali=exp/tri1_ali
   # Train
   steps/train_lda_mllt.sh --num-jobs 10 --cmd "$train_cmd" \
-     $numleaves 15000 data/train_si84 data/lang exp/tri1_ali_si84 $dir || exit 1;
+     $numleaves 15000 data/train_si84 data/lang ${ali}_si84 $dir || exit 1;
   # Decode
   (
   $mkgraph_cmd $dir/_mkgraph.log scripts/mkgraph.sh data/lang_test_tgpr $dir $dir/graph_tgpr || exit 1;
   scripts/decode.sh --cmd "$decode_cmd" steps/decode_lda_mllt.sh $dir/graph_tgpr data/test_eval92 $dir/decode_tgpr_eval92 || exit 1;
   scripts/decode.sh --cmd "$decode_cmd" steps/decode_lda_mllt.sh $dir/graph_tgpr data/test_dev93 $dir/decode_tgpr_dev93 || exit 1;
   )&
-
-  # Align si84 with tri2b-2500
- (steps/align_lda_mllt.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align si84 with tri2b
+  (steps/align_lda_mllt.sh  --num-jobs 10 --cmd "$train_cmd" \
     --use-graphs data/train_si84 data/lang $dir ${dir}_ali_si84)&
-  # Align si284 with tri2b-2500
- (steps/align_lda_mllt.sh  --num-jobs 10 --cmd "$train_cmd" \
-    data/train_si284 data/lang $dir ${dir}_ali_si284)&
-  # Align dev93 with tri2b-2500
- (steps/align_lda_mllt.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align dev93 with tri2b
+  (steps/align_lda_mllt.sh  --num-jobs 10 --cmd "$train_cmd" \
     data/test_dev93 data/lang $dir ${dir}_ali_dev93)&
-
- wait 
-done
+}
+wait 
 
 
 
 # ### F : tri3b ### #
 # Train tri2b, which is LDA+MLLT+SAT, on si84 data.
-numleavesL=(2500)
-for numleaves in ${numleavesL[@]}; do
-  dir=exp/tri3b-$numleaves
+numleaves=2500
+{
+  dir=exp/tri3b
+  ali=exp/tri2b_ali
   # Train
   steps/train_lda_mllt_sat.sh --num-jobs 10 --cmd "$train_cmd" \
-    $numleaves 15000 data/train_si84 data/lang exp/tri2b-2500_ali_si84 $dir || exit 1;
+    $numleaves 15000 data/train_si84 data/lang ${ali}_si84 $dir || exit 1;
   # Decode
   (
   $mkgraph_cmd $dir/_mkgraph.log scripts/mkgraph.sh data/lang_test_tgpr $dir $dir/graph_tgpr || exit 1;
@@ -218,18 +236,14 @@ for numleaves in ${numleavesL[@]}; do
   scripts/decode.sh --cmd "$decode_cmd" steps/decode_lda_mllt_sat.sh $dir/graph_tgpr data/test_dev93 $dir/decode_tgpr_dev93 || exit 1;
   )&
 
-  # Align si84 with tri3b-2500
- (steps/align_lda_mllt_sat.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align si84 with tri3b
+  (steps/align_lda_mllt_sat.sh  --num-jobs 10 --cmd "$train_cmd" \
     --use-graphs data/train_si84 data/lang $dir ${dir}_ali_si84)&
-  # Align si284 with tri2b-2500
- (steps/align_lda_mllt_sat.sh  --num-jobs 10 --cmd "$train_cmd" \
-    data/train_si284 data/lang $dir ${dir}_ali_si284)&
-  # Align dev93 with tri2b-2500
- (steps/align_lda_mllt_sat.sh  --num-jobs 10 --cmd "$train_cmd" \
+  # Align dev93 with tri2b
+  (steps/align_lda_mllt_sat.sh  --num-jobs 10 --cmd "$train_cmd" \
     data/test_dev93 data/lang $dir ${dir}_ali_dev93)&
-
- wait 
-done
+}
+wait 
 
 
 
