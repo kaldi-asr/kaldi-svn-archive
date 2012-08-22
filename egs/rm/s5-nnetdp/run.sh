@@ -77,15 +77,6 @@ steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 steps/align_si.sh --nj 8 --cmd "$train_cmd" \
   --use-graphs true data/train data/lang exp/tri1 exp/tri1_ali || exit 1;
 
-# train tri2a [delta+delta-deltas]
-steps/train_deltas.sh --cmd "$train_cmd" 1800 9000 \
- data/train data/lang exp/tri1_ali exp/tri2a || exit 1;
-
-# decode tri2a
-utils/mkgraph.sh data/lang exp/tri2a exp/tri2a/graph
-steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
-  exp/tri2a/graph data/test exp/tri2a/decode
-
 # train and decode tri2b [LDA+MLLT]
 steps/train_lda_mllt.sh --cmd "$train_cmd" \
   --splice-opts "--left-context=3 --right-context=3" \
@@ -97,6 +88,56 @@ steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 # Align all data with LDA+MLLT system (tri2b)
 steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
    data/train data/lang exp/tri2b exp/tri2b_ali || exit 1;
+
+## Build a LDA+MLLT system just for decorrelation, on the raw filterbank
+## features, but using the tree from the tri2b system. This is just to get the
+## decorrelating transform and will also allow us to get SAT on the
+## filterbank features.
+
+featdim=`feat-to-dim scp:data-fbank/train/feats.scp -` 
+
+local/train_lda_mllt_notree.sh --cmd "$train_cmd" --dim $featdim \
+  --splice-opts "--left-context=0 --right-context=0" \
+  --realign-iters "" 1800 9000 data-fbank/train data/lang exp/tri2b_ali exp/tri3b
+
+steps/decode.sh --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
+  exp/tri2b/graph data-fbank/test exp/tri3b/decode
+
+# Align all data with LDA+MLLT system on fbank feats
+steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
+   data-fbank/train data/lang exp/tri3b exp/tri3b_ali
+
+local/train_sat_notree.sh --cmd "$train_cmd" \
+  --realign-iters "" 9000 data-fbank/train data/lang exp/tri3b_ali exp/tri4b
+
+steps/decode_fmllr.sh --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
+  exp/tri2b/graph data-fbank/test exp/tri4b/decode
+
+# Use transcripts from the 2b system which had frame splicing -> better 
+# supervision.
+steps/decode_fmllr.sh --si-dir exp/tri2b/decode \
+  --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
+  exp/tri2b/graph data-fbank/test exp/tri4b/decode2
+
+
+# Do SAT on top of the standard splice+LDA+MLLT system,
+# because we want good alignments to build the 2-level tree on top of,
+# for the neural nset system.
+steps/train_sat.sh 1800 9000 data/train data/lang exp/tri2b_ali exp/tri3c
+
+# Align all data with LDA+MLLT+SAT system (tri3b)
+steps/align_fmllr.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
+  data/train data/lang exp/tri3c exp/tri3c_ali || exit 1;
+
+
+## First we just build a two-level tree, using the LDA+MLLT+SSAT system's
+## alignments and features (since it's pretty good.)  
+
+local/train_two_level_tree.sh 150 5000 data/train data/lang exp/tri3c_ali exp/tri4a_tree
+
+## Now train the neural net itself.
+local/train_nnnet1.sh
+
 
 #  Do MMI on top of LDA+MLLT.
 steps/make_denlats.sh --nj 8 --cmd "$train_cmd" \
@@ -123,11 +164,6 @@ steps/decode.sh --config conf/decode.config --iter 3 --nj 20 --cmd "$decode_cmd"
    exp/tri2b/graph data/test exp/tri2b_mpe/decode_it3 || exit 1;
 
 
-## Do LDA+MLLT+SAT, and decode.
-steps/train_sat.sh 1800 9000 data/train data/lang exp/tri2b_ali exp/tri3b || exit 1;
-utils/mkgraph.sh data/lang exp/tri3b exp/tri3b/graph || exit 1;
-steps/decode_fmllr.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
-  exp/tri3b/graph data/test exp/tri3b/decode || exit 1;
 
 
 
