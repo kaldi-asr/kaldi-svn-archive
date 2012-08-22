@@ -1,4 +1,4 @@
-// nnet_dp/layer-test.cc
+// nnet-dp/layer-test.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -15,7 +15,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet_dp/layer.h"
+#include "nnet-dp/layer.h"
 
 namespace kaldi {
 void UnitTestTanhLayer() {

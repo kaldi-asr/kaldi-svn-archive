@@ -1,4 +1,4 @@
-// nnet_dp/decodeable-am-nnet1.h
+// nnet-dp/decodeable-am-nnet1.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 

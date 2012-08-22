@@ -1,4 +1,4 @@
-// nnet_dp/update-nnet1.cc
+// nnet-dp/update-nnet1.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -15,7 +15,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet_dp/update-nnet1.h"
+#include "nnet-dp/update-nnet1.h"
 #include "thread/kaldi-thread.h"
 
 namespace kaldi {

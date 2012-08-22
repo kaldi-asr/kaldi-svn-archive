@@ -1,4 +1,4 @@
-// nnet_dp/train_nnet1.h
+// nnet-dp/train_nnet1.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Navdeep Jaitly
@@ -19,7 +19,12 @@
 #ifndef KALDI_NNET_DP_TRAIN_NNET1_H_
 #define KALDI_NNET_DP_TRAIN_NNET1_H_
 
-#include "nnet_dp/update-nnet1.h"
+#include "nnet-dp/update-nnet1.h"
+#include "nnet-dp/am-nnet1.h" // Note: the reason we include
+// am-nnet1 here, and use that class, is because it's responsible
+// for converting pdf-ids to a vector of pairs of integers, and
+// we prefer (for compactness) to have this code take vectors of
+// pdf-ids.
 
 namespace kaldi {
 
@@ -41,7 +46,7 @@ struct Nnet1BasicTrainerConfig {
 };
 
 // Class Nnet1BasicTrainer is responsible for randomly selecting a minibatch of training
-// data, and training on the minibatch.
+// data, and training on the minibatch using SGD.
 class Nnet1BasicTrainer {
  public:
   /*
@@ -51,19 +56,16 @@ class Nnet1BasicTrainer {
   */
   Nnet1BasicTrainer(
       const Nnet1BasicTrainerConfig &config,
-      const std::vector<CompressedMatrix*> &features,
-      const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels,
-      const Nnet1 &nnet,
-      Nnet1 *nnet_to_update);
-
+      const std::vector<CompressedMatrix> &features,
+      const std::vector<std::vector<int32> > &pdf_ids,
+      AmNnet1 *am_nnet);
 
   BaseFloat TrainOnOneMinibatch(); // returns average objective function over this minibatch.
   
   BaseFloat NumEpochs(); // returns approximate number of epochs we've seen already.
 
-  Nnet1 *NnetToUpdate() { return updater_.NnetToUpdate(); } // note: this may sometimes
-  // point to the same place as "nnet".
   const Nnet1 &Nnet() const { return updater_.Nnet(); }
+  Nnet1 &Nnet() { return *updater_.NnetToUpdate(); } // actually same object as updater.Nnet().
  private:
   void GetTrainingExamples(std::vector<TrainingExample> *egs); // gets num_chunks_ training
   // examples.
@@ -71,10 +73,11 @@ class Nnet1BasicTrainer {
   static void ExtractToMatrix(const CompressedMatrix &input,
                               int32 time_offset,
                               Matrix<BaseFloat> *output);
-  
+
+  AmNnet1 *am_nnet_; // not owned here.
   Nnet1Updater updater_;
-  const std::vector<CompressedMatrix*> &features_;
-  const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels_;
+  const std::vector<CompressedMatrix> &features_;
+  const std::vector<std::vector<int32> > &pdf_ids_;
 
   int32 chunk_size_;
   int32 num_chunks_;
@@ -100,19 +103,19 @@ class Nnet1BasicTrainer {
 class Nnet1ValidationSet {
  public:
   Nnet1ValidationSet(
-      const std::vector<CompressedMatrix*> &features,
-      const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels,
-      const Nnet1 &nnet,
+      const std::vector<CompressedMatrix> &features,
+      const std::vector<std::vector<int32> > &labels,
+      const AmNnet1 &am_nnet,
       Nnet1 *gradient); // store the gradient as class Nnet1.
-
+  
   BaseFloat ComputeGradient(); // Computes the gradient (stored in *gradient)
   // and returns average objective function over batch.
   const Nnet1 &Gradient() const { return *gradient_; }
  private:
-  const std::vector<CompressedMatrix*> &features_;
-  const std::vector<std::vector<std::vector<std::pair<int32, int32> > > > &labels_;
-  const Nnet1 &nnet_;
-  Nnet1 *gradient_; // store the gradient as class Nnet1.
+  const std::vector<CompressedMatrix> &features_;
+  const std::vector<std::vector<int32> > &pdf_ids_;
+  const AmNnet1 &am_nnet_;
+  Nnet1 *gradient_; // store the gradient as class Nnet1.   Not owned here.
 };
   
 
@@ -151,8 +154,8 @@ class Nnet1AdaptiveTrainer {
  private:
   void TrainOnePhase();
   
-  Nnet1BasicTrainer *basic_trainer_;
-  Nnet1ValidationSet *validation_set_;
+  Nnet1BasicTrainer *basic_trainer_; // Not owned here.
+  Nnet1ValidationSet *validation_set_; // Not owned here.
   Nnet1AdaptiveTrainerConfig config_;
 };
 

@@ -1,4 +1,4 @@
-// nnet_dp/nnet1.h
+// nnet-dp/nnet1.h
 
 // Copyright 2012  Daniel Povey
 
@@ -20,7 +20,7 @@
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-#include "nnet_dp/nnet1.h"
+#include "nnet-dp/nnet1.h"
 
 namespace kaldi {
 
@@ -36,7 +36,7 @@ namespace kaldi {
 
 
 class AmNnet1 {
-
+ public:
   AmNnet1(const Nnet1InitConfig &config,
           const std::vector<int32> &leaf_mapping);
   // The vector "leaf_mapping" is an output from the program build-tree-two-level.
@@ -54,8 +54,10 @@ class AmNnet1 {
   // be one pair for category zero (top-level tree), and usually
   // one more for the finer-level tree.
   void GetCategoryInfo(int32 pdf_id,
-                       std::vector<std::pair<int32, int32> > *pairs);
-  
+                       std::vector<std::pair<int32, int32> > *pairs) const;
+
+  const Nnet1 &Nnet() const { return nnet_; }
+  Nnet1 &Nnet() { return nnet_; }
  private:
   // called from constructor and Read function; see .cc file for comments:
   void ComputeCategoryInfo(const std::vector<int32> &leaf_mapping);

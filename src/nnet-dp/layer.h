@@ -1,4 +1,4 @@
-// nnet_dp/layer.h
+// nnet-dp/layer.h
 
 // Copyright 2012  Daniel Povey
 

@@ -1,4 +1,4 @@
-// nnet_dp/train-nnet1.cc
+// nnet-dp/train-nnet1.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -15,7 +15,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet_dp/train-nnet1.h"
+#include "nnet-dp/train-nnet1.h"
 
 namespace kaldi {
 using std::vector;
@@ -23,21 +23,23 @@ using std::pair;
 
 Nnet1BasicTrainer::Nnet1BasicTrainer(
     const Nnet1BasicTrainerConfig &config,    
-    const vector<CompressedMatrix*> &features,
-    const vector<vector<vector<pair<int32, int32> > > > &labels,
-    const Nnet1 &nnet,
-    Nnet1 *nnet_to_update):
-    updater_(nnet, config.chunk_size, config.num_chunks, nnet_to_update),
+    const std::vector<CompressedMatrix> &features,
+    const vector<vector<int32> > &pdf_ids,
+    AmNnet1 *am_nnet):
+    am_nnet_(am_nnet),
+    updater_(am_nnet->Nnet(),
+             config.chunk_size, config.num_chunks,
+             &(am_nnet->Nnet())),
     features_(features),
-    labels_(labels),
+    pdf_ids_(pdf_ids),
     chunk_size_(config.chunk_size),
     num_chunks_(config.num_chunks),
-    left_context_(nnet.LeftContext()),
-    right_context_(nnet.RightContext()),    
+    left_context_(am_nnet_->Nnet().LeftContext()),
+    right_context_(am_nnet_->Nnet().RightContext()),    
     num_chunks_trained_(0) {
   size_t tot_size = 0;
   for (size_t i = 0; i < features.size(); i++)
-    tot_size += features[i]->NumRows();
+    tot_size += features[i].NumRows();
   chunk_queue_.reserve(tot_size / chunk_size_ + 1);
   chunks_per_epoch_ = tot_size / chunk_size_; // This is slightly
   // approximate.
@@ -74,10 +76,13 @@ void Nnet1BasicTrainer::GetTrainingExamples(vector<TrainingExample> *egs) {
     GetChunk(&file_id, &chunk_offset);
     eg.labels.resize(chunk_size_);
     for (int32 t = 0; t < chunk_size_; t++) {
-      KALDI_ASSERT(chunk_offset + t < labels_[file_id].size());
-      eg.labels[t] = labels_[file_id][chunk_offset + t];
+      KALDI_ASSERT(chunk_offset + t < pdf_ids_[file_id].size());
+      // The next call turns the pdf_id (type int32) into a vector of
+      // (typically two) pairs of (int32, int32), which is the labels in
+      // the two-level tree structure.
+      am_nnet_->GetCategoryInfo(pdf_ids_[file_id][chunk_offset + t], &eg.labels[t]);
     }
-    const CompressedMatrix &feature_file(*(features_[file_id]));
+    const CompressedMatrix &feature_file(features_[file_id]);
     // note: the times in the chunk corresponding to the labels must
     // be inside the file, but the context may be outside (we duplicate the
     // frames of context.)
@@ -113,7 +118,7 @@ void Nnet1BasicTrainer::FillQueue() {
   // for typical chunk sizes and we're not too worried about it.
   for (int32 i = 0; i < features_.size(); i++) {
     int32 offset = rand() % chunk_size_;
-    for (; offset + chunk_size_ < features_[i]->NumRows(); offset++) {
+    for (; offset + chunk_size_ < features_[i].NumRows(); offset++) {
       chunk_queue_.push_back(std::make_pair(i, offset));
     }
   }
@@ -122,11 +127,11 @@ void Nnet1BasicTrainer::FillQueue() {
 
 
 Nnet1ValidationSet::Nnet1ValidationSet(
-    const vector<CompressedMatrix*> &features,
-    const vector<vector<vector<pair<int32, int32> > > > &labels,
-    const Nnet1 &nnet,
+    const vector<CompressedMatrix> &features,
+    const vector<vector<int32> > &pdf_ids,
+    const AmNnet1 &am_nnet,
     Nnet1 *gradient):
-    features_(features), labels_(labels), nnet_(nnet), gradient_(gradient) {
+    features_(features), pdf_ids_(pdf_ids), am_nnet_(am_nnet), gradient_(gradient) {
 }
 
 
@@ -136,9 +141,9 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
       
   gradient_->SetZero();
   for (int32 f = 0; f < features_.size(); f++) { // for each file..
-    const CompressedMatrix &compressed_feats(*features_[f]);
-    int32 left_context = nnet_.LeftContext(),
-        right_context = nnet_.RightContext(),
+    const CompressedMatrix &compressed_feats(features_[f]);
+    int32 left_context = am_nnet_.Nnet().LeftContext(),
+        right_context = am_nnet_.Nnet().RightContext(),
         num_frames = compressed_feats.NumRows(),
         dim = compressed_feats.NumCols(),
         padded_num_frames = left_context + num_frames + right_context;
@@ -146,22 +151,32 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
     vector<TrainingExample> egs(1);
     TrainingExample &eg = egs[0];
 
-    KALDI_ASSERT(labels_[f].size() == num_frames);
+    KALDI_ASSERT(pdf_ids_[f].size() == num_frames);
     
     eg.weight = 1.0;
     eg.input.Resize(padded_num_frames, dim); // include needed context...
-    eg.labels = labels_[f];
     
     SubMatrix<BaseFloat> features_part(eg.input, left_context, num_frames,
                                        0, dim);
-    features_[f]->CopyToMat(0, 0, &features_part); // TODO:
-    // when basic CopyToMat is changed, use that one.
+    features_[f].CopyToMat(&features_part);
+    for (int32 t = 0; t < left_context; t++) {
+      SubVector<BaseFloat> src(eg.input, left_context), dst(eg.input, t);
+      dst.CopyFromVec(src);
+    }
+    for (int32 t = 0; t < right_context; t++) {
+      SubVector<BaseFloat> src(eg.input, padded_num_frames - right_context - 1),
+          dst(eg.input, padded_num_frames - t - 1);
+      dst.CopyFromVec(src);
+    }
 
-    std::copy(labels_[f].begin(), labels_[f].end(),
-              eg.labels.begin() + left_context);
+    eg.labels.resize(num_frames); // note: labels are not padded.
+    for (int32 t = 0; t < num_frames; t++) {
+      // the next call converts from an int32 to vector<pair<int32, int32> >
+      am_nnet_.GetCategoryInfo(pdf_ids_[f][t], &eg.labels[t]);
+    }
 
     int32 num_chunks = 1;
-    Nnet1Updater updater(nnet_, num_frames, num_chunks, gradient_);
+    Nnet1Updater updater(am_nnet_.Nnet(), num_frames, num_chunks, gradient_);
     BaseFloat avg_objf = updater.TrainOnOneMinibatch(egs);
     tot_objf += num_frames * avg_objf;
     tot_num_frames += num_frames;
@@ -182,7 +197,7 @@ Nnet1AdaptiveTrainer::Nnet1AdaptiveTrainer(
 }
 
 void Nnet1AdaptiveTrainer::TrainOnePhase() {
-  Nnet1 nnet_at_start(*basic_trainer_->NnetToUpdate()); // deep copy.
+  Nnet1 nnet_at_start(basic_trainer_->Nnet()); // deep copy.
   double train_objf = 0.0;
   for (int32 m = 0; m < config_.num_minibatches; m++)
     train_objf += basic_trainer_->TrainOnOneMinibatch();
@@ -191,13 +206,14 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
   BaseFloat validation_objf = validation_set_->ComputeGradient();
   KALDI_LOG << "Average objf is " << train_objf << " (train) and "
             << validation_objf << " (test).";
-  Nnet1 &nnet_at_end(*basic_trainer_->NnetToUpdate()); // this one
+  Nnet1 &nnet_at_end(basic_trainer_->Nnet()); // this one
   // is a reference, not a copy.
 
-  // OK...
-  
-  
+  nnet_at_end.AdjustLearningRates(nnet_at_start,
+                                  validation_set_->Gradient(),
+                                  config_.learning_rate_ratio);
 }
+
 void Nnet1AdaptiveTrainer::Train() {
   for (int32 i = 0; i < config_.num_phases; i++) {
     KALDI_LOG << "Phase " << i << " of " << config_.num_phases

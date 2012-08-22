@@ -1,4 +1,4 @@
-// nnet_dp/am-nnet1.cc
+// nnet-dp/am-nnet1.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -15,7 +15,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet_dp/am-nnet1.h"
+#include "nnet-dp/am-nnet1.h"
 #include "thread/kaldi-thread.h"
 
 namespace kaldi {
@@ -115,7 +115,7 @@ void AmNnet1::Read(std::istream &is, bool binary) {
 }
 
 void AmNnet1::GetCategoryInfo(int32 pdf_id,
-                              std::vector<std::pair<int32, int32> > *pairs) {
+                              std::vector<std::pair<int32, int32> > *pairs) const {
   pairs->clear();
   KALDI_ASSERT(pdf_id >= 0 && pdf_id < leaf_mapping_.size());
   int32 l1 = leaf_mapping_[pdf_id];

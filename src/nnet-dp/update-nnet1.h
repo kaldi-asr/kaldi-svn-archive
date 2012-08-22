@@ -1,4 +1,4 @@
-// nnet_dp/update_nnet1.h
+// nnet-dp/update_nnet1.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Navdeep Jaitly
@@ -19,7 +19,7 @@
 #ifndef KALDI_NNET_DP_UPDATE_NNET1_H_
 #define KALDI_NNET_DP_UPDATE_NNET1_H_
 
-#include "nnet_dp/nnet1.h"
+#include "nnet-dp/nnet1.h"
 
 namespace kaldi {
 

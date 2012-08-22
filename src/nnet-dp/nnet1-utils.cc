@@ -1,7 +1,6 @@
-// nnet-dp/nnet1.cc
+// nnet-dp/nnet1-utils.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
-//                 Navdeep Jaitly
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

@@ -1,4 +1,4 @@
-// nnet_dp/nnet1.h
+// nnet-dp/nnet1.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Navdeep Jaitly
@@ -23,7 +23,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "matrix/matrix-lib.h"
-#include "nnet_dp/layer.h"
+#include "nnet-dp/layer.h"
 
 namespace kaldi {
 
