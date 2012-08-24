@@ -125,7 +125,6 @@ void Nnet1BasicTrainer::FillQueue() {
   std::random_shuffle(chunk_queue_.begin(), chunk_queue_.end());
 }
 
-
 Nnet1ValidationSet::Nnet1ValidationSet(
     const vector<CompressedMatrix> &features,
     const vector<vector<int32> > &pdf_ids,
@@ -133,7 +132,6 @@ Nnet1ValidationSet::Nnet1ValidationSet(
     Nnet1 *gradient):
     features_(features), pdf_ids_(pdf_ids), am_nnet_(am_nnet), gradient_(gradient) {
 }
-
 
 // Computes the gradient (stored in *gradient)
 BaseFloat Nnet1ValidationSet::ComputeGradient() {

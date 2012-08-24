@@ -2885,6 +2885,12 @@ template<class Real> static void UnitTestCompressedMatrix() {
       Matrix<Real> M3(cmat2.NumRows(), cmat2.NumCols());
       cmat2.CopyToMat(&M3);
       AssertEqual(M2, M3); // tests I/O of CompressedMatrix.
+
+      CompressedMatrix cmat3(cmat2); // testing self-constructor, which
+      // tests assignment operator.
+      Matrix<Real> M4(cmat3.NumRows(), cmat3.NumCols());
+      cmat3.CopyToMat(&M4);
+      AssertEqual(M2, M4);
     }
     std::cout << "M = " << M;
     std::cout << "M2 = " << M2;

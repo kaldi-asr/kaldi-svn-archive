@@ -25,7 +25,7 @@ template<class Real>
 void CompressedMatrix::CopyFromMat(
     const Matrix<Real> &mat) {
   if (data_ != NULL) {
-    delete [] data_;  // call delete [] because was allocated with new float[]
+    delete [] static_cast<float*>(data_);  // call delete [] because was allocated with new float[]
     data_ = NULL;
   }
   if (mat.NumRows() == 0) { return; }  // Zero-size matrix stored as zero pointer.
@@ -68,7 +68,8 @@ void CompressedMatrix::CopyFromMat(
   *(reinterpret_cast<GlobalHeader*>(data_)) = global_header;
 
   PerColHeader *header_data =
-      reinterpret_cast<PerColHeader*>(data_ + sizeof(GlobalHeader));
+      reinterpret_cast<PerColHeader*>(static_cast<char*>(data_) +
+                                      sizeof(GlobalHeader));
   unsigned char *byte_data =
       reinterpret_cast<unsigned char*>(header_data + global_header.num_cols);
 
@@ -228,11 +229,11 @@ void CompressedMatrix::CompressColumn(
 }
 
 // static
-unsigned char* CompressedMatrix::AllocateData(int32 num_bytes) {
+void* CompressedMatrix::AllocateData(int32 num_bytes) {
   KALDI_ASSERT(num_bytes > 0);
   KALDI_COMPILE_TIME_ASSERT(sizeof(float) == 4);
   // round size up to nearest number of floats.
-  return reinterpret_cast<unsigned char*>(new float[(num_bytes/3) + 4]);
+  return reinterpret_cast<void*>(new float[(num_bytes/3) + 4]);
 }
 
 void CompressedMatrix::Write(std::ostream &os, bool binary) const {
@@ -276,7 +277,7 @@ void CompressedMatrix::Write(std::ostream &os, bool binary) const {
 
 void CompressedMatrix::Read(std::istream &is, bool binary) {
   if (data_ != NULL) {
-    delete[] data_;
+    delete [] (static_cast<float*>(data_));
     data_ = NULL;
   }
   if (binary) {  // Binary-mode read.
@@ -290,7 +291,7 @@ void CompressedMatrix::Read(std::istream &is, bool binary) {
     int32 size = DataSize(h), remaining_size = size - sizeof(GlobalHeader);
     data_ = AllocateData(size);
     *(reinterpret_cast<GlobalHeader*>(data_)) = h;
-    is.read(reinterpret_cast<char*>(data_ + sizeof(GlobalHeader)),
+    is.read(reinterpret_cast<char*>(data_) + sizeof(GlobalHeader),
             remaining_size);
   } else {  // Text-mode read.
     GlobalHeader h;
@@ -305,7 +306,8 @@ void CompressedMatrix::Read(std::istream &is, bool binary) {
     *(reinterpret_cast<GlobalHeader*>(data_)) = h;
 
     PerColHeader *per_col_header =
-        reinterpret_cast<PerColHeader*>(data_ + sizeof(GlobalHeader));
+        reinterpret_cast<PerColHeader*>(static_cast<char*>(data_)
+                                        + sizeof(GlobalHeader));
     unsigned char *c =
         reinterpret_cast<unsigned char*>(per_col_header + h.num_cols);
     for (int32 i = 0; i < h.num_cols; i++, per_col_header++) {
@@ -456,5 +458,29 @@ template void CompressedMatrix::CopyToMat(int32,
 template void CompressedMatrix::CopyToMat(int32,
                int32,
                MatrixBase<double> *dest) const;
+
+void CompressedMatrix::Destroy() {
+  if (data_ != NULL) {
+    delete [] static_cast<float*>(data_);
+    data_ = NULL;
+  }
+}
+
+CompressedMatrix::CompressedMatrix(const CompressedMatrix &mat): data_(NULL) {
+  *this = mat; // use assignment operator.
+}
+
+CompressedMatrix &CompressedMatrix::operator = (const CompressedMatrix &mat) {
+  Destroy(); // now this->data_ == NULL.
+  if (mat.data_ != NULL) {
+    MatrixIndexT data_size = DataSize(*static_cast<GlobalHeader*>(mat.data_));
+    data_ = AllocateData(data_size);
+    memcpy(static_cast<void*>(data_),
+           static_cast<void*>(mat.data_),
+           data_size);
+  }
+  return *this;
+}
+
 }  // namespace kaldi
 

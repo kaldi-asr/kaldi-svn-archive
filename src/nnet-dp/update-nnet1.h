@@ -76,6 +76,14 @@ class Nnet1Updater {
  private:
   class ForwardAndBackwardFinalClass;
   
+  // Possibly splices input together from tanh_forward_data_[layer].
+  MatrixBase<BaseFloat> &GetSplicedInput(int32 layer, Matrix<BaseFloat> *temp_matrix);
+
+  // Gets location where output of this layer should go.  Will be
+  // either tanh_forward_data_[layer+1], or a sub-matrix of it that excludes
+  // the last column (which is for 1.0).
+  SubMatrix<BaseFloat> GetOutput(int32 layer);
+
   void FormatInput(const std::vector<TrainingExample> &data); // takes the
   // input and formats as a single matrix, in tanh_forward_data_[0].
 
@@ -132,8 +140,9 @@ class Nnet1Updater {
   Nnet1 *nnet_to_update_;
   
   std::vector<Matrix<BaseFloat> > tanh_forward_data_; // The forward data
-  // for the input layer [with ones appended, if needed], and for the outputs of
-  // the tanh layers.  Indexed by [layer][t][dim]; tanh_forward[i] is the input
+  // for the outputs of the tanh layers; has a 1 appended (so larger
+  // dimension than the actual output if the layer in question will not
+  // be spliced.  Indexed by [layer][t][dim]; tanh_forward[i] is the input
   // of layer i.
   
   Matrix<BaseFloat> last_tanh_backward_; // This is used to store the backward derivative
@@ -141,15 +150,6 @@ class Nnet1Updater {
   // "tanh_data" for both forward and backward but in this case we can't do this
   // (relates to the fact that there are multiple linear/softmax layers).
 };
-
-void SpliceFrames(const MatrixBase<BaseFloat> &input,
-                  int32 num_chunks,
-                  MatrixBase<BaseFloat> *spliced_out);
-
-
-void UnSpliceDerivative(const MatrixBase<BaseFloat> &output_deriv,
-                        int32 num_chunks,
-                        MatrixBase<BaseFloat> *input_deriv);
 
 
 } // namespace

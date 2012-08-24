@@ -22,20 +22,28 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "matrix/matrix-lib.h"
+#include "hmm/transition-model.h"
 
 // This header contains certain functions used in the command-line tools,
 // while training neural nets.
 
 namespace kaldi {
 
-void ReadAlignmentsAndFeatures(std::string feature_rspecifier,
+
+/* Reads alignments and features
+   for purposes of neural net training.  Returns true if both
+   train and validation set were nonempty.
+*/
+bool ReadAlignmentsAndFeatures(std::string feature_rspecifier,
                                std::string alignments_rspecifier,
-                               std::string validation_utt_list,
+                               std::string validation_utt_list_rxfilename,
                                std::vector<CompressedMatrix> *train_feats,
                                std::vector<CompressedMatrix> *validation_feats,
                                std::vector<std::vector<int32> > *train_ali,
-                               std::vector<std::vector<int32> > *validation_ali) {
-  
+                               std::vector<std::vector<int32> > *validation_ali);
+
+void ConvertAlignmentsToPdfs(const TransitionModel &trans_model,
+                             std::vector<std::vector<int32> > *ali);
   
 
 } // namespace

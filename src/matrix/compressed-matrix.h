@@ -42,12 +42,18 @@ class CompressedMatrix {
  public:
   CompressedMatrix(): data_(NULL) { }
 
+  ~CompressedMatrix() { Destroy(); }
+  
   template<class Real>
   CompressedMatrix(const Matrix<Real> &mat): data_(NULL) { CopyFromMat(mat); }
 
   template<class Real>
   void CopyFromMat(const Matrix<Real> &mat);
 
+  CompressedMatrix(const CompressedMatrix &mat);
+  
+  CompressedMatrix &operator = (const CompressedMatrix &mat); // assignment operator.
+  
   // Note: mat must have the correct size, CopyToMat no longer attempts
   // to resize the matrix
   template<class Real>
@@ -83,13 +89,15 @@ class CompressedMatrix {
                  int32 column_offset,
                  MatrixBase<Real> *dest) const;
 
+  void Swap(CompressedMatrix *other) { std::swap(data_, other->data_); }
+  
   friend class Matrix<float>;
   friend class Matrix<double>;
-  private:
+ private:
 
   // allocates data using new [], ensures byte alignment
   // sufficient for float.
-  static unsigned char *AllocateData(int32 num_bytes);
+  static void *AllocateData(int32 num_bytes);
 
   struct GlobalHeader {
     float min_value;
@@ -133,10 +141,13 @@ class CompressedMatrix {
   static inline float CharToFloat(float p0, float p25,
                                   float p75, float p100,
                                   unsigned char value);
-
-  unsigned char *data_; // first GlobalHeader, then PerColHeader (repeated), then
+  
+  void Destroy();
+  
+  void *data_; // first GlobalHeader, then PerColHeader (repeated), then
   // the byte data for each column (repeated).  Note: don't intersperse
   // the byte data with the PerColHeaders, because of alignment issues.
+
 };
 
 

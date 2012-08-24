@@ -25,6 +25,65 @@
 namespace kaldi {
 
 
+// This is used as a base-class for the individual layers;
+// they override the functions as needed.
+class GenericLayer {
+ public:
+  int32 InputDim() const { return params_.NumCols(); }
+  int32 OutputDim() const { return params_.NumRows(); }
+
+  // No Write or Read functions; these are supplied by the base classes.
+  
+  virtual void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const = 0;
+  
+  // each row of the args to this function is one frame.
+  void Forward(const MatrixBase<BaseFloat> &input,
+               MatrixBase<BaseFloat> *output) const;
+  
+  // each row of the args to this function is one frame.
+  void Backward(const MatrixBase<BaseFloat> &input,
+                const MatrixBase<BaseFloat> &output,
+                const MatrixBase<BaseFloat> &output_deriv,
+                MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
+                GenericLayer *layer_to_update) const;
+
+  BaseFloat GetLearningRate() const { return learning_rate_; }
+  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
+  // Use default copy constructor and assignment operator.
+  
+  void SetZero() { params_.Set(0.0); }
+
+  void AdjustLearningRate(const GenericLayer &previous_value,
+                          const GenericLayer &validation_gradient,
+                          BaseFloat learning_rate_ratio);
+
+  GenericLayer(): learning_rate_(0.0) { } // avoid undefined
+  // behavior.  This value should always be overwritten though.
+  const Matrix<BaseFloat> &Params() { return params_; }
+
+  void SetParams(const MatrixBase<BaseFloat> &params);
+
+  // print some concise human-readable information about the object,
+  // to this stream.
+  void Info(std::ostream &os) const;
+ protected:
+
+  // Propagate the derivative back through the nonlinearity.
+  virtual void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
+                               const MatrixBase<BaseFloat> &output_deriv,
+                               MatrixBase<BaseFloat> *sum_deriv) const = 0;
+  
+  // Default implementation is supplied, but may be overridden (e.g. for
+  // LinearLayer, which does the update differently for efficiency).
+  virtual void Update(const MatrixBase<BaseFloat> &input,
+                      const MatrixBase<BaseFloat> &output_deriv,
+                      const MatrixBase<BaseFloat> &output);
+
+  BaseFloat learning_rate_;
+  Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
+};
+
+
 // This class is for a special type of neural-network layer that we have
 // at the very end, after the soft-max.  We constrain each column of the
 // matrix to sum to one, which will ensure that the transformed probabilities
@@ -33,169 +92,120 @@ namespace kaldi {
 // in parallel, one for each of the SoftmaxLayers [which we have for the
 // different categories of labels... note, categories of labels relate
 // to the 2-level tree.].
-class LinearLayer {
+class LinearLayer: public GenericLayer {
  public:
   int32 InputDim() const { return params_.NumCols(); }
   int32 OutputDim() const { return params_.NumRows(); }
   
+  LinearLayer() { } // called prior to Read().
   LinearLayer(int size, BaseFloat diagonal_element, BaseFloat learning_rate);
-  LinearLayer(std::istream &in, bool binary) { Read(in, binary); }
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
   
-  // each row of the args to this function is one frame.
-  void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output) const;
-  
-  // each row of the args to this function is one frame.
+  void SetZero() { params_.Set(0.0); is_gradient_ = true; }
+
+  // Override the base-class Backward for efficiency.
   void Backward(const MatrixBase<BaseFloat> &input,
+                const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
                 LinearLayer *layer_to_update) const;
   
-  BaseFloat GetLearningRate() const { return learning_rate_; }
-  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-  // Use default copy constructor and assignment operator.
-  
-  void SetZero() { params_.Set(0.0); is_gradient_ = true; }
-  void AdjustLearningRate(const LinearLayer &previous_value,
-                          const LinearLayer &validation_gradient,
-                          BaseFloat learning_rate_ratio);
+  void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
+
  private:
-  void Update(const MatrixBase<BaseFloat> &input,
-              const MatrixBase<BaseFloat> &output_deriv);
-      
-  BaseFloat learning_rate_;
-  Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
+  // override the base-class Update; we do it differently.
+  virtual void Update(const MatrixBase<BaseFloat> &input,
+                      const MatrixBase<BaseFloat> &output_deriv,
+                      const MatrixBase<BaseFloat> &output);
+
+  // Note: this function shouldn't ever be called; we define it to throw an
+  // error, to avoid having undefined pure-virtual functions.
+  void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
+                       const MatrixBase<BaseFloat> &output_deriv,
+                       MatrixBase<BaseFloat> *sum_deriv) const;
+  
   bool is_gradient_; // If true, this class is just a holder for the gradient,
   // e.g. on a held out set.  This affects how we do the update [since we
   // don't use simple gradient descent for this type of layer.]
 };
 
-class SoftmaxLayer {
+class SoftmaxLayer: public GenericLayer {
  public:
-  int32 InputDim() const { return params_.NumCols(); }
-  int32 OutputDim() const { return params_.NumRows(); }
-  
-  SoftmaxLayer(std::istream &is, bool binary) { Read(is, binary); }
+  SoftmaxLayer() { } // called prior to Read().
   SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate); // Note:
   // this layer is initialized to zero.
-  
+
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
 
-  // each row of the args to this function is one frame.
-  // Note: support frame splicing, so if input.NumCols() is < input_size,
-  // splice input, and shift by one each time. [warning: we're not
-  // using this splicing mechanism in the nnet1 code, that code does it
-  // itself.
-  void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output) const;
-  
-  void Backward(const MatrixBase<BaseFloat> &input, 
-                const MatrixBase<BaseFloat> &output,
-                const MatrixBase<BaseFloat> &output_deriv,
-                MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-                SoftmaxLayer *layer_to_update) const;
-  
-  BaseFloat GetLearningRate() const { return learning_rate_; }
-  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-  // Use default copy constructor and assignment oeprator.
-  void SetZero() { params_.Set(0.0); }  
-  void AdjustLearningRate(const SoftmaxLayer &previous_value,
-                          const SoftmaxLayer &validation_gradient,
-                          BaseFloat learning_rate_ratio);
+  void SetZero() { params_.Set(0.0); occupancy_.Set(0.0); }
+
+
+  void SetOccupancy(const VectorBase<BaseFloat> &occupancy);
+
+  void ZeroOccupancy() { occupancy_.Set(0.0); } // Set occupancy to zero so we
+  // can start counting afresh...
+  BaseFloat TotOccupancy() { return occupancy_.Sum(); }
+  const Vector<BaseFloat> &Occupancy() { return occupancy_; }
  private:
-  void Update(const MatrixBase<BaseFloat> &input,
-              const MatrixBase<BaseFloat> &sum_deriv,
-              const MatrixBase<BaseFloat> &output);
+  // override the base-class Update; we do it differently.
+  virtual void Update(const MatrixBase<BaseFloat> &input,
+                      const MatrixBase<BaseFloat> &sum_deriv,
+                      const MatrixBase<BaseFloat> &output);
   
-  void ApplySoftmax(MatrixBase<BaseFloat> *output) const;
+  void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
                        MatrixBase<BaseFloat> *sum_deriv) const;
 
-  // Propagate derivative back from sum at nodes, to input.
-  void ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                         MatrixBase<BaseFloat> *input_deriv) const;
-
-  BaseFloat learning_rate_;
-  Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
-  
   // A quasi-occupancy count, accumulated from the data and used for splitting.
   Vector<BaseFloat> occupancy_;
 };
   
 
-class TanhLayer {
+class TanhLayer: public GenericLayer {
   // Note: the tanh function is the same as the sigmoid, except modified to go
   // from -1 to +1 (instead of 0 to 1), and with the input (x) multiplied by
   // two-- so it's stretched vertically and squashed horizontally, relative to
   // the sigmoid.
  public:
-  // We initialize the weights to be uniformly distributed on
-  // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
-  // Apparently this is widely used: see  glorot10a.pdf (search term), 
-  // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
-  int32 InputDim() const { return params_.NumCols(); }
-  int32 OutputDim() const { return params_.NumRows(); }
-
+  TanhLayer() { } // called prior to Read().
   TanhLayer(int input_size,
             int output_size,
-            BaseFloat learning_rate);
-
-  TanhLayer(std::istream &in, bool binary) { Read(in, binary); };
+            BaseFloat learning_rate,
+            BaseFloat parameter_stddev);
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
   
-  // The forward pass.  Note: in this function we support doing the operation
-  // on multiple frames at a time.  If the dimension of each row of the input
-  // is not the same as the input dimension of the layer [but divides it]
-  // then the first row of the "real" input will be spliced first n rows
-  // of the input, then shift by one each time.  [warning: we're not
-  // using this splicing mechanism in the nnet1 code, that code does it
-  // itself.
-  void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output) const;
   
-  // The backward pass.  Similar note about sizes and frame-splicing
-  // applies as in "Forward".
-  void Backward(const MatrixBase<BaseFloat> &input,
-                const MatrixBase<BaseFloat> &output,
-                const MatrixBase<BaseFloat> &output_deriv,                
-                MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-                TanhLayer *layer_to_update) const;
-  
-  BaseFloat GetLearningRate() const { return learning_rate_; }
-  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
-  // Use default copy constructor and assignment oeprator.
-  void SetZero() { params_.Set(0.0); }
-  void AdjustLearningRate(const TanhLayer &previous_value,
-                          const TanhLayer &validation_gradient,
-                          BaseFloat learning_rate_ratio);
+  // Use default copy constructor and assignment operator.
  private:
-  void Update(const MatrixBase<BaseFloat> &input,
-              const MatrixBase<BaseFloat> &sum_deriv);
-  
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
                        MatrixBase<BaseFloat> *sum_deriv) const;
       
-  // Called from Backward().
-  void ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                         MatrixBase<BaseFloat> *input_deriv) const;
-
-  
-  void ApplyTanh(MatrixBase<BaseFloat> *output) const;
-
-  BaseFloat learning_rate_;
-  Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
+  void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 };
+
+
+/* MixUpFinalLayers() increases the output dimension of the
+   SoftmaxLayer and the corresponding input dimension of the
+   LinearLayer that comes after it, in a process analogous
+   to mixing-up of Gaussians.  Similar to the approach when
+   we mix up Gaussians, we always choose the Gaussian/node
+   with the highest occupancy to split.
+*/
+void MixUpFinalLayers(int32 new_num_neurons,
+                      BaseFloat perturb_stddev,
+                      SoftmaxLayer *softmax_layer,
+                      LinearLayer *linear_layer);
+                      
   
 
 } // namespace

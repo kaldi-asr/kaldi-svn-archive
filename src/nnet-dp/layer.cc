@@ -19,10 +19,15 @@
 
 namespace kaldi {
 
+void GenericLayer::SetParams(const MatrixBase<BaseFloat> &params) {
+  params_.Resize(params.NumRows(), params.NumCols());
+  params_.CopyFromMat(params);
+}
+
 
 LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
-                         BaseFloat learning_rate):
-    learning_rate_(learning_rate) {
+                         BaseFloat learning_rate) {
+  learning_rate_ = learning_rate;
   KALDI_ASSERT(learning_rate >= 0.0 && learning_rate <= 1.0); // > 1.0 doesn't make sense.
   // 0 may be used just to disable learning.
   // Note: if diagonal_element == 1.0, learning will never move away from that
@@ -36,73 +41,8 @@ LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
     params_(i, i) = diagonal_element;
 }
 
-
-// Called from Backward().  Computes "input_deriv".
-void TanhLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                                  MatrixBase<BaseFloat> *input_deriv) const {
-  
-  // This would be simpler if we didn't allow frame splicing.  For
-  // the case with no frame splicing, assume input_dim == full_input_dim.
-  
-  int32 chunk_size = sum_deriv.NumRows(); // Number of frames in this chunk.  This is fixed
-  // during training; the stats take it as part of the initializer.
-  int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = sum_deriv.NumCols();
-  int32 num_spliced = full_input_dim / input_dim;
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(chunk_size + num_spliced - 1 == input_deriv->NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
-
-  input_deriv->SetZero();
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, only do this once.
-    SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    input_deriv_part.AddMatMat(1.0, sum_deriv, kNoTrans,
-                               params_part, kNoTrans, 1.0);
-  }
-}
-
-void TanhLayer::AdjustLearningRate(const TanhLayer &previous_value,
-                                   const TanhLayer &validation_gradient,
-                                   BaseFloat learning_rate_ratio) {
-  Matrix<BaseFloat> param_delta(params_);
-  param_delta.AddMat(-1.0, previous_value.params_);
-  BaseFloat dot_prod = TraceMatMat(param_delta, validation_gradient.params_,
-                                   kTrans); // dot product if we view
-  // the matrices as vectors.
-  KALDI_ASSERT(learning_rate_ratio >= 1.0);
-  BaseFloat new_learning_rate = learning_rate_;
-  if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
-  else new_learning_rate /= learning_rate_ratio;
-  KALDI_VLOG(1) << "Tanh layer: dot product is " << dot_prod << ", changing learning rate "
-                << "from " << learning_rate_ << " to " << new_learning_rate;
-  learning_rate_ = new_learning_rate;
-}
-
-void LinearLayer::AdjustLearningRate(const LinearLayer &previous_value,
-                                     const LinearLayer &validation_gradient,
-                                     BaseFloat learning_rate_ratio) {
-  Matrix<BaseFloat> param_delta(params_);
-  param_delta.AddMat(-1.0, previous_value.params_);
-  BaseFloat dot_prod = TraceMatMat(param_delta, validation_gradient.params_,
-                                   kTrans); // dot product if we view
-  // the matrices as vectors.
-  KALDI_ASSERT(learning_rate_ratio >= 1.0);
-  BaseFloat new_learning_rate = learning_rate_;
-  if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
-  else new_learning_rate /= learning_rate_ratio;
-  KALDI_VLOG(1) << "Linear layer: dot product is " << dot_prod
-                << ", changing learning rate " << "from "
-                << learning_rate_ << " to " << new_learning_rate;
-  learning_rate_ = new_learning_rate;
-}
-
-// TODO: these AdjustLearningRate functions are essentially the same; could
-// move them to a base class.
-void SoftmaxLayer::AdjustLearningRate(const SoftmaxLayer &previous_value,
-                                      const SoftmaxLayer &validation_gradient,
+void GenericLayer::AdjustLearningRate(const GenericLayer &previous_value,
+                                      const GenericLayer &validation_gradient,
                                       BaseFloat learning_rate_ratio) {
   Matrix<BaseFloat> param_delta(params_);
   param_delta.AddMat(-1.0, previous_value.params_);
@@ -113,18 +53,19 @@ void SoftmaxLayer::AdjustLearningRate(const SoftmaxLayer &previous_value,
   BaseFloat new_learning_rate = learning_rate_;
   if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
   else new_learning_rate /= learning_rate_ratio;
-  KALDI_VLOG(1) << "Softmax layer: dot product is " << dot_prod
+  KALDI_VLOG(1) << "Layer of size " << InputDim() << " -> " << OutputDim()
+                << ": dot product is " << dot_prod
                 << ", changing learning rate " << "from "
                 << learning_rate_ << " to " << new_learning_rate;
   learning_rate_ = new_learning_rate;
 }
 
 
-
-// The backward pass.  Similar note about sizes and frame-splicing
-// applies as in "Forward" [this affects "input" and "input_deriv"].
+// We can slightly simplify this Backward pass, because
+// the ComputeSumDeriv phase would just be copying a matrix.
 void LinearLayer::Backward(
     const MatrixBase<BaseFloat> &input,
+    const MatrixBase<BaseFloat> &output, // unused.
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
     LinearLayer *model_to_update) const {
@@ -132,7 +73,14 @@ void LinearLayer::Backward(
   input_deriv->AddMatMat(1.0, output_deriv, kNoTrans, params_, kNoTrans, 0.0);
 
   if (model_to_update != NULL)
-    model_to_update->Update(input, output_deriv);
+    model_to_update->Update(input, output_deriv, output);
+}
+
+void GenericLayer::Forward(
+    const MatrixBase<BaseFloat> &input,
+    MatrixBase<BaseFloat> *output) const {
+  output->AddMatMat(1.0, input, kNoTrans, params_, kTrans, 0.0);
+  ApplyNonlinearity(output);
 }
 
 
@@ -153,7 +101,8 @@ void LinearLayer::Read(std::istream &in, bool binary) {
 
 // Update model parameters for linear layer.
 void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
-                         const MatrixBase<BaseFloat> &output_deriv) {
+                         const MatrixBase<BaseFloat> &output_deriv,
+                         const MatrixBase<BaseFloat> &output/*unused*/) {
   /*
     Note: for this particular type of layer [which transforms probabilities], we
     store the stats as they relate to the actual probabilities in the matrix, with
@@ -219,18 +168,16 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
 // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
 // Apparently this is widely used: see  glorot10a.pdf (search term), 
 // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
-TanhLayer::TanhLayer(int input_size, int output_size, BaseFloat learning_rate):
-    learning_rate_(learning_rate),
-    params_(output_size, input_size) {
+TanhLayer::TanhLayer(int input_size, int output_size,
+                     BaseFloat learning_rate, BaseFloat parameter_stddev) {
+  learning_rate_ = learning_rate;
+  params_.Resize(output_size, input_size);
   KALDI_ASSERT(input_size > 0 && output_size > 0);
-  BaseFloat end_range = 1.0 / sqrt(input_size),
-      begin_range = -end_range;
-  for (int32 i = 0; i < output_size; i++) {
-    for (int32 j = 0; j < input_size; j++) {
-      BaseFloat r = begin_range + RandUniform() * (end_range - begin_range);
-      params_(i, j) = r;
-    }
-  }
+  KALDI_ASSERT(parameter_stddev >= 0.0);
+  if (parameter_stddev != 0.0)
+    for (int32 i = 0; i < output_size; i++)
+      for (int32 j = 0; j < input_size; j++)
+        params_(i, j) = RandGauss() *  parameter_stddev;
 }
 
 void TanhLayer::Write(std::ostream &out, bool binary) const {
@@ -245,32 +192,6 @@ void TanhLayer::Read(std::istream &in, bool binary) {
   ReadBasicType(in, binary, &learning_rate_);
   params_.Read(in, binary);
   ExpectToken(in, binary, "</TanhLayer>");  
-}
-
-void TanhLayer::Forward(const MatrixBase<BaseFloat> &input,
-                        MatrixBase<BaseFloat> *output) const {
-  // This would be simpler if we didn't allow frame splicing.  For
-  // the case with no frame splicing, assume input_dim == full_input_dim.
-  
-  int32 chunk_size = output->NumRows(); // Number of frames in this chunk.  This is fixed
-  // during training; the stats take it as part of the initializer.
-  int32 input_dim = input.NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output->NumCols();
-  int32 num_spliced = full_input_dim / input_dim;
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(chunk_size + num_spliced - 1 == input.NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
-
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, only do this once.
-    BaseFloat add_old_output = (s == 0 ? 0.0 : 1.0);
-    SubMatrix<BaseFloat> input_part(input, s, chunk_size, 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    output->AddMatMat(1.0, input_part, kNoTrans, params_part, kTrans,
-                      add_old_output);
-  }
-  ApplyTanh(output);
 }
 
 // Propagate the derivative back through the nonlinearity.
@@ -292,29 +213,31 @@ void TanhLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
 }
 
 
-// The backward pass.  Similar note about sizes and frame-splicing
-// applies as in "Forward" [this affects "input" and "input_deriv"].
-void TanhLayer::Backward(
+void GenericLayer::Backward(
     const MatrixBase<BaseFloat> &input,
     const MatrixBase<BaseFloat> &output,
     const MatrixBase<BaseFloat> &output_deriv,
-    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-    TanhLayer *layer_to_update) const {
-
-  // sum_deriv will be the derivative of the objective function w.r.t. the sum
+    MatrixBase<BaseFloat> *input_deriv,
+    GenericLayer *layer_to_update) const {
+  
+  // sum_deriv will be the derivative of the objective function w.r.t. the sum,
   // before the sigmoid is applied.
   Matrix<BaseFloat> sum_deriv(output.NumRows(), output.NumCols(),
                               kUndefined);
+
   ComputeSumDeriv(output, output_deriv, &sum_deriv);
 
   if (input_deriv)
-    ComputeInputDeriv(sum_deriv, input_deriv);
-
-  layer_to_update->Update(input, sum_deriv);
+    input_deriv->AddMatMat(1.0, sum_deriv, kNoTrans, params_, kNoTrans, 0.0);
+  
+  layer_to_update->Update(input, sum_deriv, output);
 }
 
+void LinearLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
+  // Do nothing.
+}
 
-void TanhLayer::ApplyTanh(MatrixBase<BaseFloat> *output) const {
+void TanhLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
   // Apply tanh function to each element of the output...
   // function is -1 + 2 ( 1 / (1 + e^{-2 x}))
   
@@ -335,35 +258,30 @@ void TanhLayer::ApplyTanh(MatrixBase<BaseFloat> *output) const {
   }
 }
 
-
-
-void TanhLayer::Update(const MatrixBase<BaseFloat> &input,
-                       const MatrixBase<BaseFloat> &sum_deriv) {
-  // Note: "input" may have to be spliced.
-  int32 input_dim = input.NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = sum_deriv.NumCols(),
-      num_spliced = full_input_dim / input_dim;
-  
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(sum_deriv.NumRows() + num_spliced - 1 == input.NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
-  
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, we'd only do this once.
-    SubMatrix<BaseFloat> input_part(input, s, sum_deriv.NumRows(), 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    params_part.AddMatMat(learning_rate_,
-                          sum_deriv, kTrans,
-                          input_part, kNoTrans, 1.0);
-  }
+void GenericLayer::Info(std::ostream &os) const {
+  // FrobeniusNorm() is sqrt of sum of squared elements.
+  BaseFloat param_stddev = params_.FrobeniusNorm() /
+      sqrt(params_.NumRows() * params_.NumCols());
+  os << "Layer from " << InputDim() << " to " << OutputDim()
+     << ", parameter stddev " << param_stddev
+     << ", learning rate " << learning_rate_ << std::endl;
 }
 
+void GenericLayer::Update(const MatrixBase<BaseFloat> &input,
+                          const MatrixBase<BaseFloat> &sum_deriv,
+                          const MatrixBase<BaseFloat> &output) { // Note:
+  // "output" is not used; we include it because it's used in the Softmax
+  // layer's Update function and it's more convenient to have a consistent
+  // interface.
+  params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, 1.0);
+}
 
-SoftmaxLayer::SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate):
-    learning_rate_(learning_rate),
-    params_(output_size, input_size), occupancy_(output_size)
-     {
+SoftmaxLayer::SoftmaxLayer(int input_size, int output_size,
+                           BaseFloat learning_rate) {
+  learning_rate_ = learning_rate;
+  params_.Resize(output_size, input_size);
+  occupancy_.Resize(output_size);
+  
   KALDI_ASSERT(learning_rate_ > 0.0 && learning_rate_ <= 1.0); // Note:
   // learning rate of zero may be used to disable learning for a particular
   // layer, but for this type of layer that doesn't really make sense, in
@@ -386,39 +304,23 @@ void SoftmaxLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "</SoftmaxLayer>");  
 }
 
-void SoftmaxLayer::Forward(const MatrixBase<BaseFloat> &input,
-                           MatrixBase<BaseFloat> *output) const {
-  // This would be simpler if we didn't allow frame splicing.  For
-  // the case with no frame splicing, assume input_dim == full_input_dim.
-  
-  int32 chunk_size = output->NumRows(); // Number of frames in this chunk.  This is fixed
-  // during training; the stats take it as part of the initializer.
-  int32 input_dim = input.NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output->NumCols();
-  int32 num_spliced = full_input_dim / input_dim;
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(chunk_size + num_spliced - 1 == input.NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
-
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, only do this once.
-    BaseFloat add_old_output = (s == 0 ? 0.0 : 1.0);
-    SubMatrix<BaseFloat> input_part(input, s, chunk_size, 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    output->AddMatMat(1.0, input_part, kNoTrans, params_part, kTrans,
-                      add_old_output);
-  }
-  ApplySoftmax(output);
-}
-
-void SoftmaxLayer::ApplySoftmax(MatrixBase<BaseFloat> *output) const {
+void SoftmaxLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
   // Apply softmax to each row of the output.
   for (int32 r = 0; r < output->NumRows(); r++) {
     SubVector<BaseFloat> row(*output, r);
     row.ApplySoftMax();
   }
 }
+
+void LinearLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
+                                  const MatrixBase<BaseFloat> &output_deriv,
+                                  MatrixBase<BaseFloat> *sum_deriv) const {
+  KALDI_ERR << "This function should not be called.";
+  // implementation would be:
+  // sum_deriv->CopyFromMat(output_deriv);
+  // but we overrode Update() so this isn't called at all.
+}
+
 
 // Propagate the derivative back through the nonlinearity.
 void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
@@ -444,76 +346,104 @@ void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
   }
 }
 
-// Called from Backward().  Computes "input_deriv".
-void SoftmaxLayer::ComputeInputDeriv(const MatrixBase<BaseFloat> &sum_deriv,
-                                     MatrixBase<BaseFloat> *input_deriv) const {
-  // This would be simpler if we didn't allow frame splicing.  For
-  // the case with no frame splicing, assume input_dim == full_input_dim.
-  
-  int32 chunk_size = sum_deriv.NumRows(); // Number of frames in this chunk.  This is fixed
-  // during training; the stats take it as part of the initializer.
-  int32 input_dim = input_deriv->NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = sum_deriv.NumCols();
-  int32 num_spliced = full_input_dim / input_dim;
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(chunk_size + num_spliced - 1 == input_deriv->NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
 
-  input_deriv->SetZero();
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, only do this once.
-    SubMatrix<BaseFloat> input_deriv_part(*input_deriv, s, chunk_size, 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    input_deriv_part.AddMatMat(1.0, sum_deriv, kNoTrans, params_part, kNoTrans,
-                               1.0);
-  }
-}
-
-// The backward pass.  Similar note about sizes and frame-splicing
-// applies as in "Forward" [this affects "input" and "input_deriv"].
-void SoftmaxLayer::Backward(
-    const MatrixBase<BaseFloat> &input,
-    const MatrixBase<BaseFloat> &output,
-    const MatrixBase<BaseFloat> &output_deriv,
-    MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-    SoftmaxLayer *layer_to_update) const {
-  
-  // sum_deriv will be the derivative of the objective function w.r.t. the sum
-  // before the sigmoid is applied.
-  Matrix<BaseFloat> sum_deriv(output.NumRows(), output.NumCols(),
-                              kUndefined);
-  ComputeSumDeriv(output, output_deriv, &sum_deriv);
-  
-  ComputeInputDeriv(sum_deriv, input_deriv);
-  
-  layer_to_update->Update(input, sum_deriv, output);
-}
-
-
+// Override the generic layer's Update method, as we want to
+// update "occupancy_".
 void SoftmaxLayer::Update(const MatrixBase<BaseFloat> &input,
                           const MatrixBase<BaseFloat> &sum_deriv,
                           const MatrixBase<BaseFloat> &output) {
-  // Note: "input" may have to be spliced.
-  int32 input_dim = input.NumCols(), full_input_dim = params_.NumCols(),
-      output_dim = output.NumCols(), num_spliced = full_input_dim / input_dim;
-  
-  KALDI_ASSERT(output_dim == params_.NumRows());
-  KALDI_ASSERT(full_input_dim == num_spliced * input_dim);
-  KALDI_ASSERT(output.NumRows() + num_spliced - 1 == input.NumRows()); // We'll shift the
-  // input row by 1 each time... this equality has to hold for the splicing to work.
-  
-  for (int32 s = 0; s < num_spliced; s++) { // without frame splicing, we'd only do this once.
-    SubMatrix<BaseFloat> input_part(input, s, output.NumRows(), 0, input_dim);
-    SubMatrix<BaseFloat> params_part(params_, 0, output_dim,
-                                     input_dim * s, input_dim);
-    params_part.AddMatMat(learning_rate_,
-                          sum_deriv, kTrans,
-                          input_part, kNoTrans, 1.0);
-  }
+  params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, 1.0);
   occupancy_.AddRowSumMat(output);
 }
 
+void SoftmaxLayer::SetOccupancy(const VectorBase<BaseFloat> &occupancy) {
+  occupancy_.Resize(occupancy.Dim());
+  occupancy_.CopyFromVec(occupancy);
+  KALDI_ASSERT(occupancy_.Dim() == params_.NumRows());
+}
+
+void MixUpFinalLayers(int32 new_num_neurons,
+                      BaseFloat perturb_stddev,
+                      SoftmaxLayer *softmax_layer,
+                      LinearLayer *linear_layer) {
+  // Increase the #rows of softmax_layer [corresponding to the output
+  // nodes of that layer], and the matching rows of linear_layerT
+  // (i.e. the columns of linear_layer; again, these correspond to
+  // the output nodes of the softmax_layer ].
+  // This is the same as Gaussian-splitting.
+  
+  int32 softmax_input_dim = softmax_layer->InputDim(),
+      linear_output_dim = linear_layer->OutputDim(),
+      old_num_neurons = softmax_layer->OutputDim();
+  KALDI_ASSERT(linear_layer->InputDim() == old_num_neurons);
+  Vector<BaseFloat> occupancy(new_num_neurons);
+  Matrix<BaseFloat> softmax_params(new_num_neurons,
+                                   softmax_input_dim),
+      linear_paramsT(new_num_neurons,
+                     linear_output_dim);
+  { // Initialize the first rows of (occupancy, softmax_paramsT,
+    // linear_params).
+    // Note: the following statements may look like broken declarations,
+    // but they're explicit calls to the constructor, which allows
+    // us to make a call on an anonymous new object of that type.
+    SubVector<BaseFloat>(occupancy, 0, old_num_neurons)
+        .CopyFromVec(softmax_layer->Occupancy());
+    SubMatrix<BaseFloat>(softmax_params, 0, old_num_neurons,
+                         0, softmax_input_dim)
+        .CopyFromMat(softmax_layer->Params(), kNoTrans);
+    SubMatrix<BaseFloat>(linear_paramsT, 0, old_num_neurons,
+                         0, linear_output_dim)
+        .CopyFromMat(linear_layer->Params(), kTrans);
+  }
+  if (occupancy.Sum() == 0.0) {
+    // There's no way we could have got here, since
+    // GetSplitTargetns() would not have allocated
+    // counts to this category... so make this an error
+    // for now.
+    KALDI_ERR << "Zero occupancy count while mixing up model "
+              << "(should not happen).";
+  }
+
+  Vector<BaseFloat> rand_vec(softmax_input_dim);
+  BaseFloat *occ_data = occupancy.Data();
+  for (int32 cur_num_neurons = old_num_neurons;
+       cur_num_neurons != new_num_neurons;
+       cur_num_neurons++) {
+    // Get current index with largest count.
+    int32 old_index = std::min_element(occ_data,
+                                       occ_data + cur_num_neurons) - occ_data,
+        new_index = cur_num_neurons;
+    // split the occupancy.
+    occupancy(old_index) *= 0.5;
+    occupancy(new_index) = occupancy(old_index);
+    // copy the row of "linear_layer"... this says the counts of the new
+    // "gaussians" are distributed among the states in the same way as the old
+    // one.  Note: these are not exactly mixture weights, it's a slightly
+    // different representation, but trust us, we're doing the right thing
+    // here...
+    linear_paramsT.Row(new_index).CopyFromVec(linear_paramsT.Row(old_index));
+    
+    // We'll copy and perturb the row of softold_params, just like
+    // we perturb Gaussians when we split them.  We also need to
+    // modify the last element of the row, corresponding to the bias
+    // term, in order to halve the probability... this is the same
+    // as where we split the mixture weight in half when we split
+    // a Gaussian, only the representation is a little different.
+    softmax_params.Row(new_index).CopyFromVec(softmax_params.Row(old_index));
+    rand_vec.SetRandn(); // Sets it to newly generated unit noise.
+    BaseFloat split_bias_term = softmax_params(old_index, softmax_input_dim - 1)
+        + log(0.5);
+    softmax_params.Row(new_index).AddVec(perturb_stddev, rand_vec);
+    softmax_params.Row(old_index).AddVec(-perturb_stddev, rand_vec);
+    // Set the bias term so it splits the probability mass in two.
+    softmax_params(old_index, softmax_input_dim-1) = split_bias_term;
+    softmax_params(new_index, softmax_input_dim-1) = split_bias_term;
+  }
+  softmax_layer->SetParams(softmax_params);
+  softmax_layer->SetOccupancy(occupancy);
+  linear_paramsT.Transpose();
+  linear_layer->SetParams(linear_paramsT);
+}
 
 
 } // namespace kaldi

@@ -3,7 +3,7 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 
-BINFILES = nnet1-init
+BINFILES = nnet1-init nnet1-train nnet1-add-layer nnet1-info nnet1-mixup
 
 OBJFILES =
 
@@ -12,7 +12,8 @@ all:  $(BINFILES)
 TESTFILES =
 
 $(BINFILES): ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a ../nnet-dp/kaldi-nnet-dp.a \
-    ../matrix/kaldi-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a 
+    ../gmm/kaldi-gmm.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a \
+    ../base/kaldi-base.a ../thread/kaldi-thread.a
 
 
 

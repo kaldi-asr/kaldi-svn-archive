@@ -87,7 +87,7 @@ struct Nnet1InitConfig {
   
   void Register (ParseOptions *po) {
     po->Register("layer-sizes", &layer_sizes,
-                 "Sizes of input and hidden units (before splicing), e.g. \"23:512:512:512\"");
+                 "Sizes of input and hidden units (before splicing + bias), e.g. \"23:512:512:512\"");
     po->Register("context-frames", &context_frames,
                  "For each matrix, the (left,right) frames of temporal context at the input "
                  "E.g. \"1,1:1,1:1,1:0,0\"");
@@ -119,6 +119,8 @@ struct Nnet1InitInfo {
   Nnet1InitInfo(const Nnet1InitConfig &config,
                 const std::vector<int32> &category_sizes);
 };
+
+struct Nnet1ProgressInfo;
 
 // Nnet1 is a sequence of TanhLayers, then a SoftmaxLayer, then a LinearLayer
 // [which is similar to Gaussian mixture weights].  The TanhLayers may see
@@ -156,7 +158,8 @@ class Nnet1 {
   int32 InputDim() const { // Input dimension of raw, un-spliced features.
     // Note: there is no OutputDim(), for each category we have
     // NumLabelsForCategory(category).
-    return initial_layers_[0].tanh_layer->InputDim() /
+    // Note: the -1 is account for the unit element (1.0) which we append.
+    return (initial_layers_[0].tanh_layer->InputDim() - 1) /
         (1 + LeftContextForLayer(0) + RightContextForLayer(0));
   }
   
@@ -169,6 +172,10 @@ class Nnet1 {
     return final_layers_[category].linear_layer->OutputDim();
   }
   
+  void ZeroOccupancy(); // calls ZeroOccupancy() on the softmax layers.  This
+  // resets the occupancy counters; it makes sense to do this once in
+  // a while, e.g. at the start of an epoch of training.
+  
   Nnet1(const Nnet1 &other); // Copy constructor.
   
   Nnet1() { }
@@ -176,6 +183,24 @@ class Nnet1 {
   Nnet1(const Nnet1InitInfo &init_info) { Init(init_info); }
 
   ~Nnet1() { Destroy(); }
+
+  // Add a new tanh layer (hidden layer).  If num_nodes > 0, specifies
+  // the num nodes; otherwise, use #nodes of top hidden layer.
+  // The new layer will have zero-valued parameters
+  void AddTanhLayer(int32 num_nodes, int32 left_context, int32 right_context,
+                    BaseFloat learning_rate);
+
+  // Prints to the output stream some human-readable information about the model.
+  void Info(std::ostream &os) const; 
+
+  // Mix up by increasing the dimension of the output of softmax layer (and the
+  // input of the linear layer).  This is exactly analogous to mixing up
+  // Gaussians in a GMM-HMM system, and we use a similar power rule to allocate
+  // new ones [so a "category" gets an allocation of indices/Gaussians allocated
+  // proportional to a power "power" of its total occupancy.
+  void MixUp(int32 target_tot_neurons,
+             BaseFloat power, // e.g. 0.2.
+             BaseFloat perturb_stddev);
   
   void Init(const Nnet1InitInfo &init_info);
 
@@ -198,6 +223,13 @@ class Nnet1 {
       const Nnet1 &previous_value,
       const Nnet1 &validation_gradient,
       BaseFloat learning_rate_ratio);
+
+  // Computes certain dot products that we use to
+  // keep track of why validation set objf changes.
+  void ComputeProgressInfo(
+      const Nnet1 &previous_value,
+      const Nnet1 &validation_gradient,
+      Nnet1ProgressInfo *info) const;
   
   friend class Nnet1Updater;
  private:
@@ -223,6 +255,39 @@ class Nnet1 {
   // indexed by category.
 };
 
+
+
+/*
+  This function interprets the input as a number "num_chunks" of
+  equally sized sequences of frames (the rows of "input" correspond
+  to frames).  We do context-splicing and append the unit element when
+  creating the matrix "spliced_out", i.e. each row of "spliced_out" will
+  be a sequence of frames of "input", followed by the unit element.
+  The splicing is done only within the chunks, and we lose the outer
+  frames within each chunk.  The function works out the #frames
+  to splice from the sizes of "input" and "output".
+ */
+void SpliceFrames(const MatrixBase<BaseFloat> &input,
+                  int32 num_chunks,
+                  MatrixBase<BaseFloat> *spliced_out);
+
+
+/* This does essentially the opposite of SpliceFrames, but when
+   backpropagating the derivatives.  There is summation involved here,
+   in the same place where SpliceFrames would do duplication.
+*/
+void UnSpliceDerivative(const MatrixBase<BaseFloat> &output_deriv,
+                        int32 num_chunks,
+                        MatrixBase<BaseFloat> *input_deriv);
+
+struct Nnet1ProgressInfo {
+  // We use this structure to store certain information performance and
+  // dot-products of the validation-set gradient with a change in parameters.
+  std::vector<BaseFloat> tanh_dot_prod; // dot prod of validation objf with
+  // parameter change for tanh layers.
+  std::vector<BaseFloat> softmax_dot_prod; // same for softmax layers.
+  std::vector<BaseFloat> linear_dot_prod; // same for softmax layers.
+};
 
 } // namespace
 

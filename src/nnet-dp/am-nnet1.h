@@ -37,6 +37,8 @@ namespace kaldi {
 
 class AmNnet1 {
  public:
+  AmNnet1() { }
+  
   AmNnet1(const Nnet1InitConfig &config,
           const std::vector<int32> &leaf_mapping);
   // The vector "leaf_mapping" is an output from the program build-tree-two-level.

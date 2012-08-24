@@ -18,6 +18,7 @@
 
 #include "nnet-dp/nnet1.h"
 #include "thread/kaldi-thread.h"
+#include "gmm/model-common.h" // for GetSplitTargets
 
 namespace kaldi {
 
@@ -74,19 +75,22 @@ void Nnet1::Init(const Nnet1InitInfo &info) {
         output_dim = info.layer_sizes[i+1];
     layer_info.left_context = info.context_frames[i].first;
     layer_info.right_context = info.context_frames[i].second;
-    int32 tot_context = 1 + layer_info.left_context + layer_info.right_context;
-    layer_info.tanh_layer = new TanhLayer(input_dim * tot_context,
+    int32 real_input_dim =
+        input_dim * (1 + layer_info.left_context + layer_info.right_context) + 1;
+    layer_info.tanh_layer = new TanhLayer(real_input_dim,
                                           output_dim,
-                                          info.learning_rates[i]);
+                                          info.learning_rates[i],
+                                          1.0 / sqrt(real_input_dim));
   }
   // Now the final layers.
   final_layers_.resize(info.category_sizes.size());
-  int32 final_layer_size = info.layer_sizes.back();
+  int32 final_layer_input = info.layer_sizes.back() + 1; // input dim of
+  // softmax layer.
   for (int32 category = 0; category < info.category_sizes.size();
        category++) {
     int32 category_size = info.category_sizes[category];
     final_layers_[category].softmax_layer = new SoftmaxLayer(
-        final_layer_size, category_size, info.learning_rates[n]);
+        final_layer_input, category_size, info.learning_rates[n]);
     final_layers_[category].linear_layer = new LinearLayer(
         category_size, info.diagonal_element, info.learning_rates[n]);
   }
@@ -104,11 +108,11 @@ void SpliceFrames(const MatrixBase<BaseFloat> &input,
   KALDI_ASSERT(input.NumRows() % num_chunks == 0 &&
                output->NumRows() % num_chunks == 0);
   int32 chunk_size_input = input.NumRows() / num_chunks,
-      chunk_size_output = output->NumRows() / num_chunks;
+      chunk_size_output = (output->NumRows()-1) / num_chunks;
   int32 num_splice = 1 + chunk_size_input - chunk_size_output; // # of frames
   // we splice together each time
   KALDI_ASSERT(num_splice > 0);
-  KALDI_ASSERT(output->NumCols() == num_splice * input_dim);
+  KALDI_ASSERT(output->NumCols()-1 == num_splice * input_dim);
   for (int32 c = 0; c < num_chunks; c++) {
     for (int32 s = 0; s < num_splice; s++) {
       SubMatrix<BaseFloat> input_chunk(input,
@@ -120,13 +124,19 @@ void SpliceFrames(const MatrixBase<BaseFloat> &input,
       output_chunk.CopyFromMat(input_chunk);
     }
   }
+  // Set the last column of "output" to 1.0.
+  {
+    int32 nr = output->NumRows(), stride = output->Stride();
+    BaseFloat *d = output->Data() + output->NumCols() - 1;
+    // currently d points to last element of 1st row of "output".
+    for (int32 r = 0; r < nr; r++, d += stride) *d = 1.0;
+  }
 }
 
 // This does almost the opposite of SpliceFrames; it's used in the backward
 // pass.  Where SpliceFrames would copy a chunk A to destinations B, C and D,
 // this function set A <-- B + C + D.  [this is appropriate for the derivatives
 // we're computing in the backward pass].
-
 void UnSpliceDerivative(const MatrixBase<BaseFloat> &spliced_deriv,
                         int32 num_chunks,
                         MatrixBase<BaseFloat> *deriv) { // splice together
@@ -141,7 +151,9 @@ void UnSpliceDerivative(const MatrixBase<BaseFloat> &spliced_deriv,
   int32 num_splice = 1 + chunk_size_unspliced - chunk_size_spliced; // # of frames
   // we splice together each time
   KALDI_ASSERT(num_splice > 0);
-  KALDI_ASSERT(spliced_deriv.NumCols() == num_splice * dim);
+  // the + 1 in the line below is for the deriv w.r.t. the appended 1.0.
+  // we ignore the value of this derivative.
+  KALDI_ASSERT(spliced_deriv.NumCols() == num_splice * dim + 1);
   deriv->Set(0.0);
   for (int32 c = 0; c < num_chunks; c++) {
     for (int32 s = 0; s < num_splice; s++) {
@@ -163,38 +175,38 @@ void Nnet1::Destroy() {
   for (std::vector<InitialLayerInfo>::iterator iter = initial_layers_.begin();
        iter != initial_layers_.end(); ++iter) {
     if (iter->tanh_layer != NULL) {
-      delete iter->tanh_layer ; 
+      delete iter->tanh_layer;
     }
   }
-  initial_layers_.clear() ; 
+  initial_layers_.clear();
   for (std::vector<FinalLayerInfo>::iterator iter = final_layers_.begin();
        iter != final_layers_.end(); ++iter) {
     if (iter->softmax_layer != NULL) {
-      delete iter->softmax_layer ; 
+      delete iter->softmax_layer;
     }
     if (iter->linear_layer != NULL) {
-      delete iter->linear_layer ; 
+      delete iter->linear_layer;
     }
   }
-  final_layers_.clear() ; 
+  final_layers_.clear();
 }
 
 int32 Nnet1::LeftContext() const {
   int32 left_context = 0;
   for (int32 i = 0, end = NumTanhLayers(); i < end; i++) 
     left_context += LeftContextForLayer(i);
-  return left_context ; 
+  return left_context;
 }
 
 int32 Nnet1::RightContext() const {
   int32 right_context = 0;
   for (int32 i = 0, end = NumTanhLayers(); i < end; i++) 
     right_context += RightContextForLayer(i);
-  return right_context ; 
+  return right_context;
 }
 
 void Nnet1::Write(std::ostream &os, bool binary) const {
-  int32 num_tanh_layers = NumTanhLayers() ; 
+  int32 num_tanh_layers = NumTanhLayers();
   if (num_tanh_layers == 0) {
     KALDI_WARN << "Trying to write empty Nnet1 object.";
   }
@@ -205,16 +217,16 @@ void Nnet1::Write(std::ostream &os, bool binary) const {
   // of other information. If so, remove the following
   // parts about categories and their labels, and
   // derive from the rest of the information.
-  int32 num_categories = NumCategories() ; 
+  int32 num_categories = NumCategories();
   if (num_categories == 0) {
-    KALDI_WARN << "NumCategories is 0." ;
+    KALDI_WARN << "NumCategories is 0.";
   }
   WriteToken(os, binary, "<NumCategories>");
   WriteBasicType(os, binary, num_categories);
 
   WriteToken(os, binary, "<NumLabelsForCategories>");
   for (int i = 0; i < num_categories; i++)
-    WriteBasicType(os, binary, NumLabelsForCategory(i)) ;
+    WriteBasicType(os, binary, NumLabelsForCategory(i));
 
   WriteToken(os, binary, "<InitialLayers>");
   // InitialLayerInfo is a small enough struct that we 
@@ -242,7 +254,7 @@ void Nnet1::Write(std::ostream &os, bool binary) const {
 
 void Nnet1::Read(std::istream &is, bool binary) {
   if (NumTanhLayers() != 0)
-    KALDI_WARN << "Adding to a neural network that is already initialized" ;
+    KALDI_WARN << "Adding to a neural network that is already initialized";
 
   int32 num_tanh_layers = 0;
   ExpectToken(is, binary, "<NumTanhLayers>");
@@ -260,7 +272,7 @@ void Nnet1::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &num_categories);
   KALDI_WARN << "NumCategories read but not yet used!";
   if (num_categories == 0) {
-    KALDI_WARN << "Read NumCategories = 0." ;
+    KALDI_WARN << "Read NumCategories = 0.";
   }
 
   ExpectToken(is, binary, "<NumLabelsForCategories>");
@@ -286,7 +298,8 @@ void Nnet1::Read(std::istream &is, bool binary) {
     // you want to use a call to TanhLayer->Read here. 
     // I did it this way, to avoid using the default 
     // constructor.
-    layer_info.tanh_layer = new TanhLayer(is, binary);
+    layer_info.tanh_layer = new TanhLayer();
+    layer_info.tanh_layer->Read(is, binary);
     initial_layers_.push_back(layer_info);
   }
 
@@ -295,8 +308,10 @@ void Nnet1::Read(std::istream &is, bool binary) {
     FinalLayerInfo layer_info;
     // see comment above about the way TanhLayer is constructed
     // using a constructor taking the input stream as argument.
-    layer_info.softmax_layer = new SoftmaxLayer(is, binary);
-    layer_info.linear_layer = new LinearLayer(is, binary);
+    layer_info.softmax_layer = new SoftmaxLayer();
+    layer_info.softmax_layer->Read(is, binary);
+    layer_info.linear_layer = new LinearLayer();
+    layer_info.linear_layer->Read(is, binary);
     final_layers_.push_back(layer_info);
   }
 }
@@ -314,7 +329,7 @@ Nnet1::Nnet1(const Nnet1 &other):
     initial_layers_(other.initial_layers_),
     final_layers_(other.final_layers_) {
   // This initialization just copied the pointers; now we want a deep copy,
-  // so call New().
+  // so call new for each of the layers.
   for (int32 i = 0; i < initial_layers_.size(); i++)
     initial_layers_[i].tanh_layer =
         new TanhLayer(*initial_layers_[i].tanh_layer);
@@ -324,6 +339,50 @@ Nnet1::Nnet1(const Nnet1 &other):
     final_layers_[i].linear_layer =
         new LinearLayer(*final_layers_[i].linear_layer);
   }
+}
+
+void Nnet1::ZeroOccupancy() {
+  for (int32 i = 0; i < final_layers_.size(); i++)
+    final_layers_[i].softmax_layer->ZeroOccupancy();
+}
+
+void Nnet1::MixUp(int32 target_tot_neurons,
+                  BaseFloat power, // e.g. 0.2.
+                  BaseFloat perturb_stddev) {
+  int32 num_categories = final_layers_.size();
+  Vector<BaseFloat> counts_by_category(num_categories);
+  for (int32 category = 0; category < num_categories; category++) {
+    counts_by_category(category) =
+        final_layers_[category].softmax_layer->TotOccupancy();
+  }
+  KALDI_ASSERT(counts_by_category.Sum() > 0 &&
+               "You cannot mix up before you have trained (because "
+               "there is no occupation-count data.)");
+  std::vector<int32> target_neurons(num_categories);
+  BaseFloat min_count = 100.0; // This is kind of arbitrary; anyway
+  // we expect this will never be active because there will
+  // probably be much more data than this.  That's why we're not
+  // making it configurable.
+  GetSplitTargets(counts_by_category, target_tot_neurons,
+                  power, min_count, &target_neurons);
+
+  int32 old_tot_neurons = 0, new_tot_neurons = 0;
+  for (int32 category = 0; category < num_categories; category++) {
+    int32 old_num_neurons = final_layers_[category].softmax_layer->OutputDim(),
+        new_num_neurons = std::max(old_num_neurons,
+                                   target_neurons[category]);
+
+    if (new_num_neurons > old_num_neurons)
+      MixUpFinalLayers(new_num_neurons,
+                       perturb_stddev,
+                       final_layers_[category].softmax_layer,
+                       final_layers_[category].linear_layer);
+    
+    old_tot_neurons += old_num_neurons;
+    new_tot_neurons += new_num_neurons;
+  }
+  KALDI_LOG << "Mixed up from " << old_tot_neurons << " to "
+            << new_tot_neurons;
 }
 
 void Nnet1::AdjustLearningRates(
@@ -348,6 +407,59 @@ void Nnet1::AdjustLearningRates(
   }
 }
   
+void Nnet1::AddTanhLayer(int32 num_nodes,
+                         int32 left_context,
+                         int32 right_context,
+                         BaseFloat learning_rate) {
+  KALDI_ASSERT(!initial_layers_.empty());
+  KALDI_ASSERT(learning_rate > 0 && left_context >= 0 && right_context >= 0);
+  int32 output_size = (num_nodes > 0 ? num_nodes :
+                       initial_layers_.back().tanh_layer->OutputDim());
+  int32 input_size = (1 + left_context + right_context) *
+      initial_layers_.back().tanh_layer->OutputDim() + 1; // + 1 for bias.
+  InitialLayerInfo new_info;
+  new_info.left_context = left_context;
+  new_info.right_context = right_context;
+  BaseFloat parameter_stddev = 0.0; // Initialize the parameters to zero.
+  new_info.tanh_layer = new TanhLayer(input_size, output_size, learning_rate,
+                                      parameter_stddev);
+}
+
+void Nnet1::Info(std::ostream &os) const {
+  for (int32 i = 0; i < initial_layers_.size(); i++) {
+    os << i << "'th tanh layer:\n";
+    initial_layers_[i].tanh_layer->Info(os);
+  }
+  int32 tot_softmax_output_dim = 0,tot_linear_output_dim = 0;
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    tot_softmax_output_dim += final_layers_[i].softmax_layer->OutputDim();
+    tot_linear_output_dim += final_layers_[i].linear_layer->OutputDim();    
+  }
+  os << "Total output dim of all softmax layers is "
+     << tot_softmax_output_dim << "\n";
+  os << "Total output dim of all linear layers is "
+     << tot_linear_output_dim << "\n";
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    os << i << "'th softmax layer\n";
+    final_layers_[i].softmax_layer->Info(os);
+    os << "[Occupancy of " << i << "'th softmax layer is "
+       << final_layers_[i].softmax_layer->Occupancy().Sum() << " ]\n";
+    os << i << "'th linear layer\n";
+    final_layers_[i].linear_layer->Info(os);
+  }
+}
+
+void Nnet1::ComputeProgressInfo(
+    const Nnet1 &previous_value,
+    const Nnet1 &validation_gradient,
+    Nnet1ProgressInfo *info) const {
+  info->tanh_dot_prod.resize(initial_layers_.size());
+  for (int32 layer = 0; layer < initial_layers_.size(); layer++) {
+    previous_value.initial_layers.tanh_layer->
+  }
+  
+}
+
 
 
 } // namespace kaldi

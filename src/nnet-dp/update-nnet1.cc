@@ -39,15 +39,21 @@ Nnet1Updater::Nnet1Updater(
   tanh_forward_data_.resize(nnet_.initial_layers_.size() + 1);
   
   for (int32 l = num_tanh_layers-1; l >= 0; l--) {
-
+    // place for output of each layer...
+    int32 possibly_append_one = (l == num_tanh_layers-1 ||
+                                 nnet_.LayerIsSpliced(l+1) ? 1 : 0);
     Matrix<BaseFloat> &output_forward_data = tanh_forward_data_[l+1];
     output_forward_data.Resize(cur_chunk_size * num_chunks,
-                               nnet_.initial_layers_[l].tanh_layer->OutputDim());
+                               nnet_.initial_layers_[l].tanh_layer->OutputDim()
+                               + possibly_append_one);
+    if (possibly_append_one == 1)
+      output_forward_data.Set(1.0); // only really need to set last column.
     cur_chunk_size += nnet_.LeftContextForLayer(l) +
         nnet_.RightContextForLayer(l);
   }
+  int32 possibly_append_one = (nnet_.LayerIsSpliced(0) ? 1 : 0);
   tanh_forward_data_[0].Resize(cur_chunk_size * num_chunks,
-                               nnet_.InputDim());
+                               nnet_.InputDim() + possibly_append_one);
 }
 
 
@@ -80,23 +86,53 @@ BaseFloat Nnet1Updater::TrainOnOneMinibatch(const std::vector<TrainingExample> &
   return ans;
 }
 
+// Returns the input to layer "layer", spliced together
+// into "temp_matrix" if necessary.  The data comes from
+// tanh_forward_data_[layer].
+MatrixBase<BaseFloat> &Nnet1Updater::GetSplicedInput(
+    int32 layer,
+    Matrix<BaseFloat> *temp_matrix) {
+  if (nnet_.LayerIsSpliced(layer)) {
+    // Splice together the data appropriately, and add the unit element.
+    temp_matrix->Resize(tanh_forward_data_[layer+1].NumRows(),
+                        nnet_.initial_layers_[layer].tanh_layer->InputDim(),
+                        kUndefined);
+    SpliceFrames(tanh_forward_data_[layer], num_chunks_,
+                 temp_matrix);
+    return *temp_matrix;
+  } else {
+    return tanh_forward_data_[layer];
+  }
+}
+
+// returns location for the output of layer "layer"-- this is
+// the raw output before adding the 1.0.  It may be a sub-matrix
+// of tanh_forward_data_[layer+1], if that location contains space for
+// the 1.0 which may be the input to the next layer.
+SubMatrix<BaseFloat> Nnet1Updater::GetOutput(int32 layer) {
+  int32 num_cols = tanh_forward_data_[layer+1].NumCols(),
+      num_rows = tanh_forward_data_[layer+1].NumRows(),
+      output_dim = nnet_.initial_layers_[layer].tanh_layer->OutputDim();
+  if (num_cols == output_dim) {
+    return SubMatrix<BaseFloat>(tanh_forward_data_[layer+1],
+                                0, num_rows, 0, num_cols);
+  } else {
+    KALDI_ASSERT(num_cols == output_dim + 1 &&
+                 tanh_forward_data_[layer+1](0, output_dim) == 1.0);
+    return SubMatrix<BaseFloat>(tanh_forward_data_[layer+1],
+                                0, num_rows, 0, num_cols - 1);
+  }
+}
+
+
 void Nnet1Updater::ForwardTanh() {
   // Does the forward computation for the initial (tanh) layers.
   for (int32 layer = 0; layer < nnet_.initial_layers_.size(); layer++) {
-
-    Matrix<BaseFloat> temp_input; 
-    if (nnet_.LayerIsSpliced(layer)) {
-      // Splice together the data appropriately, if needed...
-      temp_input.Resize(tanh_forward_data_[layer+1].NumRows(),
-                        nnet_.initial_layers_[layer].tanh_layer->InputDim(),
-                        kUndefined);
-      SpliceFrames(tanh_forward_data_[layer], num_chunks_,
-                   &temp_input);
-    }
-    Matrix<BaseFloat> &this_input = (nnet_.LayerIsSpliced(layer) ? temp_input :
-                                     tanh_forward_data_[layer]);
-    nnet_.initial_layers_[layer].tanh_layer->Forward(this_input,
-                                                     &(tanh_forward_data_[layer+1]));
+    Matrix<BaseFloat> temp_mat;
+    MatrixBase<BaseFloat> &spliced_input = GetSplicedInput(layer, &temp_mat);
+    SubMatrix<BaseFloat> this_output = GetOutput(layer);
+    nnet_.initial_layers_[layer].tanh_layer->Forward(spliced_input,
+                                                     &this_output);
   }  
 }
 
@@ -248,7 +284,7 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalForCategory(
   std::vector<BaseFloat> weights;
   std::vector<int32> orig_index; // Index of this row in "full_input"
   Matrix<BaseFloat> &full_input = tanh_forward_data_.back(); // input to
-  // softmax layer.
+  // softmax layer.  Note: this already has the 1.0 appended.
   { // set up labels, weights, orig_index, possibly temp_input_matrix.
     int32 chunk_size = tanh_forward_data_.back().NumRows() / num_chunks_,
         input_dim = full_input.NumCols();
@@ -275,33 +311,38 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalForCategory(
   Matrix<BaseFloat> &input_matrix = (common_category ? temp_input_matrix
                                      : full_input);
   // set up labels and weights.
-  
-  
+
   Matrix<BaseFloat> input_deriv(input_matrix.NumRows(),
                                 input_matrix.NumCols());
-
+  // Note: input_deriv includes deriv. w.r.t the appended 1.0;
+  // we'll later ignore this.
+  
   double ans = ForwardAndBackwardFinalInternal(
       input_matrix, category, weights, labels, &input_deriv);
+
+  SubMatrix<BaseFloat> input_deriv_part(input_deriv, 0, input_deriv.NumRows(),
+                                        0, input_deriv.NumCols() - 1); // remove
+  // derivative w.r.t. appended 1.0.
   
   // Now propagate the derivative from its temporary location to last_tanh_backward_.
   if (!common_category) {
     for (int32 t = 0; t < orig_index.size(); t++) {
       SubVector<BaseFloat> dest(last_tanh_backward_, orig_index[t]),
-          src(input_deriv, t);
+          src(input_deriv_part, t);
       dest.AddVec(1.0, src);
     }
   } else {
-    last_tanh_backward_.AddMat(1.0, input_deriv);
+    last_tanh_backward_.AddMat(1.0, input_deriv_part);
   }
   return ans; // total log-like.
 };
 
 BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
-    const Matrix<BaseFloat> &input, // input to softmax layer
+    const Matrix<BaseFloat> &input, // input to softmax layer (includes the 1.0).
     int32 category,
     const std::vector<BaseFloat> &weights, // one per example.
     const std::vector<int32> &labels, // one per example
-    Matrix<BaseFloat> *input_deriv) { //derivative w.r.t "input".
+    Matrix<BaseFloat> *input_deriv) { // deriv w.r.t "input", including the 1.0.
   KALDI_ASSERT(weights.size() == input.NumRows());
   KALDI_ASSERT(weights.size() == labels.size());
   KALDI_ASSERT(input.NumRows() == input_deriv->NumRows());
@@ -332,6 +373,7 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
   
   double ans = 0.0;
   // Compute objective function and its derivative.
+  // Cross-entropy.
   Matrix<BaseFloat> linear_backward(linear_forward.NumRows(),
                                     linear_forward.NumCols());
   for (int32 i = 0; i < linear_backward.NumRows(); i++) {
@@ -351,6 +393,7 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
                                      softmax_backward.NumRows(),
                                      kUndefined);
   linear_layer.Backward(softmax_forward,
+                        linear_forward,
                         linear_backward,
                         &softmax_backward,
                         linear_layer_to_update);
@@ -375,14 +418,14 @@ void Nnet1Updater::BackwardTanh() {
     // layer, but w.r.t. the possibly-spliced input that directly feeds into
     // the layer, not the original un-spliced input.
     Matrix<BaseFloat> spliced_input_deriv(output_deriv.NumRows(),
-                                          tanh_layer.InputDim()),
-        spliced_input(output_deriv.NumRows(),
-                      tanh_layer.InputDim());
-    SpliceFrames(tanh_forward_data_[layer],
-                 num_chunks_,
-                 &spliced_input);
+                                          tanh_layer.InputDim());
+
+    Matrix<BaseFloat> temp_mat;
+    MatrixBase<BaseFloat> &spliced_input = GetSplicedInput(layer, &temp_mat);
+    SubMatrix<BaseFloat> this_output = GetOutput(layer);
+
     tanh_layer.Backward(spliced_input, // input to this layer.
-                        tanh_forward_data_[layer+1], // output of this layer.
+                        this_output, // output of this layer.
                         output_deriv, // deriv w.r.t. output of this layer
                         (layer == 0 ? NULL : &spliced_input_deriv),
                         tanh_layer_to_update);
