@@ -131,11 +131,14 @@ Nnet1ValidationSet::Nnet1ValidationSet(
     const AmNnet1 &am_nnet,
     Nnet1 *gradient):
     features_(features), pdf_ids_(pdf_ids), am_nnet_(am_nnet), gradient_(gradient) {
+  tot_num_frames_ = 0;
+  for (int32 i = 0; i < pdf_ids_.size(); i++)
+    tot_num_frames_ += pdf_ids_[i].size();
 }
 
 // Computes the gradient (stored in *gradient)
 BaseFloat Nnet1ValidationSet::ComputeGradient() {
-  double tot_num_frames = 0.0, tot_objf = 0.0;
+  double tot_objf = 0.0;
       
   gradient_->SetZero();
   for (int32 f = 0; f < features_.size(); f++) { // for each file..
@@ -151,7 +154,7 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
 
     KALDI_ASSERT(pdf_ids_[f].size() == num_frames);
     
-    eg.weight = 1.0;
+    eg.weight = 1.0 / tot_num_frames_;
     eg.input.Resize(padded_num_frames, dim); // include needed context...
     
     SubMatrix<BaseFloat> features_part(eg.input, left_context, num_frames,
@@ -177,12 +180,11 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
     Nnet1Updater updater(am_nnet_.Nnet(), num_frames, num_chunks, gradient_);
     BaseFloat avg_objf = updater.TrainOnOneMinibatch(egs);
     tot_objf += num_frames * avg_objf;
-    tot_num_frames += num_frames;
   }
-  tot_objf /= tot_num_frames;
-  KALDI_VLOG(2) << "Objective function on validation set " << tot_objf
-                << " per frame, over " << tot_num_frames << " frames.";
-  return tot_objf;
+  KALDI_VLOG(2) << "Objective function on validation set "
+                << (tot_objf / tot_num_frames_) << " per frame, over "
+                << tot_num_frames_ << " frames.";
+  return tot_objf / tot_num_frames_;
 }
 
 Nnet1AdaptiveTrainer::Nnet1AdaptiveTrainer(
@@ -200,25 +202,63 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
   for (int32 m = 0; m < config_.num_minibatches; m++)
     train_objf += basic_trainer_->TrainOnOneMinibatch();
   train_objf /= config_.num_minibatches;
-  // Now compute validation set error and update learning rates.
-  BaseFloat validation_objf = validation_set_->ComputeGradient();
-  KALDI_LOG << "Average objf is " << train_objf << " (train) and "
-            << validation_objf << " (test).";
+  
   Nnet1 &nnet_at_end(basic_trainer_->Nnet()); // this one
   // is a reference, not a copy.
 
-  nnet_at_end.AdjustLearningRates(nnet_at_start,
-                                  validation_set_->Gradient(),
+  Nnet1ProgressInfo old_progress_info, new_progress_info; // certain dot products
+  // old_progress_info is dot product of delta parameters with
+  // (validation-set gradient before change in parameters).
+  // new_progress_info is the same after the change in parameters.
+  basic_trainer_->Nnet().ComputeProgressInfo(
+      nnet_at_start,
+      validation_set_->Gradient(),
+      &old_progress_info);
+
+  // Now recompute validation set objf and gradient.
+  validation_objf_ = validation_set_->ComputeGradient();
+  KALDI_VLOG(1) << "Average objf is " << train_objf << " (train) and "
+                << validation_objf_ << " (test).";
+  
+  basic_trainer_->Nnet().ComputeProgressInfo(
+      nnet_at_start,
+      validation_set_->Gradient(),
+      &new_progress_info);
+  
+  nnet_at_end.AdjustLearningRates(new_progress_info,
                                   config_.learning_rate_ratio);
+
+  
 }
 
 void Nnet1AdaptiveTrainer::Train() {
+  // We need the validation set gradient to be computed
+  // prior to each iteration, for purposes of computing
+  // progress, so we do this the first time.
+  // Later we use the gradient that was stored at the
+  // end of the previous iteration.
+  validation_objf_ = validation_set_->ComputeGradient();
+  initial_validation_objf_ = validation_objf_;
+  
   for (int32 i = 0; i < config_.num_phases; i++) {
     KALDI_LOG << "Phase " << i << " of " << config_.num_phases
               << " ( " << basic_trainer_->NumEpochs() << " epochs.)";
     TrainOnePhase();
+    KALDI_VLOG(1) << "Validation set progress, based on gradients, by layer: "
+                  << progress_stats_.Info();
+    KALDI_VLOG(1) << "Actual validation-set improvement is "
+                  << (validation_objf_ - initial_validation_objf_)
+                  << " ( " << initial_validation_objf_ << " -> "
+                  << validation_objf_;
   }
+  KALDI_LOG << "Validation set progress, based on gradients, by layer: "
+            << progress_stats_.Info();
+  KALDI_LOG << "Actual validation-set improvement is "
+            << (validation_objf_ - initial_validation_objf_)
+            << " ( " << initial_validation_objf_ << " -> "
+            << validation_objf_;
 }
+
 
 
 } // namespace kaldi

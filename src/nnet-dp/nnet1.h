@@ -190,9 +190,8 @@ class Nnet1 {
   void AddTanhLayer(int32 num_nodes, int32 left_context, int32 right_context,
                     BaseFloat learning_rate);
 
-  // Prints to the output stream some human-readable information about the model.
-  void Info(std::ostream &os) const; 
-
+  std::string Info() const; // some human-readable summary info.
+  
   // Mix up by increasing the dimension of the output of softmax layer (and the
   // input of the linear layer).  This is exactly analogous to mixing up
   // Gaussians in a GMM-HMM system, and we use a similar power rule to allocate
@@ -220,8 +219,7 @@ class Nnet1 {
   // gradient), do we wish we had gone further in this direction?  Yes->
   // increase learning rate, no -> decrease it.
   void AdjustLearningRates(
-      const Nnet1 &previous_value,
-      const Nnet1 &validation_gradient,
+      const Nnet1ProgressInfo &current_info,
       BaseFloat learning_rate_ratio);
 
   // Computes certain dot products that we use to
@@ -281,13 +279,21 @@ void UnSpliceDerivative(const MatrixBase<BaseFloat> &output_deriv,
                         MatrixBase<BaseFloat> *input_deriv);
 
 struct Nnet1ProgressInfo {
-  // We use this structure to store certain information performance and
+  // We use this structure to store certain information on the performance and
   // dot-products of the validation-set gradient with a change in parameters.
   std::vector<BaseFloat> tanh_dot_prod; // dot prod of validation objf with
   // parameter change for tanh layers.
   std::vector<BaseFloat> softmax_dot_prod; // same for softmax layers.
   std::vector<BaseFloat> linear_dot_prod; // same for softmax layers.
+  
+  std::string Info(); // the info in human-readable form.
 };
+
+
+// UpdateProgressStats()
+void UpdateProgressStats(const Nnet1ProgressInfo &progress_at_start,
+                         const Nnet1ProgressInfo &progress_at_end,
+                         Nnet1ProgressInfo *progress_stats);
 
 } // namespace
 

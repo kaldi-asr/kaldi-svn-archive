@@ -48,7 +48,8 @@ class GenericLayer {
                 GenericLayer *layer_to_update) const;
 
   BaseFloat GetLearningRate() const { return learning_rate_; }
-  void SetLearningRate(BaseFloat learning_rate) { learning_rate_ = learning_rate; }
+  void SetLearningRate(BaseFloat lrate) { learning_rate_ = lrate; }
+
   // Use default copy constructor and assignment operator.
   
   void SetZero() { params_.Set(0.0); }
@@ -63,9 +64,9 @@ class GenericLayer {
 
   void SetParams(const MatrixBase<BaseFloat> &params);
 
-  // print some concise human-readable information about the object,
-  // to this stream.
-  void Info(std::ostream &os) const;
+  // some human-readable information about the object.
+  std::string Info() const;
+
  protected:
 
   // Propagate the derivative back through the nonlinearity.

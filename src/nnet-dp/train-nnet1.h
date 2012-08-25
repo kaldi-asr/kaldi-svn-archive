@@ -109,11 +109,13 @@ class Nnet1ValidationSet {
       Nnet1 *gradient); // store the gradient as class Nnet1.
   
   BaseFloat ComputeGradient(); // Computes the gradient (stored in *gradient)
-  // and returns the objective function.
+  // and returns the objective function.  These are both divided by the #frames
+  // in the validation set, which is more useful for diagnostic purposes.
   const Nnet1 &Gradient() const { return *gradient_; }
  private:
   const std::vector<CompressedMatrix> &features_;
   const std::vector<std::vector<int32> > &pdf_ids_;
+  int32 tot_num_frames_; // total #frames in validation set.
   BaseFloat objf();
   const AmNnet1 &am_nnet_;
   Nnet1 *gradient_; // store the gradient as class Nnet1.   Not owned here.
@@ -154,10 +156,14 @@ class Nnet1AdaptiveTrainer {
                        Nnet1ValidationSet *validation_set);
   void Train();
  private:
+  void PrintProgress();
   void TrainOnePhase();
   
   Nnet1BasicTrainer *basic_trainer_; // Not owned here.
-  Nnet1ValidationSet *validation_set_; // Stores validatin gradient.  Not owned here.
+  Nnet1ValidationSet *validation_set_; // Stores validation gradient.  Not owned here.
+  BaseFloat validation_objf_; // stores validation objective function.
+  BaseFloat initial_validation_objf_; // validation objf at start.
+  Nnet1ProgressInfo progress_stats_;
   Nnet1AdaptiveTrainerConfig config_;
 };
 

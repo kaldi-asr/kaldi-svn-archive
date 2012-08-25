@@ -386,24 +386,30 @@ void Nnet1::MixUp(int32 target_tot_neurons,
 }
 
 void Nnet1::AdjustLearningRates(
-    const Nnet1 &previous_value,
-    const Nnet1 &validation_gradient,
-    BaseFloat learning_rate_ratio) {
+    const Nnet1ProgressInfo &info, // this info is the dot prod of
+    // the validation-set gradient *after* the step, with the delta
+    // of parameters.
+    BaseFloat ratio) { // e.g. ratio = 1.1.
+  KALDI_ASSERT(info.tanh_dot_prod.size() ==
+               initial_layers_.size());
+  BaseFloat inv_ratio = 1.0 / ratio;
   for (int32 i = 0; i < initial_layers_.size(); i++) {
-    initial_layers_[i].tanh_layer->AdjustLearningRate(
-        *previous_value.initial_layers_[i].tanh_layer,
-        *validation_gradient.initial_layers_[i].tanh_layer,
-        learning_rate_ratio);
+    GenericLayer *layer = initial_layers_[i].tanh_layer;
+    layer->SetLearningRate((info.tanh_dot_prod[i] > 0 ?
+                            ratio : inv_ratio)
+                           * layer->GetLearningRate());
   }
+  KALDI_ASSERT(info.softmax_dot_prod.size() ==
+               final_layers_.size());
   for (int32 i = 0; i < final_layers_.size(); i++) {
-    final_layers_[i].softmax_layer->AdjustLearningRate(
-        *previous_value.final_layers_[i].softmax_layer,
-        *validation_gradient.final_layers_[i].softmax_layer,
-        learning_rate_ratio);
-    final_layers_[i].linear_layer->AdjustLearningRate(
-        *previous_value.final_layers_[i].linear_layer,
-        *validation_gradient.final_layers_[i].linear_layer,
-        learning_rate_ratio);
+    GenericLayer *layer = final_layers_[i].softmax_layer;
+    layer->SetLearningRate((info.softmax_dot_prod[i] > 0 ?
+                            ratio : inv_ratio)
+                           * layer->GetLearningRate());
+    layer = final_layers_[i].linear_layer;
+    layer->SetLearningRate((info.linear_dot_prod[i] > 0 ?
+                            ratio : inv_ratio)
+                           * layer->GetLearningRate());
   }
 }
   
@@ -425,10 +431,11 @@ void Nnet1::AddTanhLayer(int32 num_nodes,
                                       parameter_stddev);
 }
 
-void Nnet1::Info(std::ostream &os) const {
+std::string Nnet1::Info() const {
+  std::ostringstream os;
   for (int32 i = 0; i < initial_layers_.size(); i++) {
     os << i << "'th tanh layer:\n";
-    initial_layers_[i].tanh_layer->Info(os);
+    os << initial_layers_[i].tanh_layer->Info();
   }
   int32 tot_softmax_output_dim = 0,tot_linear_output_dim = 0;
   for (int32 i = 0; i < final_layers_.size(); i++) {
@@ -441,25 +448,98 @@ void Nnet1::Info(std::ostream &os) const {
      << tot_linear_output_dim << "\n";
   for (int32 i = 0; i < final_layers_.size(); i++) {
     os << i << "'th softmax layer\n";
-    final_layers_[i].softmax_layer->Info(os);
+    os << final_layers_[i].softmax_layer->Info();
     os << "[Occupancy of " << i << "'th softmax layer is "
        << final_layers_[i].softmax_layer->Occupancy().Sum() << " ]\n";
     os << i << "'th linear layer\n";
-    final_layers_[i].linear_layer->Info(os);
+    os << final_layers_[i].linear_layer->Info();
   }
+  return os.str();
 }
 
 void Nnet1::ComputeProgressInfo(
     const Nnet1 &previous_value,
-    const Nnet1 &validation_gradient,
+    const Nnet1 &valid_gradient,
     Nnet1ProgressInfo *info) const {
+  const Nnet1 &current_value = *this;
   info->tanh_dot_prod.resize(initial_layers_.size());
   for (int32 layer = 0; layer < initial_layers_.size(); layer++) {
-    previous_value.initial_layers.tanh_layer->
+    info->tanh_dot_prod[layer] =
+        TraceMatMat(current_value.initial_layers_[layer].tanh_layer->Params(),
+                    valid_gradient.initial_layers_[layer].tanh_layer->Params(),
+                    kTrans) -
+        TraceMatMat(previous_value.initial_layers_[layer].tanh_layer->Params(),
+                    valid_gradient.initial_layers_[layer].tanh_layer->Params(),
+                    kTrans);
   }
-  
+  for (int32 layer = 0; layer < final_layers_.size(); layer++) {
+    info->softmax_dot_prod[layer] =
+        TraceMatMat(current_value.final_layers_[layer].softmax_layer->Params(),
+                    valid_gradient.final_layers_[layer].softmax_layer->Params(),
+                    kTrans) -
+        TraceMatMat(previous_value.final_layers_[layer].softmax_layer->Params(),
+                    valid_gradient.final_layers_[layer].softmax_layer->Params(),
+                    kTrans);
+    info->linear_dot_prod[layer] =
+        TraceMatMat(current_value.final_layers_[layer].linear_layer->Params(),
+                    valid_gradient.final_layers_[layer].linear_layer->Params(),
+                    kTrans) -
+        TraceMatMat(previous_value.final_layers_[layer].linear_layer->Params(),
+                    valid_gradient.final_layers_[layer].linear_layer->Params(),
+                    kTrans);
+  }
 }
 
+void UpdateProgressStats(const Nnet1ProgressInfo &progress_at_start,
+                         const Nnet1ProgressInfo &progress_at_end,
+                         Nnet1ProgressInfo *stats) {
+  // make sure stats has correct size.
+  stats->tanh_dot_prod.resize(progress_at_start.tanh_dot_prod.size());
+  stats->softmax_dot_prod.resize(progress_at_start.softmax_dot_prod.size());
+  stats->linear_dot_prod.resize(progress_at_start.linear_dot_prod.size());
+
+  // Now update stats->  progress_at_start mean respectively:
+  // (parameter-delta) . validation_gradient_before_change
+  // and
+  // (parameter-delta) . validation_gradient_after_change
+  // If we have a quadratic model of the objective function, the
+  // increase in the objective function attributed to each of the layers
+  // is just 0.5 * (progress_at_start + progress_at_end).
+  for (int32 i = 0; i < stats->tanh_dot_prod.size(); i++) {
+    stats->tanh_dot_prod[i] += 0.5 * (progress_at_start.tanh_dot_prod[i] +
+                                      progress_at_end.tanh_dot_prod[i]);
+  }
+  for (int32 i = 0; i < stats->softmax_dot_prod.size(); i++) {
+    stats->softmax_dot_prod[i] += 0.5 * (progress_at_start.softmax_dot_prod[i] +
+                                         progress_at_end.softmax_dot_prod[i]);
+    stats->linear_dot_prod[i] += 0.5 * (progress_at_start.linear_dot_prod[i] +
+                                        progress_at_end.linear_dot_prod[i]);
+  }
+}
+
+std::string Nnet1ProgressInfo::Info() {
+  BaseFloat total = 0.0;;
+  std::ostringstream os;
+  os << "tanh: ";
+  for (int32 i = 0; i < tanh_dot_prod.size(); i++) {
+    os << tanh_dot_prod[i] << ' ';
+    total += tanh_dot_prod[i];
+  }
+  os << '\n';
+  os << "softmax: ";
+  for (int32 i = 0; i < softmax_dot_prod.size(); i++) {
+    os << softmax_dot_prod[i] << ' ';
+    total += softmax_dot_prod[i];
+  }
+  os << '\n';
+  os << "linear: ";
+  for (int32 i = 0; i < linear_dot_prod.size(); i++) {
+    os << linear_dot_prod[i] << ' ';
+    total += linear_dot_prod[i];
+  }
+  os << '\n' << "total: " << total << '\n';
+  return os.str();
+}
 
 
 } // namespace kaldi

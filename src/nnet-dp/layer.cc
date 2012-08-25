@@ -258,13 +258,15 @@ void TanhLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
   }
 }
 
-void GenericLayer::Info(std::ostream &os) const {
+std::string GenericLayer::Info() const {
+  std::ostringstream os;
   // FrobeniusNorm() is sqrt of sum of squared elements.
   BaseFloat param_stddev = params_.FrobeniusNorm() /
       sqrt(params_.NumRows() * params_.NumCols());
   os << "Layer from " << InputDim() << " to " << OutputDim()
      << ", parameter stddev " << param_stddev
      << ", learning rate " << learning_rate_ << std::endl;
+  return os.str();
 }
 
 void GenericLayer::Update(const MatrixBase<BaseFloat> &input,
