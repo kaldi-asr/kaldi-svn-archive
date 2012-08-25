@@ -21,9 +21,9 @@ namespace kaldi {
 
 void UnitTestParseOptions() {
   int argc = 7;
-  std::string str;
-  int32 num;
-  uint32 unum;
+  std::string str="default_for_str";
+  int32 num = 1;
+  uint32 unum = 2;
   const char *argv[7] = { "program_name", "--unum=5", "--num=3", "--i=boo",
     "a", "b", "c" };
   ParseOptions po("my usage msg");
@@ -43,7 +43,7 @@ void UnitTestParseOptions() {
   int argc2 = 4;
   const char *argv2[4] = { "program_name", "--i=foo",
     "--to-be-NORMALIZED=test", "c" };
-  std::string str2;
+  std::string str2 = "default_for_str2";
   po2.Register("To_Be_Normalized", &str2,
                "My variable (name has to be normalized)");
   po2.Register("i", &str, "My variable");
