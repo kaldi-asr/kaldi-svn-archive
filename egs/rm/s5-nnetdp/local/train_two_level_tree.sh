@@ -67,7 +67,7 @@ fi
 ##
 
 
-if [ $stage -le -5 ]; then
+if [ $stage -le 0 ]; then
   echo "$0: accumulating tree stats"
   $cmd JOB=1:$nj $dir/log/acc_tree.JOB.log \
     acc-tree-stats  --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
@@ -77,7 +77,7 @@ if [ $stage -le -5 ]; then
   rm $dir/*.treeacc
 fi
 
-if [ $stage -le -4 ]; then
+if [ $stage -le 1 ]; then
   echo "$0: Getting questions for tree clustering."
   # preparing questions, roots file...
   cluster-phones $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
@@ -91,6 +91,11 @@ if [ $stage -le -4 ]; then
     $dir/questions.qst $lang/topo $dir/tree $dir/tree.map || exit 1;
 fi
 
+if [ $stage -le 2 ]; then
+  echo "$0: Converting old alignments to match the current tree."
+  $cmd JOB=1:$nj $dir/log/convert.JOB.log \
+    convert-ali $alidir/final.mdl "gmm-init-model-flat $dir/tree $lang/topo -|" $dir/tree \
+     "ark:gunzip -c $alidir/ali.JOB.gz|" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
+fi
 
-echo Done building the tree
-
+echo Done building the tree and converting alignments.

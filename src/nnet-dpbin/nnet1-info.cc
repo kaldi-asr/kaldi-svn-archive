@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
       am_nnet.Read(ki.Stream(), binary_read);
     }
 
-    am_nnet.Nnet().Info(std::cout);
+    std::cout << am_nnet.Nnet().Info();
     
     KALDI_LOG << "Printed info about " << nnet1_rxfilename;
   } catch(const std::exception &e) {

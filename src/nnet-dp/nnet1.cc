@@ -39,7 +39,7 @@ Nnet1InitInfo::Nnet1InitInfo(const Nnet1InitConfig &config,
     SplitStringToIntegers(context_frames_vec[i], ",", false,
                           &this_context_frames);
     if (this_context_frames.size() != 2 ||
-        this_context_frames[0] < 0 || this_context_frames[1] > 0)
+        this_context_frames[0] < 0 || this_context_frames[1] < 0)
       KALDI_ERR << "Invalid option --context-frames=" << config.context_frames;
     context_frames.push_back(std::make_pair(this_context_frames[0],
                                             this_context_frames[1]));

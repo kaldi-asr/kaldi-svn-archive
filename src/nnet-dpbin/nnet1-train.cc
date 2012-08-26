@@ -37,11 +37,15 @@ int main(int argc, char *argv[]) {
         "exp/nnet1/valid.uttlist exp/nnet1/2.nnet1\n";
         
     bool binary_write = true;
+    bool zero_occupancy = true;
     Nnet1AdaptiveTrainerConfig adaptive_trainer_config;
     Nnet1BasicTrainerConfig basic_trainer_config;
     
     ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
+    po.Register("zero-occs", &zero_occupancy, "Set occupation counts stored in "
+                "neural net to zero before training");
+                
     basic_trainer_config.Register(&po);
     adaptive_trainer_config.Register(&po);
     
@@ -77,6 +81,10 @@ int main(int argc, char *argv[]) {
                               &train_ali, &validation_ali);
     ConvertAlignmentsToPdfs(trans_model, &train_ali);
     ConvertAlignmentsToPdfs(trans_model, &validation_ali);
+
+    if (zero_occupancy)
+      am_nnet.Nnet().ZeroOccupancy(); // We zero the stored occupancy counts before
+    // each phase of trainingn
         
     Nnet1BasicTrainer basic_trainer(basic_trainer_config, train_feats, train_ali,
                                     &am_nnet);
