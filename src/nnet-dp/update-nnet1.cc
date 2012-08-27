@@ -41,7 +41,7 @@ Nnet1Updater::Nnet1Updater(
   for (int32 l = num_tanh_layers-1; l >= 0; l--) {
     // place for output of each layer...
     int32 possibly_append_one = (l == num_tanh_layers-1 ||
-                                 nnet_.LayerIsSpliced(l+1) ? 1 : 0);
+                                 !nnet_.LayerIsSpliced(l+1) ? 1 : 0);
     Matrix<BaseFloat> &output_forward_data = tanh_forward_data_[l+1];
     output_forward_data.Resize(cur_chunk_size * num_chunks,
                                nnet_.initial_layers_[l].tanh_layer->OutputDim()
@@ -51,7 +51,8 @@ Nnet1Updater::Nnet1Updater(
     cur_chunk_size += nnet_.LeftContextForLayer(l) +
         nnet_.RightContextForLayer(l);
   }
-  int32 possibly_append_one = (nnet_.LayerIsSpliced(0) ? 1 : 0);
+  // Now do the input to the zeroth layer.
+  int32 possibly_append_one = (nnet_.LayerIsSpliced(0) ? 0 : 1);
   tanh_forward_data_[0].Resize(cur_chunk_size * num_chunks,
                                nnet_.InputDim() + possibly_append_one);
 }
@@ -292,7 +293,7 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalForCategory(
       for (int32 j = 0; j < data[i].labels.size(); j++)
         for (int32 k = 0; k < data[i].labels[j].size(); k++)
           if (data[i].labels[j][k].first == category) {
-            labels.push_back(data[i].labels[j][k].first);
+            labels.push_back(data[i].labels[j][k].second);
             weights.push_back(data[i].weight);
             orig_index.push_back(chunk_size*i + j);
           }
@@ -308,9 +309,8 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalForCategory(
       }
     }
   }
-  Matrix<BaseFloat> &input_matrix = (common_category ? temp_input_matrix
-                                     : full_input);
-  // set up labels and weights.
+  Matrix<BaseFloat> &input_matrix = (common_category ? full_input :
+                                     temp_input_matrix);
 
   Matrix<BaseFloat> input_deriv(input_matrix.NumRows(),
                                 input_matrix.NumCols());
@@ -366,9 +366,9 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
                         &softmax_forward);
   
   // Forward data for linear layer.
-  Matrix<BaseFloat> linear_forward(input.NumRows(),
+  Matrix<BaseFloat> linear_forward(softmax_forward.NumRows(),
                                    linear_layer.OutputDim());
-  linear_layer.Forward(input,
+  linear_layer.Forward(softmax_forward,
                        &linear_forward);
   
   double ans = 0.0;
@@ -379,8 +379,8 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
   for (int32 i = 0; i < linear_backward.NumRows(); i++) {
     int32 label = labels[i];
     BaseFloat weight = weights[i];
-    KALDI_ASSERT(label < linear_backward.NumCols());
-    BaseFloat prob = linear_backward(i, label);
+    KALDI_ASSERT(label < linear_forward.NumCols());
+    BaseFloat prob = linear_forward(i, label);
     if (prob <= 0.0) {
       KALDI_WARN << "Zero probability in neural net training: " << prob;
       prob = 1.0e-20;
@@ -390,14 +390,14 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
   }
 
   Matrix<BaseFloat> softmax_backward(softmax_forward.NumRows(),
-                                     softmax_backward.NumRows(),
+                                     softmax_forward.NumCols(),
                                      kUndefined);
   linear_layer.Backward(softmax_forward,
                         linear_forward,
                         linear_backward,
                         &softmax_backward,
                         linear_layer_to_update);
-
+  
   softmax_layer.Backward(input,
                          softmax_forward,
                          softmax_backward,

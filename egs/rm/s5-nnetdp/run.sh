@@ -140,6 +140,9 @@ local/train_two_level_tree.sh 150 5000 data/train data/lang exp/tri3c_ali exp/tr
 ## Now train the neural net itself.
 local/train_nnet1.sh 10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5a_nnet
 
+# I AM HERE.
+exit 0;
+
 
 #  Do MMI on top of LDA+MLLT.
 steps/make_denlats.sh --nj 8 --cmd "$train_cmd" \

@@ -108,7 +108,7 @@ void SpliceFrames(const MatrixBase<BaseFloat> &input,
   KALDI_ASSERT(input.NumRows() % num_chunks == 0 &&
                output->NumRows() % num_chunks == 0);
   int32 chunk_size_input = input.NumRows() / num_chunks,
-      chunk_size_output = (output->NumRows()-1) / num_chunks;
+      chunk_size_output = output->NumRows() / num_chunks;
   int32 num_splice = 1 + chunk_size_input - chunk_size_output; // # of frames
   // we splice together each time
   KALDI_ASSERT(num_splice > 0);
