@@ -46,7 +46,7 @@ for inv_acwt in 9 10 11 12 13 14 15 16 17 18 19 20; do
       2>$dir/rescore_${inv_acwt}.log
      
    cat $dir/${inv_acwt}.tra | \
-    scripts/int2sym.pl --ignore-first-field $symtab | sed 's:<UNK>::g' | \
+    scripts/int2sym.pl --ignore-first-field $symtab | sed 's:<unk>::g' | sed 's:<hes>::g' | \
     compute-wer --text --mode=present ark:$dir/test_trans.filt  ark,p:-   >& $dir/wer_$inv_acwt
 done
 
