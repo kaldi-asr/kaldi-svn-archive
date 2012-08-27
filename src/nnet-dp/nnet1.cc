@@ -207,9 +207,6 @@ int32 Nnet1::RightContext() const {
 
 void Nnet1::Write(std::ostream &os, bool binary) const {
   int32 num_tanh_layers = NumTanhLayers();
-  if (num_tanh_layers == 0) {
-    KALDI_WARN << "Trying to write empty Nnet1 object.";
-  }
   WriteToken(os, binary, "<NumTanhLayers>");
   WriteBasicType(os, binary, num_tanh_layers);
 
@@ -218,15 +215,8 @@ void Nnet1::Write(std::ostream &os, bool binary) const {
   // parts about categories and their labels, and
   // derive from the rest of the information.
   int32 num_categories = NumCategories();
-  if (num_categories == 0) {
-    KALDI_WARN << "NumCategories is 0.";
-  }
   WriteToken(os, binary, "<NumCategories>");
   WriteBasicType(os, binary, num_categories);
-
-  WriteToken(os, binary, "<NumLabelsForCategories>");
-  for (int i = 0; i < num_categories; i++)
-    WriteBasicType(os, binary, NumLabelsForCategory(i));
 
   WriteToken(os, binary, "<InitialLayers>");
   // InitialLayerInfo is a small enough struct that we 
@@ -259,31 +249,10 @@ void Nnet1::Read(std::istream &is, bool binary) {
   int32 num_tanh_layers = 0;
   ExpectToken(is, binary, "<NumTanhLayers>");
   ReadBasicType(is, binary, &num_tanh_layers);
-  if (num_tanh_layers == 0) {
-    KALDI_WARN << "Read NumLayers = 0";
-  }
 
-  // Category information may end up being derivative
-  // of other information. If so, remove the following
-  // parts about categories and their labels, and
-  // derive from the rest of the information.
   int32 num_categories = 0;
   ExpectToken(is, binary, "<NumCategories>");
   ReadBasicType(is, binary, &num_categories);
-  KALDI_WARN << "NumCategories read but not yet used!";
-  if (num_categories == 0) {
-    KALDI_WARN << "Read NumCategories = 0.";
-  }
-
-  ExpectToken(is, binary, "<NumLabelsForCategories>");
-  for (int32 i = 0; i < num_categories; i++) {
-    int32 num_categ_lay = 0;
-    ReadBasicType(is, binary, &num_categ_lay);
-    KALDI_WARN << "NumLabels for category read by not yet used!";
-    if (num_categ_lay == 0) {
-      KALDI_WARN << "NumLabels for category " << i << " is zero.";
-    }
-  }
 
   ExpectToken(is, binary, "<InitialLayers>");
   // InitialLayerInfo is a small enough struct that we 

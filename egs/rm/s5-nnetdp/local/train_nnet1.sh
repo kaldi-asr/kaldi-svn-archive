@@ -62,14 +62,12 @@ mkdir -p $dir/log
 ## Set up speaker-independent features.  Expect
 ## filterbank features plus LDA+MLLT plus probably fMLLR.
 ## Note: this is a bit different from normal because it's all in one process.
-sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk scp:$data/JOB/cmvn.scp scp:$data/feats.scp ark:- | transform-feats $transformdir/final.mat ark:- ark:- |"
+sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$data/feats.scp ark:- | transform-feats $transformdir/final.mat ark:- ark:- |"
 
 ## Get initial fMLLR transforms (possibly from alignment dir)
 if [ -f $transformdir/trans.1 ]; then
   echo "$0: Using transforms from $transformdir"
-  # o,cs below means we'll use each alignment only once (o), and the features
-  # are sorted (cs).  It's not sorted (s) because of the way bash expansion of "*" works.
-  feats="$sifeats transform-feats --utt2spk=ark:$data/utt2spk 'ark,o,cs:cat $transformdir/trans.*|' ark:- ark:- |"
+  feats="$sifeats transform-feats --utt2spk=ark:$data/utt2spk 'ark,s,cs:cat $transformdir/trans.{?,??,???}|' ark:- ark:- |"
 else 
   echo "No transforms present."
   feats="$sifeats"
@@ -113,7 +111,7 @@ while [ $x -lt $num_iters ]; do
     # o,cs below means we'll use each alignment only once (o), and the features
     # are sorted (cs).  It's not sorted (s) because of the way bash expansion of "*" works.
     $cmd $dir/train.$x.log \
-      nnet1-train $dir/$x.nnet1 "$feats" "ark,o,cs:gunzip -c $dir/ali.*.gz|" $dir/valid_uttlist \
+      nnet1-train $dir/$x.nnet1 "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
        $dir/$[$x+1].nnet1 || exit 1;
     # mix up.
     $cmd $dir/mixup.$x.log \

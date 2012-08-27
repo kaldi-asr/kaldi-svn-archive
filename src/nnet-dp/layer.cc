@@ -245,8 +245,8 @@ void TanhLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
       stride = output->Stride();
   
   BaseFloat *data = output->Data();
-  for (int32 row = 0; row < num_rows; row++, data += stride) {
-    for (int32 col = 0; col < num_cols; col++) {
+  for (int32 row = 0; row < num_rows; row++, data += stride - num_cols) {
+    for (int32 col = 0; col < num_cols; col++, data++) {
       // This if-statement is intended to avoid overflow caused by exponentiating
       // large positive values.
       if (*data >= 0.0) {

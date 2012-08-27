@@ -76,11 +76,13 @@ bool ReadAlignmentsAndFeatures(
   validation_ali->resize(num_valid);
   int32 train_count = 0, validation_count = 0;
   for (size_t i = 0; i < tmp_ali.size(); i++) {
-    if (!is_validation[i]) {
+    if (is_validation[i]) {
+      KALDI_ASSERT(validation_count < num_valid);
       (*validation_feats)[validation_count].Swap(tmp_feats[i]);
       (*validation_ali)[validation_count].swap(*(tmp_ali[i]));
       validation_count++;
     } else {
+      KALDI_ASSERT(train_count < num_train);
       (*train_feats)[train_count].Swap(tmp_feats[i]);
       (*train_ali)[train_count].swap(*(tmp_ali[i]));
       train_count++;
@@ -88,7 +90,7 @@ bool ReadAlignmentsAndFeatures(
     delete tmp_feats[i];
     delete tmp_ali[i];
   }
-  
+  KALDI_ASSERT(train_count == num_train && validation_count == num_valid);
   return (num_train != 0 && num_valid != 0);
   
 }
