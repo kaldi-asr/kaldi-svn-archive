@@ -21,6 +21,8 @@ retry_beam=40
 boost_silence=1.0 # Factor by which to boost silence during alignment.
 # End configuration options.
 
+echo "$0 $@"  # Print the command line for logging
+
 [ -f path.sh ] && . ./path.sh # source the path.
 . parse_options.sh || exit 1;
 
@@ -81,7 +83,7 @@ else
   $cmd JOB=1:$nj $dir/log/align.JOB.log \
     compile-train-graphs $dir/tree $dir/final.mdl  $lang/L.fst "$tra" ark:- \| \
     gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" ark:- \
-      "$feats" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
+      "$feats" "ark,t:|gzip -c >$dir/ali.JOB.gz" || exit 1;
 fi
 
 echo "$0: done aligning data."
