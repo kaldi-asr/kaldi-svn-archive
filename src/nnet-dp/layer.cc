@@ -320,9 +320,8 @@ void SoftmaxLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
 void LinearLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                                   const MatrixBase<BaseFloat> &output_deriv,
                                   MatrixBase<BaseFloat> *sum_deriv) const {
-  KALDI_ERR << "This function should not be called.";
-  // implementation would be:
-  // sum_deriv->CopyFromMat(output_deriv);
+  KALDI_WARN << "This function should not be called in normal operation.";
+  sum_deriv->CopyFromMat(output_deriv);
   // but we overrode Update() so this isn't called at all.
 }
 

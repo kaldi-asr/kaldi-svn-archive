@@ -44,9 +44,9 @@ class GenericLayer {
   void Backward(const MatrixBase<BaseFloat> &input,
                 const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,
-                MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
+                MatrixBase<BaseFloat> *input_deriv,
                 GenericLayer *layer_to_update) const;
-
+  
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat lrate) { learning_rate_ = lrate; }
 
