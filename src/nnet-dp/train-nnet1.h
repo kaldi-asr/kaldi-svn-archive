@@ -80,7 +80,7 @@ class Nnet1BasicTrainer {
   const std::vector<std::vector<int32> > &pdf_ids_;
 
   int32 chunk_size_;
-  int32 num_chunks_;
+  int32 num_chunks_; // Num chunks per minibatch.
   int32 left_context_; // left context required by the network.
   int32 right_context_; // right context required by the network.
   
@@ -124,7 +124,7 @@ class Nnet1ValidationSet {
 
 struct Nnet1AdaptiveTrainerConfig {
   int32 num_minibatches;
-  int32 learning_rate_ratio;
+  BaseFloat learning_rate_ratio;
   int32 num_phases;
 
   Nnet1AdaptiveTrainerConfig():

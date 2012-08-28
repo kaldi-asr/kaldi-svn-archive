@@ -400,6 +400,23 @@ void Nnet1::AddTanhLayer(int32 num_nodes,
                                       parameter_stddev);
 }
 
+std::string Nnet1::LrateInfo() const {
+  std::ostringstream os;
+  os << "tanh: ";
+  for (int32 i = 0; i < initial_layers_.size(); i++)
+    os << initial_layers_[i].tanh_layer->GetLearningRate() << ' ';
+  os << ", softmax [avg]: ";
+  double sum = 0.0;
+  for (int32 i = 0; i < final_layers_.size(); i++)
+    sum += final_layers_[i].softmax_layer->GetLearningRate();
+  os << (sum / final_layers_.size()) << " ";
+  sum = 0.0;
+  for (int32 i = 0; i < final_layers_.size(); i++)
+    sum += final_layers_[i].linear_layer->GetLearningRate();
+  os << ", linear [avg]: " << (sum / final_layers_.size()) << " ";
+  return os.str();
+}
+
 std::string Nnet1::Info() const {
   std::ostringstream os;
   for (int32 i = 0; i < initial_layers_.size(); i++) {
@@ -441,6 +458,8 @@ void Nnet1::ComputeProgressInfo(
                     valid_gradient.initial_layers_[layer].tanh_layer->Params(),
                     kTrans);
   }
+  info->softmax_dot_prod.resize(final_layers_.size());
+  info->linear_dot_prod.resize(final_layers_.size());  
   for (int32 layer = 0; layer < final_layers_.size(); layer++) {
     info->softmax_dot_prod[layer] =
         TraceMatMat(current_value.final_layers_[layer].softmax_layer->Params(),
@@ -486,7 +505,7 @@ void UpdateProgressStats(const Nnet1ProgressInfo &progress_at_start,
   }
 }
 
-std::string Nnet1ProgressInfo::Info() {
+std::string Nnet1ProgressInfo::Info() const {
   BaseFloat total = 0.0;;
   std::ostringstream os;
   os << "tanh: ";

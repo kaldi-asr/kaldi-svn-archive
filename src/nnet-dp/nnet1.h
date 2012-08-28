@@ -191,6 +191,10 @@ class Nnet1 {
                     BaseFloat learning_rate);
 
   std::string Info() const; // some human-readable summary info.
+
+  std::string LrateInfo() const; // some info on the learning rates,
+  // in human-readable form.
+  
   
   // Mix up by increasing the dimension of the output of softmax layer (and the
   // input of the linear layer).  This is exactly analogous to mixing up
@@ -286,7 +290,7 @@ struct Nnet1ProgressInfo {
   std::vector<BaseFloat> softmax_dot_prod; // same for softmax layers.
   std::vector<BaseFloat> linear_dot_prod; // same for softmax layers.
   
-  std::string Info(); // the info in human-readable form.
+  std::string Info() const; // the info in human-readable form.
 };
 
 

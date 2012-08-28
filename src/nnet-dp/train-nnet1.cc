@@ -49,7 +49,7 @@ Nnet1BasicTrainer::Nnet1BasicTrainer(
 void Nnet1BasicTrainer::ExtractToMatrix(const CompressedMatrix &input,
                                         int32 time_offset,
                                         Matrix<BaseFloat> *output) {
-  for (int32 row = 0; row < output->NumCols(); row++) {
+  for (int32 row = 0; row < output->NumRows(); row++) {
     SubVector<BaseFloat> dest(*output, row);
     int32 input_row = row + time_offset;
     if (input_row < 0)
@@ -96,7 +96,7 @@ void Nnet1BasicTrainer::GetTrainingExamples(vector<TrainingExample> *egs) {
 
 
 BaseFloat Nnet1BasicTrainer::NumEpochs() {
-  return num_chunks_ / static_cast<BaseFloat>(chunks_per_epoch_);
+  return num_chunks_trained_ / static_cast<BaseFloat>(chunks_per_epoch_);
 }
 
 void Nnet1BasicTrainer::GetChunk(int32 *file_id, int32 *chunk_offset) {
@@ -228,7 +228,11 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
   nnet_at_end.AdjustLearningRates(new_progress_info,
                                   config_.learning_rate_ratio);
 
-  
+  UpdateProgressStats(old_progress_info, new_progress_info, &progress_stats_);
+
+  KALDI_VLOG(2) << "Progress stats: " << progress_stats_.Info();
+  KALDI_VLOG(2) << "Learning rates: " << basic_trainer_->Nnet().LrateInfo();
+  KALDI_VLOG(3) << "Neural net info: " << basic_trainer_->Nnet().Info();
 }
 
 void Nnet1AdaptiveTrainer::Train() {
@@ -249,7 +253,7 @@ void Nnet1AdaptiveTrainer::Train() {
     KALDI_VLOG(1) << "Actual validation-set improvement is "
                   << (validation_objf_ - initial_validation_objf_)
                   << " ( " << initial_validation_objf_ << " -> "
-                  << validation_objf_;
+                  << validation_objf_ << " ) ";
   }
   KALDI_LOG << "Validation set progress, based on gradients, by layer: "
             << progress_stats_.Info();
