@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
                                     &am_nnet);
 
     Nnet1 nnet_gradient(am_nnet.Nnet()); // Construct a copy of the neural net
-    nnet_gradient.SetZero();  // which we'll use to store the gradient on the
+    nnet_gradient.SetZeroAndTreatAsGradients();  // which we'll use to store the gradient on the
     // validation set.
     Nnet1ValidationSet validation_set(validation_feats, validation_ali,
                                       am_nnet, &nnet_gradient);

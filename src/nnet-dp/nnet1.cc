@@ -285,12 +285,16 @@ void Nnet1::Read(std::istream &is, bool binary) {
   }
 }
 
-void Nnet1::SetZero() {
-  for (int32 i = 0; i < initial_layers_.size(); i++)
+void Nnet1::SetZeroAndTreatAsGradients() {
+  for (int32 i = 0; i < initial_layers_.size(); i++) {
     initial_layers_[i].tanh_layer->SetZero();
+    initial_layers_[i].tanh_layer->SetLearningRate(1.0);
+  }
   for (int32 i = 0; i < final_layers_.size(); i++) {
     final_layers_[i].softmax_layer->SetZero();
+    final_layers_[i].softmax_layer->SetLearningRate(1.0);
     final_layers_[i].linear_layer->SetZero();
+    final_layers_[i].linear_layer->SetLearningRate(1.0);
   }
 }
 
@@ -482,10 +486,10 @@ void UpdateProgressStats(const Nnet1ProgressInfo &progress_at_start,
                          const Nnet1ProgressInfo &progress_at_end,
                          Nnet1ProgressInfo *stats) {
   // make sure stats has correct size.
-  stats->tanh_dot_prod.resize(progress_at_start.tanh_dot_prod.size());
-  stats->softmax_dot_prod.resize(progress_at_start.softmax_dot_prod.size());
-  stats->linear_dot_prod.resize(progress_at_start.linear_dot_prod.size());
-
+  stats->tanh_dot_prod.resize(progress_at_start.tanh_dot_prod.size(), 0.0);
+  stats->softmax_dot_prod.resize(progress_at_start.softmax_dot_prod.size(), 0.0);
+  stats->linear_dot_prod.resize(progress_at_start.linear_dot_prod.size(), 0.0);
+  
   // Now update stats->  progress_at_start mean respectively:
   // (parameter-delta) . validation_gradient_before_change
   // and

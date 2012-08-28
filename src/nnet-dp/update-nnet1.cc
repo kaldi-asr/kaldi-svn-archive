@@ -232,7 +232,7 @@ class Nnet1Updater::ForwardAndBackwardFinalClass: public MultiThreadable {
 
 BaseFloat Nnet1Updater::ForwardAndBackwardFinal(
     const std::vector<TrainingExample> &data) {
-  // returns the objective function summed over all frames.
+  // returns the objective function averaged (with weights) over all frames.
   
   // (1) detect whether there are any categories that are called
   // every time.  If so, we
@@ -388,7 +388,7 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
     linear_backward(i, label) = weight / prob;
     ans += weight * log(prob);
   }
-
+  
   Matrix<BaseFloat> softmax_backward(softmax_forward.NumRows(),
                                      softmax_forward.NumCols(),
                                      kUndefined);
