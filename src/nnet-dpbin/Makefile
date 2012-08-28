@@ -3,7 +3,7 @@ all:
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 
-BINFILES = nnet1-init nnet1-train nnet1-add-layer nnet1-info nnet1-mixup
+BINFILES = nnet1-init nnet1-train nnet1-add-layer nnet1-info nnet1-mixup nnet1-copy
 
 OBJFILES =
 

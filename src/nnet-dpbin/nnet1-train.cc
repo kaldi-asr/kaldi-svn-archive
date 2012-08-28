@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
                                     &am_nnet);
 
     Nnet1 nnet_gradient(am_nnet.Nnet()); // Construct a copy of the neural net
-    nnet_gradient.SetZeroAndTreatAsGradients();  // which we'll use to store the gradient on the
+    nnet_gradient.SetZeroAndTreatAsGradient();  // which we'll use to store the gradient on the
     // validation set.
     Nnet1ValidationSet validation_set(validation_feats, validation_ali,
                                       am_nnet, &nnet_gradient);
@@ -101,8 +101,11 @@ int main(int argc, char *argv[]) {
                                  &basic_trainer, &validation_set);
     trainer.Train();
 
-    WriteKaldiObject(am_nnet, nnet1_wxfilename, binary_write);
-        
+    {
+      Output ko(nnet1_wxfilename, binary_write);
+      trans_model.Write(ko.Stream(), binary_write);
+      am_nnet.Write(ko.Stream(), binary_write);
+    }
     KALDI_LOG << "Wrote model to " << nnet1_wxfilename;
   } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';

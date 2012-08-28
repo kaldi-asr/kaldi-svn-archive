@@ -285,7 +285,7 @@ void Nnet1::Read(std::istream &is, bool binary) {
   }
 }
 
-void Nnet1::SetZeroAndTreatAsGradients() {
+void Nnet1::SetZeroAndTreatAsGradient() {
   for (int32 i = 0; i < initial_layers_.size(); i++) {
     initial_layers_[i].tanh_layer->SetZero();
     initial_layers_[i].tanh_layer->SetLearningRate(1.0);

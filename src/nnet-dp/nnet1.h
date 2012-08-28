@@ -213,7 +213,7 @@ class Nnet1 {
 
   void Read(std::istream &is, bool binary);
 
-  void SetZeroAndTreatAsGradients(); // Sets all parameters to zero and the
+  void SetZeroAndTreatAsGradient(); // Sets all parameters to zero and the
   // learning rates to 1.0.  Mostly useful if this neural net is just being used
   // to store the gradients on a validation set.  Will let the contents know
   // that we'll now treat the layers as a store of gradients.  [affects the

@@ -377,6 +377,8 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
   Matrix<BaseFloat> linear_backward(linear_forward.NumRows(),
                                     linear_forward.NumCols());
   for (int32 i = 0; i < linear_backward.NumRows(); i++) {
+    KALDI_ASSERT(fabs(softmax_forward.Row(i).Sum() - 1.0) < 0.01);
+    KALDI_ASSERT(fabs(linear_forward.Row(i).Sum() - 1.0) < 0.01);
     int32 label = labels[i];
     BaseFloat weight = weights[i];
     KALDI_ASSERT(label < linear_forward.NumCols());

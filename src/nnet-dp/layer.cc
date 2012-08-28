@@ -26,7 +26,8 @@ void GenericLayer::SetParams(const MatrixBase<BaseFloat> &params) {
 
 
 LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
-                         BaseFloat learning_rate) {
+                         BaseFloat learning_rate):
+    is_gradient_(false) {
   learning_rate_ = learning_rate;
   KALDI_ASSERT(learning_rate >= 0.0 && learning_rate <= 1.0); // > 1.0 doesn't make sense.
   // 0 may be used just to disable learning.
@@ -87,6 +88,7 @@ void GenericLayer::Forward(
 void LinearLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<LinearLayer>");
   WriteBasicType(out, binary, learning_rate_);
+  WriteBasicType(out, binary, is_gradient_);
   params_.Write(out, binary);
   WriteToken(out, binary, "</LinearLayer>");  
 }
@@ -94,6 +96,7 @@ void LinearLayer::Write(std::ostream &out, bool binary) const {
 void LinearLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<LinearLayer>");
   ReadBasicType(in, binary, &learning_rate_);
+  ReadBasicType(in, binary, &is_gradient_);
   params_.Read(in, binary);
   ExpectToken(in, binary, "</LinearLayer>");  
 }
@@ -154,7 +157,7 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
       Vector<BaseFloat> log_gradient(num_rows);
       log_gradient.AddVecVec(1.0, param_col, gradient_col, 0.0); // h <-- diag(c) g.
       BaseFloat cT_g = VecVec(param_col, gradient_col);
-      log_gradient.AddVec(-cT_g, param_col); // h += (c^T g) c .
+      log_gradient.AddVec(-cT_g, param_col); // h -= (c^T g) c .
       log_param_col.AddVec(learning_rate_, log_gradient); // Gradient step,
       // in unnormalized log-prob space.
       log_param_col.ApplySoftMax(); // Go back to probabilities.

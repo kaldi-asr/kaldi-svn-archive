@@ -140,7 +140,7 @@ Nnet1ValidationSet::Nnet1ValidationSet(
 BaseFloat Nnet1ValidationSet::ComputeGradient() {
   double tot_objf = 0.0;
       
-  gradient_->SetZeroAndTreatAsGradients();
+  gradient_->SetZeroAndTreatAsGradient();
   for (int32 f = 0; f < features_.size(); f++) { // for each file..
     const CompressedMatrix &compressed_feats(features_[f]);
     int32 left_context = am_nnet_.Nnet().LeftContext(),
@@ -151,7 +151,7 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
 
     vector<TrainingExample> egs(1);
     TrainingExample &eg = egs[0];
-    
+
     KALDI_ASSERT(pdf_ids_[f].size() == num_frames);
     
     eg.weight = 1.0 / tot_num_frames_;
@@ -175,7 +175,7 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
       // the next call converts from an int32 to vector<pair<int32, int32> >
       am_nnet_.GetCategoryInfo(pdf_ids_[f][t], &eg.labels[t]);
     }
-    
+
     int32 num_chunks = 1;
     Nnet1Updater updater(am_nnet_.Nnet(), num_frames, num_chunks, gradient_);
     BaseFloat avg_objf = updater.TrainOnOneMinibatch(egs);
