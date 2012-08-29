@@ -72,6 +72,7 @@ void Nnet1Updater::FormatInput(const std::vector<TrainingExample> &data) {
   for (int32 i = 0; i < num_chunks_; i++) {
     SubMatrix<BaseFloat> dest(tanh_forward_data_[0],
                               i * chunk_size, chunk_size, 0, raw_input_dim);
+    dest.CopyFromMat(data[i].input);
     if (tanh_forward_data_[0].NumCols() == raw_input_dim + 1) // extend features with 1.0.
       for (int32 j = 0; j < chunk_size; j++)
         tanh_forward_data_[0](i * chunk_size + j, raw_input_dim) = 1.0;

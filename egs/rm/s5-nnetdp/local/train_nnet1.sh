@@ -15,6 +15,8 @@ num_iters=35   # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
 power=0.2 # Exponent for number of gaussians according to occurrence counts
 hidden_layer_size=500
+power=0.333 # Power when mixing up... should be more than
+  # for GMMs; relates to need for more Gaussians at top level
 initial_layer_context=2,2
 hidden_layer_context=1,1
 num_valid_utts=200
@@ -116,7 +118,7 @@ while [ $x -lt $num_iters ]; do
        $dir/$[$x+1].nnet1 || exit 1;
     # mix up.
     $cmd $dir/log/mixup.$x.log \
-      nnet1-mixup --target-neurons=$numgauss $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1 || exit 1;
+      nnet1-mixup --power=$power --target-neurons=$numgauss $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1 || exit 1;
   fi
   [ $x -le $max_iter_inc ] && numgauss=$[$numgauss+$incgauss];
   x=$[$x+1];
