@@ -81,7 +81,7 @@ if [ $stage -le -3 ]; then
   $cmd JOB=1 $dir/log/init_model.log \
     nnet1-init --layer-sizes=$featdim:$hidden_layer_size \
           --context-frames=$initial_layer_context \
-          --learning-rates=0.0001 \
+          --learning-rates=0.001 \
             $dir/tree $dir/tree.map $lang/topo $dir/1.nnet1 || exit 1;
 fi
 
@@ -110,12 +110,13 @@ while [ $x -lt $num_iters ]; do
   if [ $stage -le $x ]; then
     # o,cs below means we'll use each alignment only once (o), and the features
     # are sorted (cs).  It's not sorted (s) because of the way bash expansion of "*" works.
-    $cmd $dir/train.$x.log \
-      nnet1-train $dir/$x.nnet1 "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
+    $cmd $dir/log/train.$x.log \
+      nnet1-train --verbose=3  --learning-rate-ratio=1.2 \
+       $dir/$x.nnet1 "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
        $dir/$[$x+1].nnet1 || exit 1;
     # mix up.
-    $cmd $dir/mixup.$x.log \
-      nnet1-mix-up --target-neurons=$numgauss $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1 || exit 1;
+    $cmd $dir/log/mixup.$x.log \
+      nnet1-mixup --target-neurons=$numgauss $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1 || exit 1;
   fi
   [ $x -le $max_iter_inc ] && numgauss=$[$numgauss+$incgauss];
   x=$[$x+1];

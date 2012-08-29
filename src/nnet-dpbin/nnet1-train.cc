@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 
     if (zero_occupancy)
       am_nnet.Nnet().ZeroOccupancy(); // We zero the stored occupancy counts before
-    // each phase of trainingn
+    // each phase of training
         
     Nnet1BasicTrainer basic_trainer(basic_trainer_config, train_feats, train_ali,
                                     &am_nnet);
