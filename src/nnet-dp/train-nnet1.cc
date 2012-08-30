@@ -189,12 +189,13 @@ BaseFloat Nnet1ValidationSet::ComputeGradient() {
 
 Nnet1AdaptiveTrainer::Nnet1AdaptiveTrainer(
     const Nnet1AdaptiveTrainerConfig &config,
+    const std::vector<std::vector<int32> > &final_layer_sets,
     Nnet1BasicTrainer *basic_trainer,
     Nnet1ValidationSet *validation_set):
     basic_trainer_(basic_trainer),
     validation_set_(validation_set),
-    config_(config) {
-}
+    config_(config),
+    final_layer_sets_(final_layer_sets)  { }
 
 void Nnet1AdaptiveTrainer::TrainOnePhase() {
   Nnet1 nnet_at_start(basic_trainer_->Nnet()); // deep copy.
@@ -224,15 +225,20 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
       nnet_at_start,
       validation_set_->Gradient(),
       &new_progress_info);
-  
-  nnet_at_end.AdjustLearningRates(new_progress_info,
-                                  config_.learning_rate_ratio);
 
+  nnet_at_end.AdjustLearningRates(new_progress_info,
+                                  final_layer_sets_,
+                                  config_.learning_rate_ratio,
+                                  config_.max_learning_rate);
+  
   UpdateProgressStats(old_progress_info, new_progress_info, &progress_stats_);
 
-  KALDI_VLOG(2) << "Progress stats: " << progress_stats_.Info();
-  KALDI_VLOG(2) << "Learning rates: " << basic_trainer_->Nnet().LrateInfo();
-  KALDI_VLOG(3) << "Neural net info: " << basic_trainer_->Nnet().Info();
+  KALDI_VLOG(2) << "Progress stats: "
+                << progress_stats_.Info(final_layer_sets_);
+  KALDI_VLOG(2) << "Learning rates: "
+                << basic_trainer_->Nnet().LrateInfo(final_layer_sets_);
+  KALDI_VLOG(3) << "Neural net info: "
+                << basic_trainer_->Nnet().Info(final_layer_sets_);
 }
 
 void Nnet1AdaptiveTrainer::Train() {
@@ -249,7 +255,7 @@ void Nnet1AdaptiveTrainer::Train() {
               << " ( " << basic_trainer_->NumEpochs() << " epochs.)";
     TrainOnePhase();
     KALDI_VLOG(1) << "Validation set progress, based on gradients, by layer: "
-                  << progress_stats_.Info();
+                  << progress_stats_.Info(final_layer_sets_);
     KALDI_VLOG(1) << "Actual validation-set improvement is "
                   << (validation_objf_ - initial_validation_objf_)
                   << " ( " << initial_validation_objf_ << " -> "
@@ -257,10 +263,12 @@ void Nnet1AdaptiveTrainer::Train() {
   }
   KALDI_LOG << "Validation set progress, based on gradients, by layer: "
             << progress_stats_.Info();
+  KALDI_LOG << "Validation set progress, based on gradients, by sets of layers: "
+            << progress_stats_.Info(final_layer_sets_);
   KALDI_LOG << "Actual validation-set improvement is "
             << (validation_objf_ - initial_validation_objf_)
             << " ( " << initial_validation_objf_ << " -> "
-            << validation_objf_;
+            << validation_objf_ << " )";
 }
 
 

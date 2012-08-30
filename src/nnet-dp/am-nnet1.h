@@ -60,6 +60,17 @@ class AmNnet1 {
 
   const Nnet1 &Nnet() const { return nnet_; }
   Nnet1 &Nnet() { return nnet_; }
+
+  // This function returns a set of sets of the final layer nodes,
+  // which for this type of model are just the set { 0 } and the rest of them;
+  // we use this to group them for purposes of reporting auxf
+  // improvements and adjusting learning rates.  [especially, this
+  // makes the adjustment of learning rates more robust.]
+  void GetFinalLayerSets(std::vector<std::vector<int32> > *sets);
+
+  // GetPriors() gets the prior for each pdf-id; this is derived
+  // from the occupancy information stored with the neural network.
+  void GetPriors(Vector<BaseFloat> *priors) const;
  private:
   // called from constructor and Read function; see .cc file for comments:
   void ComputeCategoryInfo(const std::vector<int32> &leaf_mapping);

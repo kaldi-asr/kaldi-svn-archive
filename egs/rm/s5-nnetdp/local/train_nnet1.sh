@@ -11,6 +11,7 @@ cmd=run.pl
 #beam=10
 #retry_beam=40
 #realign_iters="10 20 30";
+add_layer_iters=""  # e.g. --add-layer-iters "3 6 10"
 num_iters=35   # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
 power=0.2 # Exponent for number of gaussians according to occurrence counts
@@ -119,6 +120,12 @@ while [ $x -lt $num_iters ]; do
     # mix up.
     $cmd $dir/log/mixup.$x.log \
       nnet1-mixup --power=$power --target-neurons=$numgauss $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1 || exit 1;
+    if echo "$add_layer_iters" | grep -w $x; then
+      echo "Adding new layer"
+      $cmd $dir/log/add_layer.$x.log \
+        nnet1-add-layer --left-context=1 --right-context=1 \
+          $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1
+    fi
   fi
   [ $x -le $max_iter_inc ] && numgauss=$[$numgauss+$incgauss];
   x=$[$x+1];

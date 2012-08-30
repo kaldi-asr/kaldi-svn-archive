@@ -345,7 +345,8 @@ void Nnet1::MixUp(int32 target_tot_neurons,
         new_num_neurons = std::max(old_num_neurons,
                                    target_neurons[category]);
 
-    if (new_num_neurons > old_num_neurons)
+    // Note: MixUpFinalLayers is a non-class-member function.
+    if (new_num_neurons > old_num_neurons) 
       MixUpFinalLayers(new_num_neurons,
                        perturb_stddev,
                        final_layers_[category].softmax_layer,
@@ -358,34 +359,103 @@ void Nnet1::MixUp(int32 target_tot_neurons,
             << new_tot_neurons;
 }
 
+void Nnet1::GetPriorsForCategory(int32 category,
+                                 Vector<BaseFloat> *priors) const {
+  KALDI_ASSERT(category >= 0 && category < final_layers_.size());
+  const SoftmaxLayer &softmax_layer = *(final_layers_[category].softmax_layer);
+  const LinearLayer &linear_layer = *(final_layers_[category].linear_layer);
+  const Vector<BaseFloat> &occupancy = softmax_layer.Occupancy();
+  const Matrix<BaseFloat> &linear_params = linear_layer.Params();
+  priors->Resize(linear_params.NumRows());
+  priors->AddMatVec(1.0, linear_params, kNoTrans, occupancy, 0.0);
+}
+
 void Nnet1::AdjustLearningRates(
     const Nnet1ProgressInfo &info, // this info is the dot prod of
     // the validation-set gradient *after* the step, with the delta
     // of parameters.
-    BaseFloat ratio) { // e.g. ratio = 1.1.
+    BaseFloat ratio, // e.g. ratio = 1.1.
+    BaseFloat max_lrate) { 
   KALDI_ASSERT(info.tanh_dot_prod.size() ==
                initial_layers_.size());
   BaseFloat inv_ratio = 1.0 / ratio;
   for (int32 i = 0; i < initial_layers_.size(); i++) {
     GenericLayer *layer = initial_layers_[i].tanh_layer;
-    layer->SetLearningRate((info.tanh_dot_prod[i] > 0 ?
-                            ratio : inv_ratio)
-                           * layer->GetLearningRate());
+    layer->SetLearningRateMax((info.tanh_dot_prod[i] > 0 ?
+                               ratio : inv_ratio)
+                              * layer->GetLearningRate(), max_lrate);
   }
   KALDI_ASSERT(info.softmax_dot_prod.size() ==
                final_layers_.size());
   for (int32 i = 0; i < final_layers_.size(); i++) {
     GenericLayer *layer = final_layers_[i].softmax_layer;
-    layer->SetLearningRate((info.softmax_dot_prod[i] > 0 ?
-                            ratio : inv_ratio)
-                           * layer->GetLearningRate());
+    layer->SetLearningRateMax((info.softmax_dot_prod[i] > 0 ?
+                               ratio : inv_ratio)
+                              * layer->GetLearningRate(), max_lrate);
     layer = final_layers_[i].linear_layer;
-    layer->SetLearningRate((info.linear_dot_prod[i] > 0 ?
-                            ratio : inv_ratio)
-                           * layer->GetLearningRate());
+    layer->SetLearningRateMax((info.linear_dot_prod[i] > 0 ?
+                               ratio : inv_ratio)
+                              * layer->GetLearningRate(), max_lrate);
   }
 }
-  
+
+void Nnet1::AdjustLearningRates(
+    const Nnet1ProgressInfo &info, // this info is the dot prod of
+    // the validation-set gradient *after* the step, with the delta
+    // of parameters.
+    const std::vector<std::vector<int32> > &final_layer_sets,
+    BaseFloat ratio, // e.g. ratio = 1.1.
+    BaseFloat max_lrate) {
+  KALDI_ASSERT(info.tanh_dot_prod.size() ==
+               initial_layers_.size());
+  BaseFloat inv_ratio = 1.0 / ratio;
+  for (int32 i = 0; i < initial_layers_.size(); i++) {
+    GenericLayer *layer = initial_layers_[i].tanh_layer;
+    layer->SetLearningRateMax((info.tanh_dot_prod[i] > 0 ?
+                               ratio : inv_ratio)
+                              * layer->GetLearningRate(), max_lrate);
+  }
+  KALDI_ASSERT(info.softmax_dot_prod.size() ==
+               final_layers_.size());
+  for (int32 i = 0; i < final_layer_sets.size(); i++) {
+    BaseFloat total_dot_prod = 0.0;
+    KALDI_ASSERT(final_layer_sets[i].size() > 0);
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
+      total_dot_prod += info.softmax_dot_prod[idx];
+    }
+    BaseFloat learning_rate_ratio = (total_dot_prod > 0 ?
+                                     ratio : inv_ratio);
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      GenericLayer *layer = final_layers_[idx].softmax_layer;
+      layer->SetLearningRateMax(learning_rate_ratio
+                                * layer->GetLearningRate(), max_lrate);
+    }
+  }
+  KALDI_ASSERT(info.linear_dot_prod.size() ==
+               final_layers_.size());
+  for (int32 i = 0; i < final_layer_sets.size(); i++) {
+    BaseFloat total_dot_prod = 0.0;
+    KALDI_ASSERT(final_layer_sets[i].size() > 0);
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
+      total_dot_prod += info.linear_dot_prod[idx];
+    }
+    BaseFloat learning_rate_ratio = (total_dot_prod > 0 ?
+                                     ratio : inv_ratio);
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      GenericLayer *layer = final_layers_[idx].linear_layer;
+      layer->SetLearningRateMax(learning_rate_ratio
+                                * layer->GetLearningRate(), max_lrate);
+    }
+  }
+}
+
+
 void Nnet1::AddTanhLayer(int32 num_nodes,
                          int32 left_context,
                          int32 right_context,
@@ -402,6 +472,7 @@ void Nnet1::AddTanhLayer(int32 num_nodes,
   BaseFloat parameter_stddev = 0.0; // Initialize the parameters to zero.
   new_info.tanh_layer = new TanhLayer(input_size, output_size, learning_rate,
                                       parameter_stddev);
+  initial_layers_.push_back(new_info);
 }
 
 std::string Nnet1::LrateInfo() const {
@@ -420,6 +491,97 @@ std::string Nnet1::LrateInfo() const {
   os << ", linear [avg]: " << (sum / final_layers_.size()) << " ";
   return os.str();
 }
+
+std::string Nnet1::LrateInfo(
+    const std::vector<std::vector<int32> > &final_sets) const {
+  std::ostringstream os;
+  os << "tanh: ";
+  for (int32 i = 0; i < initial_layers_.size(); i++)
+    os << initial_layers_[i].tanh_layer->GetLearningRate() << ' ';
+  os << ", softmax [per set]: ";
+  for (int32 i = 0; i < final_sets.size(); i++) {
+    double sum = 0.0;
+    for (int32 j = 0; j < final_sets[i].size(); j++) {
+      int32 idx = final_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
+      sum += final_layers_[idx].softmax_layer->GetLearningRate();
+    }
+    double avg = sum / final_sets[i].size();
+    os << avg << " ";
+  }
+  os << ", linear [per set]: ";
+  for (int32 i = 0; i < final_sets.size(); i++) {
+    double sum = 0.0;
+   for (int32 j = 0; j < final_sets[i].size(); j++) {
+      int32 idx = final_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
+      sum += final_layers_[idx].linear_layer->GetLearningRate();
+   }
+    double avg = sum / final_sets[i].size();
+    os << avg << " ";
+  }
+  return os.str();
+}
+
+
+std::string Nnet1::Info(
+    const std::vector<std::vector<int32> > &final_layer_sets) const {
+  std::ostringstream os;
+  for (int32 i = 0; i < initial_layers_.size(); i++) {
+    os << i << "'th tanh layer:\n";
+    os << initial_layers_[i].tanh_layer->Info();
+  }
+  int32 tot_softmax_output_dim = 0,tot_linear_output_dim = 0;
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    tot_softmax_output_dim += final_layers_[i].softmax_layer->OutputDim();
+    tot_linear_output_dim += final_layers_[i].linear_layer->OutputDim();    
+  }
+  os << "Total output dim of all softmax layers is "
+     << tot_softmax_output_dim << "\n";
+  os << "Total output dim of all linear layers is "
+     << tot_linear_output_dim << "\n";
+  
+  // Now print out parameter stddevs and learning rates,
+  // averaged over sets.
+
+  for (int32 i = 0; i < final_layer_sets.size(); i++) {
+    os << i << "'th set of softmax layers: ";
+    BaseFloat sum_lrate = 0.0, sumsq_parameters = 0.0;
+    int32 tot_parameters = 0;
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      SoftmaxLayer *layer = final_layers_[idx].softmax_layer;
+      sum_lrate += layer->GetLearningRate();
+      const Matrix<BaseFloat> &params = layer->Params();
+      sumsq_parameters += pow(params.FrobeniusNorm(), 2.0);
+      tot_parameters += params.NumRows() * params.NumCols();
+    }
+    BaseFloat avg_lrate = sum_lrate / final_layer_sets[i].size(),
+        param_stddev = std::sqrt(sumsq_parameters / tot_parameters);
+    os << "lrate=" << avg_lrate << ", param-stddev=" << param_stddev << std::endl;
+  }
+  
+  for (int32 i = 0; i < final_layer_sets.size(); i++) {
+    os << i << "'th set of linear layers: ";
+    BaseFloat sum_lrate = 0.0, sumsq_parameters = 0.0;
+    int32 tot_parameters = 0;
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      LinearLayer *layer = final_layers_[idx].linear_layer;
+      sum_lrate += layer->GetLearningRate();
+      const Matrix<BaseFloat> &params = layer->Params();
+      sumsq_parameters += pow(params.FrobeniusNorm(), 2.0);
+      tot_parameters += params.NumRows() * params.NumCols();
+    }
+    BaseFloat avg_lrate = sum_lrate / final_layer_sets[i].size(),
+        param_stddev = std::sqrt(sumsq_parameters / tot_parameters);
+    os << "lrate=" << avg_lrate << ", param-stddev=" << param_stddev << std::endl;
+  }
+  return os.str();
+}
+
+
+
 
 std::string Nnet1::Info() const {
   std::ostringstream os;
@@ -528,6 +690,43 @@ std::string Nnet1ProgressInfo::Info() const {
   for (int32 i = 0; i < linear_dot_prod.size(); i++) {
     os << linear_dot_prod[i] << ' ';
     total += linear_dot_prod[i];
+  }
+  os << '\n' << "total: " << total << '\n';
+  return os.str();
+}
+
+std::string Nnet1ProgressInfo::Info(
+    const std::vector<std::vector<int32> > &final_layer_sets) const {
+  BaseFloat total = 0.0;;
+  std::ostringstream os;
+  os << "tanh: ";
+  for (int32 i = 0; i < tanh_dot_prod.size(); i++) {
+    os << tanh_dot_prod[i] << ' ';
+    total += tanh_dot_prod[i];
+  }
+  os << '\n';
+  os << "softmax (per set): ";
+  for (int32 i = 0; i < final_layer_sets.size(); i++) {
+    BaseFloat this_tot = 0.0;
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < linear_dot_prod.size());
+      this_tot += softmax_dot_prod[idx];
+    }
+    os << this_tot << ' ';
+    total += this_tot;
+  }
+  os << '\n';
+  os << "linear (per set): ";
+  for (int32 i = 0; i < final_layer_sets.size(); i++) {
+    BaseFloat this_tot = 0.0;
+    for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
+      int32 idx = final_layer_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < linear_dot_prod.size());
+      this_tot += linear_dot_prod[idx];
+    }
+    os << this_tot << ' ';
+    total += this_tot;
   }
   os << '\n' << "total: " << total << '\n';
   return os.str();

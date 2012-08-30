@@ -50,6 +50,11 @@ class GenericLayer {
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat lrate) { learning_rate_ = lrate; }
 
+  /// Sets learning rate to max of lrate and max_lrate, and prints a
+  /// warning if above the max.
+  void SetLearningRateMax(BaseFloat lrate,
+                          BaseFloat max_lrate);
+
   // Use default copy constructor and assignment operator.
   
   void SetZero() { params_.Set(0.0); }
@@ -60,7 +65,7 @@ class GenericLayer {
 
   GenericLayer(): learning_rate_(0.0) { } // avoid undefined
   // behavior.  This value should always be overwritten though.
-  const Matrix<BaseFloat> &Params() { return params_; }
+  const Matrix<BaseFloat> &Params() const { return params_; }
 
   void SetParams(const MatrixBase<BaseFloat> &params);
 
@@ -149,7 +154,7 @@ class SoftmaxLayer: public GenericLayer {
   void ZeroOccupancy() { occupancy_.Set(0.0); } // Set occupancy to zero so we
   // can start counting afresh...
   BaseFloat TotOccupancy() { return occupancy_.Sum(); }
-  const Vector<BaseFloat> &Occupancy() { return occupancy_; }
+  const Vector<BaseFloat> &Occupancy() const { return occupancy_; }
  private:
   // override the base-class Update; we do it differently.
   virtual void Update(const MatrixBase<BaseFloat> &input,

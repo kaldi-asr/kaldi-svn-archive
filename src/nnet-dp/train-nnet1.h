@@ -125,11 +125,12 @@ class Nnet1ValidationSet {
 struct Nnet1AdaptiveTrainerConfig {
   int32 num_minibatches;
   BaseFloat learning_rate_ratio;
+  BaseFloat max_learning_rate;
   int32 num_phases;
 
   Nnet1AdaptiveTrainerConfig():
       num_minibatches(50), learning_rate_ratio(1.1),
-      num_phases(50) { }
+      max_learning_rate(0.1), num_phases(50) { }
   
   void Register (ParseOptions *po) {
     po->Register("num-minibatches", &num_minibatches,
@@ -138,6 +139,8 @@ struct Nnet1AdaptiveTrainerConfig {
     po->Register("learning-rate-ratio", &learning_rate_ratio,
                  "Ratio by which we change the learning rate in each phase of "
                  "training (can get larger or smaller by this factor).");
+    po->Register("max-learning-rate", &max_learning_rate,
+                 "Maximum learning rate we allow when dynamically updating it");
     po->Register("num-phases", &num_phases,
                  "Number of \"phases\" of training (a phase is a sequence of "
                  "num-minibatches minibatches; after each phase we modify "
@@ -152,19 +155,21 @@ struct Nnet1AdaptiveTrainerConfig {
 class Nnet1AdaptiveTrainer {
  public:
   Nnet1AdaptiveTrainer(const Nnet1AdaptiveTrainerConfig &config,
+                       const std::vector<std::vector<int32> > &final_layer_sets,
                        Nnet1BasicTrainer *basic_trainer,
                        Nnet1ValidationSet *validation_set);
   void Train();
  private:
   void PrintProgress();
   void TrainOnePhase();
-  
   Nnet1BasicTrainer *basic_trainer_; // Not owned here.
   Nnet1ValidationSet *validation_set_; // Stores validation gradient.  Not owned here.
   BaseFloat validation_objf_; // stores validation objective function.
   BaseFloat initial_validation_objf_; // validation objf at start.
   Nnet1ProgressInfo progress_stats_;
   Nnet1AdaptiveTrainerConfig config_;
+  std::vector<std::vector<int32> > final_layer_sets_; // relates to updating
+  // learning rates.
 };
 
 

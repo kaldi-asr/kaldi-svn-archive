@@ -94,10 +94,14 @@ int main(int argc, char *argv[]) {
     // validation set.
     Nnet1ValidationSet validation_set(validation_feats, validation_ali,
                                       am_nnet, &nnet_gradient);
+
+    std::vector<std::vector<int32> > final_layer_sets;
+    am_nnet.GetFinalLayerSets(&final_layer_sets);
+    
     // This trainer is responsible for training on the training set
     // (using the basic_trainer) and using the validation set gradients
     // to adjust the learning rate on every "phase" of training.
-    Nnet1AdaptiveTrainer trainer(adaptive_trainer_config,
+    Nnet1AdaptiveTrainer trainer(adaptive_trainer_config, final_layer_sets,
                                  &basic_trainer, &validation_set);
     trainer.Train();
 

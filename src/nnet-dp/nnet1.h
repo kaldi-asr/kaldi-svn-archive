@@ -192,9 +192,15 @@ class Nnet1 {
 
   std::string Info() const; // some human-readable summary info.
 
+  // some human-readable summary info (summed over final-layers.)
+  std::string Info(const std::vector<std::vector<int32> > &final_sets) const;
+
   std::string LrateInfo() const; // some info on the learning rates,
   // in human-readable form.
-  
+
+  // the same, broken down by sets.
+  std::string LrateInfo(const std::vector<std::vector<int32> > &final_sets)
+      const;
   
   // Mix up by increasing the dimension of the output of softmax layer (and the
   // input of the linear layer).  This is exactly analogous to mixing up
@@ -225,14 +231,30 @@ class Nnet1 {
   // increase learning rate, no -> decrease it.
   void AdjustLearningRates(
       const Nnet1ProgressInfo &current_info,
-      BaseFloat learning_rate_ratio);
+      BaseFloat learning_rate_ratio,
+      BaseFloat max_learning_rate);
 
+  // This version of AdjustLearningRates is for if you want
+  // the learning-rates to be shared among some sets of
+  // the final layers.  [helps for robustness to sparse data.]
+  void AdjustLearningRates(
+      const Nnet1ProgressInfo &current_info,
+      const std::vector<std::vector<int32> > &final_layer_sets,
+      BaseFloat learning_rate_ratio,
+      BaseFloat max_learning_rate);
+  
   // Computes certain dot products that we use to
   // keep track of why validation set objf changes.
   void ComputeProgressInfo(
       const Nnet1 &previous_value,
       const Nnet1 &validation_gradient,
       Nnet1ProgressInfo *info) const;
+
+  // Outputs the priors for a particular category of labels, as
+  // computed from the "occupancy" statistics stored with the softmax
+  // layer.  This should rougly match the priors seen during training.
+  void GetPriorsForCategory(int32 category,
+                            Vector<BaseFloat> *priors) const;
   
   friend class Nnet1Updater;
  private:
@@ -292,6 +314,9 @@ struct Nnet1ProgressInfo {
   std::vector<BaseFloat> linear_dot_prod; // same for softmax layers.
   
   std::string Info() const; // the info in human-readable form.
+
+  // some human-readable summary info (summed over final-layers.)
+  std::string Info(const std::vector<std::vector<int32> > &final_sets) const;
 };
 
 

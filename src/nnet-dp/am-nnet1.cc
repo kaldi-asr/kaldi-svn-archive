@@ -126,5 +126,22 @@ void AmNnet1::GetCategoryInfo(int32 pdf_id,
     pairs->push_back(std::make_pair(category, pdf_to_sub_index_[pdf_id]));
 }
 
+void AmNnet1::GetFinalLayerSets(std::vector<std::vector<int32> > *sets) {
+  // one set containing category zero and another set containing
+  // all the rest.
+  sets->clear();
+  sets->resize(2);
+  (*sets)[0].push_back(0);
+  for (int32 i = 1; i < category_sizes_.size(); i++)
+    (*sets)[1].push_back(i);
+}
+
+// Get a vector of priors indexed by pdf-id; this is derived from
+// the "occupancy" data members stored in the softmax layers.
+void AmNnet1::GetPriors(Vector<BaseFloat> *priors) const {
+  int32 num_pdfs = leaf_mapping_.size();
+  priors->Resize(num_pdfs);
+  
+}
 
 } // namespace kaldi

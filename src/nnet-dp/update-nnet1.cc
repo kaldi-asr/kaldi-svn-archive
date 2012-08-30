@@ -384,8 +384,8 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinalInternal(
     BaseFloat weight = weights[i];
     KALDI_ASSERT(label < linear_forward.NumCols());
     BaseFloat prob = linear_forward(i, label);
-    if (prob <= 0.0) {
-      KALDI_WARN << "Zero probability in neural net training: " << prob;
+    if (prob < 1.0e-20) {
+      KALDI_WARN << "Zero or very tiny probability in neural net training: " << prob;
       prob = 1.0e-20;
     }
     linear_backward(i, label) = weight / prob;
@@ -436,7 +436,7 @@ void Nnet1Updater::BackwardTanh() {
     // This goes in a variable called "cur_output_deriv" which will
     // be the derivative w.r.t. the output of the previous layer.
     if (layer != 0) {
-      cur_output_deriv.Resize(tanh_forward_data_[layer-1].NumRows(),
+      cur_output_deriv.Resize(tanh_forward_data_[layer].NumRows(),
                               nnet_.initial_layers_[layer-1].tanh_layer->OutputDim());
       UnSpliceDerivative(spliced_input_deriv, num_chunks_,
                          &cur_output_deriv);

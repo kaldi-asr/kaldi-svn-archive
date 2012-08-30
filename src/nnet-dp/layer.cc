@@ -24,6 +24,16 @@ void GenericLayer::SetParams(const MatrixBase<BaseFloat> &params) {
   params_.CopyFromMat(params);
 }
 
+void GenericLayer::SetLearningRateMax(BaseFloat lrate,
+                                      BaseFloat max_lrate) {
+  if (lrate > max_lrate) {
+    KALDI_WARN << "Limiting learning rate to the maximum "
+               << max_lrate;
+    lrate = max_lrate;
+  }
+  SetLearningRate(lrate);
+}
+
 
 LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
                          BaseFloat learning_rate):
@@ -279,6 +289,9 @@ void GenericLayer::Update(const MatrixBase<BaseFloat> &input,
   // layer's Update function and it's more convenient to have a consistent
   // interface.
   params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, 1.0);
+
+  // Check for NaN's.
+  KALDI_ASSERT(params_(0, 0) == params_(0, 0) && params_(0, 0) - params_(0, 0) == 0.0);
 }
 
 SoftmaxLayer::SoftmaxLayer(int input_size, int output_size,
@@ -297,6 +310,7 @@ void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<SoftmaxLayer>");
   WriteBasicType(out, binary, learning_rate_);
   params_.Write(out, binary);
+  WriteToken(out, binary, "<Occupancy>");
   occupancy_.Write(out, binary);
   WriteToken(out, binary, "</SoftmaxLayer>");  
 }
@@ -305,6 +319,7 @@ void SoftmaxLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<SoftmaxLayer>");
   ReadBasicType(in, binary, &learning_rate_);
   params_.Read(in, binary);
+  ExpectToken(in, binary, "<Occupancy>");
   occupancy_.Read(in, binary);
   ExpectToken(in, binary, "</SoftmaxLayer>");  
 }
@@ -358,6 +373,8 @@ void SoftmaxLayer::Update(const MatrixBase<BaseFloat> &input,
                           const MatrixBase<BaseFloat> &output) {
   params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, 1.0);
   occupancy_.AddRowSumMat(output);
+  // Check for NaN's.
+  KALDI_ASSERT(params_(0, 0) == params_(0, 0) && params_(0, 0) - params_(0, 0) == 0.0);
 }
 
 void SoftmaxLayer::SetOccupancy(const VectorBase<BaseFloat> &occupancy) {
@@ -414,7 +431,7 @@ void MixUpFinalLayers(int32 new_num_neurons,
        cur_num_neurons != new_num_neurons;
        cur_num_neurons++) {
     // Get current index with largest count.
-    int32 old_index = std::min_element(occ_data,
+    int32 old_index = std::max_element(occ_data,
                                        occ_data + cur_num_neurons) - occ_data,
         new_index = cur_num_neurons;
     // split the occupancy.
@@ -427,14 +444,14 @@ void MixUpFinalLayers(int32 new_num_neurons,
     // here...
     linear_paramsT.Row(new_index).CopyFromVec(linear_paramsT.Row(old_index));
     
-    // We'll copy and perturb the row of softold_params, just like
+    // We'll copy and perturb the row of softmax_params, just like
     // we perturb Gaussians when we split them.  We also need to
     // modify the last element of the row, corresponding to the bias
     // term, in order to halve the probability... this is the same
     // as where we split the mixture weight in half when we split
     // a Gaussian, only the representation is a little different.
     softmax_params.Row(new_index).CopyFromVec(softmax_params.Row(old_index));
-    rand_vec.SetRandn(); // Sets it to newly generated unit noise.
+    rand_vec.SetRandn(); // Sets it to newly generated normal noise.
     BaseFloat split_bias_term = softmax_params(old_index, softmax_input_dim - 1)
         + log(0.5);
     softmax_params.Row(new_index).AddVec(perturb_stddev, rand_vec);
