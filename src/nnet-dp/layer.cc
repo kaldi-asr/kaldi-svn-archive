@@ -95,6 +95,13 @@ void GenericLayer::Forward(
   ApplyNonlinearity(output);
 }
 
+void GenericLayer::Forward(
+    const VectorBase<BaseFloat> &input,
+    VectorBase<BaseFloat> *output) const {
+  output->AddMatVec(1.0, params_, kNoTrans, input, 0.0);
+  ApplyNonlinearity(output);
+}
+
 
 void LinearLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<LinearLayer>");
@@ -251,6 +258,10 @@ void LinearLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
   // Do nothing.
 }
 
+void LinearLayer::ApplyNonlinearity(VectorBase<BaseFloat> *output) const {
+  // Do nothing.
+}
+
 void TanhLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
   // Apply tanh function to each element of the output...
   // function is -1 + 2 ( 1 / (1 + e^{-2 x}))
@@ -269,6 +280,24 @@ void TanhLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
         *data = 1.0 - 2.0 / (1 + exp(2.0 * *data));
       }
     }    
+  }
+}
+
+void TanhLayer::ApplyNonlinearity(VectorBase<BaseFloat> *output) const {
+  // Apply tanh function to each element of the output...
+  // function is -1 + 2 ( 1 / (1 + e^{-2 x}))
+  
+  int32 dim = output->Dim();
+  
+  BaseFloat *data = output->Data();
+  for (int32 d = 0; d < dim; d++, data++) {
+    // This if-statement is intended to avoid overflow caused by exponentiating
+    // large positive values.
+    if (*data >= 0.0) {
+      *data = -1.0 + 2.0 / (1 + exp(-2.0 * *data));
+    } else {
+      *data = 1.0 - 2.0 / (1 + exp(2.0 * *data));
+    }
   }
 }
 
@@ -331,6 +360,10 @@ void SoftmaxLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
     SubVector<BaseFloat> row(*output, r);
     row.ApplySoftMax();
   }
+}
+
+void SoftmaxLayer::ApplyNonlinearity(VectorBase<BaseFloat> *output) const {
+  output->ApplySoftMax();
 }
 
 void LinearLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
@@ -467,5 +500,12 @@ void MixUpFinalLayers(int32 new_num_neurons,
   linear_layer->SetParams(linear_paramsT);
 }
 
+void GenericLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
+  int32 num_rows = output->NumRows();
+  for (int32 row = 0; row < num_rows; row++) {
+    SubVector<BaseFloat> v(*output, row);
+    this->ApplyNonlinearity(&v);
+  }
+}
 
 } // namespace kaldi

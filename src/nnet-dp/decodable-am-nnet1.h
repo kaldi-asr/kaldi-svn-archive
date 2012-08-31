@@ -37,7 +37,7 @@ class DecodableAmNnet1: public DecodableInterface {
                    const AmNnet1 &am_nnet,
                    const Matrix<BaseFloat> &feats,
                    BaseFloat prob_scale = 1.0):
-      trans_model_(trans_model), am_nnet_(am_nnet) {
+      trans_model_(trans_model), am_nnet_(am_nnet), scale_(prob_scale) {
     ForwardInitialLayers(feats);
   }
   
@@ -71,9 +71,9 @@ class DecodableAmNnet1: public DecodableInterface {
   // we divide the outputs of the neural net by these quantities.
 
   int32 cur_frame_;
-  std::vector<Matrix<BaseFloat> > other_category_outputs_; // Outputs
+  std::vector<Vector<BaseFloat> > other_category_outputs_; // Outputs
   // of linear layers for the other categories, on the current frame.
-  // We compute these on request.  Each is a matrix with just one row.
+  // We compute these on request.
 
   // We cache the probabilities, even though most of the computation
   // is cached on each frame, simply because people could call LogLikelihood()

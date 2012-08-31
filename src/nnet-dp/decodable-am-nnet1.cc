@@ -118,27 +118,25 @@ BaseFloat DecodableAmNnet1::LogLikelihood(int32 frame,
   // pairs is a set of pairs (category, label-within-category).
   // It will always contain an entry for category zero, and will usually
   // also contain one more entry for another category.
-  BaseFloat prob = 1.0; // It's actually a log-prob rather than a log-likelihood,
-  // with this model, but it's a standard interface.
+  BaseFloat prob = 1.0; 
   for (int32 i = 0; i < pairs.size(); i++) {
     int32 category = pairs[i].first, label = pairs[i].second;
     if (category == 0) {
       prob *= category_zero_output_(frame, label);
     } else {
       KALDI_ASSERT(category > 0 && category < other_category_outputs_.size());
-      Matrix<BaseFloat> &post_vec(other_category_outputs_[category]); // vector
-      // of posteriors in this category.  [matrix with one row].
-      if (post_vec.NumRows() == 0) { // do the computation.
+      Vector<BaseFloat> &post_vec(other_category_outputs_[category]); // vector
+      // of posteriors in this category. 
+      if (post_vec.Dim() == 0) { // do the computation.
         const SoftmaxLayer *softmax_layer = nnet.final_layers_[category].softmax_layer;
         const LinearLayer *linear_layer = nnet.final_layers_[category].linear_layer;
-        SubMatrix<BaseFloat> softmax_input(input_to_softmax_, frame, 1,
-                                           0, input_to_softmax_.NumCols());
-        Matrix<BaseFloat> softmax_output(1, softmax_layer->OutputDim());
+        SubVector<BaseFloat> softmax_input(input_to_softmax_, frame);
+        Vector<BaseFloat> softmax_output(softmax_layer->OutputDim());
         softmax_layer->Forward(softmax_input, &softmax_output);
-        post_vec.Resize(1, linear_layer->OutputDim());
+        post_vec.Resize(linear_layer->OutputDim());
         linear_layer->Forward(softmax_output, &post_vec);
       }
-      prob *= post_vec(0, label);
+      prob *= post_vec(label);
     }
   }
   BaseFloat floor = 1.0e-20;
@@ -146,7 +144,8 @@ BaseFloat DecodableAmNnet1::LogLikelihood(int32 frame,
     KALDI_WARN << "Flooring probability " << prob << " to " << floor;
     prob = floor;
   }
-  BaseFloat ans = log(prob) + neg_log_priors_(pdf_id);
+  // Note: here is where we add the log-probability scale.
+  BaseFloat ans = scale_ * (log(prob) + neg_log_priors_(pdf_id));
   log_like_cache_[pdf_id].hit_time = frame;
   log_like_cache_[pdf_id].log_like = ans;
   return ans;

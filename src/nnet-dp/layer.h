@@ -34,11 +34,17 @@ class GenericLayer {
 
   // No Write or Read functions; these are supplied by the base classes.
   
-  virtual void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const = 0;
+  virtual void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
+
+  virtual void ApplyNonlinearity(VectorBase<BaseFloat> *output) const = 0;
   
   // each row of the args to this function is one frame.
   void Forward(const MatrixBase<BaseFloat> &input,
                MatrixBase<BaseFloat> *output) const;
+
+  // forward function that works on one frame.
+  void Forward(const VectorBase<BaseFloat> &input,
+               VectorBase<BaseFloat> *output) const;
   
   // each row of the args to this function is one frame.
   void Backward(const MatrixBase<BaseFloat> &input,
@@ -120,6 +126,7 @@ class LinearLayer: public GenericLayer {
   
   void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 
+  void ApplyNonlinearity(VectorBase<BaseFloat> *output) const;
  private:
   // override the base-class Update; we do it differently.
   virtual void Update(const MatrixBase<BaseFloat> &input,
@@ -163,6 +170,8 @@ class SoftmaxLayer: public GenericLayer {
   
   void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 
+  void ApplyNonlinearity(VectorBase<BaseFloat> *output) const;  
+
   // Propagate the derivative back through the nonlinearity.
   void ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
                        const MatrixBase<BaseFloat> &output_deriv,
@@ -197,6 +206,8 @@ class TanhLayer: public GenericLayer {
                        MatrixBase<BaseFloat> *sum_deriv) const;
       
   void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
+
+  void ApplyNonlinearity(VectorBase<BaseFloat> *output) const;
 };
 
 

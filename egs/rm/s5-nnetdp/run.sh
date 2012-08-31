@@ -156,6 +156,8 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
   --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5a_nnet/decode
 
+local/train_nnet1.sh --add-layer-iters "5 10" --num-iters 15 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5b_nnet
 
 # I AM HERE.
 exit 0;
