@@ -51,9 +51,7 @@ steps/train_mono.sh --nj 4 --cmd "$train_cmd" data/train.1k data/lang exp/mono  
 
 
 utils/mkgraph.sh --mono data/lang exp/mono exp/mono/graph
-# note: local/decode.sh calls the command line once for each
-# test, and afterwards averages the WERs into (in this case
-# exp/mono/decode/
+
 steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
   exp/mono/graph data/test exp/mono/decode
 
@@ -77,6 +75,18 @@ steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 steps/align_si.sh --nj 8 --cmd "$train_cmd" \
   --use-graphs true data/train data/lang exp/tri1 exp/tri1_ali || exit 1;
 
+<<<<<<< .working
+=======
+# train tri2a [delta+delta-deltas]
+steps/train_deltas.sh --cmd "$train_cmd" 1800 9000 \
+ data/train data/lang exp/tri1_ali exp/tri2a || exit 1;
+
+# decode tri2a
+utils/mkgraph.sh data/lang exp/tri2a exp/tri2a/graph
+steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
+  exp/tri2a/graph data/test exp/tri2a/decode
+
+>>>>>>> .merge-right.r1321
 # train and decode tri2b [LDA+MLLT]
 steps/train_lda_mllt.sh --cmd "$train_cmd" \
   --splice-opts "--left-context=3 --right-context=3" \
@@ -168,6 +178,14 @@ steps/decode.sh --config conf/decode.config --iter 4 --nj 20 --cmd "$decode_cmd"
 steps/decode.sh --config conf/decode.config --iter 3 --nj 20 --cmd "$decode_cmd" \
    exp/tri2b/graph data/test exp/tri2b_mmi_b0.05/decode_it3 || exit 1;
 
+<<<<<<< .working
+# Do MPE.
+steps/train_mpe.sh data/train data/lang exp/tri2b_ali exp/tri2b_denlats exp/tri2b_mpe || exit 1;
+steps/decode.sh --config conf/decode.config --iter 4 --nj 20 --cmd "$decode_cmd" \
+   exp/tri2b/graph data/test exp/tri2b_mpe/decode_it4 || exit 1;
+steps/decode.sh --config conf/decode.config --iter 3 --nj 20 --cmd "$decode_cmd" \
+   exp/tri2b/graph data/test exp/tri2b_mpe/decode_it3 || exit 1;
+=======
 # Do MPE.
 steps/train_mpe.sh data/train data/lang exp/tri2b_ali exp/tri2b_denlats exp/tri2b_mpe || exit 1;
 steps/decode.sh --config conf/decode.config --iter 4 --nj 20 --cmd "$decode_cmd" \
@@ -176,9 +194,21 @@ steps/decode.sh --config conf/decode.config --iter 3 --nj 20 --cmd "$decode_cmd"
    exp/tri2b/graph data/test exp/tri2b_mpe/decode_it3 || exit 1;
 
 
+## Do LDA+MLLT+SAT, and decode.
+steps/train_sat.sh 1800 9000 data/train data/lang exp/tri2b_ali exp/tri3b || exit 1;
+utils/mkgraph.sh data/lang exp/tri3b exp/tri3b/graph || exit 1;
+steps/decode_fmllr.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
+  exp/tri3b/graph data/test exp/tri3b/decode || exit 1;
+>>>>>>> .merge-right.r1321
+
+
+<<<<<<< .working
 
 
 
+=======
+
+>>>>>>> .merge-right.r1321
 # Align all data with LDA+MLLT+SAT system (tri3b)
 steps/align_fmllr.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
   data/train data/lang exp/tri3b exp/tri3b_ali || exit 1;
