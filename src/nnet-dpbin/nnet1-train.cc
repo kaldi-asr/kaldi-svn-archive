@@ -21,6 +21,30 @@
 #include "nnet-dp/nnet1-utils.h"
 #include "nnet-dp/train-nnet1.h"
 
+namespace kaldi {
+
+void TrainTransitionModel(
+    const std::vector<std::vector<int32> > &train_ali,
+    const std::vector<std::vector<int32> > &validation_ali, // throw this in too.
+    const TransitionUpdateConfig &tcfg,
+    TransitionModel *trans_model) {
+  Vector<double> transition_accs;
+  trans_model->InitStats(&transition_accs);
+  for (int32 i = 0; i < train_ali.size(); i++)
+    for (int32 j = 0; j < train_ali[i].size(); j++)
+      transition_accs(train_ali[i][j]) += 1.0;
+  for (int32 i = 0; i < validation_ali.size(); i++)
+    for (int32 j = 0; j < validation_ali[i].size(); j++)
+      transition_accs(validation_ali[i][j]) += 1.0;
+  BaseFloat objf_impr, count;
+  trans_model->Update(transition_accs, tcfg, &objf_impr, &count);
+  KALDI_LOG << "Transition model update: average " << (objf_impr/count)
+            << " log-like improvement per frame over " << (count)
+            << " frames.";
+}
+
+} // end namespace kaldi
+
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
@@ -45,9 +69,11 @@ int main(int argc, char *argv[]) {
     po.Register("binary", &binary_write, "Write output in binary mode");
     po.Register("zero-occs", &zero_occupancy, "Set occupation counts stored in "
                 "neural net to zero before training");
+    TransitionUpdateConfig tcfg;
                 
     basic_trainer_config.Register(&po);
     adaptive_trainer_config.Register(&po);
+    tcfg.Register(&po);
     
     po.Read(argc, argv);
 
@@ -79,9 +105,12 @@ int main(int argc, char *argv[]) {
                               validation_utt_list,
                               &train_feats, &validation_feats,
                               &train_ali, &validation_ali);
+
+    TrainTransitionModel(train_ali, validation_ali, tcfg, &trans_model);
+
     ConvertAlignmentsToPdfs(trans_model, &train_ali);
     ConvertAlignmentsToPdfs(trans_model, &validation_ali);
-
+    
     if (zero_occupancy)
       am_nnet.Nnet().ZeroOccupancy(); // We zero the stored occupancy counts before
     // each phase of training
@@ -105,6 +134,7 @@ int main(int argc, char *argv[]) {
                                  &basic_trainer, &validation_set);
     trainer.Train();
 
+    
     {
       Output ko(nnet1_wxfilename, binary_write);
       trans_model.Write(ko.Stream(), binary_write);

@@ -1,7 +1,8 @@
-// gmmbin/gmm-latgen-faster.cc
+// nnet-dpbin/nnet1-latgen-faster.cc
 
-// Copyright 2009-2012  Microsoft Corporation, Karel Vesely
- 
+// Copyright 2009-2012   Microsoft Corporation
+//                       Johns Hopkins University (author: Daniel Povey)
+
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,8 +23,9 @@
 #include "hmm/transition-model.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/lattice-faster-decoder.h"
-#include "decoder/decodable-matrix.h"
+#include "nnet-dp/decodable-am-nnet1.h"
 #include "util/timer.h"
+
 
 
 int main(int argc, char *argv[]) {
@@ -35,15 +37,15 @@ int main(int argc, char *argv[]) {
     using fst::StdArc;
 
     const char *usage =
-        "Generate lattices, reading log-likelihoods as matrices\n"
-        " (model is needed only for the integer mappings in its transition-model)\n"
-        "Usage: latgen-faster-mapped [options] trans-model-in (fst-in|fsts-rspecifier) loglikes-rspecifier"
-        " lattice-wspecifier [ words-wspecifier [alignments-wspecifier] ]\n";
+        "Generate lattices using nnet1-based model.\n"
+        "Usage: nnet1-latgen-faster [options] <nnet1-in> <fst-in|fsts-rspecifier> <features-rspecifier>"
+        " <lattice-wspecifier> [ <words-wspecifier> [<alignments-wspecifier>] ]\n";
     ParseOptions po(usage);
     Timer timer;
     bool allow_partial = false;
     BaseFloat acoustic_scale = 0.1;
     LatticeFasterDecoderConfig config;
+    bool reverse = false;
     
     std::string word_syms_filename;
     config.Register(&po);
@@ -51,6 +53,7 @@ int main(int argc, char *argv[]) {
 
     po.Register("word-symbol-table", &word_syms_filename, "Symbol table for words [for debug output]");
     po.Register("allow-partial", &allow_partial, "If true, produce output even if end state was not reached.");
+    po.Register("reverse", &reverse, "If true, decode on time-reversed features.");
     
     po.Read(argc, argv);
 
@@ -67,7 +70,13 @@ int main(int argc, char *argv[]) {
         alignment_wspecifier = po.GetOptArg(6);
     
     TransitionModel trans_model;
-    ReadKaldiObject(model_in_filename, &trans_model);
+    AmNnet1 am_nnet;
+    {
+      bool binary;
+      Input ki(model_in_filename, &binary);
+      trans_model.Read(ki.Stream(), binary);
+      am_nnet.Read(ki.Stream(), binary);
+    }
 
     bool determinize = config.determinize_lattice;
     CompactLatticeWriter compact_lattice_writer;
@@ -92,7 +101,7 @@ int main(int argc, char *argv[]) {
     int num_success = 0, num_fail = 0;
 
     if (ClassifyRspecifier(fst_in_str, NULL, NULL) == kNoRspecifier) {
-      SequentialBaseFloatMatrixReader loglike_reader(feature_rspecifier);
+      SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
       // Input FST is just one FST, not a table of FSTs.
       VectorFst<StdArc> *decode_fst = NULL;
       {
@@ -108,25 +117,23 @@ int main(int argc, char *argv[]) {
       {
         LatticeFasterDecoder decoder(*decode_fst, config);
     
-        for (; !loglike_reader.Done(); loglike_reader.Next()) {
-          std::string utt = loglike_reader.Key();
-          Matrix<BaseFloat> loglikes (loglike_reader.Value());
-          loglike_reader.FreeCurrent();
-          if (loglikes.NumRows() == 0) {
+        for (; !feature_reader.Done(); feature_reader.Next()) {
+          std::string utt = feature_reader.Key();
+          const Matrix<BaseFloat> &features (feature_reader.Value());
+          if (features.NumRows() == 0) {
             KALDI_WARN << "Zero-length utterance: " << utt;
             num_fail++;
             continue;
           }
-      
-          DecodableMatrixScaledMapped decodable(trans_model, loglikes, acoustic_scale);
-
+          DecodableAmNnet1 nnet1_decodable(trans_model, am_nnet,
+                                           features, acoustic_scale);
           double like;
           if (DecodeUtteranceLatticeFaster(
-                  decoder, decodable, word_syms, utt, acoustic_scale,
+                  decoder, nnet1_decodable, word_syms, utt, acoustic_scale,
                   determinize, allow_partial, &alignment_writer, &words_writer,
                   &compact_lattice_writer, &lattice_writer, &like)) {
             tot_like += like;
-            frame_count += loglikes.NumRows();
+            frame_count += features.NumRows();
             num_success++;
           } else num_fail++;
         }
@@ -134,30 +141,32 @@ int main(int argc, char *argv[]) {
       delete decode_fst; // delete this only after decoder goes out of scope.
     } else { // We have different FSTs for different utterances.
       SequentialTableReader<fst::VectorFstHolder> fst_reader(fst_in_str);
-      RandomAccessBaseFloatMatrixReader loglike_reader(feature_rspecifier);          
+      RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);          
       for (; !fst_reader.Done(); fst_reader.Next()) {
         std::string utt = fst_reader.Key();
-        if (!loglike_reader.HasKey(utt)) {
+        if (!feature_reader.HasKey(utt)) {
           KALDI_WARN << "Not decoding utterance " << utt
-                     << " because no loglikes available.";
+                     << " because no features available.";
           num_fail++;
           continue;
         }
-        const Matrix<BaseFloat> &loglikes = loglike_reader.Value(utt);
-        if (loglikes.NumRows() == 0) {
+        const Matrix<BaseFloat> &features = feature_reader.Value(utt);
+        if (features.NumRows() == 0) {
           KALDI_WARN << "Zero-length utterance: " << utt;
           num_fail++;
           continue;
         }
+        
         LatticeFasterDecoder decoder(fst_reader.Value(), config);
-        DecodableMatrixScaledMapped decodable(trans_model, loglikes, acoustic_scale);
+        DecodableAmNnet1 nnet1_decodable(trans_model, am_nnet,
+                                         features, acoustic_scale);
         double like;
         if (DecodeUtteranceLatticeFaster(
-                decoder, decodable, word_syms, utt, acoustic_scale,
+                decoder, nnet1_decodable, word_syms, utt, acoustic_scale,
                 determinize, allow_partial, &alignment_writer, &words_writer,
                 &compact_lattice_writer, &lattice_writer, &like)) {
           tot_like += like;
-          frame_count += loglikes.NumRows();
+          frame_count += features.NumRows();
           num_success++;
         } else num_fail++;
       }

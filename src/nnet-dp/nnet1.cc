@@ -368,6 +368,14 @@ void Nnet1::GetPriorsForCategory(int32 category,
   const Matrix<BaseFloat> &linear_params = linear_layer.Params();
   priors->Resize(linear_params.NumRows());
   priors->AddMatVec(1.0, linear_params, kNoTrans, occupancy, 0.0);
+  BaseFloat sum = priors->Sum();
+  if (sum <= 0.0) {
+    KALDI_WARN << "Total occupancy for category " << category << " is "
+               << sum;
+    priors->Set(1.0 / priors->Dim());
+  } else {
+    priors->Scale(1.0 / sum);
+  }
 }
 
 void Nnet1::AdjustLearningRates(

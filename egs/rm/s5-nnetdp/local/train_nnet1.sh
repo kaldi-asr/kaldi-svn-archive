@@ -61,6 +61,7 @@ featdim=`feat-to-dim scp:$data/feats.scp -`
 
 mkdir -p $dir/log
 
+cp $transformdir/final.mat $dir
 
 ## Set up speaker-independent features.  Expect
 ## filterbank features plus LDA+MLLT plus probably fMLLR.
@@ -85,7 +86,7 @@ if [ $stage -le -3 ]; then
     nnet1-init --layer-sizes=$featdim:$hidden_layer_size \
           --context-frames=$initial_layer_context \
           --learning-rates=0.001 \
-            $dir/tree $dir/tree.map $lang/topo $dir/1.nnet1 || exit 1;
+            $dir/tree $dir/tree.map $lang/topo $dir/1.mdl || exit 1;
 fi
 
 if [ $stage -le -1 ]; then
@@ -99,7 +100,7 @@ fi
 #
 #  echo "$0: Compiling graphs of transcripts"
 #  $cmd JOB=1:$nj $dir/log/compile_graphs.JOB.log \
-#    compile-train-graphs $dir/tree $dir/1.nnet1  $lang/L.fst  \
+#    compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst  \
 #     "ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt < $sdata/JOB/text |" \
 #      "ark:|gzip -c >$dir/fsts.JOB.gz" || exit 1;
 #fi
@@ -115,21 +116,24 @@ while [ $x -lt $num_iters ]; do
     # are sorted (cs).  It's not sorted (s) because of the way bash expansion of "*" works.
     $cmd $dir/log/train.$x.log \
       nnet1-train --verbose=3  --learning-rate-ratio=1.2 \
-       $dir/$x.nnet1 "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
-       $dir/$[$x+1].nnet1 || exit 1;
+       $dir/$x.mdl "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
+       $dir/$[$x+1].mdl || exit 1;
     # mix up.
     $cmd $dir/log/mixup.$x.log \
-      nnet1-mixup --power=$power --target-neurons=$numgauss $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1 || exit 1;
+      nnet1-mixup --power=$power --target-neurons=$numgauss $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
     if echo "$add_layer_iters" | grep -w $x; then
       echo "Adding new layer"
       $cmd $dir/log/add_layer.$x.log \
         nnet1-add-layer --left-context=1 --right-context=1 \
-          $dir/$[$x+1].nnet1 $dir/$[$x+1].nnet1
+          $dir/$[$x+1].mdl $dir/$[$x+1].mdl
     fi
   fi
   [ $x -le $max_iter_inc ] && numgauss=$[$numgauss+$incgauss];
   x=$[$x+1];
 done
+
+rm $dir/final.mdl 2>/dev/null
+ln -s $x.mdl $dir/final.mdl
 
 utils/summarize_warnings.pl $dir/log
 

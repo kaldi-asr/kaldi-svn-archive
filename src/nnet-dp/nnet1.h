@@ -257,6 +257,7 @@ class Nnet1 {
                             Vector<BaseFloat> *priors) const;
   
   friend class Nnet1Updater;
+  friend class DecodableAmNnet1;
  private:
   const Nnet1 &operator = (const Nnet1 &other);  // Disallow assignment.
   

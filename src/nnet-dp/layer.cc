@@ -80,9 +80,10 @@ void LinearLayer::Backward(
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
     LinearLayer *model_to_update) const {
-  
-  input_deriv->AddMatMat(1.0, output_deriv, kNoTrans, params_, kNoTrans, 0.0);
 
+  if (input_deriv != NULL)
+    input_deriv->AddMatMat(1.0, output_deriv, kNoTrans, params_, kNoTrans, 0.0);
+  
   if (model_to_update != NULL)
     model_to_update->Update(input, output_deriv, output);
 }

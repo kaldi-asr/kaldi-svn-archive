@@ -45,7 +45,7 @@ class AmNnet1 {
   // This maps from the leaves of the tree ("level-2 leaves") to the coarser "level-1"
   // leaves.  I.e. it's a fine-to-coarse mapping.
   
-  int32 NumPdfs() { return leaf_mapping_.size(); }
+  int32 NumPdfs() const { return leaf_mapping_.size(); }
 
   void Write(std::ostream &os, bool binary) const;
   
@@ -71,13 +71,21 @@ class AmNnet1 {
   // GetPriors() gets the prior for each pdf-id; this is derived
   // from the occupancy information stored with the neural network.
   void GetPriors(Vector<BaseFloat> *priors) const;
+
+  // FixPriors() will cause all future calls to GetPriors() to
+  // return the same value of priors_ as if it had been called now.
+  // This is useful prior to MMI training, as it makes sense
+  // to fix the priors that we divide by, before discriminatively
+  // traning.
+  void FixPriors() { GetPriors(&priors_); }
  private:
   // called from constructor and Read function; see .cc file for comments:
   void ComputeCategoryInfo(const std::vector<int32> &leaf_mapping);
 
   
   std::vector<int32> leaf_mapping_; // Maps from pdf-ids (zero-based) to
-  // a "level-one tree index", also zero-based.
+  // a "level-one tree index", also zero-based.  Could also be called
+  // pdf_to_l1_.
 
   std::vector<int32> l1_to_category_; // Maps from level-one tree index
   // to a "category-index", or -1 if it would be a singleton category.
@@ -95,6 +103,11 @@ class AmNnet1 {
 
   // category_sizes_ is the size of each category, including category zero.
   std::vector<int32> category_sizes_;
+
+  // Note: during ML training this vector will be empty.  It's used to store
+  // the priors extracted from the model, during MMI training, so they don't
+  // change after that.
+  Vector<BaseFloat> priors_;
 
   Nnet1 nnet_;
 };

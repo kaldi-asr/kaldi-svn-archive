@@ -120,7 +120,7 @@ steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
   ## supervision.
   steps/decode_fmllr.sh --si-dir exp/tri2b/decode \
     --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
-    exp/tri2b/graph data-fbank/test exp/tri4b/decode2
+    exp/tri2b/graph data-fbank/test exp/tri4b/decode
 )
 
 # Do SAT on top of the standard splice+LDA+MLLT system,
@@ -139,6 +139,13 @@ local/train_two_level_tree.sh 150 5000 data/train data/lang exp/tri3c_ali exp/tr
 
 ## Now train the neural net itself.
 local/train_nnet1.sh 10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5a_nnet
+
+utils/mkgraph.sh data/lang exp/tri5a_nnet exp/tri5a_nnet/graph
+
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5a_nnet/decode
+
 
 # I AM HERE.
 exit 0;

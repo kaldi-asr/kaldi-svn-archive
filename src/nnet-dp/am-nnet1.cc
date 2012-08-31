@@ -139,9 +139,31 @@ void AmNnet1::GetFinalLayerSets(std::vector<std::vector<int32> > *sets) {
 // Get a vector of priors indexed by pdf-id; this is derived from
 // the "occupancy" data members stored in the softmax layers.
 void AmNnet1::GetPriors(Vector<BaseFloat> *priors) const {
-  int32 num_pdfs = leaf_mapping_.size();
+  if (priors_.Dim() != 0) { // Someone has called FixPriors() before now.
+    // E.g. we've started doing MMI training.
+    *priors = priors_;
+    return;
+  }
+  int32 num_pdfs = leaf_mapping_.size(),
+      num_categories = nnet_.NumCategories(); // <= number of
+  // l1 indexes + 1.
+  std::vector<Vector<BaseFloat> > priors_for_category(num_categories); // zeroth
+  // element will be empty.
+  for (int32 category = 0; category < num_categories; category++)
+    nnet_.GetPriorsForCategory(category, &priors_for_category[category]);
   priors->Resize(num_pdfs);
-  
+  Vector<BaseFloat> &l1_prior = priors_for_category[0];
+  for (int32 pdf_id = 0; pdf_id < num_pdfs; pdf_id++) {
+    int32 l1 = leaf_mapping_[pdf_id],
+        category = l1_to_category_[l1],
+        sub_index = pdf_to_sub_index_[pdf_id];
+    BaseFloat prior_in_sub_tree;
+    if (category == -1) prior_in_sub_tree = 1.0; // singleton sub-tree.
+    else prior_in_sub_tree = priors_for_category[category](sub_index);
+    (*priors)(pdf_id) = l1_prior(l1) * prior_in_sub_tree;
+  }
+  KALDI_ASSERT(fabs(1.0 - priors->Sum()) < 0.01);
 }
+
 
 } // namespace kaldi
