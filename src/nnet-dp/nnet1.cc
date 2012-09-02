@@ -464,14 +464,12 @@ void Nnet1::AdjustLearningRates(
 }
 
 
-void Nnet1::AddTanhLayer(int32 num_nodes,
-                         int32 left_context,
+void Nnet1::AddTanhLayer(int32 left_context,
                          int32 right_context,
                          BaseFloat learning_rate) {
   KALDI_ASSERT(!initial_layers_.empty());
   KALDI_ASSERT(learning_rate > 0 && left_context >= 0 && right_context >= 0);
-  int32 output_size = (num_nodes > 0 ? num_nodes :
-                       initial_layers_.back().tanh_layer->OutputDim());
+  int32 output_size = initial_layers_.back().tanh_layer->OutputDim();
   int32 input_size = (1 + left_context + right_context) *
       initial_layers_.back().tanh_layer->OutputDim() + 1; // + 1 for bias.
   InitialLayerInfo new_info;

@@ -14,12 +14,12 @@ cmd=run.pl
 add_layer_iters=""  # e.g. --add-layer-iters "3 6 10"
 num_iters=35   # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
-power=0.2 # Exponent for number of gaussians according to occurrence counts
 hidden_layer_size=500
 power=0.333 # Power when mixing up... should be more than
   # for GMMs; relates to need for more Gaussians at top level
 initial_layer_context=2,2
-hidden_layer_context=1,1
+left_context=1  # for extra hidden layers.
+right_context=1  # for extra hidden layers.
 num_valid_utts=200
 # End configuration section.
 
@@ -45,7 +45,7 @@ dir=$6
 
 for f in $data/feats.scp $lang/phones.txt $tree_and_ali_dir/ali.1.gz \
       $tree_and_ali_dir/tree $tree_and_ali_dir/tree.map \
-      $transformdir/final.mat $transformdir/trans.1; do
+      $transformdir/final.mat; do
   [ ! -f $f ] && echo "train_nnet1.sh: no such file $f" && exit 1;
 done
 
@@ -115,7 +115,7 @@ while [ $x -lt $num_iters ]; do
     # o,cs below means we'll use each alignment only once (o), and the features
     # are sorted (cs).  It's not sorted (s) because of the way bash expansion of "*" works.
     $cmd $dir/log/train.$x.log \
-      nnet1-train --verbose=3  --learning-rate-ratio=1.2 \
+      nnet1-train --srand=$x --verbose=3  --learning-rate-ratio=1.2 \
        $dir/$x.mdl "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
        $dir/$[$x+1].mdl || exit 1;
     # mix up.
@@ -124,7 +124,7 @@ while [ $x -lt $num_iters ]; do
     if echo "$add_layer_iters" | grep -w $x; then
       echo "Adding new layer"
       $cmd $dir/log/add_layer.$x.log \
-        nnet1-add-layer --left-context=1 --right-context=1 \
+        nnet1-add-layer --left-context=$left_context --right-context=$right_context \
           $dir/$[$x+1].mdl $dir/$[$x+1].mdl
     fi
   fi

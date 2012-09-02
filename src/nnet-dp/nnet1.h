@@ -184,10 +184,9 @@ class Nnet1 {
 
   ~Nnet1() { Destroy(); }
 
-  // Add a new tanh layer (hidden layer).  If num_nodes > 0, specifies
-  // the num nodes; otherwise, use #nodes of top hidden layer.
-  // The new layer will have zero-valued parameters
-  void AddTanhLayer(int32 num_nodes, int32 left_context, int32 right_context,
+  // Add a new tanh layer (hidden layer).  
+  // Use #nodes of top hidden layer.  The new layer will have zero-valued parameters
+  void AddTanhLayer(int32 left_context, int32 right_context,
                     BaseFloat learning_rate);
 
   std::string Info() const; // some human-readable summary info.

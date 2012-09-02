@@ -1,0 +1,1 @@
+../../../rm/s5-nnetdp/local/train_sat_notree.sh

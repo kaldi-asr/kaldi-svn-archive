@@ -59,14 +59,14 @@ void DecodableAmNnet1::ForwardInitialLayers(
   for (int32 layer = 0; layer < num_tanh_layers; layer++) {
     const TanhLayer *tanh_layer = nnet.initial_layers_[layer].tanh_layer;
     Matrix<BaseFloat> spliced_input(prev_layer_output.NumRows() -
-                                    nnet.LeftContextForLayer(0) -
-                                    nnet.RightContextForLayer(0),
+                                    nnet.LeftContextForLayer(layer) -
+                                    nnet.RightContextForLayer(layer),
                                     tanh_layer->InputDim());
     SpliceFrames(prev_layer_output, num_chunks, &spliced_input);
     prev_layer_output.Resize(spliced_input.NumRows(),
                              tanh_layer->OutputDim() +
                              (layer == num_tanh_layers-1 ? 1 : 0));
-    if (layer == num_tanh_layers-1) {// append the unit element, since we won't
+    if (layer == num_tanh_layers-1) {  // append the unit element, since we won't
       // splice [the splicing code does this]..
       for (int32 i = 0; i < prev_layer_output.NumRows(); i++)
         prev_layer_output(i, prev_layer_output.NumCols()-1) = 1.0;

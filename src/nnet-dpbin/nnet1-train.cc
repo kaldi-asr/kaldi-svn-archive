@@ -62,11 +62,13 @@ int main(int argc, char *argv[]) {
         
     bool binary_write = true;
     bool zero_occupancy = true;
+    int32 srand_seed = 0;
     Nnet1AdaptiveTrainerConfig adaptive_trainer_config;
     Nnet1BasicTrainerConfig basic_trainer_config;
     
     ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
+    po.Register("srand", &srand_seed, "Seed for random number generator (used to pick data order)");
     po.Register("zero-occs", &zero_occupancy, "Set occupation counts stored in "
                 "neural net to zero before training");
     TransitionUpdateConfig tcfg;
@@ -76,7 +78,8 @@ int main(int argc, char *argv[]) {
     tcfg.Register(&po);
     
     po.Read(argc, argv);
-
+    srand(srand_seed);
+    
     if (po.NumArgs() != 5) {
       po.PrintUsage();
       exit(1);

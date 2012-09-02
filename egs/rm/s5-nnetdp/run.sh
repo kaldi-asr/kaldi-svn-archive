@@ -75,18 +75,6 @@ steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 steps/align_si.sh --nj 8 --cmd "$train_cmd" \
   --use-graphs true data/train data/lang exp/tri1 exp/tri1_ali || exit 1;
 
-<<<<<<< .working
-=======
-# train tri2a [delta+delta-deltas]
-steps/train_deltas.sh --cmd "$train_cmd" 1800 9000 \
- data/train data/lang exp/tri1_ali exp/tri2a || exit 1;
-
-# decode tri2a
-utils/mkgraph.sh data/lang exp/tri2a exp/tri2a/graph
-steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
-  exp/tri2a/graph data/test exp/tri2a/decode
-
->>>>>>> .merge-right.r1321
 # train and decode tri2b [LDA+MLLT]
 steps/train_lda_mllt.sh --cmd "$train_cmd" \
   --splice-opts "--left-context=3 --right-context=3" \
@@ -109,7 +97,7 @@ steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
 
   local/train_lda_mllt_notree.sh --cmd "$train_cmd" --dim $featdim \
     --splice-opts "--left-context=0 --right-context=0" \
-    --realign-iters "" 1800 9000 data-fbank/train data/lang exp/tri2b_ali exp/tri3b
+    --realign-iters "" 9000 data-fbank/train data/lang exp/tri2b_ali exp/tri3b
 
   steps/decode.sh --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
     exp/tri2b/graph data-fbank/test exp/tri3b/decode
@@ -120,9 +108,6 @@ steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
   ## system.
   local/train_sat_notree.sh --cmd "$train_cmd" \
     --realign-iters "" 9000 data-fbank/train data/lang exp/tri3b exp/tri4b
-
-  steps/decode_fmllr.sh --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
-    exp/tri2b/graph data-fbank/test exp/tri4b/decode
 
   ## Decode the test data with this system (will need it for nnet testing,
   ## for the transforms.)
@@ -138,7 +123,7 @@ steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
 # for the neural nset system.
 steps/train_sat.sh 1800 9000 data/train data/lang exp/tri2b_ali exp/tri3c
 
-# Align all data with LDA+MLLT+SAT system (tri3b)
+# Align all data with LDA+MLLT+SAT system (tri3c)
 steps/align_fmllr.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
   data/train data/lang exp/tri3c exp/tri3c_ali || exit 1;
 
@@ -156,9 +141,67 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
   --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5a_nnet/decode
 
+# add --max-iter-inc 10 to the below, when ready.
 local/train_nnet1.sh --add-layer-iters "5 10" --num-iters 15 \
   10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5b_nnet
 
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+   --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5b_nnet/decode
+
+local/train_nnet1.sh --add-layer-iters "3 5" --num-iters 8 \
+  --max-iter-inc 6 --left-context 0 --right-context 0 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5c_nnet
+
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+   --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5c_nnet/decode
+
+local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+  --max-iter-inc 6 --left-context 0 --right-context 0 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5d_nnet
+
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5d_nnet/decode
+
+local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+  --max-iter-inc 6 --left-context 0 --right-context 0 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5e_nnet
+
+ # Caution: d and e seem to be the same.
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5e_nnet/decode
+
+local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+  --max-iter-inc 6 --hidden-layer-size 350 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5f_nnet
+
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5f_nnet/decode
+
+local/train_nnet1.sh --initial-layer-context "8,8" --add-layer-iters "3 5" --num-iters 8 \
+  --max-iter-inc 6 --hidden-layer-size 350 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5g_nnet
+
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5g_nnet/decode
+
+ mkdir exp/tri4b_nofmllr
+ cp exp/tri4b/final.mat exp/tri4b_nofmllr # Give this dir to the script, it will train
+ # without SAT.
+
+ # Train like 5d but without SAT.
+ local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+   --max-iter-inc 6 --left-context 0 --right-context 0 \
+   10000 data-fbank/train data/lang exp/tri4b_nofmllr exp/tri4a_tree exp/tri5d_nnet_nofmllr
+
+  local/decode_nnet1.sh \
+    --config conf/decode.config --nj 20 \
+    --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5d_nnet_nofmllr/decode
 # I AM HERE.
 exit 0;
 

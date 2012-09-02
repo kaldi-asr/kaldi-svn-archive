@@ -32,13 +32,11 @@ int main(int argc, char *argv[]) {
         " nnet1-add-layer 1.nnet1 2.nnet2\n";
         
     bool binary_write = true;
-    int32 num_nodes = -1, left_context = 0, right_context = 0;
+    int32 left_context = 0, right_context = 0;
     BaseFloat learning_rate = 0.0001;
     
     ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
-    po.Register("num-nodes", &num_nodes, "Number of units in new layer (if <= 0, use "
-                "#units in top tanh layer");
     po.Register("left-context", &left_context,
                 "Number of frames of left context for the new layer");
     po.Register("right-context", &right_context,
@@ -65,7 +63,7 @@ int main(int argc, char *argv[]) {
       am_nnet.Read(ki.Stream(), binary_read);
     }
 
-    am_nnet.Nnet().AddTanhLayer(num_nodes, left_context, right_context,
+    am_nnet.Nnet().AddTanhLayer(left_context, right_context,
                                 learning_rate);
     
     {

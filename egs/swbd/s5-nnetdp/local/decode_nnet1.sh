@@ -1,0 +1,1 @@
+../../../rm/s5-nnetdp/local/decode_nnet1.sh
