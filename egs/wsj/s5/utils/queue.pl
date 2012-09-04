@@ -18,11 +18,19 @@ for ($x = 1; $x <= 3; $x++) { # This for-loop is to
   # options to qsub.
   while (@ARGV >= 2 && $ARGV[0] =~ m:^-:) {
     $switch = shift @ARGV;
-    $option = shift @ARGV;
-    if ($switch eq "-sync" && $option =~ m/^[yY]/) {
-      $sync = 1;
+    if ($switch eq "-V") {
+      $qsub_opts .= "-V ";
+    } else {
+      $option = shift @ARGV;
+      if ($switch eq "-sync" && $option =~ m/^[yY]/) {
+        $sync = 1;
+      }
+      $qsub_opts .= "$switch $option ";
+      if ($switch eq "-pe") { # e.g. -pe smp 5
+        $option2 = shift @ARGV;
+        $qsub_opts .= "$option2 ";
+      }
     }
-    $qsub_opts .= "$switch $option ";
   }
   if ($ARGV[0] =~ m/^([\w_][\w\d_]*)+=(\d+):(\d+)$/) {
     $jobname = $1;
