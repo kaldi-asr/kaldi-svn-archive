@@ -20,6 +20,7 @@
 #include "nnet-dp/am-nnet1.h"
 #include "nnet-dp/nnet1-utils.h"
 #include "nnet-dp/train-nnet1.h"
+#include "thread/kaldi-thread.h"
 
 namespace kaldi {
 
@@ -71,6 +72,8 @@ int main(int argc, char *argv[]) {
     po.Register("srand", &srand_seed, "Seed for random number generator (used to pick data order)");
     po.Register("zero-occs", &zero_occupancy, "Set occupation counts stored in "
                 "neural net to zero before training");
+    po.Register("num-threads", &g_num_threads, "Number of threads to use in "
+                "weight update and normalizer computation");
     TransitionUpdateConfig tcfg;
                 
     basic_trainer_config.Register(&po);

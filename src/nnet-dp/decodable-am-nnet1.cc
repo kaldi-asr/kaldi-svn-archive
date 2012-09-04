@@ -103,7 +103,7 @@ void DecodableAmNnet1::ForwardInitialLayers(
 BaseFloat DecodableAmNnet1::LogLikelihood(int32 frame,
                                           int32 transition_id) {
   int32 pdf_id = trans_model_.TransitionIdToPdf(transition_id);  
-  KALDI_ASSERT(frame >= 0.0 && frame < NumFrames());
+  KALDI_ASSERT(frame >= 0 && frame < NumFrames());
   const Nnet1 &nnet = am_nnet_.Nnet();
   if (frame != cur_frame_) { // invalidate other_category_outputs_.
     cur_frame_ = frame;

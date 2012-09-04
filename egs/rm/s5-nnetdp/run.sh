@@ -132,6 +132,9 @@ steps/align_fmllr.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
 
 local/train_two_level_tree.sh 150 5000 data/train data/lang exp/tri3c_ali exp/tri4a_tree
 
+# smaller version of the tree.
+local/train_two_level_tree.sh 150 2000 data/train data/lang exp/tri3c_ali exp/tri4b_tree
+
 ## Now train the neural net itself.
 local/train_nnet1.sh 10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5a_nnet
 
@@ -149,7 +152,7 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
    --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5b_nnet/decode
 
-local/train_nnet1.sh --add-layer-iters "3 5" --num-iters 8 \
+local/train_nnet1.sh --add-layer-iters "3 5" --num-iters 9 \
   --max-iter-inc 6 --left-context 0 --right-context 0 \
   10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5c_nnet
 
@@ -157,7 +160,7 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
    --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5c_nnet/decode
 
-local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 9 \
   --max-iter-inc 6 --left-context 0 --right-context 0 \
   10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5d_nnet
 
@@ -165,7 +168,7 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
   --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5d_nnet/decode
 
-local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 9 \
   --max-iter-inc 6 --left-context 0 --right-context 0 \
   10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5e_nnet
 
@@ -174,7 +177,7 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
   --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5e_nnet/decode
 
-local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 8 \
+local/train_nnet1.sh --initial-layer-context "4,4" --add-layer-iters "3 5" --num-iters 9 \
   --max-iter-inc 6 --hidden-layer-size 350 \
   10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5f_nnet
 
@@ -182,13 +185,57 @@ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
   --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5f_nnet/decode
 
-local/train_nnet1.sh --initial-layer-context "8,8" --add-layer-iters "3 5" --num-iters 8 \
+local/train_nnet1.sh --initial-layer-context "8,8" --add-layer-iters "3 5" --num-iters 9 \
   --max-iter-inc 6 --hidden-layer-size 350 \
   10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5g_nnet
 
 local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
   --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5g_nnet/decode
+
+local/train_nnet1.sh --initial-layer-context "4,4"  --num-iters 9 \
+  --chunk-size 1 --num-chunks 1000 --num-minibatches 500 --num-phases 10 \
+  --max-iter-inc 6 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5h_nnet
+
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5h_nnet/decode
+
+
+# 5h2 is as 5h but newer code, with shrinkage.
+local/train_nnet1.sh --initial-layer-context "4,4"  --num-iters 9 \
+  --chunk-size 1 --num-chunks 1000 --num-minibatches 500 --num-phases 10 \
+  --max-iter-inc 6 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5h2_nnet
+
+iter=7
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --iter $iter --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5h2_nnet/decode_it$iter
+
+# 5i is as 5h2, but using a smaller tree and also fewer mixture components.
+local/train_nnet1.sh --initial-layer-context "4,4"  --num-iters 9 \
+  --chunk-size 1 --num-chunks 1000 --num-minibatches 500 --num-phases 10 \
+  --max-iter-inc 6 \
+  5000 data-fbank/train data/lang exp/tri4b exp/tri4b_tree exp/tri5i_nnet
+
+utils/mkgraph.sh data/lang exp/tri5i_nnet exp/tri5i_nnet/graph
+
+iter=7
+local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+  --iter $iter --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5i_nnet/graph data-fbank/test exp/tri5i_nnet/decode_it$iter
+
+# 5j is as 5h, but adding another layer (with no context)
+local/train_nnet1.sh --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4"
+  --initial-layer-context "4,4"  --num-iters 9 \
+  --chunk-size 1 --num-chunks 1000 --num-minibatches 500 --num-phases 10 \
+  --max-iter-inc 6 \
+  --add-layer-iters "4" --left-context 0 --right-context 0 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5j_nnet
+
+
 
  mkdir exp/tri4b_nofmllr
  cp exp/tri4b/final.mat exp/tri4b_nofmllr # Give this dir to the script, it will train

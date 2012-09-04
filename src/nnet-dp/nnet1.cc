@@ -26,6 +26,7 @@ namespace kaldi {
 Nnet1InitInfo::Nnet1InitInfo(const Nnet1InitConfig &config,
                              const std::vector<int32> &category_sizes_in) {
   diagonal_element = config.diagonal_element;
+  shrinkage_rate = config.shrinkage_rate;
   SplitStringToIntegers(config.layer_sizes, ":", false, &layer_sizes);
   if (layer_sizes.size() < 2 ||
       *std::min_element(layer_sizes.begin(), layer_sizes.end()) < 1)
@@ -80,6 +81,7 @@ void Nnet1::Init(const Nnet1InitInfo &info) {
     layer_info.tanh_layer = new TanhLayer(real_input_dim,
                                           output_dim,
                                           info.learning_rates[i],
+                                          info.shrinkage_rate,
                                           1.0 / sqrt(real_input_dim));
   }
   // Now the final layers.
@@ -90,9 +92,11 @@ void Nnet1::Init(const Nnet1InitInfo &info) {
        category++) {
     int32 category_size = info.category_sizes[category];
     final_layers_[category].softmax_layer = new SoftmaxLayer(
-        final_layer_input, category_size, info.learning_rates[n]);
+        final_layer_input, category_size, info.learning_rates[n],
+        info.shrinkage_rate);
     final_layers_[category].linear_layer = new LinearLayer(
-        category_size, info.diagonal_element, info.learning_rates[n]);
+        category_size, info.diagonal_element, info.learning_rates[n],
+        info.shrinkage_rate);
   }
 }
 
@@ -289,12 +293,16 @@ void Nnet1::SetZeroAndTreatAsGradient() {
   for (int32 i = 0; i < initial_layers_.size(); i++) {
     initial_layers_[i].tanh_layer->SetZero();
     initial_layers_[i].tanh_layer->SetLearningRate(1.0);
+    initial_layers_[i].tanh_layer->SetShrinkageRate(0.0);
   }
   for (int32 i = 0; i < final_layers_.size(); i++) {
     final_layers_[i].softmax_layer->SetZero();
     final_layers_[i].softmax_layer->SetLearningRate(1.0);
+    final_layers_[i].softmax_layer->SetShrinkageRate(0.0);
     final_layers_[i].linear_layer->SetZero();
+    final_layers_[i].linear_layer->MakeGradient();
     final_layers_[i].linear_layer->SetLearningRate(1.0);
+    final_layers_[i].linear_layer->SetShrinkageRate(0.0);
   }
 }
 
@@ -378,87 +386,89 @@ void Nnet1::GetPriorsForCategory(int32 category,
   }
 }
 
-void Nnet1::AdjustLearningRates(
-    const Nnet1ProgressInfo &info, // this info is the dot prod of
-    // the validation-set gradient *after* the step, with the delta
-    // of parameters.
-    BaseFloat ratio, // e.g. ratio = 1.1.
-    BaseFloat max_lrate) { 
-  KALDI_ASSERT(info.tanh_dot_prod.size() ==
-               initial_layers_.size());
-  BaseFloat inv_ratio = 1.0 / ratio;
-  for (int32 i = 0; i < initial_layers_.size(); i++) {
-    GenericLayer *layer = initial_layers_[i].tanh_layer;
-    layer->SetLearningRateMax((info.tanh_dot_prod[i] > 0 ?
-                               ratio : inv_ratio)
-                              * layer->GetLearningRate(), max_lrate);
-  }
-  KALDI_ASSERT(info.softmax_dot_prod.size() ==
-               final_layers_.size());
-  for (int32 i = 0; i < final_layers_.size(); i++) {
-    GenericLayer *layer = final_layers_[i].softmax_layer;
-    layer->SetLearningRateMax((info.softmax_dot_prod[i] > 0 ?
-                               ratio : inv_ratio)
-                              * layer->GetLearningRate(), max_lrate);
-    layer = final_layers_[i].linear_layer;
-    layer->SetLearningRateMax((info.linear_dot_prod[i] > 0 ?
-                               ratio : inv_ratio)
-                              * layer->GetLearningRate(), max_lrate);
-  }
-}
-
-void Nnet1::AdjustLearningRates(
-    const Nnet1ProgressInfo &info, // this info is the dot prod of
-    // the validation-set gradient *after* the step, with the delta
-    // of parameters.
+void Nnet1::AdjustLearningAndShrinkageRates(
+    const Nnet1ProgressInfo &start_dotprod, // dot-prod of param@start with valid-grad@end
+    const Nnet1ProgressInfo &end_dotprod, // dot-prod of param@end with valid-grad@end
     const std::vector<std::vector<int32> > &final_layer_sets,
-    BaseFloat ratio, // e.g. ratio = 1.1.
-    BaseFloat max_lrate) {
-  KALDI_ASSERT(info.tanh_dot_prod.size() ==
+    BaseFloat ratio, // e.g. ratio = 1.2.
+    BaseFloat max_lrate,
+    BaseFloat min_srate,
+    BaseFloat max_srate) {
+    
+  KALDI_ASSERT(start_dotprod.tanh_dot_prod.size() ==
                initial_layers_.size());
   BaseFloat inv_ratio = 1.0 / ratio;
   for (int32 i = 0; i < initial_layers_.size(); i++) {
     GenericLayer *layer = initial_layers_[i].tanh_layer;
-    layer->SetLearningRateMax((info.tanh_dot_prod[i] > 0 ?
-                               ratio : inv_ratio)
-                              * layer->GetLearningRate(), max_lrate);
+    BaseFloat this_end_dotprod = end_dotprod.tanh_dot_prod[i],
+        grad_dotprod = this_end_dotprod - start_dotprod.tanh_dot_prod[i]; // Will be positive if
+    // we want more of the gradient term -> faster learning rate for this layer.
+
+    BaseFloat lrate = layer->GetLearningRate(),
+        srate = layer->GetShrinkageRate();
+    lrate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+    srate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+    srate *= (this_end_dotprod > 0 ? inv_ratio : ratio);
+    if (lrate > max_lrate) lrate = max_lrate;
+    if (srate > max_srate) srate = max_srate;
+    if (srate < min_srate) srate = min_srate;
+    
+    layer->SetLearningRate(lrate);
+    layer->SetShrinkageRate(srate);
   }
-  KALDI_ASSERT(info.softmax_dot_prod.size() ==
+  KALDI_ASSERT(start_dotprod.softmax_dot_prod.size() ==
                final_layers_.size());
   for (int32 i = 0; i < final_layer_sets.size(); i++) {
-    BaseFloat total_dot_prod = 0.0;
+    BaseFloat this_start_dotprod = 0.0, this_end_dotprod = 0.0;
     KALDI_ASSERT(final_layer_sets[i].size() > 0);
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
-      total_dot_prod += info.softmax_dot_prod[idx];
+      this_start_dotprod += start_dotprod.softmax_dot_prod[idx];
+      this_end_dotprod += end_dotprod.softmax_dot_prod[idx];
     }
-    BaseFloat learning_rate_ratio = (total_dot_prod > 0 ?
-                                     ratio : inv_ratio);
+    BaseFloat grad_dotprod = this_end_dotprod - this_start_dotprod;
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       GenericLayer *layer = final_layers_[idx].softmax_layer;
-      layer->SetLearningRateMax(learning_rate_ratio
-                                * layer->GetLearningRate(), max_lrate);
+      BaseFloat lrate = layer->GetLearningRate(),
+          srate = layer->GetShrinkageRate();
+      lrate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+      srate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+      srate *= (this_end_dotprod > 0 ? inv_ratio : ratio);
+      if (lrate > max_lrate) lrate = max_lrate;
+      if (srate > max_srate) srate = max_srate;
+      if (srate < min_srate) srate = min_srate;
+      layer->SetLearningRate(lrate);
+      layer->SetShrinkageRate(srate);
     }
   }
-  KALDI_ASSERT(info.linear_dot_prod.size() ==
+
+  KALDI_ASSERT(start_dotprod.linear_dot_prod.size() ==
                final_layers_.size());
   for (int32 i = 0; i < final_layer_sets.size(); i++) {
-    BaseFloat total_dot_prod = 0.0;
+    BaseFloat this_start_dotprod = 0.0, this_end_dotprod = 0.0;
     KALDI_ASSERT(final_layer_sets[i].size() > 0);
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
-      total_dot_prod += info.linear_dot_prod[idx];
+      this_start_dotprod += start_dotprod.linear_dot_prod[idx];
+      this_end_dotprod += end_dotprod.linear_dot_prod[idx];
     }
-    BaseFloat learning_rate_ratio = (total_dot_prod > 0 ?
-                                     ratio : inv_ratio);
+    BaseFloat grad_dotprod = this_end_dotprod - this_start_dotprod;
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       GenericLayer *layer = final_layers_[idx].linear_layer;
-      layer->SetLearningRateMax(learning_rate_ratio
-                                * layer->GetLearningRate(), max_lrate);
+      BaseFloat lrate = layer->GetLearningRate(),
+          srate = layer->GetShrinkageRate();
+      lrate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+      srate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+      srate *= (this_end_dotprod > 0 ? inv_ratio : ratio);
+      if (lrate > max_lrate) lrate = max_lrate;
+      if (srate > max_srate) srate = max_srate;
+      if (srate < min_srate) srate = min_srate;
+      layer->SetLearningRate(lrate);
+      layer->SetShrinkageRate(srate);
     }
   }
 }
@@ -469,14 +479,16 @@ void Nnet1::AddTanhLayer(int32 left_context,
                          BaseFloat learning_rate) {
   KALDI_ASSERT(!initial_layers_.empty());
   KALDI_ASSERT(learning_rate > 0 && left_context >= 0 && right_context >= 0);
-  int32 output_size = initial_layers_.back().tanh_layer->OutputDim();
+  const TanhLayer &last_layer = *(initial_layers_.back().tanh_layer);
+  int32 output_size = last_layer.OutputDim();
   int32 input_size = (1 + left_context + right_context) *
-      initial_layers_.back().tanh_layer->OutputDim() + 1; // + 1 for bias.
+      last_layer.OutputDim() + 1; // + 1 for bias.
   InitialLayerInfo new_info;
   new_info.left_context = left_context;
   new_info.right_context = right_context;
   BaseFloat parameter_stddev = 0.0; // Initialize the parameters to zero.
   new_info.tanh_layer = new TanhLayer(input_size, output_size, learning_rate,
+                                      last_layer.GetShrinkageRate(),
                                       parameter_stddev);
   initial_layers_.push_back(new_info);
 }
@@ -529,6 +541,37 @@ std::string Nnet1::LrateInfo(
   return os.str();
 }
 
+std::string Nnet1::SrateInfo(
+    const std::vector<std::vector<int32> > &final_sets) const {
+  std::ostringstream os;
+  os << "tanh: ";
+  for (int32 i = 0; i < initial_layers_.size(); i++)
+    os << initial_layers_[i].tanh_layer->GetShrinkageRate() << ' ';
+  os << ", softmax [per set]: ";
+  for (int32 i = 0; i < final_sets.size(); i++) {
+    double sum = 0.0;
+    for (int32 j = 0; j < final_sets[i].size(); j++) {
+      int32 idx = final_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
+      sum += final_layers_[idx].softmax_layer->GetShrinkageRate();
+    }
+    double avg = sum / final_sets[i].size();
+    os << avg << " ";
+  }
+  os << ", linear [per set]: ";
+  for (int32 i = 0; i < final_sets.size(); i++) {
+    double sum = 0.0;
+   for (int32 j = 0; j < final_sets[i].size(); j++) {
+      int32 idx = final_sets[i][j];
+      KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
+      sum += final_layers_[idx].linear_layer->GetShrinkageRate();
+   }
+    double avg = sum / final_sets[i].size();
+    os << avg << " ";
+  }
+  return os.str();
+}
+
 
 std::string Nnet1::Info(
     const std::vector<std::vector<int32> > &final_layer_sets) const {
@@ -552,36 +595,42 @@ std::string Nnet1::Info(
 
   for (int32 i = 0; i < final_layer_sets.size(); i++) {
     os << i << "'th set of softmax layers: ";
-    BaseFloat sum_lrate = 0.0, sumsq_parameters = 0.0;
+    BaseFloat sum_lrate = 0.0, sumsq_parameters = 0.0, sum_srate = 0.0;
     int32 tot_parameters = 0;
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       SoftmaxLayer *layer = final_layers_[idx].softmax_layer;
       sum_lrate += layer->GetLearningRate();
+      sum_srate += layer->GetShrinkageRate();
       const Matrix<BaseFloat> &params = layer->Params();
       sumsq_parameters += pow(params.FrobeniusNorm(), 2.0);
       tot_parameters += params.NumRows() * params.NumCols();
     }
     BaseFloat avg_lrate = sum_lrate / final_layer_sets[i].size(),
+        avg_srate = sum_srate / final_layer_sets[i].size(),
         param_stddev = std::sqrt(sumsq_parameters / tot_parameters);
-    os << "lrate=" << avg_lrate << ", param-stddev=" << param_stddev << std::endl;
+    os << "lrate=" << avg_lrate << ", srate=" << avg_srate
+       << ", param-stddev=" << param_stddev << std::endl;
   }
   
   for (int32 i = 0; i < final_layer_sets.size(); i++) {
     os << i << "'th set of linear layers: ";
-    BaseFloat sum_lrate = 0.0, sumsq_parameters = 0.0;
+    BaseFloat sum_lrate = 0.0, sumsq_parameters = 0.0, sum_srate = 0.0;
     int32 tot_parameters = 0;
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       LinearLayer *layer = final_layers_[idx].linear_layer;
       sum_lrate += layer->GetLearningRate();
+      sum_srate += layer->GetShrinkageRate();
       const Matrix<BaseFloat> &params = layer->Params();
       sumsq_parameters += pow(params.FrobeniusNorm(), 2.0);
       tot_parameters += params.NumRows() * params.NumCols();
     }
     BaseFloat avg_lrate = sum_lrate / final_layer_sets[i].size(),
+        avg_srate = sum_srate / final_layer_sets[i].size(),        
         param_stddev = std::sqrt(sumsq_parameters / tot_parameters);
-    os << "lrate=" << avg_lrate << ", param-stddev=" << param_stddev << std::endl;
+    os << "lrate=" << avg_lrate << ", srate=" << avg_srate
+       << ", param-stddev=" << param_stddev << std::endl;
   }
   return os.str();
 }
@@ -615,67 +664,56 @@ std::string Nnet1::Info() const {
   return os.str();
 }
 
-void Nnet1::ComputeProgressInfo(
-    const Nnet1 &previous_value,
+
+void Nnet1::ComputeDotProduct(
     const Nnet1 &valid_gradient,
     Nnet1ProgressInfo *info) const {
-  const Nnet1 &current_value = *this;
   info->tanh_dot_prod.resize(initial_layers_.size());
-  for (int32 layer = 0; layer < initial_layers_.size(); layer++) {
+  for (int32 layer = 0; layer < initial_layers_.size(); layer++)
     info->tanh_dot_prod[layer] =
-        TraceMatMat(current_value.initial_layers_[layer].tanh_layer->Params(),
-                    valid_gradient.initial_layers_[layer].tanh_layer->Params(),
-                    kTrans) -
-        TraceMatMat(previous_value.initial_layers_[layer].tanh_layer->Params(),
+        TraceMatMat(initial_layers_[layer].tanh_layer->Params(),
                     valid_gradient.initial_layers_[layer].tanh_layer->Params(),
                     kTrans);
-  }
   info->softmax_dot_prod.resize(final_layers_.size());
   info->linear_dot_prod.resize(final_layers_.size());  
   for (int32 layer = 0; layer < final_layers_.size(); layer++) {
     info->softmax_dot_prod[layer] =
-        TraceMatMat(current_value.final_layers_[layer].softmax_layer->Params(),
-                    valid_gradient.final_layers_[layer].softmax_layer->Params(),
-                    kTrans) -
-        TraceMatMat(previous_value.final_layers_[layer].softmax_layer->Params(),
+        TraceMatMat(final_layers_[layer].softmax_layer->Params(),
                     valid_gradient.final_layers_[layer].softmax_layer->Params(),
                     kTrans);
     info->linear_dot_prod[layer] =
-        TraceMatMat(current_value.final_layers_[layer].linear_layer->Params(),
-                    valid_gradient.final_layers_[layer].linear_layer->Params(),
-                    kTrans) -
-        TraceMatMat(previous_value.final_layers_[layer].linear_layer->Params(),
+        TraceMatMat(final_layers_[layer].linear_layer->Params(),
                     valid_gradient.final_layers_[layer].linear_layer->Params(),
                     kTrans);
   }
 }
 
-void UpdateProgressStats(const Nnet1ProgressInfo &progress_at_start,
-                         const Nnet1ProgressInfo &progress_at_end,
-                         Nnet1ProgressInfo *stats) {
-  // make sure stats has correct size.
-  stats->tanh_dot_prod.resize(progress_at_start.tanh_dot_prod.size(), 0.0);
-  stats->softmax_dot_prod.resize(progress_at_start.softmax_dot_prod.size(), 0.0);
-  stats->linear_dot_prod.resize(progress_at_start.linear_dot_prod.size(), 0.0);
-  
-  // Now update stats->  progress_at_start mean respectively:
-  // (parameter-delta) . validation_gradient_before_change
-  // and
-  // (parameter-delta) . validation_gradient_after_change
-  // If we have a quadratic model of the objective function, the
-  // increase in the objective function attributed to each of the layers
-  // is just 0.5 * (progress_at_start + progress_at_end).
-  for (int32 i = 0; i < stats->tanh_dot_prod.size(); i++) {
-    stats->tanh_dot_prod[i] += 0.5 * (progress_at_start.tanh_dot_prod[i] +
-                                      progress_at_end.tanh_dot_prod[i]);
+void Nnet1ProgressInfo::Add(const Nnet1ProgressInfo &other, BaseFloat scale) {
+  if (tanh_dot_prod.empty()) {
+    tanh_dot_prod.resize(other.tanh_dot_prod.size(), 0.0);
+    softmax_dot_prod.resize(other.softmax_dot_prod.size(), 0.0);
+    linear_dot_prod.resize(other.linear_dot_prod.size(), 0.0);
   }
-  for (int32 i = 0; i < stats->softmax_dot_prod.size(); i++) {
-    stats->softmax_dot_prod[i] += 0.5 * (progress_at_start.softmax_dot_prod[i] +
-                                         progress_at_end.softmax_dot_prod[i]);
-    stats->linear_dot_prod[i] += 0.5 * (progress_at_start.linear_dot_prod[i] +
-                                        progress_at_end.linear_dot_prod[i]);
-  }
+  KALDI_ASSERT(tanh_dot_prod.size() == other.tanh_dot_prod.size());
+  KALDI_ASSERT(softmax_dot_prod.size() == other.softmax_dot_prod.size());
+  KALDI_ASSERT(linear_dot_prod.size() == other.linear_dot_prod.size());
+  for (int32 i = 0; i < tanh_dot_prod.size(); i++) 
+    tanh_dot_prod[i] += scale * other.tanh_dot_prod[i];
+  for (int32 i = 0; i < softmax_dot_prod.size(); i++)
+    softmax_dot_prod[i] += scale * other.softmax_dot_prod[i];
+  for (int32 i = 0; i < linear_dot_prod.size(); i++)
+    linear_dot_prod[i] += scale * other.linear_dot_prod[i];
 }
+
+void Nnet1ProgressInfo::Scale(BaseFloat scale) {
+  for (int32 i = 0; i < tanh_dot_prod.size(); i++) 
+    tanh_dot_prod[i] *= scale;
+  for (int32 i = 0; i < softmax_dot_prod.size(); i++)
+    softmax_dot_prod[i] *= scale;
+  for (int32 i = 0; i < linear_dot_prod.size(); i++)
+    linear_dot_prod[i] *= scale;
+}
+
 
 std::string Nnet1ProgressInfo::Info() const {
   BaseFloat total = 0.0;;
@@ -736,6 +774,20 @@ std::string Nnet1ProgressInfo::Info(
   }
   os << '\n' << "total: " << total << '\n';
   return os.str();
+}
+
+void Nnet1::CombineWithWeight(const Nnet1 &other, BaseFloat other_weight) {
+  KALDI_ASSERT(initial_layers_.size() == other.initial_layers_.size() &&
+               final_layers_.size() == other.final_layers_.size());
+  for (int32 i = 0; i < initial_layers_.size(); i++)
+    initial_layers_[i].tanh_layer->CombineWithWeight(
+        *(other.initial_layers_[i].tanh_layer), other_weight);
+  for (int32 i = 0; i < final_layers_.size(); i++) {
+    final_layers_[i].softmax_layer->CombineWithWeight(
+        *(other.final_layers_[i].softmax_layer), other_weight);
+    final_layers_[i].linear_layer->CombineWithWeight(
+        *(other.final_layers_[i].linear_layer), other_weight);
+  }
 }
 
 

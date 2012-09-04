@@ -39,14 +39,14 @@ class AmNnet1 {
  public:
   AmNnet1() { }
   
-  AmNnet1(const Nnet1InitConfig &config,
-          const std::vector<int32> &leaf_mapping);
   // The vector "leaf_mapping" is an output from the program build-tree-two-level.
   // This maps from the leaves of the tree ("level-2 leaves") to the coarser "level-1"
   // leaves.  I.e. it's a fine-to-coarse mapping.
+  AmNnet1(const Nnet1InitConfig &config,
+          const std::vector<int32> &leaf_mapping);
   
   int32 NumPdfs() const { return leaf_mapping_.size(); }
-
+  
   void Write(std::ostream &os, bool binary) const;
   
   void Read(std::istream &is, bool binary);

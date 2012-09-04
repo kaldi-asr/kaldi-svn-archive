@@ -24,21 +24,11 @@ void GenericLayer::SetParams(const MatrixBase<BaseFloat> &params) {
   params_.CopyFromMat(params);
 }
 
-void GenericLayer::SetLearningRateMax(BaseFloat lrate,
-                                      BaseFloat max_lrate) {
-  if (lrate > max_lrate) {
-    KALDI_WARN << "Limiting learning rate to the maximum "
-               << max_lrate;
-    lrate = max_lrate;
-  }
-  SetLearningRate(lrate);
-}
-
-
 LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
-                         BaseFloat learning_rate):
+                         BaseFloat learning_rate, BaseFloat shrinkage_rate):
     is_gradient_(false) {
   learning_rate_ = learning_rate;
+  shrinkage_rate_ = shrinkage_rate;
   KALDI_ASSERT(learning_rate >= 0.0 && learning_rate <= 1.0); // > 1.0 doesn't make sense.
   // 0 may be used just to disable learning.
   // Note: if diagonal_element == 1.0, learning will never move away from that
@@ -50,25 +40,6 @@ LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
   params_.Set(off_diag);
   for (int32 i = 0; i < size; i++)
     params_(i, i) = diagonal_element;
-}
-
-void GenericLayer::AdjustLearningRate(const GenericLayer &previous_value,
-                                      const GenericLayer &validation_gradient,
-                                      BaseFloat learning_rate_ratio) {
-  Matrix<BaseFloat> param_delta(params_);
-  param_delta.AddMat(-1.0, previous_value.params_);
-  BaseFloat dot_prod = TraceMatMat(param_delta, validation_gradient.params_,
-                                   kTrans); // dot product if we view
-  // the matrices as vectors.
-  KALDI_ASSERT(learning_rate_ratio >= 1.0);
-  BaseFloat new_learning_rate = learning_rate_;
-  if (dot_prod > 0.0) new_learning_rate *= learning_rate_ratio;
-  else new_learning_rate /= learning_rate_ratio;
-  KALDI_VLOG(1) << "Layer of size " << InputDim() << " -> " << OutputDim()
-                << ": dot product is " << dot_prod
-                << ", changing learning rate " << "from "
-                << learning_rate_ << " to " << new_learning_rate;
-  learning_rate_ = new_learning_rate;
 }
 
 
@@ -105,16 +76,26 @@ void GenericLayer::Forward(
 
 void LinearLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<LinearLayer>");
+  WriteToken(out, binary, "<LearningRate>");
   WriteBasicType(out, binary, learning_rate_);
+  WriteToken(out, binary, "<ShrinkageRate>");
+  WriteBasicType(out, binary, shrinkage_rate_);
+  WriteToken(out, binary, "<IsGradient>");
   WriteBasicType(out, binary, is_gradient_);
+  WriteToken(out, binary, "<Params>");
   params_.Write(out, binary);
   WriteToken(out, binary, "</LinearLayer>");  
 }
 
 void LinearLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<LinearLayer>");
+  ExpectToken(in, binary, "<LearningRate>");
   ReadBasicType(in, binary, &learning_rate_);
+  ExpectToken(in, binary, "<ShrinkageRate>");
+  ReadBasicType(in, binary, &shrinkage_rate_);
+  ExpectToken(in, binary, "<IsGradient>");
   ReadBasicType(in, binary, &is_gradient_);
+  ExpectToken(in, binary, "<Params>");
   params_.Read(in, binary);
   ExpectToken(in, binary, "</LinearLayer>");  
 }
@@ -148,6 +129,7 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
   */        
   
   if (is_gradient_) {
+    KALDI_ASSERT(shrinkage_rate_ == 0.0 && learning_rate_ == 1.0);
     // We just want the gradient: do a "vanilla" SGD type of update as
     // we would do on any layer.
     params_.AddMatMat(learning_rate_,
@@ -166,6 +148,13 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
       param_col.CopyColFromMat(params_, col);
       Vector<BaseFloat> log_param_col(param_col);
       log_param_col.ApplyLog(); // note: works even for zero, but may have -inf
+      { // shrinkage.
+        int32 num_samples = input.NumRows(); // note: may not be 100% accurate due to
+        // context-splicing issues, but just differs by a constant factor that
+        // the shrinkage rate can adjust for.
+        BaseFloat old_weight = pow(1.0 - shrinkage_rate_, num_samples); // weight of old params
+        log_param_col.Scale(old_weight);
+      }
       for (int32 i = 0; i < num_rows; i++)
         if (log_param_col(i) < -1.0e+20)
           log_param_col(i) = -1.0e+20; // get rid of -inf's,as
@@ -177,7 +166,7 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
       BaseFloat cT_g = VecVec(param_col, gradient_col);
       log_gradient.AddVec(-cT_g, param_col); // h -= (c^T g) c .
       log_param_col.AddVec(learning_rate_, log_gradient); // Gradient step,
-      // in unnormalized log-prob space.
+      // in unnormalized log-prob space.      
       log_param_col.ApplySoftMax(); // Go back to probabilities.
       params_.CopyColFromVec(log_param_col, col); // Write back to parameters.
     }
@@ -190,8 +179,10 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
 // Apparently this is widely used: see  glorot10a.pdf (search term), 
 // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
 TanhLayer::TanhLayer(int input_size, int output_size,
-                     BaseFloat learning_rate, BaseFloat parameter_stddev) {
+                     BaseFloat learning_rate, BaseFloat shrinkage_rate,
+                     BaseFloat parameter_stddev) {
   learning_rate_ = learning_rate;
+  shrinkage_rate_ = shrinkage_rate;
   params_.Resize(output_size, input_size);
   KALDI_ASSERT(input_size > 0 && output_size > 0);
   KALDI_ASSERT(parameter_stddev >= 0.0);
@@ -203,14 +194,22 @@ TanhLayer::TanhLayer(int input_size, int output_size,
 
 void TanhLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<TanhLayer>");
+  WriteToken(out, binary, "<LearningRate>");
   WriteBasicType(out, binary, learning_rate_);
+  WriteToken(out, binary, "<ShrinkageRate>");
+  WriteBasicType(out, binary, shrinkage_rate_);
+  WriteToken(out, binary, "<Params>");
   params_.Write(out, binary);
   WriteToken(out, binary, "</TanhLayer>");  
 }
 
 void TanhLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<TanhLayer>");
+  ExpectToken(in, binary, "<LearningRate>");
   ReadBasicType(in, binary, &learning_rate_);
+  ExpectToken(in, binary, "<ShrinkageRate>");
+  ReadBasicType(in, binary, &shrinkage_rate_);
+  ExpectToken(in, binary, "<Params>");
   params_.Read(in, binary);
   ExpectToken(in, binary, "</TanhLayer>");  
 }
@@ -308,7 +307,8 @@ std::string GenericLayer::Info() const {
       sqrt(params_.NumRows() * params_.NumCols());
   os << "Layer from " << InputDim() << " to " << OutputDim()
      << ", parameter stddev " << param_stddev
-     << ", learning rate " << learning_rate_ << std::endl;
+     << ", learning rate " << learning_rate_ 
+     << ", shrinkage rate " << shrinkage_rate_ << std::endl;
   return os.str();
 }
 
@@ -318,15 +318,22 @@ void GenericLayer::Update(const MatrixBase<BaseFloat> &input,
   // "output" is not used; we include it because it's used in the Softmax
   // layer's Update function and it's more convenient to have a consistent
   // interface.
-  params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, 1.0);
+
+  int32 num_samples = input.NumRows(); // note: may not be 100% accurate due to
+  // context-splicing issues, but just differs by a constant factor that
+  // the shrinkage rate can adjust for.
+  BaseFloat old_weight = pow(1.0 - shrinkage_rate_, num_samples); // weight of old params
+  
+  params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, old_weight);
 
   // Check for NaN's.
   KALDI_ASSERT(params_(0, 0) == params_(0, 0) && params_(0, 0) - params_(0, 0) == 0.0);
 }
 
 SoftmaxLayer::SoftmaxLayer(int input_size, int output_size,
-                           BaseFloat learning_rate) {
+                           BaseFloat learning_rate, BaseFloat shrinkage_rate) {
   learning_rate_ = learning_rate;
+  shrinkage_rate_ = shrinkage_rate;
   params_.Resize(output_size, input_size);
   occupancy_.Resize(output_size);
   
@@ -338,7 +345,11 @@ SoftmaxLayer::SoftmaxLayer(int input_size, int output_size,
 
 void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
   WriteToken(out, binary, "<SoftmaxLayer>");
+  WriteToken(out, binary, "<LearningRate>");
   WriteBasicType(out, binary, learning_rate_);
+  WriteToken(out, binary, "<ShrinkageRate>");
+  WriteBasicType(out, binary, shrinkage_rate_);
+  WriteToken(out, binary, "<Params>");
   params_.Write(out, binary);
   WriteToken(out, binary, "<Occupancy>");
   occupancy_.Write(out, binary);
@@ -347,7 +358,11 @@ void SoftmaxLayer::Write(std::ostream &out, bool binary) const {
 
 void SoftmaxLayer::Read(std::istream &in, bool binary) {
   ExpectToken(in, binary, "<SoftmaxLayer>");
+  ExpectToken(in, binary, "<LearningRate>");
   ReadBasicType(in, binary, &learning_rate_);
+  ExpectToken(in, binary, "<ShrinkageRate>");
+  ReadBasicType(in, binary, &shrinkage_rate_);
+  ExpectToken(in, binary, "<Params>");
   params_.Read(in, binary);
   ExpectToken(in, binary, "<Occupancy>");
   occupancy_.Read(in, binary);
@@ -405,7 +420,13 @@ void SoftmaxLayer::ComputeSumDeriv(const MatrixBase<BaseFloat> &output,
 void SoftmaxLayer::Update(const MatrixBase<BaseFloat> &input,
                           const MatrixBase<BaseFloat> &sum_deriv,
                           const MatrixBase<BaseFloat> &output) {
-  params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, 1.0);
+
+  int32 num_samples = input.NumRows(); // note: may not be 100% accurate due to
+  // context-splicing issues, but just differs by a constant factor that
+  // the shrinkage rate can adjust for.
+  BaseFloat old_weight = pow(1.0 - shrinkage_rate_, num_samples); // weight of old params
+  
+  params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, old_weight);
   occupancy_.AddRowSumMat(output);
   // Check for NaN's.
   KALDI_ASSERT(params_(0, 0) == params_(0, 0) && params_(0, 0) - params_(0, 0) == 0.0);
@@ -415,6 +436,42 @@ void SoftmaxLayer::SetOccupancy(const VectorBase<BaseFloat> &occupancy) {
   occupancy_.Resize(occupancy.Dim());
   occupancy_.CopyFromVec(occupancy);
   KALDI_ASSERT(occupancy_.Dim() == params_.NumRows());
+}
+
+void GenericLayer::CombineWithWeight(const GenericLayer &other,
+                                     BaseFloat other_weight) {
+  params_.Scale(1.0 - other_weight);
+  params_.AddMat(other_weight, other.params_);
+}
+
+void SoftmaxLayer::CombineWithWeight(const SoftmaxLayer &other,
+                                     BaseFloat other_weight) {
+  params_.Scale(1.0 - other_weight);
+  params_.AddMat(other_weight, other.params_);
+  occupancy_.Scale(1.0 - other_weight);
+  occupancy_.AddVec(other_weight, other.occupancy_);
+}
+
+// do it in log space then renormalize.
+void LinearLayer::CombineWithWeight(const LinearLayer &other,
+                                    BaseFloat other_weight) {
+  Matrix<BaseFloat> other_params(other.params_);
+  params_.ApplyLog();
+  other_params.ApplyLog();
+  params_.Scale(1.0 - other_weight);
+  params_.AddMat(other_weight, other_params);
+  params_.ApplyExp();
+  // Now normalize each column to sum to one.
+  {
+    params_.Transpose();
+    for (int32 i = 0; i < params_.NumRows(); i++) {
+      BaseFloat sum = params_.Row(i).Sum();
+      KALDI_ASSERT(sum > 0.0 && sum == sum && sum - sum == 0); // check for
+      // 0, NaN, Inf.
+      params_.Row(i).Scale(1.0 / sum);
+    }
+    params_.Transpose();
+  }
 }
 
 void MixUpFinalLayers(int32 new_num_neurons,

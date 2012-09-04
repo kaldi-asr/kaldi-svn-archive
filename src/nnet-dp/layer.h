@@ -37,6 +37,9 @@ class GenericLayer {
   virtual void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 
   virtual void ApplyNonlinearity(VectorBase<BaseFloat> *output) const = 0;
+
+  virtual void CombineWithWeight(const GenericLayer &other,
+                                 BaseFloat other_weight);
   
   // each row of the args to this function is one frame.
   void Forward(const MatrixBase<BaseFloat> &input,
@@ -56,18 +59,12 @@ class GenericLayer {
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat lrate) { learning_rate_ = lrate; }
 
-  /// Sets learning rate to max of lrate and max_lrate, and prints a
-  /// warning if above the max.
-  void SetLearningRateMax(BaseFloat lrate,
-                          BaseFloat max_lrate);
-
+  BaseFloat GetShrinkageRate() const { return shrinkage_rate_; }
+  void SetShrinkageRate(BaseFloat srate) { shrinkage_rate_ = srate; }
+  
   // Use default copy constructor and assignment operator.
   
   void SetZero() { params_.Set(0.0); }
-
-  void AdjustLearningRate(const GenericLayer &previous_value,
-                          const GenericLayer &validation_gradient,
-                          BaseFloat learning_rate_ratio);
 
   GenericLayer(): learning_rate_(0.0) { } // avoid undefined
   // behavior.  This value should always be overwritten though.
@@ -92,6 +89,7 @@ class GenericLayer {
                       const MatrixBase<BaseFloat> &output);
 
   BaseFloat learning_rate_;
+  BaseFloat shrinkage_rate_;
   Matrix<BaseFloat> params_; // parameters, indexed [output-index][input-index].
 };
 
@@ -110,13 +108,18 @@ class LinearLayer: public GenericLayer {
   int32 OutputDim() const { return params_.NumRows(); }
   
   LinearLayer() { } // called prior to Read().
-  LinearLayer(int size, BaseFloat diagonal_element, BaseFloat learning_rate);
+  LinearLayer(int size, BaseFloat diagonal_element,
+              BaseFloat learning_rate, BaseFloat shrinkage_rate);
   
   void Write(std::ostream &out, bool binary) const;
   void Read(std::istream &in, bool binary);
   
-  void SetZero() { params_.Set(0.0); is_gradient_ = true; }
+  void SetZero() { params_.Set(0.0); }
+  void MakeGradient() { is_gradient_ = true; }
 
+  void CombineWithWeight(const LinearLayer &other,
+                         BaseFloat other_weight);
+  
   // Override the base-class Backward for efficiency.
   void Backward(const MatrixBase<BaseFloat> &input,
                 const MatrixBase<BaseFloat> &output,
@@ -147,7 +150,8 @@ class LinearLayer: public GenericLayer {
 class SoftmaxLayer: public GenericLayer {
  public:
   SoftmaxLayer() { } // called prior to Read().
-  SoftmaxLayer(int input_size, int output_size, BaseFloat learning_rate); // Note:
+  SoftmaxLayer(int input_size, int output_size,
+               BaseFloat learning_rate, BaseFloat shrinkage_rate); // Note:
   // this layer is initialized to zero.
 
   void Write(std::ostream &out, bool binary) const;
@@ -155,13 +159,15 @@ class SoftmaxLayer: public GenericLayer {
 
   void SetZero() { params_.Set(0.0); occupancy_.Set(0.0); }
 
-
   void SetOccupancy(const VectorBase<BaseFloat> &occupancy);
 
   void ZeroOccupancy() { occupancy_.Set(0.0); } // Set occupancy to zero so we
   // can start counting afresh...
   BaseFloat TotOccupancy() { return occupancy_.Sum(); }
   const Vector<BaseFloat> &Occupancy() const { return occupancy_; }
+
+  void CombineWithWeight(const SoftmaxLayer &other,
+                         BaseFloat other_weight);
  private:
   // override the base-class Update; we do it differently.
   virtual void Update(const MatrixBase<BaseFloat> &input,
@@ -192,6 +198,7 @@ class TanhLayer: public GenericLayer {
   TanhLayer(int input_size,
             int output_size,
             BaseFloat learning_rate,
+            BaseFloat shrinkage_rate,
             BaseFloat parameter_stddev);
   
   void Write(std::ostream &out, bool binary) const;

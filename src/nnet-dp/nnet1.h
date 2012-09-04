@@ -82,8 +82,10 @@ struct Nnet1InitConfig {
 
   BaseFloat diagonal_element; // Diagonal element we initialize linear_layer with.
   // E.g. 0.9.
+
+  BaseFloat shrinkage_rate;
   
-  Nnet1InitConfig(): diagonal_element(0.9) { }
+  Nnet1InitConfig(): diagonal_element(0.9), shrinkage_rate(1.0e-07) { }
   
   void Register (ParseOptions *po) {
     po->Register("layer-sizes", &layer_sizes,
@@ -97,6 +99,8 @@ struct Nnet1InitConfig {
                  "are automatically adjusted during training. ");
     po->Register("diagonal-element", &diagonal_element,
                  "Diagonal element used when initializing linear layer");
+    po->Register("shrinkage-rate", &shrinkage_rate,
+                 "Initial shrinkage rate for all layers.");
   }
 };
 
@@ -115,6 +119,7 @@ struct Nnet1InitInfo {
 
   BaseFloat diagonal_element; // diagonal element when initializing linear
                               // layer, > 0.0, <= 1.0.
+  BaseFloat shrinkage_rate; // for all layers.
   
   Nnet1InitInfo(const Nnet1InitConfig &config,
                 const std::vector<int32> &category_sizes);
@@ -189,6 +194,12 @@ class Nnet1 {
   void AddTanhLayer(int32 left_context, int32 right_context,
                     BaseFloat learning_rate);
 
+  // Combines with another neural net model, as weighted combination.
+  // other_weight = 0.5 means half-and-half.  this_weight will be
+  // 1.0 - other_weight.
+  // Keeps learning rates of *this.
+  void CombineWithWeight(const Nnet1 &other, BaseFloat other_weight);
+
   std::string Info() const; // some human-readable summary info.
 
   // some human-readable summary info (summed over final-layers.)
@@ -199,6 +210,10 @@ class Nnet1 {
 
   // the same, broken down by sets.
   std::string LrateInfo(const std::vector<std::vector<int32> > &final_sets)
+      const;
+
+  // the same, broken down by sets, for shrinkage rates.
+  std::string SrateInfo(const std::vector<std::vector<int32> > &final_sets)
       const;
   
   // Mix up by increasing the dimension of the output of softmax layer (and the
@@ -219,36 +234,31 @@ class Nnet1 {
   void Read(std::istream &is, bool binary);
 
   void SetZeroAndTreatAsGradient(); // Sets all parameters to zero and the
-  // learning rates to 1.0.  Mostly useful if this neural net is just being used
-  // to store the gradients on a validation set.  Will let the contents know
-  // that we'll now treat the layers as a store of gradients.  [affects the
-  // LinearLayer.]  If so you probably want
+  // learning rates to 1.0 and shinkage rates to zero.  Mostly useful if this
+  // neural net is just being used to store the gradients on a validation set.
+  // Will let the contents know that we'll now treat the layers as a store of
+  // gradients.  [affects the LinearLayer.]  If so you probably want
 
   // This is used to separately adjust learning rates of each layer,
   // after each "phase" of training.  We basically ask (using the validation
   // gradient), do we wish we had gone further in this direction?  Yes->
   // increase learning rate, no -> decrease it.
-  void AdjustLearningRates(
-      const Nnet1ProgressInfo &current_info,
-      BaseFloat learning_rate_ratio,
-      BaseFloat max_learning_rate);
-
-  // This version of AdjustLearningRates is for if you want
-  // the learning-rates to be shared among some sets of
-  // the final layers.  [helps for robustness to sparse data.]
-  void AdjustLearningRates(
-      const Nnet1ProgressInfo &current_info,
+  void AdjustLearningAndShrinkageRates(
+      const Nnet1ProgressInfo &start_dotprod, // dot-prod of param@start with valid-grad@end
+      const Nnet1ProgressInfo &end_dotprod, // dot-prod of param@end with valid-grad@end
       const std::vector<std::vector<int32> > &final_layer_sets,
       BaseFloat learning_rate_ratio,
-      BaseFloat max_learning_rate);
+      BaseFloat max_learning_rate,
+      BaseFloat min_shrinkage_rate,
+      BaseFloat max_shrinkage_rate);
+
   
-  // Computes certain dot products that we use to
-  // keep track of why validation set objf changes.
-  void ComputeProgressInfo(
-      const Nnet1 &previous_value,
+  // This sets *info to the dot prod of *this . validation_gradient.
+  // This is used in updating learning rates and shrinkage rates.
+  void ComputeDotProduct(
       const Nnet1 &validation_gradient,
       Nnet1ProgressInfo *info) const;
-
+  
   // Outputs the priors for a particular category of labels, as
   // computed from the "occupancy" statistics stored with the softmax
   // layer.  This should rougly match the priors seen during training.
@@ -317,13 +327,11 @@ struct Nnet1ProgressInfo {
 
   // some human-readable summary info (summed over final-layers.)
   std::string Info(const std::vector<std::vector<int32> > &final_sets) const;
+
+  void Add(const Nnet1ProgressInfo &other, BaseFloat scale);
+  void Scale(BaseFloat scale);
 };
 
-
-// UpdateProgressStats()
-void UpdateProgressStats(const Nnet1ProgressInfo &progress_at_start,
-                         const Nnet1ProgressInfo &progress_at_end,
-                         Nnet1ProgressInfo *progress_stats);
 
 } // namespace
 

@@ -66,6 +66,8 @@ class Nnet1BasicTrainer {
 
   const Nnet1 &Nnet() const { return updater_.Nnet(); }
   Nnet1 &Nnet() { return *updater_.NnetToUpdate(); } // actually same object as updater.Nnet().
+  int32 NumChunks() { return num_chunks_; }
+  int32 ChunkSize() { return chunk_size_; }
  private:
   void GetTrainingExamples(std::vector<TrainingExample> *egs); // gets num_chunks_ training
   // examples.
@@ -125,12 +127,16 @@ class Nnet1ValidationSet {
 struct Nnet1AdaptiveTrainerConfig {
   int32 num_minibatches;
   BaseFloat learning_rate_ratio;
+  BaseFloat shrinkage_rate_ratio;
   BaseFloat max_learning_rate;
+  BaseFloat min_shrinkage_rate;
+  BaseFloat max_shrinkage_rate;  
   int32 num_phases;
 
   Nnet1AdaptiveTrainerConfig():
-      num_minibatches(50), learning_rate_ratio(1.1),
-      max_learning_rate(0.1), num_phases(50) { }
+      num_minibatches(50), learning_rate_ratio(1.1), shrinkage_rate_ratio(1.1),
+      max_learning_rate(0.1), min_shrinkage_rate(1.0e-20), max_shrinkage_rate(0.001),
+      num_phases(50) { }
   
   void Register (ParseOptions *po) {
     po->Register("num-minibatches", &num_minibatches,
@@ -140,7 +146,11 @@ struct Nnet1AdaptiveTrainerConfig {
                  "Ratio by which we change the learning rate in each phase of "
                  "training (can get larger or smaller by this factor).");
     po->Register("max-learning-rate", &max_learning_rate,
-                 "Maximum learning rate we allow when dynamically updating it");
+                 "Maximum learning rate we allow when dynamically updating learning and shrinkage rates");
+    po->Register("min-shrinkage-rate", &min_shrinkage_rate,
+                 "Minimum allowed shrinkage rate.");
+    po->Register("max-shrinkage-rate", &max_shrinkage_rate,
+                 "Maximum allowed shrinkage rate.");
     po->Register("num-phases", &num_phases,
                  "Number of \"phases\" of training (a phase is a sequence of "
                  "num-minibatches minibatches; after each phase we modify "

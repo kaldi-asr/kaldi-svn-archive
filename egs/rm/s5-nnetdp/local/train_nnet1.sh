@@ -15,6 +15,10 @@ add_layer_iters=""  # e.g. --add-layer-iters "3 6 10"
 num_iters=35   # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
 hidden_layer_size=500
+chunk_size=5
+num_chunks=200
+num_minibatches=50
+num_phases=50
 power=0.333 # Power when mixing up... should be more than
   # for GMMs; relates to need for more Gaussians at top level
 initial_layer_context=2,2
@@ -49,6 +53,7 @@ for f in $data/feats.scp $lang/phones.txt $tree_and_ali_dir/ali.1.gz \
   [ ! -f $f ] && echo "train_nnet1.sh: no such file $f" && exit 1;
 done
 
+perturb_stddev=`perl -e "print (1.0/sqrt($hidden_layer_size)); "`
 numgauss=`copy-int-vector --binary=false $tree_and_ali_dir/tree.map - | wc -w` # might be
 # off by two or so.
 incgauss=$[($totgauss-$numgauss)/$max_iter_inc]  # per-iter #gauss increment
@@ -114,26 +119,26 @@ while [ $x -lt $num_iters ]; do
   if [ $stage -le $x ]; then
     # o,cs below means we'll use each alignment only once (o), and the features
     # are sorted (cs).  It's not sorted (s) because of the way bash expansion of "*" works.
-    $cmd $dir/log/train.$x.log \
-      nnet1-train --srand=$x --verbose=3  --learning-rate-ratio=1.2 \
-       $dir/$x.mdl "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
-       $dir/$[$x+1].mdl || exit 1;
-    # mix up.
-    $cmd $dir/log/mixup.$x.log \
-      nnet1-mixup --power=$power --target-neurons=$numgauss $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
+    model=$dir/$x.mdl
+    [ $x -gt 1 ] && model="nnet1-mixup --power=$power --perturb-stddev=$perturb_stddev --target-neurons=$numgauss $dir/$x.mdl - |"
+
     if echo "$add_layer_iters" | grep -w $x; then
-      echo "Adding new layer"
-      $cmd $dir/log/add_layer.$x.log \
-        nnet1-add-layer --left-context=$left_context --right-context=$right_context \
-          $dir/$[$x+1].mdl $dir/$[$x+1].mdl
+       model="$model nnet1-add-layer --left-context=$left_context --right-context=$right_context - - |"
     fi
+
+    $cmd $dir/log/train.$x.log \
+      nnet1-train --chunk-size=$chunk_size --num-chunks=$num_chunks \
+        --num-minibatches=$num_minibatches --num-phases=$num_phases --srand=$x \
+         --verbose=3  --learning-rate-ratio=1.2 "$model" \
+        "$feats" "ark,s,cs:gunzip -c $dir/ali.{?,??,???}.gz|" $dir/valid_uttlist \
+       $dir/$[$x+1].mdl || exit 1;
   fi
   [ $x -le $max_iter_inc ] && numgauss=$[$numgauss+$incgauss];
   x=$[$x+1];
+  rm $dir/final.mdl 2>/dev/null # always link most recent one.
+  ln -s $x.mdl $dir/final.mdl
 done
 
-rm $dir/final.mdl 2>/dev/null
-ln -s $x.mdl $dir/final.mdl
 
 utils/summarize_warnings.pl $dir/log
 

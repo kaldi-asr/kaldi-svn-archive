@@ -207,32 +207,43 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
   Nnet1 &nnet_at_end(basic_trainer_->Nnet()); // this one
   // is a reference, not a copy.
 
-  Nnet1ProgressInfo old_progress_info, new_progress_info; // certain dot products
-  // old_progress_info is dot product of delta parameters with
-  // (validation-set gradient before change in parameters).
-  // new_progress_info is the same after the change in parameters.
-  nnet_at_end.ComputeProgressInfo(
-      nnet_at_start,
-      validation_set_->Gradient(),
-      &old_progress_info);
+  {
+    Nnet1ProgressInfo start_info, end_info;
+    nnet_at_start.ComputeDotProduct(validation_set_->Gradient(), &start_info);
+    nnet_at_end.ComputeDotProduct(validation_set_->Gradient(), &end_info);
+    progress_stats_.Add(end_info, 0.5);
+    progress_stats_.Add(start_info, -0.5);
+    KALDI_VLOG(4) << "Start-info-before: " << start_info.Info(final_layer_sets_);
+    KALDI_VLOG(4) << "End-info-before: " << end_info.Info(final_layer_sets_);
+  }
+    
 
   // Now recompute validation set objf and gradient.
   validation_objf_ = validation_set_->ComputeGradient();
   KALDI_VLOG(1) << "Average objf is " << train_objf << " (train) and "
                 << validation_objf_ << " (test).";
   
-  basic_trainer_->Nnet().ComputeProgressInfo(
-      nnet_at_start,
-      validation_set_->Gradient(),
-      &new_progress_info);
 
-  nnet_at_end.AdjustLearningRates(new_progress_info,
-                                  final_layer_sets_,
-                                  config_.learning_rate_ratio,
-                                  config_.max_learning_rate);
+  { // redo this (delta * gradient) after recomputing gradient.
+    Nnet1ProgressInfo start_info, end_info;
+    nnet_at_start.ComputeDotProduct(validation_set_->Gradient(), &start_info);
+    nnet_at_end.ComputeDotProduct(validation_set_->Gradient(), &end_info);
+    progress_stats_.Add(end_info, 0.5);
+    progress_stats_.Add(start_info, -0.5);
+
+    KALDI_VLOG(4) << "Start-info-after: " << start_info.Info(final_layer_sets_);
+    KALDI_VLOG(4) << "End-info-after: " << end_info.Info(final_layer_sets_);
+    
+    nnet_at_end.AdjustLearningAndShrinkageRates(
+        start_info, end_info,
+        final_layer_sets_,
+        config_.learning_rate_ratio,
+        config_.max_learning_rate,
+        config_.min_shrinkage_rate,
+        config_.max_shrinkage_rate);
+  }
   
-  UpdateProgressStats(old_progress_info, new_progress_info, &progress_stats_);
-
+  
   KALDI_VLOG(2) << "Progress stats: "
                 << progress_stats_.Info(final_layer_sets_);
   KALDI_VLOG(2) << "Learning rates: "
