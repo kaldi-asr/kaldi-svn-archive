@@ -30,8 +30,8 @@ namespace kaldi {
 /// \ref parse_options for more documentation.
 class ParseOptions {
  public:
-  explicit ParseOptions(const char *usage)
-      : print_args_(true), help_(false), usage_(usage), argc_(0), argv_(NULL) {
+  explicit ParseOptions(const char *usage):
+      print_args_(true), help_(false), usage_(usage), argc_(0), argv_(NULL) {
 #ifndef _MSC_VER  //This is just a convenient place to set the stderr to line
     setlinebuf(stderr);  // buffering mode, since it's called at program start.
 #endif  // This helps ensure different programs' output is not mixed up.
@@ -42,10 +42,9 @@ class ParseOptions {
     RegisterStandard("verbose", &g_kaldi_verbose_level,
                      "Verbose level (higher->more warnings)");
   }
-
+  
   ~ParseOptions() {}
-
- public:
+  
   /// Template to register various variable types,
   /// used for program-specific parameters
   template<typename T>
@@ -55,37 +54,8 @@ class ParseOptions {
   /// This one is used for registering standard parameters of all the programs
   template<typename T>
   void RegisterStandard(const std::string &name,
-                T *ptr, const std::string &doc);
-
-  /// Does the actual job for both kinds of parameters
-  /// Does the common part of the job for all datatypes,
-  /// then calls RegisterSpecific
-  template<typename T>
-  void RegisterCommon(const std::string &name,
-                T *ptr, const std::string &doc, bool is_standard);
-
-  // Following functions do just the datatype-specific part of the job
-  /// Register boolean variable
-  void RegisterSpecific(const std::string &name, const std::string &idx,
-                        bool *b, const std::string &doc, bool is_standard);
-  /// Register int32 variable
-  void RegisterSpecific(const std::string &name, const std::string &idx,
-                        int32 *i, const std::string &doc, bool is_standard);
-  /// Register unsinged  int32 variable
-  void RegisterSpecific(const std::string &name, const std::string &idx,
-                        uint32 *u,
-                        const std::string &doc, bool is_standard);
-  /// Register float variable
-  void RegisterSpecific(const std::string &name, const std::string &idx,
-                        float *f, const std::string &doc, bool is_standard);
-  /// Register double variable [useful as we change BaseFloat type].
-  void RegisterSpecific(const std::string &name, const std::string &idx,
-                        double *f, const std::string &doc, bool is_standard);
-  /// Register string variable
-  void RegisterSpecific(const std::string &name, const std::string &idx,
-                        std::string *s, const std::string &doc,
-                        bool is_standard);
-
+                        T *ptr, const std::string &doc);
+  
   /**
    * Parses the command line options and fills the ParseOptions-registered
    * variables. This must be called after all the variables were registered!!!
@@ -120,6 +90,36 @@ class ParseOptions {
   static std::string Escape(const std::string &str);
 
  private:
+
+  // Following functions do just the datatype-specific part of the job
+  /// Register boolean variable
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        bool *b, const std::string &doc, bool is_standard);
+  /// Register int32 variable
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        int32 *i, const std::string &doc, bool is_standard);
+  /// Register unsinged  int32 variable
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        uint32 *u,
+                        const std::string &doc, bool is_standard);
+  /// Register float variable
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        float *f, const std::string &doc, bool is_standard);
+  /// Register double variable [useful as we change BaseFloat type].
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        double *f, const std::string &doc, bool is_standard);
+  /// Register string variable
+  void RegisterSpecific(const std::string &name, const std::string &idx,
+                        std::string *s, const std::string &doc,
+                        bool is_standard);
+
+  /// Does the actual job for both kinds of parameters
+  /// Does the common part of the job for all datatypes,
+  /// then calls RegisterSpecific
+  template<typename T>
+  void RegisterCommon(const std::string &name,
+                      T *ptr, const std::string &doc, bool is_standard);
+  
   /// Reads the options values from a config file
   void ReadConfigFile(const std::string &filename);
 
@@ -152,7 +152,7 @@ class ParseOptions {
     DocInfo(const std::string &name, const std::string &usemsg,
             bool is_standard)
       : name_(name), use_msg_(usemsg),  is_standard_(is_standard) {}
-
+    
     std::string name_;
     std::string use_msg_;
     bool is_standard_;

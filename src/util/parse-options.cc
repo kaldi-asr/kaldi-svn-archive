@@ -32,6 +32,7 @@
 
 namespace kaldi {
 
+
 // old-style, used for registering application-specific parameters
 template<typename T>
 void ParseOptions::Register(const std::string &name, T *ptr,
@@ -165,10 +166,10 @@ static bool MustBeQuoted(const std::string &str, ShellType st) {
     // as there are no other "bad" characters involved (e.g. "," would be interpreted
     // as part of something like a{b,c}, but not on its own.
 
-    KALDI_ASSERT(!strchr(ok_chars[kBash], ' '));  // Just want to make sure that
+    KALDI_ASSERT(!strchr(ok_chars[kBash], ' ')); // Just want to make sure that
     // a space character doesn't get automatically inserted here via an automated
     // style-checking script, like it did before.
-
+    
     for (; *c != '\0'; c++) {
       if ( ! isalnum(*c) ) {
         // For non-alphanumeric characters we have a list of
@@ -272,7 +273,6 @@ int ParseOptions::Read(int argc, const char *const argv[]) {
       delete [] g_program_name;
     g_program_name = program_name;
   }
-
   // first pass: look for config parameter, look for priority
   for (i = 1; i < argc; i++) {
     if (std::strncmp(argv[i], "--", 2) == 0) {
@@ -307,7 +307,7 @@ int ParseOptions::Read(int argc, const char *const argv[]) {
       }
     }
   }
-
+  
   if (print_args_) {  // if the user did not suppress this with --print-args = false....
     std::ostringstream strm;
     for (int j = 0; j < argc; j++)

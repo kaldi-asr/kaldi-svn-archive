@@ -134,6 +134,11 @@ steps/train_lda_mllt.sh --cmd "$train_cmd" \
 steps/align_si.sh --nj 30 --cmd "$train_cmd" --use-graphs true \
    data/train_30k_nodup data/lang exp/tri3a exp/tri3a_ali
 
+# Now try with all data (excluding just the dev subset which actually
+# we could even include as long as we don't test on it.)
+steps/align_si.sh --nj 30 --cmd "$train_cmd" \
+   data/train_nodev data/lang exp/tri3a exp/tri3a_ali_nodev
+
 
 (
   ## Build a LDA+MLLT system just for decorrelation, on the raw filterbank
@@ -167,20 +172,63 @@ steps/align_si.sh --nj 30 --cmd "$train_cmd" --use-graphs true \
     exp/tri3a/graph data-fbank/eval2000 exp/tri5b/decode_eval2000
 )
 
+
+( ### Repeat all the above steps with more data (putting _nodev on all dirs)
+  featdim=`feat-to-dim scp:data-fbank/train/feats.scp -` 
+
+  local/train_lda_mllt_notree.sh --cmd "$train_cmd" --dim $featdim \
+    --splice-opts "--left-context=0 --right-context=0" \
+    --realign-iters "" 40000 data-fbank/train_nodev data/lang exp/tri3a_ali_nodev exp/tri4b_nodev || exit 1;
+
+  # We decode this out of curiosity; it won't be very good.
+  steps/decode.sh --nj 20 --config conf/decode.config --cmd "$decode_cmd" \
+    exp/tri3a/graph data-fbank/eval2000 exp/tri4b_nodev/decode_eval2000 &
+
+  ## Train fMLLR on top of fbank features.  Note: we give it directory
+  ## tri4b instead of an alignment directory like tri4b_ali, because we want
+  ## to use the alignments in tri4b which were just copied from the conventional
+  ## system.
+  local/train_sat_notree.sh --cmd "$train_cmd" \
+    --realign-iters "" 40000 data-fbank/train_nodev data/lang exp/tri4b_nodev exp/tri5b_nodev || exit 1;
+
+  ## Decode the test data with this system (will need the transforms for nnet testing,
+  ## for the transforms.)
+  ## Use transcripts from the 3a system which had frame splicing -> better 
+  ## supervision.  Note: WERs are terrible but this doesn't matter; we didn't
+  ## use these transcripts to get the transforms.
+  steps/decode_fmllr.sh --si-dir exp/tri3a/decode_eval2000 \
+    --nj 30 --config conf/decode.config --cmd "$decode_cmd" \
+    exp/tri3a/graph data-fbank/eval2000 exp/tri5b_nodev/decode_eval2000 || exit 1;
+)
+
+(
 # Do SAT on top of the standard splice+LDA+MLLT system,
 # because we want good alignments to build the 2-level tree on top of,
 # for the neural nset system.
-steps/train_sat.sh 2500 20000 data/train_30k_nodup data/lang exp/tri3a_ali exp/tri4a
-
+  steps/train_sat.sh 2500 20000 data/train_30k_nodup data/lang exp/tri3a_ali exp/tri4a
+  
 # Align 30k_nodup data with LDA+MLLT+SAT system (tri4a)
-steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" --use-graphs true \
-  data/train_30k_nodup data/lang exp/tri4a exp/tri4a_ali || exit 1;
-
+  steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" --use-graphs true \
+    data/train_30k_nodup data/lang exp/tri4a exp/tri4a_ali || exit 1;
+  
 ## First we just build a two-level tree, using the LDA+MLLT+SAT system's
 ## alignments and features, since that system is pretty good.
-local/train_two_level_tree.sh 200 5000 data/train_30k_nodup data/lang exp/tri4a_ali exp/tri5a_tree
+  local/train_two_level_tree.sh 200 5000 data/train_30k_nodup data/lang exp/tri4a_ali exp/tri5a_tree
+  
+  local/train_two_level_tree.sh 200 2500 data/train_30k_nodup data/lang exp/tri4a_ali exp/tri5b_tree
+)
 
-local/train_two_level_tree.sh 200 2500 data/train_30k_nodup data/lang exp/tri4a_ali exp/tri5b_tree
+( # As above but with more data (_nodev)
+  steps/train_sat.sh 5000 40000 data/train_nodev data/lang exp/tri3a_ali_nodev exp/tri4a_nodev
+  
+  # Align 30k_nodup data with LDA+MLLT+SAT system (tri4a)
+  steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" --use-graphs true \
+    data/train_nodev data/lang exp/tri4a_nodev exp/tri4a_ali_nodev || exit 1;
+  
+  ## First we just build a two-level tree, using the LDA+MLLT+SAT system's
+  ## alignments and features, since that system is pretty good.
+  local/train_two_level_tree.sh 300 8000 data/train_nodev data/lang exp/tri4a_ali_nodev exp/tri5a_tree_nodev
+)
 
 local/train_nnet1.sh --num-iters 15 --max-iter-inc 4 \
  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6a_nnet
@@ -280,33 +328,37 @@ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
 
 ## Doing the same thing but after modifying the code to add the
 ## shrinkage.
-local/train_nnet1.sh --num-iters 10 --max-iter-inc 4 --hidden-layer-size 1000 \
+local/train_nnet1.sh --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --num-iters 10 --max-iter-inc 4 --hidden-layer-size 1000 \
   --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
   --num-phases 10 --initial-layer-context "4,4" \
   10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6h_nnet
 
-iter=7
-local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
-  --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
-  --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6h_nnet/decode_eval2000_it${iter}
 
-## as 6h, but fewer leaves.
-local/train_nnet1.sh --num-iters 10 --max-iter-inc 4 --hidden-layer-size 1000 \
+for iter in 9 2 4 6 8; do
+ sleep 360;
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6h_nnet/decode_eval2000_it${iter} &
+done
+
+## 6h2 is as 6h but smaller tree.
+local/train_nnet1.sh  --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --num-iters 10 --max-iter-inc 4 --hidden-layer-size 1000 \
   --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
   --num-phases 10 --initial-layer-context "4,4" \
-  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5b_tree exp/tri6i_nnet
+  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5b_tree exp/tri6h2_nnet
 
-utils/mkgraph.sh data/lang_test exp/tri6i_nnet exp/tri6i_nnet/graph
-
-iter=7
-local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
-  --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
-  --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6h_nnet/decode_eval2000_it${iter}
-
+(
+ utils/mkgraph.sh data/lang_test exp/tri6h2_nnet exp/tri6h2_nnet/graph
+ for iter in 2 4 6 8 10; do
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6h2_nnet/graph data-fbank/eval2000 exp/tri6h2_nnet/decode_eval2000_it${iter}
+done ) &
 
 ## 6i is as 6h, but adding a second hidden layer, without context.  Also using
 ## the queue.
-
 local/train_nnet1.sh  --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
   --add-layer-iters "4" --left-context 0 --right-context 0 \
   --num-iters 10 --max-iter-inc 4 --hidden-layer-size 1000 \
@@ -314,6 +366,81 @@ local/train_nnet1.sh  --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=120
   --num-phases 10 --initial-layer-context "4,4" \
   10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6i_nnet
 
+(
+for iter in 2 4 6 8; do
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6i_nnet/decode_eval2000_it${iter} &
+  sleep 3600
+done )
+
+
+## 6j is as 6h but doubling the number of "Gaussians".. adding them a bit slower too.
+## It's only very slightly better -- 41.1 versus 41.2 for 6h, on iter 8.
+local/train_nnet1.sh --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --num-iters 10 --max-iter-inc 6 --hidden-layer-size 1000 \
+  --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
+  --num-phases 10 --initial-layer-context "4,4" \
+  20000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6j_nnet
+
+
+( for iter in 10 8 6 4 2; do
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6j_nnet/decode_eval2000_it${iter} &
+  sleep 3600
+done )
+
+## 6k is as 6i, but increasing initial-layer-context from 4,4 to 6,6.  Worse, 39.9 vs. 40.1 taking
+## best iter.
+local/train_nnet1.sh  --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --add-layer-iters "4" --left-context 0 --right-context 0 \
+  --num-iters 10 --max-iter-inc 4 --hidden-layer-size 1000 \
+  --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
+  --num-phases 10 --initial-layer-context "6,6" \
+  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6k_nnet
+
+(for iter in 2 4 6 8 10; do
+ while [ ! -f exp/tri6k_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6k_nnet/decode_eval2000_it${iter} &
+done )
+
+
+## 6l is as 6i, but adding a third hidden layer.
+## first parts of training are as 6i, so reusing intermediate model and using --stage
+## option.
+mkdir -p exp/tri6l_nnet
+cp exp/tri6i_nnet/8.mdl exp/tri6l_nnet
+local/train_nnet1.sh --stage 8 --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --add-layer-iters "4 8" --left-context 0 --right-context 0 \
+  --num-iters 15 --max-iter-inc 4 --hidden-layer-size 1000 \
+  --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
+  --num-phases 10 --initial-layer-context "4,4" \
+  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6l_nnet
+
+(for iter in 10 12 14 16; do
+ while [ ! -f exp/tri6l_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6l_nnet/decode_eval2000_it${iter} &
+done )
+
+## Doing the same but with all the data, and more neurons.
+local/train_nnet1.sh  --cmd "queue.pl -q all.q@a* -l ram_free=3G,mem_free=3G -pe smp 4" \
+  --add-layer-iters "5 10" --left-context 0 --right-context 0 \
+  --num-iters 15 --max-iter-inc 4 --hidden-layer-size 1500 \
+  --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
+  --num-phases 25 --initial-layer-context "4,4" \
+  25000 data-fbank/train_nodev data/lang exp/tri5b_nodev exp/tri5a_tree_nodev exp/tri6l_nnet_nodev
+
+(for iter in 10 12 14 16; do
+ while [ ! -f exp/tri6l_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6l_nnet/decode_eval2000_it${iter} &
+done )
 
 
 exit 0;
