@@ -420,7 +420,7 @@ void Nnet1::AdjustLearningAndShrinkageRates(
                final_layers_.size());
   for (int32 i = 0; i < final_layer_sets.size(); i++) {
     BaseFloat this_start_dotprod = 0.0, this_end_dotprod = 0.0;
-    KALDI_ASSERT(final_layer_sets[i].size() > 0);
+    if (final_layer_sets[i].size() == 0) continue;
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());
@@ -448,7 +448,7 @@ void Nnet1::AdjustLearningAndShrinkageRates(
                final_layers_.size());
   for (int32 i = 0; i < final_layer_sets.size(); i++) {
     BaseFloat this_start_dotprod = 0.0, this_end_dotprod = 0.0;
-    KALDI_ASSERT(final_layer_sets[i].size() > 0);
+    if (final_layer_sets[i].size() == 0) continue;
     for (int32 j = 0; j < final_layer_sets[i].size(); j++) {
       int32 idx = final_layer_sets[i][j];
       KALDI_ASSERT(idx >= 0 && idx < final_layers_.size());

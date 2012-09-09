@@ -81,9 +81,13 @@ void Nnet1Updater::FormatInput(const std::vector<TrainingExample> &data) {
 
 BaseFloat Nnet1Updater::TrainOnOneMinibatch(const std::vector<TrainingExample> &data) {
   BaseFloat ans;
+  KALDI_VLOG(4) << "Doing FormatInput";
   FormatInput(data);
+  KALDI_VLOG(4) << "Doing ForwardTanh";
   ForwardTanh();
+  KALDI_VLOG(4) << "Doing ForwardAndBackwardFinal";
   ans = ForwardAndBackwardFinal(data);
+  KALDI_VLOG(4) << "Doing BackwardTanh";
   BackwardTanh();
   return ans;
 }

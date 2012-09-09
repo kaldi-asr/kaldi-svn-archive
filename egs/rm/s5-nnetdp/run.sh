@@ -135,6 +135,9 @@ local/train_two_level_tree.sh 150 5000 data/train data/lang exp/tri3c_ali exp/tr
 # smaller version of the tree.
 local/train_two_level_tree.sh 150 2000 data/train data/lang exp/tri3c_ali exp/tri4b_tree
 
+# Train version of the tree with really just one level
+local/train_two_level_tree.sh 5000 5000 data/train data/lang exp/tri3c_ali exp/tri4c_tree
+
 ## Now train the neural net itself.
 local/train_nnet1.sh 10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5a_nnet
 
@@ -256,6 +259,25 @@ for iter in 2 4 6 8 9; do
    --iter $iter --config conf/decode.config --nj 20 \
   --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5k_nnet/decode_it$iter &
 done
+
+
+#5l_nnet is as 5k_nnet but using 4c for the tree, which  is effectively
+# a single-level tree.
+local/train_nnet1.sh \
+  --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --initial-layer-context "6,6"  --num-iters 16 \
+  --chunk-size 1 --num-chunks 1000 --num-minibatches 500 --num-phases 10 \
+  --max-iter-inc 6 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4c_tree exp/tri5l_nnet
+
+utils/mkgraph.sh data/lang exp/tri5l_nnet exp/tri5l_nnet/graph
+for iter in 2 4 6 8 9; do
+  while [ ! -f exp/tri5l_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+   --iter $iter --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5l_nnet/graph data-fbank/test exp/tri5l_nnet/decode_it$iter &
+done
+
 
 
 

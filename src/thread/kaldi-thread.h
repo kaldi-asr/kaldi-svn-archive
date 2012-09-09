@@ -40,7 +40,7 @@
 // classes used, as they are called when using MultiThreadable*
 //
 // MultiThreadPool is a singleton class, it's instance is obtained using
-// MultiThreadable::Instantiate(). First instantiation initializes the thread
+// MultiThreadPool::Instantiate(). First instantiation initializes the thread
 // pool using g_num_threads threads, each of those threads runs infinite loop in
 // ThreadWorker::run(). When RunMultiThreadedPersistent(c) is called, each
 // ThreadWorker is given a pointer to a copy of c and calls c() in it's thread.
