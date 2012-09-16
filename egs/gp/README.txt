@@ -10,8 +10,4 @@ Each subdirectory of this directory contains the
 scripts for a sequence of experiments.  
 Note: s1 is the "default" set of scripts at the moment.
 
-  s1: This setup is experiments with GMM-based systems with various 
-      Maximum Likelihood 
-      techniques including global and speaker-specific transforms.
-      See a parallel setup in ../wsj/s3
-
+  s5: This is the main GlobalPhone setup.  It is still somewhat in flux.

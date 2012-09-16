@@ -46,9 +46,6 @@ exp/decode_tri2a_dfmllr/wer:Average WER is 3.861805 (484 / 12533)  # + diagonal 
 exp/decode_tri2a_dfmllr_utt/wer:Average WER is 3.933615 (493 / 12533)  # [ diagonal fMLLR per utterance]
 exp/decode_tri2a_dfmllr_fmllr/wer:Average WER is 3.622437 (454 / 12533)  # diagonal fMLLR, then estimate fMLLR and re-decode
 
-exp/decode_tri2b/wer:Average WER is 3.143701 (394 / 12533)  # Exponential transform
-exp/decode_tri2b_fmllr/wer:Average WER is 3.055932 (383 / 12533)  # +fMLLR
-exp/decode_tri2b_utt/wer:Average WER is 3.295300 (413 / 12533)  # [adapt per-utt]
 exp/decode_tri2c/wer:Average WER is 3.957552 (496 / 12533) # Cepstral mean subtraction (per-spk)
 exp/decode_tri2d/wer:Average WER is 4.316604 (541 / 12533) # MLLT (= global STC)
 exp/decode_tri2e/wer:Average WER is 4.659698 (584 / 12533) # splice-9-frames + LDA features

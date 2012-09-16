@@ -71,9 +71,8 @@ steps/train_tri2a.sh
 )&
 
 
-# Then do the same for 2b, 2c, and so on
+# Then do the same for 2c, and so on
 # 2a = basic triphone (all features double-deltas unless stated).
-# 2b = exponential transform
 # 2c = mean normalization (cmn)
 # 2d = MLLT
 # 2e = splice-9-frames + LDA
@@ -86,7 +85,7 @@ steps/train_tri2a.sh
 # 2l = splice-9-frames + LDA + MLLT + SAT (i.e. train with CMLLR)
 # 2m = splice-9-frames + LDA + MLLT + LVTLN [depends on 2f]
 
-for group in "b c d e" "f g h i" "j k l m"; do 
+for group in "c d e" "f g h i" "j k l m"; do 
   for x in $group; do
     steps/train_tri2$x.sh &
   done
