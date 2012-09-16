@@ -53,7 +53,7 @@ $(EXT_SUBDIRS) :
 ### Dependency list ###
 # this is necessary for correct parallel compilation
 #1)The tools depend on all the libraries
-bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin latbin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat
+bin fstbin gmmbin fgmmbin sgmmbin sgmm2bin featbin latbin: base matrix util feat tree optimization gmm transform sgmm sgmm2 fstext hmm lm decoder lat
 #2)The libraries have inter-dependencies
 base:
 matrix: base
