@@ -23,9 +23,9 @@ echo "****(1) Installing sph2pipe"
 
 (
   rm sph2pipe_v2.5.tar.gz 2>/dev/null
-  wget -T 10 -t 3 ftp://ftp.ldc.upenn.edu/pub/ldc/misc_sw/sph2pipe_v2.5.tar.gz  || \
+  wget -T 3 -t 3 ftp://ftp.ldc.upenn.edu/pub/ldc/misc_sw/sph2pipe_v2.5.tar.gz  || \
     ( echo "Trying back-up server:"; 
-     wget -T 10 -t 3 http://merlin.fit.vutbr.cz/kaldi/sph2pipe_v2.5.tar.gz )
+     wget -T 3 -t 3 http://merlin.fit.vutbr.cz/kaldi/sph2pipe_v2.5.tar.gz )
 
   if [ ! -e sph2pipe_v2.5.tar.gz ]; then
     echo "****download of sph2pipe_v2.5.tar.gz failed."
@@ -47,7 +47,7 @@ fi
 (
   echo "****(2) downloading ATLAS"
 
-  wget -T 10 -t 3 http://sourceforge.net/projects/math-atlas/files/Stable/3.8.3/atlas3.8.3.tar.gz
+  wget -T 3 -t 3 http://sourceforge.net/projects/math-atlas/files/Stable/3.8.3/atlas3.8.3.tar.gz
 
   if [ ! -e atlas3.8.3.tar.gz ]; then
       echo "****download atlas3.8.3.tar.gz failed."
@@ -70,7 +70,7 @@ fi
   cd CLAPACK_include
 
   for x in  clapack.h f2c.h; do 
-    wget -T 10 -t 3 http://www.netlib.org/clapack/$x; 
+    wget -T 3 -t 3 http://www.netlib.org/clapack/$x; 
   done
   cp ../ATLAS/include/cblas.h . || exit 1
   
@@ -132,8 +132,8 @@ fi
   # use it (they use our own Kaldi-based scorer).
   echo "**** (5) install sclite (optional; useful for detailed scoring output but the default scripts don't use it)"
   rm sctk-2.4.0-20091110-0958.tar.bz2  2>/dev/null
-  wget -T 10 -t 3 ftp://jaguar.ncsl.nist.gov/pub/sctk-2.4.0-20091110-0958.tar.bz2 || \
-   wget --no-check-certificate -T 10 -t 3 https://sourceforge.net/projects/kaldi/files/sctk-2.4.0-20091110-0958.tar.bz2
+  wget -T 3 -t 3 ftp://jaguar.ncsl.nist.gov/pub/sctk-2.4.0-20091110-0958.tar.bz2 || \
+   wget --no-check-certificate -T 3 -t 3 https://sourceforge.net/projects/kaldi/files/sctk-2.4.0-20091110-0958.tar.bz2
   
 
   if [ ! -e sctk-2.4.0-20091110-0958.tar.bz2 ]; then
@@ -173,8 +173,8 @@ fi
   echo "****(6) Install openfst"
 
   rm openfst-1.2.10.tar.gz 2>/dev/null
-  wget http://openfst.cs.nyu.edu/twiki/pub/FST/FstDownload/openfst-1.2.10.tar.gz || \
-   wget --no-check-certificate -T 10 -t 3 https://sourceforge.net/projects/kaldi/files/openfst-1.2.10.tar.gz
+  wget -t 2 http://openfst.cs.nyu.edu/twiki/pub/FST/FstDownload/openfst-1.2.10.tar.gz || \
+   wget --no-check-certificate -T 3 -t 3 https://sourceforge.net/projects/kaldi/files/openfst-1.2.10.tar.gz
 
   if [ ! -e openfst-1.2.10.tar.gz ]; then
     echo "****download openfst-1.2.10.tar.gz failed."

@@ -1,4 +1,16 @@
+--
+Notes on stuff we deleted or put in ext:
 
+Deleted because they're not really stable/complete yet.
+ nnetbin_cpu nnet_cpu nnet nnetbin tied tiedbin
+ cudamatrix also deleted since it's not currently used for anything,
+  although I have no objections to the code per se.
+
+Stuff I put in in ext: 
+  online onlinebin 
+
+
+---
 
 Example of debug command with valgrind:
 in matrix/
