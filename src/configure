@@ -72,6 +72,7 @@ function check_exists {
 
 
 function linux_configure_cuda {
+  exit 0;  #### DISABLE CUDA ####
   #check for CUDA toolkit in the system
   if [ ! $CUDATKDIR ]; then
     if [ -f /usr/local/share/cuda/bin/nvcc ]; then #BUT
