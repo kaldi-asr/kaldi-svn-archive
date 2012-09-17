@@ -745,6 +745,12 @@ std::istream & operator >> (std::istream & In, MatrixBase<Real> & M);
 template<typename Real>
 std::istream & operator >> (std::istream & In, Matrix<Real> & M);
 
+
+template<class Real>
+bool SameDim(const MatrixBase<Real> &M, const MatrixBase<Real> &N) {
+  return (M.NumRows() == N.NumRows() && M.NumCols() == N.NumCols());
+}
+
 /// @} end of \addtogroup matrix_funcs_io
 
 
