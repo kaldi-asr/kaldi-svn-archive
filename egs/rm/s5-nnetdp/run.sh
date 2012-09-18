@@ -262,7 +262,7 @@ done
 
 
 #5l_nnet is as 5k_nnet but using 4c for the tree, which  is effectively
-# a single-level tree.
+# a single-level tree.  Note: it crashed.
 local/train_nnet1.sh \
   --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
   --initial-layer-context "6,6"  --num-iters 16 \
@@ -278,6 +278,21 @@ for iter in 2 4 6 8 9; do
   --cmd "$decode_cmd" exp/tri5l_nnet/graph data-fbank/test exp/tri5l_nnet/decode_it$iter &
 done
 
+
+# 5m is as 5k, but one layer of 1000 then one of 250.
+local/train_nnet1b.sh \
+  --hidden-layer-sizes "1000:250" --context "6,6:0,0" \
+  --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --num-iters 16 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 --num-phases 10 \
+  --max-iter-inc 6 \
+  10000 data-fbank/train data/lang exp/tri4b exp/tri4a_tree exp/tri5m_nnet
+
+for iter in 2 4 6 8 9; do
+  while [ ! -f exp/tri5k_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri4b/decode \
+   --iter $iter --config conf/decode.config --nj 20 \
+  --cmd "$decode_cmd" exp/tri5a_nnet/graph data-fbank/test exp/tri5k_nnet/decode_it$iter &
+done
 
 
 

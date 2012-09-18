@@ -442,6 +442,38 @@ local/train_nnet1.sh  --cmd "queue.pl -q all.q@a* -l ram_free=3G,mem_free=3G -pe
    --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6l_nnet/decode_eval2000_it${iter} &
 done )
 
+## 6m_nnet is as 6l_nnet, with the same number of neurons, but using
+## the train1b.sh script where we add everything at the start.
+local/train_nnet1b.sh --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --hidden-layer-sizes "1000:1000:1000" --context "4,4:0,0:0,0" \
+  --num-iters 15 --max-iter-inc 4 \
+  --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
+  --num-phases 10 \
+  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6m_nnet
+
+(for iter in 4 6 8 10 12 14 16; do
+ while [ ! -f exp/tri6m_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6m_nnet/decode_eval2000_it${iter} &
+done )
+
+
+## 6n_nnet is as 6m_nnet but using a smaller size for the last hidden layer (500).
+local/train_nnet1b.sh --cmd "queue.pl -q all.q@a* -l ram_free=1200M,mem_free=1200M -pe smp 4" \
+  --hidden-layer-sizes "1000:1000:500" --context "4,4:0,0:0,0" \
+  --num-iters 15 --max-iter-inc 4 \
+  --num-valid-utts 200 --chunk-size 1 --num-chunks 1000 --num-minibatches 500 \
+  --num-phases 10 \
+  10000 data-fbank/train_30k_nodup data/lang exp/tri5b exp/tri5a_tree exp/tri6n_nnet
+
+(for iter in 4 6 8 10 12 14 16; do
+ while [ ! -f exp/tri6n_nnet/$iter.mdl ]; do sleep 120; done
+ local/decode_nnet1.sh --transform-dir exp/tri5b/decode_eval2000 \
+   --min-lmwt 3 --max-lmwt 10 --acwt 0.16666 --iter $iter --beam 16.0  --nj 30 \
+   --cmd "$decode_cmd" exp/tri6a_nnet/graph data-fbank/eval2000 exp/tri6n_nnet/decode_eval2000_it${iter} &
+done )
+
 
 exit 0;
 ## From here is junk.
