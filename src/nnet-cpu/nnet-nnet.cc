@@ -1,6 +1,7 @@
 // nnet/nnet-nnet.cc
 
-// Copyright 2011  Karel Vesely
+// Copyright 2011-2012  Karel Vesely
+//                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +16,35 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet_cpu/nnet-nnet.h"
-#include "nnet_cpu/nnet-component.h"
-#include "nnet_cpu/nnet-activation.h"
-#include "nnet_cpu/nnet-biasedlinearity.h"
+#include "nnet-cpu/nnet-nnet.h"
 
 namespace kaldi {
+
+int32 Nnet::RightContext() const {
+  return std::accumulate(right_context_.begin(), right_context_.end(), 0);
+}
+int32 Nnet::LeftContext() const {
+  return std::accumulate(left_context_.begin(), left_context_.end(), 0);
+}
+
+int32 Nnet::LeftContextForComponent(int32 component) const {
+  KALDI_ASSERT(component >= 0 && component < components_.size());
+  return left_context_[component];
+}
+int32 Nnet::RightContextForComponent(int32 component) const {
+  KALDI_ASSERT(component >= 0 && component < components_.size());
+  return right_context_[component];
+}
+const Component &Nnet::GetComponent(int32 component) const {
+  KALDI_ASSERT(component >= 0 && component < components_.size());
+  return *(components_[component]);
+}
+
+Component &Nnet::GetComponent(int32 component) {
+  KALDI_ASSERT(component >= 0 && component < components_.size());
+  return *(components_[component]);
+}
+
 
 void Nnet::Propagate(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out) {
   KALDI_ASSERT(NULL != out);

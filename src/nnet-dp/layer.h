@@ -32,7 +32,12 @@ class GenericLayer {
   int32 InputDim() const { return params_.NumCols(); }
   int32 OutputDim() const { return params_.NumRows(); }
 
-  // No Write or Read functions; these are supplied by the base classes.
+  virtual void Write(std::ostream &out, bool binary) const; // 
+  virtual void Read(std::istream &in, bool binary); // This Read function will only work
+  // if the actual type of this object is the same as what's on disk.
+
+  static GenericLayer *ReadNew(std::istream &in, bool binary); // Returns a pointer
+  // to a newly created Layer object of the correct type.
   
   virtual void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 
@@ -42,19 +47,19 @@ class GenericLayer {
                                  BaseFloat other_weight);
   
   // each row of the args to this function is one frame.
-  void Forward(const MatrixBase<BaseFloat> &input,
-               MatrixBase<BaseFloat> *output) const;
+  virtual void Forward(const MatrixBase<BaseFloat> &input,
+                       MatrixBase<BaseFloat> *output) const;
 
   // forward function that works on one frame.
-  void Forward(const VectorBase<BaseFloat> &input,
-               VectorBase<BaseFloat> *output) const;
+  virtual void Forward(const VectorBase<BaseFloat> &input,
+                       VectorBase<BaseFloat> *output) const;
   
   // each row of the args to this function is one frame.
-  void Backward(const MatrixBase<BaseFloat> &input,
-                const MatrixBase<BaseFloat> &output,
-                const MatrixBase<BaseFloat> &output_deriv,
-                MatrixBase<BaseFloat> *input_deriv,
-                GenericLayer *layer_to_update) const;
+  virtual void Backward(const MatrixBase<BaseFloat> &input,
+                        const MatrixBase<BaseFloat> &output,
+                        const MatrixBase<BaseFloat> &output_deriv,
+                        MatrixBase<BaseFloat> *input_deriv,
+                        GenericLayer *layer_to_update) const;
   
   BaseFloat GetLearningRate() const { return learning_rate_; }
   void SetLearningRate(BaseFloat lrate) { learning_rate_ = lrate; }
@@ -104,15 +109,12 @@ class GenericLayer {
 // to the 2-level tree.].
 class LinearLayer: public GenericLayer {
  public:
-  int32 InputDim() const { return params_.NumCols(); }
-  int32 OutputDim() const { return params_.NumRows(); }
-  
   LinearLayer() { } // called prior to Read().
-  LinearLayer(int size, BaseFloat diagonal_element,
+  LinearLayer(int32 size, BaseFloat diagonal_element,
               BaseFloat learning_rate, BaseFloat shrinkage_rate);
   
-  void Write(std::ostream &out, bool binary) const;
-  void Read(std::istream &in, bool binary);
+  virtual void Write(std::ostream &out, bool binary) const;
+  virtual void Read(std::istream &in, bool binary);
   
   void SetZero() { params_.Set(0.0); }
   void MakeGradient() { is_gradient_ = true; }
@@ -125,7 +127,7 @@ class LinearLayer: public GenericLayer {
                 const MatrixBase<BaseFloat> &output,
                 const MatrixBase<BaseFloat> &output_deriv,
                 MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input.
-                LinearLayer *layer_to_update) const;
+                GenericLayer *layer_to_update) const;
   
   void ApplyNonlinearity(MatrixBase<BaseFloat> *output) const;
 
@@ -147,15 +149,51 @@ class LinearLayer: public GenericLayer {
   // don't use simple gradient descent for this type of layer.]
 };
 
+class SparseLayer: public GenericLayer {
+  int32 InputDim() const { return input_dim_; }
+  int32 OutputDim() const { return sparse_params_.size(); }
+  
+  // This layer contains a sparse random projection, typically from a higher to a lower
+  // dimension; currently this layer is not trained but is randomly initialized
+  // and fixed.  It helps us to decrease the dimension of the features, so we
+  // can have a lower number of parameters (for the trainable part) and a
+  // higher number of nonlinearities.
+  SparseLayer(int32 input_dim, int32 output_dim);
+
+  virtual void Write(std::ostream &out, bool binary) const; // 
+  virtual void Read(std::istream &in, bool binary);
+  
+  // each row of the args to this function is one frame.
+  virtual void Forward(const MatrixBase<BaseFloat> &input,
+                       MatrixBase<BaseFloat> *output) const;
+
+  // forward function that works on one frame.
+  virtual void Forward(const VectorBase<BaseFloat> &input,
+                       VectorBase<BaseFloat> *output) const;
+  
+  // each row of the args to this function is one frame.
+  virtual void Backward(const MatrixBase<BaseFloat> &input,
+                        const MatrixBase<BaseFloat> &output,
+                        const MatrixBase<BaseFloat> &output_deriv,
+                        MatrixBase<BaseFloat> *input_deriv,
+                        GenericLayer *layer_to_update) const;
+ private:
+  // note: don't use params_ variable.
+  int32 input_dim_;
+  std::vector<std::vector<std::pair<int32, BaseFloat> > > sparse_params_;
+};
+
+
+
 class SoftmaxLayer: public GenericLayer {
  public:
   SoftmaxLayer() { } // called prior to Read().
-  SoftmaxLayer(int input_size, int output_size,
+  SoftmaxLayer(int32 input_size, int32 output_size,
                BaseFloat learning_rate, BaseFloat shrinkage_rate); // Note:
   // this layer is initialized to zero.
 
-  void Write(std::ostream &out, bool binary) const;
-  void Read(std::istream &in, bool binary);
+  virtual void Write(std::ostream &out, bool binary) const;
+  virtual void Read(std::istream &in, bool binary);
 
   void SetZero() { params_.Set(0.0); occupancy_.Set(0.0); }
 
@@ -195,14 +233,14 @@ class TanhLayer: public GenericLayer {
   // the sigmoid.
  public:
   TanhLayer() { } // called prior to Read().
-  TanhLayer(int input_size,
-            int output_size,
+  TanhLayer(int32 input_size,
+            int32 output_size,
             BaseFloat learning_rate,
             BaseFloat shrinkage_rate,
             BaseFloat parameter_stddev);
   
-  void Write(std::ostream &out, bool binary) const;
-  void Read(std::istream &in, bool binary);
+  virtual void Write(std::ostream &out, bool binary) const;
+  virtual void Read(std::istream &in, bool binary);
   
   
   // Use default copy constructor and assignment operator.

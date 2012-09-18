@@ -1,4 +1,4 @@
-// nnet-dp/nnet1.h
+// nnet-dp/nnet2.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Navdeep Jaitly
@@ -17,8 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_DP_NNET1_H_
-#define KALDI_NNET_DP_NNET1_H_
+#ifndef KALDI_NNET_DP_NNET2_H_
+#define KALDI_NNET_DP_NNET2_H_
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
@@ -27,18 +27,24 @@
 
 namespace kaldi {
 
-// The class nnet1 stores the parameters of a neural network.
-// This is "neural net 1"-- it's just a particular form of
-// neural network.
+// nnet2 is a neural network that contains a number of generic
+// nonlinearities such as tanh, with configurable sizes, possibly
+// with the last of these being a bit smaller (such as 200), in
+// order to balance the #parameters since the next dimension will
+// be very large.
+// Then we have a big softmax layer, with typically 10k outputs,
+// which can roughly be thought of as the Gaussians of the system
+// and which initially correspond with the output indexes.  Then
+// we have a large number of LinearLayers, which correspond with
+// mixture indices.  This is like a state-clustered tied mixture
+// (SCTM) system.
+//
+// Note: for each of the tanh layers, we actually support a setup
+// where the linear layer is split into N parts to reduce the
+// number of parameters.  If it's split this way, we'll permute the
+// output indices...
 
-
-// This configuration class is only used when initializing a neural network.
-// There are some aspects of the neural net's setup that are not covered in this
-// config because they're done at a later stage [UBM switching, mixing-up], or
-// because they're worked out from other information [sizes of different
-// final layers.]
-
-struct Nnet1InitConfig {
+struct Nnet2InitConfig {
   std::string layer_sizes; // e.g. 23:512:512:512.  Only covers the
   // input and hidden layers; for the last layer, we work out the number of
   // leaves etc.  from other information which is supplied to this program.

@@ -19,12 +19,32 @@
 
 namespace kaldi {
 
+// static
+GenericLayer *GenericLayer::ReadNew(std::istream &in, bool binary) {
+  int i = PeekToken(in, binary); // returns the first character of the next
+  // token (but skips over the '<').
+  if (i == -1)
+    KALDI_ERR << "End of file reached, reading new layer.";
+  char c = static_cast<char>(i);
+  GenericLayer *ans;
+  if (c == 'T') ans = new TanhLayer();
+  else if (c == 'L') ans = new LinearLayer();
+  else if (c == 'S') ans = new SoftmaxLayer();
+  else {
+    std::string str;
+    ReadToken(in, binary, &str);
+    KALDI_ERR << "Unknown layer type " << str;
+  }
+  ans->Read(in, binary);
+  return ans;
+}
+
 void GenericLayer::SetParams(const MatrixBase<BaseFloat> &params) {
   params_.Resize(params.NumRows(), params.NumCols());
   params_.CopyFromMat(params);
 }
 
-LinearLayer::LinearLayer(int size, BaseFloat diagonal_element,
+LinearLayer::LinearLayer(int32 size, BaseFloat diagonal_element,
                          BaseFloat learning_rate, BaseFloat shrinkage_rate):
     is_gradient_(false) {
   learning_rate_ = learning_rate;
@@ -50,8 +70,9 @@ void LinearLayer::Backward(
     const MatrixBase<BaseFloat> &output, // unused.
     const MatrixBase<BaseFloat> &output_deriv,
     MatrixBase<BaseFloat> *input_deriv, // derivative w.r.t. input
-    LinearLayer *model_to_update) const {
+    GenericLayer *model_to_update_in) const {
 
+  LinearLayer *model_to_update = dynamic_cast<LinearLayer*>(model_to_update_in);
   if (input_deriv != NULL)
     input_deriv->AddMatMat(1.0, output_deriv, kNoTrans, params_, kNoTrans, 0.0);
   
@@ -178,7 +199,7 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
 // [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
 // Apparently this is widely used: see  glorot10a.pdf (search term), 
 // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
-TanhLayer::TanhLayer(int input_size, int output_size,
+TanhLayer::TanhLayer(int32 input_size, int32 output_size,
                      BaseFloat learning_rate, BaseFloat shrinkage_rate,
                      BaseFloat parameter_stddev) {
   learning_rate_ = learning_rate;
@@ -330,7 +351,7 @@ void GenericLayer::Update(const MatrixBase<BaseFloat> &input,
   KALDI_ASSERT(params_(0, 0) == params_(0, 0) && params_(0, 0) - params_(0, 0) == 0.0);
 }
 
-SoftmaxLayer::SoftmaxLayer(int input_size, int output_size,
+SoftmaxLayer::SoftmaxLayer(int32 input_size, int32 output_size,
                            BaseFloat learning_rate, BaseFloat shrinkage_rate) {
   learning_rate_ = learning_rate;
   shrinkage_rate_ = shrinkage_rate;
@@ -564,5 +585,39 @@ void GenericLayer::ApplyNonlinearity(MatrixBase<BaseFloat> *output) const {
     this->ApplyNonlinearity(&v);
   }
 }
+
+void SparseLayer::Forward(const MatrixBase<BaseFloat> &input,
+                          MatrixBase<BaseFloat> *output) const {
+  // Just do it for each row separately.
+  KALDI_ASSERT(input.NumRows() == output->NumRows() &&
+               input.NumCols() == InputDim() &&
+               output->NumCols() == OutputDim());
+  for (int32 row = 0; row < input.NumRows(); row++) {
+    SubVector<BaseFloat> input_row(input, row),
+        output_row(*output, row);
+    Forward(input_row, &output_row);
+  }
+}
+
+void SparseLayer::Forward(const VectorBase<BaseFloat> &input,
+                          VectorBase<BaseFloat> *output) const {
+  // Just do it for each row separately.
+  KALDI_ASSERT(input.Dim() == InputDim() && output->Dim() == OutputDim());
+  const BaseFloat *data_in = input.Data();
+  BaseFloat *data_out = output->Data();
+  int32 dim_out = output->Dim();
+  for (int32 i = 0; i < dim_out; i++) {
+    BaseFloat sum = 0.0;
+    const std::vector<std::pair<int32, BaseFloat> > &this_vec(sparse_params_[i]);
+    std::vector<std::pair<int32, BaseFloat> >::const_iterator iter;
+    for (iter = this_vec.begin(); iter != this_vec.end(); ++iter) {
+      int32 idx = iter->first;
+      BaseFloat weight = iter->second;
+      sum += data_in[idx] * weight;
+    }
+    data_out[i] = sum;
+  }
+}
+
 
 } // namespace kaldi

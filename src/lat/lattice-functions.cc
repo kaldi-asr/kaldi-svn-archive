@@ -292,8 +292,10 @@ void ConvertLatticeToPhones(const TransitionModel &trans,
         aiter.Next()) {
       Arc arc(aiter.Value());
       arc.olabel = 0; // remove any word.
-      if (arc.ilabel != 0 // has a transition-id on input..
-          && trans.IsFinal(arc.ilabel)) // there is one of these per phone...
+      if ((arc.ilabel != 0) // has a transition-id on input..
+          && (trans.TransitionIdToHmmState(arc.ilabel) == 0)
+          && (!trans.IsSelfLoop(arc.ilabel)))
+         // && trans.IsFinal(arc.ilabel)) // there is one of these per phone...
         arc.olabel = trans.TransitionIdToPhone(arc.ilabel);
       aiter.SetValue(arc);
     }  // end looping over arcs
@@ -314,7 +316,7 @@ void ConvertCompactLatticeToPhones(const TransitionModel &trans,
       for (std::vector<int32>::const_iterator iter = tid_seq.begin();
            iter != tid_seq.end(); ++iter) {
         if (trans.IsFinal(*iter))// note: there is one of these per phone...
-          phone_seq.push_back(trans.TransitionIdToPhone(arc.ilabel));
+          phone_seq.push_back(trans.TransitionIdToPhone(*iter));
       }
       arc.weight.SetString(phone_seq);
       aiter.SetValue(arc);

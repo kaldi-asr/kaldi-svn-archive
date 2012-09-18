@@ -1,6 +1,7 @@
 // nnet/nnet-nnet.h
 
-// Copyright 2011  Karel Vesely
+// Copyright 2011-2012  Karel Vesely
+//                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +18,13 @@
 
 
 
-#ifndef KALDI_NNET_NNET_H
-#define KALDI_NNET_NNET_H
-
+#ifndef KALDI_NNET_NNET_H_
+#define KALDI_NNET_NNET_H_
 
 #include "base/kaldi-common.h"
 #include "util/kaldi-io.h"
 #include "matrix/matrix-lib.h"
-#include "nnet_cpu/nnet-component.h"
+#include "nnet-cpu/nnet-component.h"
 
 #include <iostream>
 #include <sstream>
@@ -33,12 +33,138 @@
 
 namespace kaldi {
 
+
+
+class Nnet1 {
+ public:
+  // Returns number of components-- think of this as similar to # of layers, but
+  // e.g. the nonlinearity and the linear part count as separate components.
+  int32 NumComponents() { return components_.size(); }
+  
+  int32 LeftContext() const; // Returns #frames of left context needed [just the sum
+  // of left_context for each component.]
+
+  int32 RightContext() const; // Returns #frames of right context needed [just the sum
+  // of right_context for each component.]
+
+  int32 LeftContextForComponent(int32 component) const;
+  int32 RightContextForComponent(int32 component) const;
+
+  const Component &GetComponent(int32 component) const;
+
+  Component &GetComponent(int32 component);
+  
+  int32 OutputDim() const {
+    return (components_.empty() ? 0 : components_.back()->OutputDim());
+  }
+  
+  void ZeroOccupancy(); // calls ZeroOccupancy() on the softmax layers.  This
+  // resets the occupancy counters; it makes sense to do this once in
+  // a while, e.g. at the start of an epoch of training.
+  
+  Nnet1(const Nnet1 &other); // Copy constructor.
+  
+  Nnet1() { }
+
+  Nnet1(const Nnet1InitInfo &init_info) { Init(init_info); }
+
+  ~Nnet1() { Destroy(); }
+
+  // Add a new tanh layer (hidden layer).  
+  // Use #nodes of top hidden layer.  The new layer will have zero-valued parameters
+  void AddTanhLayer(int32 left_context, int32 right_context,
+                    BaseFloat learning_rate);
+
+  // Combines with another neural net model, as weighted combination.
+  // other_weight = 0.5 means half-and-half.  this_weight will be
+  // 1.0 - other_weight.
+  // Keeps learning rates of *this.
+  void CombineWithWeight(const Nnet1 &other, BaseFloat other_weight);
+
+  std::string Info() const; // some human-readable summary info.
+
+  // some human-readable summary info (summed over final-layers.)
+  std::string Info(const std::vector<std::vector<int32> > &final_sets) const;
+
+  std::string LrateInfo() const; // some info on the learning rates,
+  // in human-readable form.
+
+  // the same, broken down by sets.
+  std::string LrateInfo(const std::vector<std::vector<int32> > &final_sets)
+      const;
+
+  // the same, broken down by sets, for shrinkage rates.
+  std::string SrateInfo(const std::vector<std::vector<int32> > &final_sets)
+      const;
+  
+  // Mix up by increasing the dimension of the output of softmax layer (and the
+  // input of the linear layer).  This is exactly analogous to mixing up
+  // Gaussians in a GMM-HMM system, and we use a similar power rule to allocate
+  // new ones [so a "category" gets an allocation of indices/Gaussians allocated
+  // proportional to a power "power" of its total occupancy.
+  void MixUp(int32 target_tot_neurons,
+             BaseFloat power, // e.g. 0.2.
+             BaseFloat perturb_stddev);
+  
+  void Init(const Nnet1InitInfo &init_info);
+
+  void Destroy();
+  
+  void Write(std::ostream &os, bool binary) const;
+
+  void Read(std::istream &is, bool binary);
+
+  void SetZeroAndTreatAsGradient(); // Sets all parameters to zero and the
+  // learning rates to 1.0 and shinkage rates to zero.  Mostly useful if this
+  // neural net is just being used to store the gradients on a validation set.
+  // Will let the contents know that we'll now treat the layers as a store of
+  // gradients.  [affects the LinearLayer.]  If so you probably want
+
+  // This is used to separately adjust learning rates of each layer,
+  // after each "phase" of training.  We basically ask (using the validation
+  // gradient), do we wish we had gone further in this direction?  Yes->
+  // increase learning rate, no -> decrease it.
+  void AdjustLearningAndShrinkageRates(
+      const Nnet1ProgressInfo &start_dotprod, // dot-prod of param@start with valid-grad@end
+      const Nnet1ProgressInfo &end_dotprod, // dot-prod of param@end with valid-grad@end
+      const std::vector<std::vector<int32> > &final_layer_sets,
+      BaseFloat learning_rate_ratio,
+      BaseFloat max_learning_rate,
+      BaseFloat min_shrinkage_rate,
+      BaseFloat max_shrinkage_rate);
+
+  
+  // This sets *info to the dot prod of *this . validation_gradient,
+  // separately for each component.
+  // This is used in updating learning rates and shrinkage rates.
+  void ComputeDotProduct(
+      const Nnet1 &validation_gradient,
+      VectorBase<BaseFloat> *dot_prod) const;
+  
+  friend class NnetUpdater;
+  friend class DecodableNnet;
+ private:
+  const Nnet &operator = (const Nnet &other);  // Disallow assignment.
+  
+  // the left and right context (splicing) for layers.
+  std::vector<int32> left_context_;
+  std::vector<int32> right_context_;
+  std::vector<Component*> components_;
+};
+
+
+
 class Nnet {
  public:
-  Nnet() { }
+  Nnet() { } // Called prior to Read() or Init()
+  void Init(std::istream &config_file); // initialize given text configuration file,
+  // one line for each layer.
+  void Read(std::istream &is, bool binary);
+  void Write(std::ostream &os, bool binary) const;
   
-  ~Nnet(); 
+  ~Nnet();
 
+  
  public:
   /// Perform forward pass through the network
   void Propagate(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out); 

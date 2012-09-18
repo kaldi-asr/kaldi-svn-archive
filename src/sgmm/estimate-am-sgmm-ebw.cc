@@ -264,8 +264,8 @@ double EbwAmSgmmUpdater::UpdateM(const MleAmSgmmAccs &num_accs,
   
   Vector<double> num_count_vec(I), den_count_vec(I), impr_vec(I);
   for (int32 j = 0; j < num_accs.num_states_; j++) {
-    num_count_vec.AddRowSumMat(num_accs.gamma_[j]);
-    den_count_vec.AddRowSumMat(den_accs.gamma_[j]);
+    num_count_vec.AddRowSumMat(1.0, num_accs.gamma_[j]);
+    den_count_vec.AddRowSumMat(1.0, den_accs.gamma_[j]);
   }
 
   for (int32 i = 0; i < I; i++) {
@@ -354,8 +354,8 @@ double EbwAmSgmmUpdater::UpdateWParallel(const MleAmSgmmAccs &num_accs,
   
   Vector<double> num_count_vec(I), den_count_vec(I), impr_vec(I);
   for (int32 j = 0; j < num_accs.num_states_; j++) {
-    num_count_vec.AddRowSumMat(num_accs.gamma_[j]);
-    den_count_vec.AddRowSumMat(den_accs.gamma_[j]);
+    num_count_vec.AddRowSumMat(1.0, num_accs.gamma_[j]);
+    den_count_vec.AddRowSumMat(1.0, den_accs.gamma_[j]);
   }
   
   // Get the F_i and g_i quantities-- this is done in parallel (multi-core),
@@ -439,8 +439,8 @@ double EbwAmSgmmUpdater::UpdateN(const MleAmSgmmAccs &num_accs,
   
   Vector<double> num_count_vec(I), den_count_vec(I), impr_vec(I);
   for (int32 j = 0; j < num_accs.num_states_; j++) {
-    num_count_vec.AddRowSumMat(num_accs.gamma_[j]);
-    den_count_vec.AddRowSumMat(den_accs.gamma_[j]);
+    num_count_vec.AddRowSumMat(1.0, num_accs.gamma_[j]);
+    den_count_vec.AddRowSumMat(1.0, den_accs.gamma_[j]);
   }
   
   for (int32 i = 0; i < I; i++) {
@@ -513,8 +513,8 @@ double EbwAmSgmmUpdater::UpdateVars(const MleAmSgmmAccs &num_accs,
   
   Vector<double> num_count_vec(I), den_count_vec(I), impr_vec(I);
   for (int32 j = 0; j < num_accs.num_states_; j++) {
-    num_count_vec.AddRowSumMat(num_accs.gamma_[j]);
-    den_count_vec.AddRowSumMat(den_accs.gamma_[j]);
+    num_count_vec.AddRowSumMat(1.0, num_accs.gamma_[j]);
+    den_count_vec.AddRowSumMat(1.0, den_accs.gamma_[j]);
   }
 
   for (int32 i = 0; i < I; i++) {
