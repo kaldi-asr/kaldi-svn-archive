@@ -94,7 +94,7 @@ class Component {
   /// be used to initialize the component.
   static Component *NewFromString(const std::string &initializer_line);
   
-  void Read(std::istream &is, bool binary); // This Read function
+  virtual void Read(std::istream &is, bool binary); // This Read function
   // requires that the Component has the correct type.
   
   /// Write component to stream
@@ -135,7 +135,7 @@ class UpdatableComponent : public Component {
   /// function computes the dot product in parameters, and is computed while
   /// automatically adjusting learning rates; typically, one of the two will
   /// actually contain the gradient.
-  virtual BaseFloat DotProduct(UpdatableComponent *other); 
+  virtual BaseFloat DotProduct(const UpdatableComponent *other) const;
   
   /// Sets the learning rate of gradient descent
   void SetLearningRate(BaseFloat lrate) {  learning_rate_ = lrate; }
@@ -166,7 +166,7 @@ class NonlinearComponent: public Component {
   virtual void InitFromString(std::string args);
   
   /// We implement Read at this level as it just needs the Type().
-  void Read(std::istream &is, bool binary);
+  virtual void Read(std::istream &is, bool binary);
   
   /// Write component to stream.
   virtual void Write(std::ostream &os, bool binary) const;
@@ -246,6 +246,9 @@ class AffineComponent: public UpdatableComponent {
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv);
   virtual void SetZero() { linear_params_.SetZero(); bias_params_.SetZero(); }
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+  virtual BaseFloat DotProduct(const UpdatableComponent *other) const; 
  private:
   Matrix<BaseFloat> linear_params_;
   Vector<BaseFloat> bias_params_;
@@ -278,7 +281,18 @@ class BlockAffineComponent: public UpdatableComponent {
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv);
   virtual void SetZero() { linear_params_.SetZero(); bias_params_.SetZero(); }
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+  virtual BaseFloat DotProduct(const UpdatableComponent *other) const;
  private:
+  // The matrix linear_parms_ has a block structure, with num_blocks_ blocks fo
+  // equal size.  The blocks are stored in linear_params_ as
+  // [ M
+  //   N
+  //   O ] but we actually treat it as the matrix:
+  // [ M 0 0
+  //   0 N 0
+  //   0 0 O ]
   Matrix<BaseFloat> linear_params_;
   Vector<BaseFloat> bias_params_;
   int32 num_blocks_;
@@ -295,18 +309,20 @@ class BlockAffineComponent: public UpdatableComponent {
 class MixtureProbComponent: public UpdatableComponent {
  public:
   virtual int32 InputDim() const { return input_dim_; }
-  virtual int32 OutputDim() const { return input_dim_; }
+  virtual int32 OutputDim() const { return output_dim_; }
   virtual void Init(BaseFloat learning_rate, BaseFloat l2_penalty,
                     BaseFloat diag_element,
                     const std::vector<int32> &sizes);
   virtual void InitFromString(std::string args);  
   MixtureProbComponent() { }
-  virtual void SetZero();
+  virtual void SetZero(); // also causes it to be treated as a gradient.
+  // You have to set the learning rate to 1 and l2 to zero yourself.
   virtual std::string Type() const { return "MixtureComponent"; }
   virtual bool BackpropNeedsInput() const { return true; }
   virtual bool BackpropNeedsOutput() const { return false; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         MatrixBase<BaseFloat> *out) const;
+  // Note: in_value and out_value are both dummy variables.
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
@@ -314,9 +330,9 @@ class MixtureProbComponent: public UpdatableComponent {
                         MatrixBase<BaseFloat> *in_deriv);
 
   
-  void Read(std::istream &is, bool binary);
+  virtual void Read(std::istream &is, bool binary);
   virtual void Write(std::ostream &os, bool binary) const;
-
+  virtual BaseFloat DotProduct(const UpdatableComponent *other) const;
  private:
   std::vector<Matrix<BaseFloat> > params_;
   int32 input_dim_;
@@ -336,7 +352,7 @@ class PermuteComponent: public Component {
   virtual int32 OutputDim() const { return reorder_.size(); }
 
   virtual void InitFromString(std::string args);
-  void Read(std::istream &is, bool binary);
+  virtual void Read(std::istream &is, bool binary);
   virtual void Write(std::ostream &os, bool binary) const;
   virtual std::string Type() const { return "MixtureComponent"; }
   virtual bool BackpropNeedsInput() const { return false; }
