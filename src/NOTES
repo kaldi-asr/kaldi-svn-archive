@@ -6,9 +6,13 @@ Deleted because they're not really stable/complete yet.
  cudamatrix also deleted since it's not currently used for anything,
   although I have no objections to the code per se.
 
+Individual files deleted:
+  gmm/map-diag-gmm-accs.h and associated things... because no tests, and should use
+  existing functionality of GMM accs.
+ 
+
 Stuff I put in in ext: 
   online onlinebin 
-
 
 ---
 
