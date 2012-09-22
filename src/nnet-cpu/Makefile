@@ -4,7 +4,7 @@ all:
 
 include ../kaldi.mk
 
-TESTFILES = nnet-test
+TESTFILES = nnet-component-test
 
 OBJFILES = nnet-component.o 
 
