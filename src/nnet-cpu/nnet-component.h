@@ -1,4 +1,4 @@
-// nnet/nnet-component.h
+// nnet-cpu/nnet-component.h
 
 // Copyright 2011-2012  Karel Vesely
 //                      Johns Hopkins University (author: Daniel Povey)
@@ -18,13 +18,11 @@
 
 
 
-#ifndef KALDI_NNET_COMPONENT_H_
-#define KALDI_NNET_COMPONENT_H_
-
+#ifndef KALDI_NNET_CPU_COMPONENT_H_
+#define KALDI_NNET_CPU_COMPONENT_H_
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-// #include "nnet/nnet-nnet.h"
 
 #include <iostream>
 
@@ -67,16 +65,20 @@ class Component {
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
                          MatrixBase<BaseFloat> *out) const = 0; 
   
-  /// Perform backward pass propagation of the derivative.
-  /// Used for nonlinear layers (IsLinear() === true) where we 
-  /// need the value at the input in order to compute the derivative.
-  /// Crashes unless overridden.  Note: so far it has been more convenient
-  /// to use the output of the nonlinearities in computing the derivative,
-  /// but this isn't always possible in general.  We'll cross that bridge
-  /// when we come to it.
+  /// Perform backward pass propagation of the derivative, and
+  /// also either update the model (if to_update == this) or
+  /// update another model or compute the model derivative (otherwise).
+  /// Note: in_value and out_value are the values of the input and output
+  /// of the component, and these may be dummy variables if respectively
+  /// BackpropNeedsInput() or BackpropNeedsOutput() return false for
+  /// that component (not all components need these).
+  /// tot_weight would normally be the same as the number of frames,
+  /// but we support frame weighting so it could be more or less; this
+  /// is only needed for reasons relating to l2 regularization.
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat tot_weight,
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv) const = 0;
   
@@ -162,7 +164,7 @@ class UpdatableComponent : public Component {
  protected:
   BaseFloat learning_rate_; ///< learning rate (0.0..0.01)
   BaseFloat l2_penalty_; ///< L2 regularization constant (0.0..1e-4)
-  BaseFloat OldWeight(int32 num_frames) const;
+  BaseFloat OldWeight(BaseFloat num_frames) const;
 };
 
 /// This kind of Component is a base-class for things like
@@ -202,6 +204,7 @@ class SigmoidComponent: public NonlinearComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv) const;
  private:
@@ -221,6 +224,7 @@ class TanhComponent: public NonlinearComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv) const;
  private:
@@ -241,6 +245,7 @@ class SoftmaxComponent: public NonlinearComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv) const;
  private:
@@ -267,6 +272,7 @@ class AffineComponent: public UpdatableComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value, // dummy
                         const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
@@ -305,7 +311,8 @@ class BlockAffineComponent: public UpdatableComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        Component *to_update, // may be identical to "this".
+                        BaseFloat total_weight,
+                        Component *to_update, // may be identical to "this".                        
                         MatrixBase<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
   virtual void Read(std::istream &is, bool binary);
@@ -355,6 +362,7 @@ class MixtureProbComponent: public UpdatableComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
                         Component *to_update, // may be identical to "this".
                         MatrixBase<BaseFloat> *in_deriv) const;
   virtual Component* Copy() const;
@@ -393,7 +401,8 @@ class PermuteComponent: public Component {
                          MatrixBase<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value, // dummy
                         const MatrixBase<BaseFloat> &out_value, // dummy
-                        const MatrixBase<BaseFloat> &out_deriv, 
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
                         Component *to_update, // dummy
                         MatrixBase<BaseFloat> *in_deriv) const;
   

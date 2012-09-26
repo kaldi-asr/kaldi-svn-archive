@@ -1,4 +1,4 @@
-// nnet/nnet-nnet.h
+// nnet-cpu/nnet-nnet.h
 
 // Copyright 2011-2012  Karel Vesely
 //                      Johns Hopkins University (author: Daniel Povey)
@@ -16,10 +16,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-
-
-#ifndef KALDI_NNET_NNET_H_
-#define KALDI_NNET_NNET_H_
+#ifndef KALDI_NNET_CPU_NNET_NNET_H_
+#define KALDI_NNET_CPU_NNET_NNET_H_
 
 #include "base/kaldi-common.h"
 #include "util/kaldi-io.h"
@@ -34,42 +32,105 @@
 namespace kaldi {
 
 
-
-class Nnet1 {
- public:
-  // Returns number of components-- think of this as similar to # of layers, but
-  // e.g. the nonlinearity and the linear part count as separate components.
-  int32 NumComponents() { return components_.size(); }
+/*
+  This neural net is basically a series of Components, and is a fairly
+  passive object that mainly acts as a store for the Components.  Training
+  is handled by a separate class NnetTrainer(), and extracting likelihoods
+  for decoding is handled by DecodableNnetCpu(). 
   
-  int32 LeftContext() const; // Returns #frames of left context needed [just the sum
-  // of left_context for each component.]
+  There are a couple of things that make this class more than just a vector of
+  Components.
 
-  int32 RightContext() const; // Returns #frames of right context needed [just the sum
-  // of right_context for each component.]
+   (1) It handles frame splicing (temporal context.)
+   We'd like to encompass the approach described in
+   http://www.fit.vutbr.cz/research/groups/speech/publi/2011/vesely_asru2011_00042.pdf
+   where at a certain point they splice together frames -10, -5, 0, +5 and +10.  It
+   seems that it's not necessarily best to splice together a contiguous sequence
+   of frames.
 
-  int32 LeftContextForComponent(int32 component) const;
-  int32 RightContextForComponent(int32 component) const;
+   (2) It handles situations where the input features have two parts--
+   a "frame-specific" part (the normal features), and a "speaker-specific", or at
+   least utterance-specific part that does not vary with the frame index.
+   These features are provided separately from the frame-specific ones, to avoid
+   redundancy.
+*/
 
+
+class Nnet {
+ public:
+  /// Returns number of components-- think of this as similar to # of layers, but
+  /// e.g. the nonlinearity and the linear part count as separate components.
+  int32 NumComponents() const { return components_.size(); }
+
+  /// For 0 <= component < NumComponents(), gives a vector of the
+  /// relative frame indices that are spliced together at the input of
+  /// this component.  For typical hidden layers will just be the
+  /// vector [ 0 ].  For component == NumComponents(), returns the
+  /// vector [ 0 ]; this happens to be convenient.
+  const std::vector<int32> &RawSplicingForComponent(int32 component) const;
+
+  /// Returns the relative frame indices at the input of this component that
+  /// we'll need to get a single frame of the output.  This is a function of
+  /// RawSplicingForComponent() for this component and later ones.  For
+  /// component == NumComponents(), returns the vector [ 0 ]; this happens to be
+  /// convenient.
+  const std::vector<int32> &FullSplicingForComponent(int32 component) const;
+
+  /// This returns a matrix that lets us know in a convenient form how to splice
+  /// together the outputs of the previous layer (or the frame-level input to
+  /// the network) to become the input of this layer.  To be more precise: For a
+  /// particular component index 0 <= c < NumComponents(), this returns an array
+  /// of size M by N, where M equals FullSplicingForComponent(c+1).size(), 
+  /// and N equals RawSplicingForComponent(c).size().  This array specifies how
+  /// we splice together the list of frames at the output of the previous layer
+  /// (or the raw input), into the list of frames at the input of this layer.
+  /// All the values in this
+  /// array are positive, unlike the results of RawSplicingForComponent() and
+  /// FullSplicingForComponent(), because they are not frame indexes but indexes
+  /// into the result that FullSplicingForComponent() returns.
+  /// See the comment above the code for Nnet::InitializeArrays() for an example.
+  const std::vector<std::vector<int32> > &RelativeSplicingForComponent(
+      int32 component) const;
+
+  /// The output dimension of the network -- typically
+  /// the number of pdfs.
+  int32 OutputDim() const; 
+
+  /// Dimension of the per-frame input features, e.g. 13.
+  /// Does not take account of splicing-- see FullSplicingForComponent(0) to
+  /// see what relative frame indices you'll need (typically a contiguous
+  /// stretch but we don't guarantee this.  
+  int32 FeatureDim() const; 
+
+  /// Dimension of any speaker-specific or utterance-specific
+  /// input features-- the dimension of a vector we provide that says something about
+  /// the speaker.  This will be zero if we don't give any speaker-specific information
+  /// to the network.
+  int32 SpeakerDim() const { return speaker_info_dim_; }
+  
   const Component &GetComponent(int32 component) const;
 
   Component &GetComponent(int32 component);
-  
-  int32 OutputDim() const {
-    return (components_.empty() ? 0 : components_.back()->OutputDim());
-  }
   
   void ZeroOccupancy(); // calls ZeroOccupancy() on the softmax layers.  This
   // resets the occupancy counters; it makes sense to do this once in
   // a while, e.g. at the start of an epoch of training.
   
-  Nnet1(const Nnet1 &other); // Copy constructor.
+  Nnet(const Nnet &other); // Copy constructor.
   
-  Nnet1() { }
+  Nnet() { }
 
-  Nnet1(const Nnet1InitInfo &init_info) { Init(init_info); }
+  /// Initialize from config file.
+  /// Each line of the config is either a comment line starting
+  /// with whitespace then #, or it is a vector specifying splicing to the
+  /// input of this layer, e.g. [ -1 0 1 ] or [ 0 ] followed by
+  /// a string that would initialize a Component: for example,
+  /// AffineComponent 0.01 0.001 1000 1000.
+  void InitFromConfig(std::istream &is); 
+  
+  ~Nnet();
 
-  ~Nnet1() { Destroy(); }
-
+  /*  
   // Add a new tanh layer (hidden layer).  
   // Use #nodes of top hidden layer.  The new layer will have zero-valued parameters
   void AddTanhLayer(int32 left_context, int32 right_context,
@@ -109,11 +170,13 @@ class Nnet1 {
   void Init(const Nnet1InitInfo &init_info);
 
   void Destroy();
+  */
   
   void Write(std::ostream &os, bool binary) const;
 
   void Read(std::istream &is, bool binary);
 
+  /*
   void SetZeroAndTreatAsGradient(); // Sets all parameters to zero and the
   // learning rates to 1.0 and shinkage rates to zero.  Mostly useful if this
   // neural net is just being used to store the gradients on a validation set.
@@ -132,195 +195,44 @@ class Nnet1 {
       BaseFloat max_learning_rate,
       BaseFloat min_shrinkage_rate,
       BaseFloat max_shrinkage_rate);
-
+  */
   
   // This sets *info to the dot prod of *this . validation_gradient,
   // separately for each component.
   // This is used in updating learning rates and shrinkage rates.
   void ComputeDotProduct(
-      const Nnet1 &validation_gradient,
+      const Nnet &validation_gradient,
       VectorBase<BaseFloat> *dot_prod) const;
   
   friend class NnetUpdater;
   friend class DecodableNnet;
  private:
-  const Nnet &operator = (const Nnet &other);  // Disallow assignment.
+  /// Sets up full_splicing_ and relative_splicing_, which
+  /// are functions of raw_splicing_.
+  void InitializeArrays();
   
-  // the left and right context (splicing) for layers.
-  std::vector<int32> left_context_;
-  std::vector<int32> right_context_;
+  const Nnet &operator = (const Nnet &other);  // Disallow assignment.
+
+  int32 speaker_info_dim_; /// Dimension of speaker information the
+  /// networks accepts; will be zero for traditional networks.
+  
+  /// raw_splicing_ contains a sorted list of the frames that are
+  /// spliced together for each layer-- the elements are relative
+  /// frame indices.  Note: for the input layer, this is the splicing
+  /// that's applied to the raw features, and
+  std::vector<std::vector<int32> > raw_splicing_;
+
+  /// full_splicing_ is a function of raw_splicing_; it's
+  /// a list of the frame offsets that we'd need at the
+  /// beginning of this component, in order to compute
+  /// a single frame of output.
+  std::vector<std::vector<int32> > full_splicing_;
+
+  /// See comment for function RelativeSplicingForComponent().
+  std::vector<std::vector<std::vector<int32> > >  relative_splicing_;
+  
   std::vector<Component*> components_;
 };
-
-
-
-class Nnet {
- public:
-  Nnet() { } // Called prior to Read() or Init()
-  void Init(std::istream &config_file); // initialize given text configuration file,
-  // one line for each layer.
-  void Read(std::istream &is, bool binary);
-  void Write(std::ostream &os, bool binary) const;
-  
-  ~Nnet();
-
-  
- public:
-  /// Perform forward pass through the network
-  void Propagate(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out); 
-  /// Perform backward pass through the network
-  void Backpropagate(const Matrix<BaseFloat> &in_err, Matrix<BaseFloat> *out_err);
-  /// Perform forward pass through the network, don't keep buffers (use it when not training)
-  void Feedforward(const Matrix<BaseFloat> &in, Matrix<BaseFloat> *out); 
-
-  MatrixIndexT InputDim() const; ///< Dimensionality of the input features
-  MatrixIndexT OutputDim() const; ///< Dimensionality of the desired vectors
-
-  MatrixIndexT LayerCount() const { ///< Get number of layers
-    return nnet_.size(); 
-  }
-  Component* Layer(MatrixIndexT index) { ///< Access to individual layer
-    return nnet_[index]; 
-  }
-  int IndexOfLayer(const Component& comp) const; ///< Get the position of layer in network
-
-  /// Access to forward pass buffers
-  const std::vector<Matrix<BaseFloat> >& PropagateBuffer() const { 
-    return propagate_buf_; 
-  }
-
-  /// Access to backward pass buffers
-  const std::vector<Matrix<BaseFloat> >& BackpropagateBuffer() const { 
-    return backpropagate_buf_; 
-  }
-  
-  /// Read the MLP from file (can add layers to exisiting instance of Nnet)
-  void Read(const std::string &file);  
-  /// Read the MLP from stream (can add layers to exisiting instance of Nnet)
-  void Read(std::istream &in, bool binary);  
-  /// Write MLP to file
-  void Write(const std::string &file, bool binary); 
-  /// Write MLP to stream 
-  void Write(std::ostream &out, bool binary);    
-  
-  /// Set the learning rate values to trainable layers, 
-  /// factors can disable training of individual layers
-  void LearnRate(BaseFloat lrate, const char *lrate_factors); 
-  /// Get the global learning rate value
-  BaseFloat LearnRate() { 
-    return learn_rate_; 
-  }
-  /// Get the string with real learning rate values
-  std::string LearnRateString();  
-
-  void Momentum(BaseFloat mmt);
-  void L2Penalty(BaseFloat l2);
-  void L1Penalty(BaseFloat l1);
-
- private:
-  /// Creates a component by reading from stream, return NULL if no more components
-  static Component* ComponentFactory(std::istream &in, bool binary, Nnet *nnet);
-  /// Dumps individual component to stream
-  static void ComponentDumper(std::ostream &out, bool binary, const Component &comp);
-
-  typedef std::vector<Component*> NnetType;
-  
-  NnetType nnet_;     ///< vector of all Component*, represents layers
-
-  std::vector<Matrix<BaseFloat> > propagate_buf_; ///< buffers for forward pass
-  std::vector<Matrix<BaseFloat> > backpropagate_buf_; ///< buffers for backward pass
-
-  BaseFloat learn_rate_; ///< global learning rate
-
-  KALDI_DISALLOW_COPY_AND_ASSIGN(Nnet);
-};
-  
-
-inline Nnet::~Nnet() {
-  // delete all the components
-  NnetType::iterator it;
-  for(it=nnet_.begin(); it!=nnet_.end(); ++it) {
-    delete *it;
-  }
-}
-
-   
-inline MatrixIndexT Nnet::InputDim() const { 
-  if (LayerCount() > 0) {
-   return nnet_.front()->InputDim(); 
-  } else {
-   KALDI_ERR << "No layers in MLP"; 
-  }
-}
-
-
-inline MatrixIndexT Nnet::OutputDim() const { 
-  if (LayerCount() > 0) {
-    return nnet_.back()->OutputDim(); 
-  } else {
-    KALDI_ERR << "No layers in MLP"; 
-  }
-}
-
-
-inline int32 Nnet::IndexOfLayer(const Component &comp) const {
-  for(int32 i=0; i<LayerCount(); i++) {
-    if (&comp == nnet_[i]) return i;
-  }
-  KALDI_ERR << "Component:" << &comp 
-            << " type:" << comp.GetType() 
-            << " not found in the MLP";
-  return -1;
-}
- 
-  
-inline void Nnet::Read(const std::string &file) {
-  bool binary;
-  Input in(file, &binary);
-  Read(in.Stream(), binary);
-  in.Close();
-}
-
-
-inline void Nnet::Write(const std::string &file, bool binary) {
-  Output out(file, binary, true);
-  Write(out.Stream(), binary);
-  out.Close();
-}
-
-
-inline void Nnet::Write(std::ostream &out, bool binary) {
-  for(int32 i=0; i<LayerCount(); i++) {
-    nnet_[i]->Write(out, binary);
-  }
-}
-
-    
-inline void Nnet::Momentum(BaseFloat mmt) {
-  for(int32 i=0; i<LayerCount(); i++) {
-    if (nnet_[i]->IsUpdatable()) {
-      dynamic_cast<UpdatableComponent*>(nnet_[i])->Momentum(mmt);
-    }
-  }
-}
-
-
-inline void Nnet::L2Penalty(BaseFloat l2) {
-  for(int32 i=0; i<LayerCount(); i++) {
-    if (nnet_[i]->IsUpdatable()) {
-      dynamic_cast<UpdatableComponent*>(nnet_[i])->L2Penalty(l2);
-    }
-  }
-}
-
-
-inline void Nnet::L1Penalty(BaseFloat l1) {
-  for(int32 i=0; i<LayerCount(); i++) {
-    if (nnet_[i]->IsUpdatable()) {
-      dynamic_cast<UpdatableComponent*>(nnet_[i])->L1Penalty(l1);
-    }
-  }
-}
 
 
 

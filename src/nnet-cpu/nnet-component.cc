@@ -134,6 +134,7 @@ void SigmoidComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void SigmoidComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
+                                BaseFloat tot_weight,
                                 Component *to_update,
                                 MatrixBase<BaseFloat> *in_deriv) const {
   // we ignore in_value and to_update.
@@ -177,6 +178,7 @@ void TanhComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void TanhComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                              const MatrixBase<BaseFloat> &out_value,
                              const MatrixBase<BaseFloat> &out_deriv,
+                             BaseFloat, //  tot_weight,
                              Component *, // to_update
                              MatrixBase<BaseFloat> *in_deriv) const {
   /*
@@ -210,6 +212,7 @@ void SoftmaxComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
+                                BaseFloat, //  tot_weight
                                 Component *to_update,
                                 MatrixBase<BaseFloat> *in_deriv) const {
   /*
@@ -302,17 +305,17 @@ void AffineComponent::Propagate(const MatrixBase<BaseFloat> &in,
 
 void AffineComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                const MatrixBase<BaseFloat> &, // out_value
-                               const MatrixBase<BaseFloat> &out_deriv, 
+                               const MatrixBase<BaseFloat> &out_deriv,
+                               BaseFloat tot_weight,
                                Component *to_update_in,
                                MatrixBase<BaseFloat> *in_deriv) const {
-  int32 num_frames = in_value.NumRows();
   AffineComponent *to_update = dynamic_cast<AffineComponent*>(to_update_in);
   // Propagate the derivative back to the input.
   in_deriv->AddMatMat(1.0, out_deriv, kNoTrans, linear_params_, kNoTrans,
                       0.0);
 
   if (to_update) {
-    BaseFloat old_weight = to_update->OldWeight(num_frames);
+    BaseFloat old_weight = to_update->OldWeight(tot_weight);
     // Next update the model (must do this 2nd so the derivatives we propagate
     // are accurate, in case this == to_update_in.)
     // add the sum of the rows of out_deriv, to the bias_params_.
@@ -425,7 +428,8 @@ void BlockAffineComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void BlockAffineComponent::Backprop(
     const MatrixBase<BaseFloat> &in_value,
     const MatrixBase<BaseFloat> &, // out_value
-    const MatrixBase<BaseFloat> &out_deriv, 
+    const MatrixBase<BaseFloat> &out_deriv,
+    BaseFloat tot_weight,
     Component *to_update_in,
     MatrixBase<BaseFloat> *in_deriv) const {
   // This code mirrors the code in Propagate().
@@ -441,7 +445,7 @@ void BlockAffineComponent::Backprop(
   // add the sum of the rows of out_deriv, to the bias_params_.
   if (to_update)
     to_update->bias_params_.AddRowSumMat(to_update->learning_rate_, out_deriv,
-                                         to_update->OldWeight(num_frames));
+                                         to_update->OldWeight(tot_weight));
   
   for (int32 b = 0; b < num_blocks_; b++) {
     SubMatrix<BaseFloat> in_value_block(in_value, 0, num_frames,
@@ -468,14 +472,14 @@ void BlockAffineComponent::Backprop(
       param_block_to_update.AddMatMat(
           to_update->learning_rate_,
           out_deriv_block, kTrans, in_value_block, kNoTrans,
-          to_update->OldWeight(num_frames));
+          to_update->OldWeight(tot_weight));
     }
   }  
 }
 
-BaseFloat UpdatableComponent::OldWeight(int32 num_frames) const {
-  return std::pow(1.0 - 2.0 * learning_rate_ * l2_penalty_,
-                  num_frames);
+BaseFloat UpdatableComponent::OldWeight(BaseFloat num_frames) const {
+  return std::pow(static_cast<BaseFloat>(1.0 - 2.0 * learning_rate_ * l2_penalty_),
+                  static_cast<BaseFloat>(num_frames));
 }
 
 void BlockAffineComponent::Init(BaseFloat learning_rate, BaseFloat l2_penalty,
@@ -581,7 +585,8 @@ void PermuteComponent::Propagate(const MatrixBase<BaseFloat> &in,
 
 void PermuteComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
-                                const MatrixBase<BaseFloat> &out_deriv, 
+                                const MatrixBase<BaseFloat> &out_deriv,
+                                BaseFloat, //  tot_weight
                                 Component *to_update,
                                 MatrixBase<BaseFloat> *in_deriv) const {
   KALDI_ASSERT(SameDim(out_deriv, *in_deriv) &&
@@ -749,6 +754,7 @@ void MixtureProbComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                     const MatrixBase<BaseFloat> &,// out_value
                                     const MatrixBase<BaseFloat> &out_deriv,
+                                    BaseFloat tot_weight,
                                     Component *to_update_in,
                                     MatrixBase<BaseFloat> *in_deriv) const {
   MixtureProbComponent *to_update = dynamic_cast<MixtureProbComponent*>(
@@ -782,7 +788,7 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
         // the gradient there, so it's a linear update rule as for any other layer.
         // Note: most likely the learning_rate_ will be 1.0 and OldWeight() will
         // be 1.0 because of zero l2_penalty_.
-        KALDI_ASSERT(to_update->OldWeight(num_frames) == 1.0 &&
+        KALDI_ASSERT(to_update->OldWeight(tot_weight) == 1.0 &&
                      to_update->learning_rate_ == 1.0);
         param_block_to_update.AddMatMat(1.0, out_deriv_block, kTrans, in_value_block,
                                         kNoTrans, 1.0);
@@ -810,7 +816,7 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
         Matrix<BaseFloat> gradient(num_rows, num_cols);
         gradient.AddMatMat(1.0, out_deriv_block, kTrans, in_value_block, kNoTrans,
                            0.0);
-        BaseFloat old_weight = to_update->OldWeight(num_frames);
+        BaseFloat old_weight = to_update->OldWeight(tot_weight);
         for (int32 col = 0; col < num_cols; col++) {
           Vector<BaseFloat> param_col(num_rows);
           param_col.CopyColFromMat(param_block_to_update, col);

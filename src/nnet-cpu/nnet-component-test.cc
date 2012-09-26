@@ -57,7 +57,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
 
     Matrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
     
-    component_copy->Backprop(input, output, output_deriv, NULL, &input_deriv);
+    component_copy->Backprop(input, output, output_deriv, num_egs, NULL, &input_deriv);
 
     int32 num_ok = 0, num_bad = 0, num_tries = 7;
     KALDI_LOG << "Comparing feature gradients " << num_tries << " times.";
@@ -119,7 +119,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
       Matrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
 
       // This will compute the parameter gradient.
-      ucomponent->Backprop(input, output, output_deriv, gradient_ucomponent, &input_deriv);
+      ucomponent->Backprop(input, output, output_deriv, num_egs, gradient_ucomponent, &input_deriv);
 
       // Now compute the perturbed objf.
       BaseFloat objf_perturbed;

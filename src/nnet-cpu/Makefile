@@ -6,7 +6,7 @@ include ../kaldi.mk
 
 TESTFILES = nnet-component-test
 
-OBJFILES = nnet-component.o 
+OBJFILES = nnet-component.o nnet-update.o
 
 # nnet-nnet.o nnet-loss.o nnet-rnnlm.o
 

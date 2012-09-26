@@ -1,0 +1,69 @@
+// nnet-dp/nnet-update.h
+
+// Copyright 2012  Johns Hopkins University (author: Daniel Povey)
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+#ifndef KALDI_NNET_CPU_NNET_UPDATE_H_
+#define KALDI_NNET_CPU_NNET_UPDATE_H_
+
+#include "nnet-cpu/nnet-nnet.h"
+
+namespace kaldi {
+
+
+// NnetTrainingExample is the label (the pdf) and input data for
+// one frame of input.  
+
+struct NnetTrainingExample {
+  BaseFloat weight; // Allows us to put a weight on each training
+  // sample.  Will often just be one.
+
+  int32 label; // Typically the pdf-id. 
+  // each element of "labels" is a list of pairs (category, label).
+  // For a typical, monolingual setup with a two-level tree we'll
+  // have two pairs: something
+  // like ((0, first-level-tree-node),
+  // (first-level-tree-node, second-level-tree-node))-- although
+  // there may be some integer offsets involved here.
+  
+  Matrix<BaseFloat> input_frames; // The input data-- typically a number of frames
+  // of raw features, not necessarily contiguous.
+
+  Vector<BaseFloat> spk_info; // The speaker-specific input, if any;
+  // a vector of possibly zero length.
+  
+  void Write(std::ostream &os, bool binary) const;
+  void Read(std::istream &is, bool binary);
+};
+
+
+
+/// This function computes the objective function and either updates the model
+/// or computes parameter gradients.  Returns the cross-entropy objective
+/// function summed over all samples (normalize by
+/// TotalNnetTrainingWeight(examples)).  It is mostly a wrapper for
+/// a class NnetUpdater that's defined in nnet-update.cc, but we
+/// don't want to expose that complexity at this level.
+BaseFloat DoBackprop(const Nnet &nnet,
+                     const std::vector<NnetTrainingExample> &examples,
+                     Nnet *net_to_update);
+
+/// Returns the total weight over all the examples.
+BaseFloat TotalNnetTrainingWeight(const std::vector<NnetTrainingExample> &egs);
+
+
+} // namespace
+
+#endif // KALDI_NNET_CPU_NNET_UPDATE_H_
