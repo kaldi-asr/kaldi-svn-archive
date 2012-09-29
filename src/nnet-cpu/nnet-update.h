@@ -25,7 +25,6 @@ namespace kaldi {
 
 // NnetTrainingExample is the label (the pdf) and input data for
 // one frame of input.  
-
 struct NnetTrainingExample {
   BaseFloat weight; // Allows us to put a weight on each training
   // sample.  Will often just be one.
@@ -52,7 +51,7 @@ struct NnetTrainingExample {
 
 /// This function computes the objective function and either updates the model
 /// or computes parameter gradients.  Returns the cross-entropy objective
-/// function summed over all samples (normalize by
+/// function summed over all samples (normalize this by
 /// TotalNnetTrainingWeight(examples)).  It is mostly a wrapper for
 /// a class NnetUpdater that's defined in nnet-update.cc, but we
 /// don't want to expose that complexity at this level.
@@ -60,7 +59,7 @@ BaseFloat DoBackprop(const Nnet &nnet,
                      const std::vector<NnetTrainingExample> &examples,
                      Nnet *net_to_update);
 
-/// Returns the total weight over all the examples.
+/// Returns the total weight summed over all the examples.
 BaseFloat TotalNnetTrainingWeight(const std::vector<NnetTrainingExample> &egs);
 
 

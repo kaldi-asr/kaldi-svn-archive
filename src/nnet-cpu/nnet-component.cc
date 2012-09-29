@@ -477,9 +477,10 @@ void BlockAffineComponent::Backprop(
   }  
 }
 
-BaseFloat UpdatableComponent::OldWeight(BaseFloat num_frames) const {
+BaseFloat UpdatableComponent::OldWeight(BaseFloat tot_weight) const {
+  // tot_weight would equal #frames if we did not have frame weighting.
   return std::pow(static_cast<BaseFloat>(1.0 - 2.0 * learning_rate_ * l2_penalty_),
-                  static_cast<BaseFloat>(num_frames));
+                  static_cast<BaseFloat>(tot_weight));
 }
 
 void BlockAffineComponent::Init(BaseFloat learning_rate, BaseFloat l2_penalty,
