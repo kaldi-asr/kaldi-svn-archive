@@ -24,6 +24,7 @@ distclean:
 		rm -rf atlas3.8.3.tar.gz
 		rm -rf sctk-2.4.0-20091110-0958.tar.bz2
 		rm -rf openfst-1.2.10.tar.gz
+		rm -f openfst
 
 		
 openfst_tgt: openfst_compiled
@@ -44,6 +45,7 @@ openfst-1.2.10/.patched: | openfst-1.2.10
 
 openfst-1.2.10: openfst-1.2.10.tar.gz
 		tar xozf openfst-1.2.10.tar.gz
+		-ln -s openfst-1.2.10 openfst 
 
 openfst-1.2.10.tar.gz: 
 		wget -T 10 -t 3 --no-check-certificate https://sourceforge.net/projects/kaldi/files/openfst-1.2.10.tar.gz
@@ -127,7 +129,7 @@ sph2pipe_compiled: sph2pipe_v2.5/sph2pipe
 
 sph2pipe_v2.5/sph2pipe: | sph2pipe_v2.5
 		cd sph2pipe_v2.5/; \
-		gcc -o sph2pipe  *.c -lm
+		$(CC) -o sph2pipe  *.c -lm
 
 sph2pipe_v2.5: sph2pipe_v2.5.tar.gz
 		tar xzf sph2pipe_v2.5.tar.gz
