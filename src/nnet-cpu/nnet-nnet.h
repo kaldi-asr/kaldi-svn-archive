@@ -110,6 +110,13 @@ class Nnet {
   
   const Component &GetComponent(int32 component) const;
 
+  /// Number of frames of left context the network needs.
+  int32 LeftContext() { return -FullSplicingForComponent(0).front(); }
+
+
+  /// Number of frames of right context the network needs.
+  int32 RightContext() { return FullSplicingForComponent(0).back(); }
+
   Component &GetComponent(int32 component);
   
   void ZeroOccupancy(); // calls ZeroOccupancy() on the softmax layers.  This
@@ -128,7 +135,7 @@ class Nnet {
   /// AffineComponent 0.01 0.001 1000 1000.
   void InitFromConfig(std::istream &is); 
   
-  ~Nnet();
+  ~Nnet() { Destroy(); }
 
   /*  
   // Add a new tanh layer (hidden layer).  
@@ -168,21 +175,21 @@ class Nnet {
              BaseFloat perturb_stddev);
   
   void Init(const Nnet1InitInfo &init_info);
-
-  void Destroy();
   */
+  void Destroy();
   
   void Write(std::ostream &os, bool binary) const;
 
   void Read(std::istream &is, bool binary);
 
-  /*
-  void SetZeroAndTreatAsGradient(); // Sets all parameters to zero and the
-  // learning rates to 1.0 and shinkage rates to zero.  Mostly useful if this
-  // neural net is just being used to store the gradients on a validation set.
-  // Will let the contents know that we'll now treat the layers as a store of
-  // gradients.  [affects the LinearLayer.]  If so you probably want
+  void SetZero(bool treat_as_gradient); // Sets all parameters to zero and if
+  // treat_as_gradient == true, also sets the learning rates to 1.0 and shinkage
+  // rates to zero and instructs the components to think of themselves as
+  // storing the gradient (this part only affects components of type
+  // LinearComponent).
 
+
+  /*
   // This is used to separately adjust learning rates of each layer,
   // after each "phase" of training.  We basically ask (using the validation
   // gradient), do we wish we had gone further in this direction?  Yes->

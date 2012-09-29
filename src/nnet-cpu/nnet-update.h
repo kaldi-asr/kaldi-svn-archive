@@ -22,6 +22,11 @@
 
 namespace kaldi {
 
+/* This header provides functionality for sample-by-sample stochastic
+   gradient descent and gradient computation with a neural net.
+   See also nnet-compute.h which is the same thing but for
+   whole utterances.
+*/
 
 // NnetTrainingExample is the label (the pdf) and input data for
 // one frame of input.  
@@ -46,7 +51,6 @@ struct NnetTrainingExample {
   void Write(std::ostream &os, bool binary) const;
   void Read(std::istream &is, bool binary);
 };
-
 
 
 /// This function computes the objective function and either updates the model
