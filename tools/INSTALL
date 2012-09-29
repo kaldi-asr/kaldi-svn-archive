@@ -27,12 +27,17 @@ See below install instructions for:
   native Windows compilation without Intel MKL you have to compile this)
 (7) CLAPACK headers (required if you have the library available but
  no headers in a directory accessed by default; this is the case on Cygwin)
+(8) libportaudio (needed for the online recognition binaries)
 
 
 ####
 
 (1)
 Install instructions for sph2pipe_v2.5.tar.gz
+#Note: you may need to try other sites, where the archive is available
+#For example:
+#	http://merlin.fit.vutbr.cz/kaldi/sph2pipe_v2.5.tar.gz
+
 
 wget ftp://ftp.ldc.upenn.edu/pub/ldc/misc_sw/sph2pipe_v2.5.tar.gz
 tar -xovzf sph2pipe_v2.5.tar.gz 
@@ -148,12 +153,9 @@ This was obtained as follows:
   use username="anonymous" and an empty password
   cd pub
   get sctk-2.4.0-20091110-0958.tar.bz2
-(b)
-# Convert into gzip format (bunzip2 needs to be installed for this to work):
-bunzip2 sctk-2.4.0-20091110-0958.tar.bz2
-gzip sctk-2.4.0-20091110-0958.tar
-
-tar -xovzf sctk-2.4.0-20091110-0958.tar.gz 
+ 
+ (b) unpack, patch and compile
+tar -xovjf sctk-2.4.0-20091110-0958.tar.bz2 
 cd sctk-2.4.0
 for x in src/asclite/core/recording.{h,cpp}; do # Fix a compilation error that can occur with newer compiler versions.
   sed 's/Filter::Filter/::Filter/' $x > tmpf; mv tmpf $x;
@@ -179,7 +181,39 @@ tar -xovzf atlas3.8.3.tar.gz ATLAS/include
    already there).
 mkdir CLAPACK_include
 cd CLAPACK_include
-for x in  clapack.h	f2c.h cblas.h; do 
+for x in  clapack.h f2c.h ; do 
   wget http://www.netlib.org/clapack/$x; 
 done
+cd ..
+cp ATLAS/include/cblas.h CLAPACK_include
+ 
+####
 
+(8) Install instructions for libportaudio.
+
+libportaudio is only needed for the online recognition binaries. It enables audio
+capture from the sound card. Unfortunately, the installer for libportaudio may not 
+work on all version of Linux or Mac OS. However, for most people it will be 
+sufficient to simply run the script
+
+./install_portaudio.sh
+
+We tested this installation script on various versions of Suse Linux and Red Hat as
+well as on Mac OS (Darwin). Please note that the installation script patches up the 
+default Makefile of portaudio when installing on Mac (for details, please have a look
+at the installation script itself). 
+
+!!IMPORTANT!! UNDER MAC OS, YOU MAY NEED TO COPY THE libportaudio.dylib TO
+/usr/local/lib SO THAT THE BINARIES CAN FIND THE LIBRARY. AFTER COMPILING 
+LIPPORTAUDIO, YOU CAN FIND THE DYLIB FILE(S) IN portaudio/install/lib
+
+The best bet for support on compiling libportaudio, should you face any problems, 
+would be the portaudio documentation:
+
+http://portaudio.com/docs/v19-doxydocs/tutorial_start.html
+
+We know of at least one instance were libportaudio  compiled fine, but only 
+produced garbage audio samples. This happened on a Linux system  that only had 
+Open Sound System (OSS) installed. We therefore recommend to install ALSA. This 
+is also reflected in our Makefile for the binaries in /src/onlinebin where we 
+include -lasound.
