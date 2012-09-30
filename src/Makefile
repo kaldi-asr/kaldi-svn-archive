@@ -74,8 +74,8 @@ decoder: base util matrix gmm sgmm hmm tree transform
 lat: base util
 cudamatrix: base util matrix	
 nnet: base util matrix cudamatrix
-nnet_cpu: base util matrix
+nnet-cpu: base util matrix
 rnn: base util matrix lat
 #3)Dependencies for optional parts of Kaldi
-onlinebin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet_cpu rnn online
+onlinebin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet-cpu rnn online
 online: decoder
