@@ -448,7 +448,7 @@ void SoftmaxLayer::Update(const MatrixBase<BaseFloat> &input,
   BaseFloat old_weight = pow(1.0 - shrinkage_rate_, num_samples); // weight of old params
   
   params_.AddMatMat(learning_rate_, sum_deriv, kTrans, input, kNoTrans, old_weight);
-  occupancy_.AddRowSumMat(output);
+  occupancy_.AddRowSumMat(1.0, output, 1.0);
   // Check for NaN's.
   KALDI_ASSERT(params_(0, 0) == params_(0, 0) && params_(0, 0) - params_(0, 0) == 0.0);
 }

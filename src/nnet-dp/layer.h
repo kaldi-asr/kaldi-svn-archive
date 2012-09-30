@@ -32,8 +32,8 @@ class GenericLayer {
   int32 InputDim() const { return params_.NumCols(); }
   int32 OutputDim() const { return params_.NumRows(); }
 
-  virtual void Write(std::ostream &out, bool binary) const; // 
-  virtual void Read(std::istream &in, bool binary); // This Read function will only work
+  virtual void Write(std::ostream &out, bool binary) const = 0;
+  virtual void Read(std::istream &in, bool binary) = 0; // This Read function will only work
   // if the actual type of this object is the same as what's on disk.
 
   static GenericLayer *ReadNew(std::istream &in, bool binary); // Returns a pointer

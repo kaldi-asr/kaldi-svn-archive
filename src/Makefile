@@ -7,7 +7,7 @@ SHELL := /bin/bash
 SUBDIRS = base matrix util feat tree gmm tied transform sgmm \
           fstext hmm lm decoder lat cudamatrix nnet \
           bin fstbin gmmbin fgmmbin tiedbin sgmmbin featbin \
-          nnetbin latbin sgmm2 sgmm2bin
+          nnetbin latbin sgmm2 sgmm2bin nnet-dp nnet-dpbin nnet-cpu
 
 # Optional subdirectories
 EXT_SUBDIRS = online onlinebin
@@ -53,7 +53,7 @@ $(EXT_SUBDIRS) :
 ### Dependency list ###
 # this is necessary for correct parallel compilation
 #1)The tools depend on all the libraries
-bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin nnetbin nnetbin_cpu latbin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet_cpu rnn
+bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin nnetbin nnetbin_cpu latbin nnet-dpbin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet-cpu rnn nnet-dp
 #2)The libraries have inter-dependencies
 base:
 matrix : base
