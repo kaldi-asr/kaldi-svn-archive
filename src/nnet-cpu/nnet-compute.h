@@ -39,19 +39,20 @@ namespace kaldi {
   nnet.LeftContet() at the left and nnet.RightContext() at the
   output.
 */
-BaseFloat NnetComputation(const Nnet &nnet,
-                          const MatrixBase<BaseFloat> &input,  // features
-                          const VectorBase<BaseFloat> &spk_info,
-                          bool pad_input,
-                          MatrixBase<BaseFloat> *output); // posteriors.
+void NnetComputation(const Nnet &nnet,
+                     const MatrixBase<BaseFloat> &input,  // features
+                     const VectorBase<BaseFloat> &spk_info,
+                     bool pad_input,
+                     MatrixBase<BaseFloat> *output); // posteriors.
 
 /** Does the neural net computation and backprop, given input and labels.
     Note: if pad_input==true the number of rows of input should be the
     same as the number of labels, and if false, you should omit
     nnet.LeftContext() labels on the left and nnet.RightContext() on
     the right.  If nnet_to_update == &nnet, then this does stochastic
-    gradient descent, otherwise (
- */
+    gradient descent, otherwise (assuming you have called SetZero(true)
+    on *nnet_to_update) it will compute the gradient on this data.
+*/
 BaseFloat NnetGradientComputation(const Nnet &nnet,
                                   const MatrixBase<BaseFloat> &input,
                                   const VectorBase<BaseFloat> &spk_info,

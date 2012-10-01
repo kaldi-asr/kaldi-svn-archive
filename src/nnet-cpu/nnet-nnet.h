@@ -111,11 +111,10 @@ class Nnet {
   const Component &GetComponent(int32 component) const;
 
   /// Number of frames of left context the network needs.
-  int32 LeftContext() { return -FullSplicingForComponent(0).front(); }
-
-
+  int32 LeftContext() const { return -FullSplicingForComponent(0).front(); }
+  
   /// Number of frames of right context the network needs.
-  int32 RightContext() { return FullSplicingForComponent(0).back(); }
+  int32 RightContext() const { return FullSplicingForComponent(0).back(); }
 
   Component &GetComponent(int32 component);
   

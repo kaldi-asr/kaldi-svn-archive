@@ -19,6 +19,7 @@
 #define KALDI_NNET_CPU_NNET_TRAIN_H_
 
 #include "nnet-cpu/nnet-update.h"
+#include "nnet-cpu/nnet-compute.h"
 #include "util/parse-options.h"
 
 namespace kaldi {
@@ -112,7 +113,7 @@ class NnetDataRandomizer {
   int32 num_samples_given_;
   std::vector<std::pair<int32, int32> > samples_; // each time we randomize
   // the whole data, we store it here.
-  std::vector<BaseFloat> pdf_weights_; // each time we randomize the data,
+  Vector<BaseFloat> pdf_weights_; // each time we randomize the data,
   // we compute a new weighting for each pdf, which is to cancel out the
   // difference in frequency between the original frequency and the sampled
   // frequency.
@@ -120,6 +121,7 @@ class NnetDataRandomizer {
 };
 
 
+/*
 
 
 /// Class NnetBackpropComputation is responsible for storing the temporary
@@ -136,11 +138,9 @@ class NnetDataRandomizer {
 
 class NnetBasicTrainer {
  public:
-  /*
-    The initializer takes: the features [one per training file]; and
-    the labels, which are indexed [training file][t][list of pair (category, label)].
-    For construction of labels from pdf-ids etc., see am-nnet1.h.    
-  */
+//    The initializer takes: the features [one per training file]; and
+//    the labels, which are indexed [training file][t][list of pair (category, label)].
+//    For construction of labels from pdf-ids etc., see am-nnet1.h.    
   Nnet1BasicTrainer(
       const NnetBasicTrainerConfig &config,
       Nnet &nnet,
@@ -271,8 +271,10 @@ class Nnet1AdaptiveTrainer {
   // learning rates.
 };
 
+*/
 
 
 } // namespace
 
 #endif
+

@@ -19,137 +19,221 @@
 
 namespace kaldi {
 
-// This class NnetUpdater contains functions for updating the neural net or
-// computing its gradient, given a set of NnetTrainingExamples.  Its functionality
-// is exported by DoBackprop(), so we define it in the .cc file.
-class NnetUpdater {
+
+class NnetComputer {
  public:
-  // Note: in the case of training with SGD, "nnet" and "nnet_to_update" will
-  // be identical.  They'll be different if we're accumulating the gradient
-  // for a held-out set and don't want to update the model.
-  NnetUpdater(const Nnet &nnet,
-              Nnet *nnet_to_update);
+  // Note: this class maintains a reference to nnet.  Don't delete it
+  // while this class still exists.
+  NnetComputer(const Nnet &nnet,
+               const MatrixBase<BaseFloat> &input_feats,
+               const VectorBase<BaseFloat> &spk_info,
+               bool pad,
+               Nnet *nnet_to_update); // nnet_to_update may be NULL.
+
+  // The forward-through-the-layers part of the computation.
+  void Propagate(bool will_do_backprop);
+
   
-  BaseFloat ComputeForMinibatch(const std::vector<NnetTrainingExample> &data);
-  // returns average objective function over this minibatch.
+  // Backprop does not currently support weights on the frames.  We could easily
+  // add support for weights if we needed it.  Returns objective function,
+  // summed over the labels.
+  BaseFloat Backprop(const std::vector<int32> &labels);
+  
+  MatrixBase<BaseFloat> &GetOutput() { return forward_data_.back(); }
   
  private:
-  // Splices together the output of one layer into the
-  // input of the next.
+  // Computes objf derivative at last layer, and returns objective
+  // function summed over labels.
+  BaseFloat ComputeLastLayerDeriv(const std::vector<int32> &labels,
+                                  Matrix<BaseFloat> *deriv) const;
+  
+  // Splices together the output of one layer into the input of the next,
+  // taking care of splicing.
   void SpliceData(const MatrixBase<BaseFloat> &prev_output,
                   int32 c, // component index of component for which
                            // "input" is the input
-                  MatrixBase<BaseFloat> *input);
+                  MatrixBase<BaseFloat> *input) const;
 
-  // UnSpliceDerivatives is like SpliceData but it's for Backprop;
-  // the "copy" operation becomes a "sum" operation in reverse.
+  // This is like SpliceData but it's what we do when we're propagating
+  // the derivatives back.
   void UnSpliceDerivatives(const MatrixBase<BaseFloat> &input_deriv,
                            int32 c, // component index of component for which
-                           // "input_deriv" is input derivative.
-                           MatrixBase<BaseFloat> *preb_output_deriv);
+                           // "input_deriv" is the derivative of the input
+                           MatrixBase<BaseFloat> *prev_output_deriv) const;
+
+  // This function takes the raw feature data in forward_data_[0], and
+  // splices it together as needed, together with the speaker information.
+  void SpliceFirstLayerInput(Matrix<BaseFloat> *spliced_input) const;
   
-  void FormatInput(const std::vector<NnetTrainingExample> &data); // takes the
-  // input and formats as a single matrix, in forward_data_[0].
-  
-  // Possibly splices input together from forward_data_[component].
-  //   MatrixBase<BaseFloat> &GetSplicedInput(int32 component, Matrix<BaseFloat> *temp_matrix);
-
-
-  void Propagate();
-
-  /// Computes objective function and derivative at output layer.
-  BaseFloat ComputeObjfAndDeriv(const std::vector<NnetTrainingExample> &data,
-                                Matrix<BaseFloat> *deriv) const;
-  
-  /// Returns objf summed (and weighted) over samples.
-  /// Note: "deriv" will contain, at input, the derivative w.r.t. the
-  /// output layer but will be used as a temporary variable by
-  /// this function.
-  void Backprop(const std::vector<NnetTrainingExample> &data,
-                Matrix<BaseFloat> *deriv);
-
   const Nnet &nnet_;
-  Nnet *nnet_to_update_;
-  int32 minibatch_size_;
-  
-  std::vector<Matrix<BaseFloat> > forward_data_; // The forward data
-  // for the outputs of the tanh components; has a 1 appended (so larger
-  // dimension than the actual output if the component in question will not
-  // be spliced.  Indexed by [component][t][dim]; tanh_forward[i] is the input
-  // of component i.
-  
+  Vector<BaseFloat> spk_info_;
+  std::vector<Matrix<BaseFloat> > forward_data_;
+  Nnet *nnet_to_update_; // May be NULL, if just want objective function
+  // but no gradient info or SGD.
 };
 
-
-/*
-   Explanation of variable names:
-    num_frames = the number of context frames for each training data sample,
-       at a particular layer.  This is required due to to the context splicing.
-       For a component c, num_frames will equal nnet.FullSplicingForComponent(c+1).size();
-       this is the number of separate frames of data we process at this layer,
-       for each data sample.
-     frame_idx ranges from 0 to num_frames-1.
-    num_splice = the number of separate input frames (at different times)
-       that we splice together for component c.  This will equal
-       nnet.RawSplicingForComponent(c).sze().
-     splice_idx ranges from 0 to num_splice-1.       
-*/
-
-NnetUpdater::NnetUpdater(const Nnet &nnet,
-                         Nnet *nnet_to_update):
-    nnet_(nnet), nnet_to_update_(nnet_to_update) { }
- 
-
-BaseFloat NnetUpdater::ComputeForMinibatch(
-    const std::vector<NnetTrainingExample> &data) {
-  minibatch_size_ = data.size();
-  FormatInput(data);
-  Propagate();
-  Matrix<BaseFloat> tmp_deriv;
-  BaseFloat ans = ComputeObjfAndDeriv(data, &tmp_deriv);
-  Backprop(data, &tmp_deriv); // this is summed (after weighting), not averaged.
-  return ans;
+NnetComputer::NnetComputer(const Nnet &nnet,
+                           const MatrixBase<BaseFloat> &input_feats,
+                           const VectorBase<BaseFloat> &spk_info,
+                           bool pad,
+                           Nnet *nnet_to_update):
+    nnet_(nnet), spk_info_(spk_info), nnet_to_update_(nnet_to_update) {
+  KALDI_ASSERT(input_feats.NumRows() != 0 &&
+               input_feats.NumCols() == nnet_.FeatureDim());
+  forward_data_.resize(nnet.NumComponents() + 1);
+  if (!pad) {
+    forward_data_[0] = input_feats;
+  } else {
+    int32 num_rows = nnet_.LeftContext() + input_feats.NumRows() +
+                     nnet_.RightContext();
+    Matrix<BaseFloat> &padded_input(forward_data_[0]);
+    padded_input.Resize(num_rows, input_feats.NumCols());
+    padded_input.Range(nnet_.LeftContext(), input_feats.NumRows(),
+                           0, input_feats.NumCols()).CopyFromMat(input_feats);
+    for (int32 i = 0; i < nnet_.LeftContext(); i++)
+      padded_input.Row(i).CopyFromVec(input_feats.Row(0));
+    int32 last_row = input_feats.NumRows() - 1;
+    for (int32 i = 0; i < nnet_.RightContext(); i++)
+      padded_input.Row(num_rows - i - 1).CopyFromVec(input_feats.Row(last_row));
+  }
+  KALDI_ASSERT(spk_info_.Dim() == nnet_.SpeakerDim());
 }
 
-void NnetUpdater::Propagate() {
-  int32 num_components = nnet_.NumComponents();
-  for (int32 c = 0; c < num_components; c++) {
-    const Component &component = nnet_.GetComponent(c);
-    Matrix<BaseFloat> temp_input; // input to this layer.
-    bool do_splicing = (c != 0 && nnet_.RawSplicingForComponent(c).size() != 1);
-    if (do_splicing) {
-      temp_input.Resize(
-          nnet_.FullSplicingForComponent(c+1).size() * minibatch_size_,
-          component.InputDim());
-      SpliceData(forward_data_[c], c, &temp_input);
-    }
-    Matrix<BaseFloat> &input = (do_splicing ? temp_input : forward_data_[c]),
-                     &output = forward_data_[c+1];
-    component.Propagate(input, &output);
-    // If we won't need the output of the previous layer for
-    // backprop, delete it to save memory.
-    if (!(c == num_components-1 ||
-          (c>0 && nnet_.GetComponent(c-1).BackpropNeedsOutput()) ||
-          component.BackpropNeedsInput())) {
-      forward_data_[c].Resize(0, 0); // We won't need this data.
-    }
+
+// Splices together the output of one layer into the input of the next,
+// taking care of splicing.  Caution: "input" is the input of the next
+// layer; it's actually the output of this function.
+void NnetComputer::SpliceData(const MatrixBase<BaseFloat> &prev_output,
+                              int32 c, // component index of component for which
+                                       // "input" is the input
+                              MatrixBase<BaseFloat> *input) const {
+  const std::vector<int32> &raw_splicing = nnet_.RawSplicingForComponent(c);
+  int32 left_context = -raw_splicing.front(),
+       right_context = raw_splicing.back();
+  if (left_context == 0 && right_context == 0) {
+    input->CopyFromMat(prev_output);
+    return;
+  }
+  KALDI_ASSERT(input->NumRows() == prev_output.NumRows() - left_context - right_context);
+  int32 num_splice = raw_splicing.size();
+  int32 raw_dim = prev_output.NumCols();
+  KALDI_ASSERT(input->NumCols() == raw_dim * num_splice);
+  for (int32 splice_idx = 0; splice_idx < num_splice; splice_idx++) {
+    int32 frame_offset = raw_splicing[splice_idx];
+    int32 num_frames = input->NumRows();  // the smaller #frames.
+    SubMatrix<BaseFloat> dest(*input, 0, num_frames,
+                              raw_dim * splice_idx, raw_dim),
+        src(prev_output, frame_offset, num_frames,
+            0, raw_dim);
+    dest.CopyFromMat(src);
   }
 }
 
-BaseFloat NnetUpdater::ComputeObjfAndDeriv(
-    const std::vector<NnetTrainingExample> &data,
-    Matrix<BaseFloat> *deriv) const {
-  BaseFloat floor = 1.0e-20; // Avoids division by zero.
-  double tot_objf = 0, tot_weight = 0;
-  int32 num_components = nnet_.NumComponents();  
-  deriv->Resize(minibatch_size_, nnet_.OutputDim()); // sets to zero.
-  const Matrix<BaseFloat> &output(forward_data_[num_components]);
-  KALDI_ASSERT(SameDim(output, *deriv));
-  for (int32 m = 0; m < minibatch_size_; m++) {
-    int32 label = data[m].label;
-    BaseFloat weight = data[m].weight;
-    KALDI_ASSERT(label >= 0 && label < nnet_.OutputDim());
-    BaseFloat this_prob = output(m, label);
+
+// This is like SpliceData but for backpropagating derivatives.
+void NnetComputer::UnSpliceDerivatives(
+    const MatrixBase<BaseFloat> &input_deriv,
+    int32 c, // component index of component for which "input_deriv" is the
+             // derivative w.r.t. the input
+    MatrixBase<BaseFloat> *prev_output_deriv) const {
+  const std::vector<int32> &raw_splicing = nnet_.RawSplicingForComponent(c);
+  int32 left_context = -raw_splicing.front(),
+       right_context = raw_splicing.back();
+  if (left_context == 0 && right_context == 0) {
+    prev_output_deriv->CopyFromMat(input_deriv);
+    return;
+  }
+  KALDI_ASSERT(input_deriv.NumRows() ==
+               prev_output_deriv->NumRows() - left_context - right_context);
+  prev_output_deriv->SetZero();
+  int32 num_splice = raw_splicing.size();
+  int32 raw_dim = prev_output_deriv->NumCols();
+  KALDI_ASSERT(input_deriv.NumCols() == raw_dim * num_splice);
+  for (int32 splice_idx = 0; splice_idx < num_splice; splice_idx++) {
+    int32 frame_offset = raw_splicing[splice_idx];
+    int32 num_frames = input_deriv.NumRows(); // the smaller #frames.
+    SubMatrix<BaseFloat> input_deriv_part(input_deriv, 0, num_frames,
+                                          raw_dim * splice_idx, raw_dim),
+        prev_output_deriv_part(*prev_output_deriv, frame_offset, num_frames,
+                               0, raw_dim);
+    prev_output_deriv_part.AddMat(1.0, input_deriv_part);
+  }
+}
+
+// Splices together the input to the whole neural net, from
+// the possibly-padded (but not spliced) feature data, into
+// "spliced_input" which is the input to the first layer.
+void NnetComputer::SpliceFirstLayerInput(Matrix<BaseFloat> *spliced_input) const {
+  const std::vector<int32> &raw_splicing = nnet_.RawSplicingForComponent(0);
+  int32 left_context = -raw_splicing.front(),
+       right_context = raw_splicing.back();
+  const MatrixBase<BaseFloat> &raw_feats = forward_data_[0];
+  int32 num_splice = raw_splicing.size(),
+       feature_dim = nnet_.FeatureDim(),
+       speaker_dim = nnet_.SpeakerDim(),
+        num_frames = raw_feats.NumRows(),
+smaller_num_frames = num_frames - left_context - right_context;
+  int32 total_feature_dim = num_splice * feature_dim + speaker_dim;
+  KALDI_ASSERT(nnet_.GetComponent(0).InputDim() == total_feature_dim);
+  spliced_input->Resize(smaller_num_frames, total_feature_dim);
+  SubMatrix<BaseFloat> feature_part(*spliced_input, 0, smaller_num_frames,
+                                    0, num_splice * feature_dim);
+  SpliceData(raw_feats, 0, &feature_part); // Splice the "real" part of the
+  // features...
+
+  SubMatrix<BaseFloat> speaker_part(*spliced_input, 0, smaller_num_frames,
+                                    0, speaker_dim);
+  speaker_part.CopyRowsFromVec(spk_info_);
+}
+
+/// This is the forward part of the computation.
+void NnetComputer::Propagate(bool will_do_backprop) {
+  for (int32 c = 0; c < nnet_.NumComponents(); c++) {
+    const Component &component = nnet_.GetComponent(c);
+    const std::vector<int32> &raw_splicing =
+        nnet_.RawSplicingForComponent(c);
+    Matrix<BaseFloat> &prev_output = forward_data_[c];
+    int32 left_context = -raw_splicing.front(),
+         right_context = raw_splicing.back();
+    Matrix<BaseFloat> temp_input; // input to this layer.
+    bool use_temp_input = (c == 0 || left_context != 0 || right_context != 0);
+    if (use_temp_input) {
+      if (c == 0) {
+        SpliceFirstLayerInput(&temp_input);
+      } else {
+        temp_input.Resize(prev_output.NumRows() - left_context - right_context,
+                          component.InputDim());
+        SpliceData(prev_output, c, &temp_input);
+      }
+    }
+    const Matrix<BaseFloat> &input = (use_temp_input ? temp_input : prev_output);
+    Matrix<BaseFloat> &output = forward_data_[c+1];
+    component.Propagate(input, &output);
+    bool need_last_output =
+        will_do_backprop &&
+        (c>0 && nnet_.GetComponent(c-1).BackpropNeedsOutput()) ||
+        component.BackpropNeedsInput();
+    if (!need_last_output)
+      forward_data_[c].Resize(0, 0); // We won't need this data.
+  }
+}
+
+BaseFloat NnetComputer::ComputeLastLayerDeriv(const std::vector<int32> &labels,
+                                              Matrix<BaseFloat> *deriv) const {
+  int32 num_components = nnet_.NumComponents();
+  // We're writing this code in such a way that if you want to
+  // incorporate per-frame weights later on, it's easy.
+  double tot_objf = 0.0, tot_weight = 0.0;
+  const BaseFloat floor = 1.0e-20; // Avoids division by zero.
+  const Matrix<BaseFloat> &last_layer_output = forward_data_[num_components];
+  int32 num_frames = last_layer_output.NumRows(),
+          num_pdfs = last_layer_output.NumCols();
+  deriv->Resize(num_frames, num_pdfs); // will zero it.
+  for (int32 i = 0; i < deriv->NumRows(); i++) {
+    const BaseFloat weight = 1.0;
+    int32 label = labels[i];
+    KALDI_ASSERT(label >= 0 && label < num_pdfs);
+    BaseFloat this_prob = last_layer_output(i, label);
     if (this_prob < floor) {
       KALDI_WARN << "Probability is " << this_prob << ", flooring to "
                  << floor;
@@ -157,217 +241,90 @@ BaseFloat NnetUpdater::ComputeObjfAndDeriv(
     }
     tot_objf += weight * log(this_prob);
     tot_weight += weight;
-    (*deriv)(m, label) = 1.0 / this_prob;
-    
+    (*deriv)(i, label) = weight / this_prob;
   }
   KALDI_VLOG(4) << "Objective function is " << (tot_objf/tot_weight) << " over "
-                << tot_weight << " samples (weighted).";
-  return tot_objf;
+                << tot_weight << " samples.";
+  return tot_objf;  
 }
 
 
-void NnetUpdater::Backprop(const std::vector<NnetTrainingExample> &data,
-                           Matrix<BaseFloat> *deriv) {
-  BaseFloat tot_weight = 0.0;
-  for (size_t i = 0; i < data.size(); i++)
-    tot_weight += data[i].weight;
-  // First compute gradient at output.  We assume it's cross-entropy,
-  // i.e. the probability of the correct class.
-
+BaseFloat NnetComputer::Backprop(const std::vector<int32> &labels) {
+  BaseFloat tot_weight = labels.size();
+  Matrix<BaseFloat> temp_deriv;
+  BaseFloat ans = ComputeLastLayerDeriv(labels, &temp_deriv);
+  
   for (int32 c = nnet_.NumComponents() - 1; c >= 0; c--) {
     const Component &component = nnet_.GetComponent(c);
     Component *component_to_update = (nnet_to_update_ == NULL ? NULL :
                                       &(nnet_to_update_->GetComponent(c)));
+    const std::vector<int32> &raw_splicing =
+        nnet_.RawSplicingForComponent(c);
+    int32 left_context = -raw_splicing.front(),
+         right_context = raw_splicing.back();
+    const Matrix<BaseFloat> &output = forward_data_[c+1],
+                      &output_deriv = temp_deriv;
+    KALDI_ASSERT(SameDim(output, output_deriv));
+    
     bool backprop_needs_input = component.BackpropNeedsInput();
+    bool do_splicing = (c == 0 || left_context != 0 || right_context != 0);
     Matrix<BaseFloat> temp_input; // input to this layer.
-    bool do_splicing = (c != 0 && nnet_.RawSplicingForComponent(c).size() != 1);
     if (do_splicing && backprop_needs_input) {
-      temp_input.Resize(
-          nnet_.FullSplicingForComponent(c+1).size() * minibatch_size_,
-          component.InputDim());
-      SpliceData(forward_data_[c], c, &temp_input);
+      if (c == 0) {
+        SpliceFirstLayerInput(&temp_input);
+      } else {
+        temp_input.Resize(output_deriv.NumRows(),
+                          component.InputDim());
+        SpliceData(forward_data_[c], c, &temp_input);
+      }
     }
-    Matrix<BaseFloat> &input = (do_splicing ? temp_input : forward_data_[c]),
-                     &output = forward_data_[c+1];
-    // Note: one or both of input and output may be the empty matrix,
-    // depending on the values of BackpropNeedsInput() and BackpropNeedsOutput()
-    // for this component.
-    Matrix<BaseFloat> input_deriv(minibatch_size_ *
-                                  nnet_.FullSplicingForComponent(c+1).size(),
-                                  component.InputDim());
-    const Matrix<BaseFloat> &output_deriv(*deriv); // *deriv is currently derivative of objf
-    // w.r.t. the output of this layer.
-
+    Matrix<BaseFloat> &input = (do_splicing ? temp_input : forward_data_[c]);
+    // Note: at this point, if !backprop_needs_input, "input" will be empty.
+    
+    Matrix<BaseFloat> input_deriv(output.NumRows(), component.InputDim());
+    
     component.Backprop(input, output, output_deriv, tot_weight,
                        component_to_update, &input_deriv);
 
     if (!do_splicing) {
-      // Overwrite *deriv with input_deriv, which
+      // Overwrite temp_deriv with input_deriv, which
       // is derivative of objective function w.r.t. output previous layer    
-      *deriv = input_deriv;
+      temp_deriv = input_deriv;
     } else {
-      UnSpliceDerivatives(input_deriv, c, deriv); // This does the reverse of
+      UnSpliceDerivatives(input_deriv, c, &temp_deriv); // This does the reverse of
       // SpliceData().
     }
   }
-}
-
-/**
-  Explanation for SpliceData:
-  Suppose for each sample, at the output of component c+1 we need frames
-  [ -1, 0, 1 ] relative to each sample, and this component splices frames
-  [ -5, 0, 5 ] at its input.  At the output of component c we'd need frames
-  [ -6, -5, -4, -1, 0, 1, 4, 5, 6 ].
-  As indexes into this array, the first of the three outputs (frame -1)
-  would have spliced together relative frame indexes [ -6 -1 4 ], which
-  expressed as indexes into the list are [ 0 3 6 ].  So rel_splicing
-  (a variable used in this function) would be an array [ 0 3 6; 1 4 7; 2 5 8 ].
- */
-void NnetUpdater::SpliceData(const MatrixBase<BaseFloat> &prev_output,
-                             int32 c, // c is component index of input.
-                             MatrixBase<BaseFloat> *input) {
-  int32 prev_num_frames = prev_output.NumRows() / minibatch_size_,
-             num_frames = input->NumRows() / minibatch_size_,
-        prev_output_dim = prev_output.NumCols(),
-              input_dim = input->NumCols();
-      
-  // This function handles the data splicing from the output of
-  // component c-1 to the input of component c.
-  if (nnet_.RawSplicingForComponent(c).size() == 1) { // no splicing is going on,
-    // so just copy data.  Note: even if this array is not [ 0 ] but something
-    // like [ -1 ], this would not matter.
-    input->CopyFromMat(prev_output);
-  } else {
-    const std::vector<std::vector<int32> > &rel_splicing =
-        nnet_.RelativeSplicingForComponent(c);
-    KALDI_ASSERT(num_frames == rel_splicing.size());
-    int32 num_splice = rel_splicing[0].size(); // #times we splice old output
-    KALDI_ASSERT(prev_output_dim * num_splice == input_dim);
-    for (int32 m = 0; m < minibatch_size_; m++) {
-      for (int32 frame_idx = 0; frame_idx < num_frames; frame_idx++) {
-        SubVector<BaseFloat> frame(*input, m * num_frames + frame_idx);
-        for (int32 splice_idx = 0;
-             splice_idx < num_splice;
-             splice_idx++) {
-          int32 prev_frame_idx = rel_splicing[frame_idx][splice_idx];
-          KALDI_ASSERT(prev_frame_idx >= 0 && prev_frame_idx < prev_num_frames);
-          SubVector<BaseFloat> frame_part(frame, prev_output_dim * splice_idx,
-                                          prev_output_dim);
-          SubVector<BaseFloat> prev_frame(prev_output,
-                                          m * prev_num_frames + prev_frame_idx);
-          frame_part.CopyFromVec(prev_frame);
-        }
-      }
-    }
-  }
-}
-
-void NnetUpdater::UnSpliceDerivatives(
-    const MatrixBase<BaseFloat> &input_deriv,
-    int32 c, // c is component index of layer for which input_deriv is input.
-    MatrixBase<BaseFloat> *prev_output_deriv) {
-  int32 prev_num_frames = prev_output_deriv->NumRows() / minibatch_size_,
-             num_frames = input_deriv.NumRows() / minibatch_size_,
-        prev_output_dim = prev_output_deriv->NumCols(),
-              input_dim = input_deriv.NumCols();
-  
-  // This function handles the data splicing from the output of
-  // component c-1 to the input of component c.
-  if (nnet_.RawSplicingForComponent(c).size() == 1) { // no splicing is going on,
-    // so just copy data.  Note: even if this array is not [ 0 ] but something
-    // like [ -1 ], this would not matter.
-    prev_output_deriv->CopyFromMat(input_deriv);
-  } else {
-    const std::vector<std::vector<int32> > &rel_splicing =
-        nnet_.RelativeSplicingForComponent(c);
-    KALDI_ASSERT(num_frames == rel_splicing.size());
-    int32 num_splice = rel_splicing[0].size(); // #times we splice old output
-    KALDI_ASSERT(prev_output_dim * num_splice == input_dim);
-    prev_output_deriv->SetZero();
-    for (int32 m = 0; m < minibatch_size_; m++) {
-      for (int32 frame_idx = 0; frame_idx < num_frames; frame_idx++) {
-        SubVector<BaseFloat> frame(input_deriv, m * num_frames + frame_idx);
-        for (int32 splice_idx = 0;
-             splice_idx < num_splice;
-             splice_idx++) {
-          int32 prev_frame_idx = rel_splicing[frame_idx][splice_idx];
-          KALDI_ASSERT(prev_frame_idx >= 0 && prev_frame_idx < prev_num_frames);
-          SubVector<BaseFloat> frame_part(frame, prev_output_dim * splice_idx,
-                                          prev_output_dim);
-          SubVector<BaseFloat> prev_frame(*prev_output_deriv,
-                                          m * prev_num_frames + prev_frame_idx);
-          prev_frame.AddVec(1.0, frame_part);
-          // The "forward" version of the code that just does the splicing did:
-          // frame_part.CopyFromVec(prev_frame);
-        }
-      }
-    }
-  }
-}
-
-void NnetUpdater::FormatInput(const std::vector<NnetTrainingExample> &data) {
-  // first, some checks.
-  KALDI_ASSERT(data.size() > 0);
-  KALDI_ASSERT(data[0].input_frames.NumRows() ==
-               nnet_.FullSplicingForComponent(0).size());
-  KALDI_ASSERT(data[0].input_frames.NumCols() == nnet_.FeatureDim());
-  KALDI_ASSERT(data[0].spk_info.Dim() == nnet_.SpeakerDim());
-  
-  // num_frames is the number of separate frames of output we'll
-  // need from the zeroth layer, for each sample.
-  int32 num_frames = nnet_.FullSplicingForComponent(1).size();
-  
-  int32 feature_dim = nnet_.FeatureDim(); // Raw feature dim.
-
-  forward_data_.resize(nnet_.NumComponents() + 1); // one for the input of
-  // each layer, and one for the output of the last layer.
-
-  forward_data_[0].Resize(minibatch_size_ * num_frames,
-                          nnet_.GetComponent(0).InputDim());
-
-  int32 speaker_dim = nnet_.SpeakerDim(); // Speaker-info dim; may be 0.
-
-  const std::vector<std::vector<int32> > &relative_splicing =
-      nnet_.RelativeSplicingForComponent(0);
-  KALDI_ASSERT(relative_splicing.size() == num_frames);
-  int32 num_splice = relative_splicing[0].size();
-  KALDI_ASSERT(num_splice * feature_dim + speaker_dim ==
-               forward_data_[0].NumCols());
-  
-  for (int32 m = 0; m < minibatch_size_; m++) {
-    for (int32 frame_idx = 0; frame_idx < num_frames; frame_idx++) { // for each
-      // of the output frames of component 0, for this minibatch...
-      SubVector<BaseFloat> frame(forward_data_[0], m * num_frames + frame_idx);
-      for (int32 splice_idx = 0; splice_idx < num_splice; splice_idx++) {
-        int32 input_frame_idx = relative_splicing[frame_idx][splice_idx];
-        SubVector<BaseFloat> input(data[m].input_frames.Row(input_frame_idx));
-        SubVector<BaseFloat> this_output(frame,
-                                         feature_dim * splice_idx, feature_dim);
-        this_output.CopyFromVec(input);
-      }
-      if (speaker_dim != 0) {
-        SubVector<BaseFloat> this_output(frame, num_splice * feature_dim,
-                                         speaker_dim);
-        this_output.CopyFromVec(data[m].spk_info);
-      }
-    }
-  }
-}
-
-BaseFloat TotalNnetTrainingWeight(const std::vector<NnetTrainingExample> &egs) {
-  double ans = 0.0;
-  for (size_t i = 0; i < egs.size(); i++)
-    ans += egs[i].weight;
   return ans;
 }
 
-BaseFloat DoBackprop(const Nnet &nnet,
-                     const std::vector<NnetTrainingExample> &examples,
-                     Nnet *nnet_to_update) {
-  NnetUpdater updater(nnet, nnet_to_update);
-  return updater.ComputeForMinibatch(examples);  
+void NnetComputation(const Nnet &nnet,
+                     const MatrixBase<BaseFloat> &input,  // features
+                     const VectorBase<BaseFloat> &spk_info,
+                     bool pad_input,
+                     MatrixBase<BaseFloat> *output) {
+  NnetComputer nnet_computer(nnet, input, spk_info, pad_input, NULL);
+  nnet_computer.Propagate(false);
+  const MatrixBase<BaseFloat> &temp_output(nnet_computer.GetOutput());
+  if (!SameDim(*output, temp_output)) {
+    KALDI_ERR << "Mismatch in size of output (issue with padding, or "
+              << "mismatch in #pdfs?) " << output->NumRows() << " by "
+              << output->NumCols() << " vs. " << temp_output.NumRows()
+              << " by " << temp_output.NumCols();
+  }
+  output->CopyFromMat(temp_output);  
 }
 
+BaseFloat NnetGradientComputation(const Nnet &nnet,
+                                  const MatrixBase<BaseFloat> &input,
+                                  const VectorBase<BaseFloat> &spk_info,
+                                  bool pad_input,
+                                  std::vector<int32> &labels,
+                                  Nnet *nnet_to_update) {
+  NnetComputer nnet_computer(nnet, input, spk_info, pad_input, nnet_to_update);
+  nnet_computer.Propagate(true);
+  return nnet_computer.Backprop(labels);
+}
 
 
   

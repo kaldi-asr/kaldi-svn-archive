@@ -129,19 +129,19 @@ void NnetUpdater::Propagate() {
     component.Propagate(input, &output);
     // If we won't need the output of the previous layer for
     // backprop, delete it to save memory.
-    if (!(c == num_components-1 ||
-          (c>0 && nnet_.GetComponent(c-1).BackpropNeedsOutput()) ||
-          component.BackpropNeedsInput())) {
+    bool need_last_output =
+        (c>0 && nnet_.GetComponent(c-1).BackpropNeedsOutput()) ||
+        component.BackpropNeedsInput();
+    if (!need_last_output)
       forward_data_[c].Resize(0, 0); // We won't need this data.
-    }
   }
 }
 
 BaseFloat NnetUpdater::ComputeObjfAndDeriv(
     const std::vector<NnetTrainingExample> &data,
     Matrix<BaseFloat> *deriv) const {
-  BaseFloat floor = 1.0e-20; // Avoids division by zero.
-  double tot_objf = 0, tot_weight = 0;
+  const BaseFloat floor = 1.0e-20; // Avoids division by zero.
+  double tot_objf = 0.0, tot_weight = 0.0;
   int32 num_components = nnet_.NumComponents();  
   deriv->Resize(minibatch_size_, nnet_.OutputDim()); // sets to zero.
   const Matrix<BaseFloat> &output(forward_data_[num_components]);
@@ -158,7 +158,7 @@ BaseFloat NnetUpdater::ComputeObjfAndDeriv(
     }
     tot_objf += weight * log(this_prob);
     tot_weight += weight;
-    (*deriv)(m, label) = 1.0 / this_prob;
+    (*deriv)(m, label) = weight / this_prob;
     
   }
   KALDI_VLOG(4) << "Objective function is " << (tot_objf/tot_weight) << " over "

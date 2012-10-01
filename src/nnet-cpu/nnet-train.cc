@@ -36,7 +36,7 @@ void NnetDataRandomizer::RandomizeSamplesRecurse(
     size_t cur_size = samples->size();
     for (size_t i = 0; i < num_pdfs; i++)
       samples->insert(samples->end(),
-                      (samples_by_pdf)[i].begin(), (samples_by_pdf)[i].end());
+                      (*samples_by_pdf)[i].begin(), (*samples_by_pdf)[i].end());
     // Randomize the samples we just added, so they're not in order by pdf.
     std::random_shuffle(samples->begin() + cur_size, samples->end());
   } else {
@@ -48,7 +48,7 @@ void NnetDataRandomizer::RandomizeSamplesRecurse(
     // to the left or right.  (Has less variance than Bernoulli distribution.)
     for (size_t i = 0; i < num_pdfs; i++) {
       size_t size = (*samples_by_pdf)[i].size(); // #samples for this pdf.
-      size_t half_size = sz/2; // Will round down.
+      size_t half_size = size / 2; // Will round down.
       if (size % 2 != 0 && rand() % 2 == 0) // If odd #samples, allocate
         half_size++; // odd sample randomly to left or right.
       std::vector<std::pair<int32, int32> >::const_iterator
@@ -73,7 +73,7 @@ void NnetDataRandomizer::RandomizeSamplesRecurse(
   }
 }
 
-void NnetDataProvider::GetRawSamples(
+void NnetDataRandomizer::GetRawSamples(
     std::vector<std::vector<std::pair<int32, int32> > > *pdf_counts) {
   pdf_counts->clear();
   int32 spk_data_size = 0;
@@ -88,7 +88,7 @@ void NnetDataProvider::GetRawSamples(
       if (static_cast<int32>(pdf_counts->size()) <= pdf)
         pdf_counts->resize(pdf+1);
       // The pairs are pairs of (file-index, frame-index).
-      (*pdf_counts)[pdf]->push_back(std::make_pair(i, j));
+      (*pdf_counts)[pdf].push_back(std::make_pair(i, j));
     }
   }
 }
@@ -107,7 +107,7 @@ void NnetDataRandomizer::RandomizeSamples() {
     reweighted_counts(i) = static_cast<BaseFloat>(samples_by_pdf[i].size());
   KALDI_ASSERT(config_.frequency_power >= 0.0 &&
                config_.frequency_power <= 1.0);
-  BaseFloat old_max_count = reweighted_count.Max();
+  BaseFloat old_max_count = reweighted_counts.Max();
   KALDI_ASSERT(old_max_count > 0.0);  
   reweighted_counts.ApplyPow(config_.frequency_power);  
   // We now modify "reweighted_counts_" so that the maximum count
@@ -127,10 +127,10 @@ void NnetDataRandomizer::RandomizeSamples() {
   for (int32 label = 0; label < reweighted_counts.Dim(); label++) {
     std::vector<std::pair<int32, int32> > &this_samples = samples_by_pdf[label];
     BaseFloat orig_count = this_samples.size(),
-        new_count = reweighted_counts[label].size();
+               new_count = reweighted_counts(label);
     KALDI_ASSERT(new_count >= orig_count);
     if (orig_count == 0) {
-      pdf_weights_[label] = 0.0; // don't care.
+      pdf_weights_(label) = 0.0; // don't care.
       // nothing else to do.
     } else {
       int32 num_repeats = static_cast<int32>(new_count / orig_count); // Number
@@ -145,7 +145,7 @@ void NnetDataRandomizer::RandomizeSamples() {
       { // set pdf_weights_[i] to the weight necessary to rescale the new
         // count to the old, original count.
         BaseFloat actual_count = num_repeats*orig_count + num_extra;
-        pdf_weights_(i) = static_cast<BaseFloat>(orig_count) / actual_count;
+        pdf_weights_(label) = static_cast<BaseFloat>(orig_count) / actual_count;
       }
       // Randomize order of samples.  The first "num_extra" samples will
       // get count num_repeats+1, the rest will get count num_repeats.
@@ -155,20 +155,18 @@ void NnetDataRandomizer::RandomizeSamples() {
       for (int32 i = 0; i < this_samples.size(); i++) {
         int32 n = num_repeats;
         if (i < num_extra) n++;
-        for (int32 j = 0; j < n; j++) this_samples_new.push_back(samples[i]);
+        for (int32 j = 0; j < n; j++) this_samples_new.push_back(this_samples[i]);
       }
       std::random_shuffle(this_samples_new.begin(), this_samples_new.end());
       this_samples = this_samples_new; // Write back to where we got it from.
     }
   }
-  RandomizeSamplesRecurse(&samples_by_pdf, &samples); // destroys samples_by_pdf.
-  // Now set up pdf_weights_.  This compensates for the change in frequency
-  // due to sampling.
-
+  RandomizeSamplesRecurse(&samples_by_pdf, &samples_); // destroys samples_by_pdf.
+  
   // Renormalize pdf_weights_ so that after weighting by the frequency
   // with which the trainer will see different pdfs, the average count
   // is 1.  This is an attempt to make the same learning rates applicable
-  // regardless what type of reweighting we used.
+  // (approximately), regardless what type of reweighting we used.
   // Note: we use the "reweighted_counts", which are floats not the actual
   // integerized counts, because otherwise I think expectations would  be
   // wrong in some exremely small way (due to the nonlinearity in the inverse

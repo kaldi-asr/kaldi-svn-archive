@@ -93,6 +93,12 @@ void Nnet::InitializeArrays() {
   KALDI_ASSERT(raw_splicing_.size() == components_.size() + 1 &&
                raw_splicing_.back().size() == 1 &&
                raw_splicing_.back()[0] == 0);
+  for (size_t c = 0; c < raw_splicing_.size(); c++) {
+    KALDI_ASSERT(IsSortedAndUniq(raw_splicing_[c])
+                 && !raw_splicing_[c].empty());
+    KALDI_ASSERT(raw_splicing_[c].front() <= 0 && raw_splicing_[c].back() >= 0);
+  }    
+  
   // Set up full_splicing_.  This is the frame indices at the input of the
   // indexed component that we need to get a single frame of output.  And
   // full_splicing_[NumComponents()]  == [ 0 ].
@@ -181,6 +187,47 @@ void Nnet::Destroy() {
     delete components_.back();
     components_.pop_back();
   }
+}
+
+Nnet::Nnet(const Nnet &other): speaker_info_dim_(other.speaker_info_dim_),
+                               raw_splicing_(other.raw_splicing_),
+                               components_(other.components_.size()) {
+  InitializeArrays();
+  for (size_t i = 0; i < other.components_.size(); i++)
+    components_[i] = other.components_[i]->Copy();
+}
+
+void Nnet::InitFromConfig(std::istream &is) {
+  Destroy();
+  std::string line;
+  /* example config file as follows.  The things in brackets specify the context
+     splicing for each layer, and after that is the info about the actual layer.
+     Imagine the input dim is 13, and the speaker dim is 40, so (13 x 9) + 40 =  527.
+     The config file might be as follows; the lines beginning with # are comments.
+     
+     SpeakerDim 0
+     # context-string  layer-type learning-rate l2-penalty input-dim output-dim param-stddev
+     [ -5 -4 -3 -2 -1 0 1 2 3 4 5 ] AffineLayer 0.01 0.001 527 1000 0.04356
+     # context-string layer-type dimension
+     [ 0 ]     TanhLayer 1000
+  */
+  speaker_info_dim_ = -1;
+  while (getline(is, line)) {
+    std::istringstream line_is(line);
+    line_is >> std::ws; // Eat up whitespace.
+    if (line_is.peek() == '#') continue; // Comment line.
+    std::string first_token;
+    line_is >> first_token;
+    if (first_token == "SpeakerDim") {
+      if (!(line_is >> speaker_info_dim_ >> std::ws) ||
+          speaker_info_dim_ < 0 || !line_is.eof())
+        KALDI_ERR << "Bad config line " << line;
+    } else if (first_token == "[") {
+    } else {
+      KALDI_ERR << "Bad config line " << line;
+    }
+  }
+  // HERE-- unfinished.
 }
   
 } // namespace
