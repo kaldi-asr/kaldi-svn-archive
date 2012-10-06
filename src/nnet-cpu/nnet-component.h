@@ -51,19 +51,30 @@ class Component {
   /// dimensions.
   virtual void InitFromString(std::string args) = 0; 
   
-  virtual bool IsUpdatable() { return false; } // lets us know if the component is updatable. (has trainable
-  // parameters).
-  
   /// Get size of input vectors
   virtual int32 InputDim() const = 0;
   
   /// Get size of output vectors 
   virtual int32 OutputDim() const = 0;
-  
+
+  /// Number of left-context frames the component sees for each output frame;
+  /// nonzero only for splicing layers.
+  virtual int32 LeftContext() { return 0; }
+
+  /// Number of right-context frames the component sees for each output frame;
+  /// nonzero only for splicing layers.
+  virtual int32 RightContext() { return 0; }
+
   /// Perform forward pass propagation Input->Output.  Each row is
-  /// one frame or training example.
+  /// one frame or training example.  Interpreted as "num_chunks"
+  /// equally sized chunks of frames; this only matters for layers
+  /// that do things like context splicing.  Typically this variable
+  /// will either be 1 (when we're processing a single contiguous
+  /// chunk of data) or will be the same as in.NumFrames(), but
+  /// other values are possible if some layers do splicing.
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const = 0; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const = 0; 
   
   /// Perform backward pass propagation of the derivative, and
   /// also either update the model (if to_update == this) or
@@ -72,15 +83,17 @@ class Component {
   /// of the component, and these may be dummy variables if respectively
   /// BackpropNeedsInput() or BackpropNeedsOutput() return false for
   /// that component (not all components need these).
-  /// tot_weight would normally be the same as the number of frames,
+  /// tot_weight would normally be the same as the number of frames with
+  /// labels on,
   /// but we support frame weighting so it could be more or less; this
   /// is only needed for reasons relating to l2 regularization.
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat tot_weight,
+                        int32 num_chunks, // see num_chunks in Propagate.
                         Component *to_update, // may be identical to "this".
-                        MatrixBase<BaseFloat> *in_deriv) const = 0;
+                        Matrix<BaseFloat> *in_deriv) const = 0;
   
   virtual bool BackpropNeedsInput() const { return true; } // if this returns false,
   // the "in_value" to Backprop may be a dummy variable.
@@ -98,6 +111,10 @@ class Component {
   /// a number of tokens (typically integers or floats) that will
   /// be used to initialize the component.
   static Component *NewFromString(const std::string &initializer_line);
+
+  /// Return a new Component of the given type e.g. "SoftmaxComponent",
+  /// or NULL if no such type exists.
+  static Component *NewComponentOfType(const std::string &type);
   
   virtual void Read(std::istream &is, bool binary) = 0; // This Read function
   // requires that the Component has the correct type.
@@ -136,19 +153,17 @@ class UpdatableComponent : public Component {
   /// MixtureProbComponent).
   virtual void SetZero(bool treat_as_gradient) = 0;
 
-  UpdatableComponent(): learning_rate_(0.0), l2_penalty_(0.0) { }
+  /// Note: l2_penalty is per frame.
+  UpdatableComponent(): learning_rate_(0.001), l2_penalty_(1.0e-06) { }
   
   virtual ~UpdatableComponent() { }
-
-  /// Check if contains trainable parameters 
-  bool IsUpdatable() const { return true; }
 
   /// Here, "other" is a component of the same specific type.  This
   /// function computes the dot product in parameters, and is computed while
   /// automatically adjusting learning rates; typically, one of the two will
   /// actually contain the gradient.
   virtual BaseFloat DotProduct(const UpdatableComponent &other) const = 0;
-
+  
   /// We introduce a new virtual function that only applies to
   /// class UpdatableComponent.  This is used in testing.
   virtual void PerturbParams(BaseFloat stddev) = 0;
@@ -200,13 +215,15 @@ class SigmoidComponent: public NonlinearComponent {
   virtual bool BackpropNeedsOutput() { return true; }
   virtual Component* Copy() const { return new SigmoidComponent(dim_); }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,
                         Component *to_update, // may be identical to "this".
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(SigmoidComponent);
 };
@@ -220,13 +237,15 @@ class TanhComponent: public NonlinearComponent {
   virtual bool BackpropNeedsInput() { return false; }
   virtual bool BackpropNeedsOutput() { return true; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,
                         Component *to_update, // may be identical to "this".
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(TanhComponent);
 };
@@ -235,19 +254,21 @@ class SoftmaxComponent: public NonlinearComponent {
  public:
   SoftmaxComponent(int32 dim): NonlinearComponent(dim) { }
   SoftmaxComponent() { }
-  virtual std::string Type() const { return "softmaxComponent"; }  // Make it lower case
+  virtual std::string Type() const { return "SoftmaxComponent"; }  // Make it lower case
   // because each type of Component needs a different first letter.
   virtual Component* Copy() const { return new SoftmaxComponent(dim_); }
   virtual bool BackpropNeedsInput() const { return false; }
   virtual bool BackpropNeedsOutput() const { return true; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,
                         Component *to_update, // may be identical to "this".
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(SoftmaxComponent);
 };
@@ -268,24 +289,103 @@ class AffineComponent: public UpdatableComponent {
   virtual bool BackpropNeedsInput() const { return true; }
   virtual bool BackpropNeedsOutput() const { return false; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value, // dummy
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,
                         Component *to_update, // may be identical to "this".
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
   virtual void Read(std::istream &is, bool binary);
   virtual void Write(std::ostream &os, bool binary) const;
   virtual BaseFloat DotProduct(const UpdatableComponent &other) const;
   virtual Component* Copy() const;
   virtual void PerturbParams(BaseFloat stddev);
- private:
+ protected:
   KALDI_DISALLOW_COPY_AND_ASSIGN(AffineComponent);
   Matrix<BaseFloat> linear_params_;
   Vector<BaseFloat> bias_params_;
 };
+
+/// Splices a context window of frames together.
+class SpliceComponent: public Component {
+ public:
+  SpliceComponent() { }  // called only prior to Read() or Init().
+  void Init(int32 input_dim, int32 left_context, int32 right_context);
+  virtual std::string Type() const { return "SpliceComponent"; }
+  virtual void InitFromString(std::string args);
+  virtual int32 InputDim() const { return input_dim_; }
+  virtual int32 OutputDim() const;
+  virtual int32 LeftContext() { return left_context_; }
+  virtual int32 RightContext() { return right_context_; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const;
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat tot_weight,
+                        int32 num_chunks, // see num_chunks in Propagate.
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+  virtual bool BackpropNeedsInput() const { return false; }
+  virtual bool BackpropNeedsOutput() const { return false; }
+  virtual Component* Copy() const;
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+ private:
+  KALDI_DISALLOW_COPY_AND_ASSIGN(SpliceComponent);
+  int32 input_dim_;
+  int32 left_context_;
+  int32 right_context_;
+};
+
+
+// Affine means a linear function plus an offset.  PreconInput means we
+// precondition using the inverse of the variance of each dimension of the input
+// data.  Note that this doesn't take into account any scaling of the samples,
+// but this doesn't really matter.  This has some relation to AdaGrad, except
+// it's being done not per input dimension, rather than per parameter, and also
+// we multiply by a separately supplied and updated learning rate which will
+// typically vary with time.  Note: avg_samples is the number of samples over
+// which we average the variance of the input data.
+class AffinePreconInputComponent: public AffineComponent {
+ public:
+  virtual void Init(BaseFloat learning_rate, BaseFloat l2_penalty,
+                    int32 input_dim, int32 output_dim,
+                    BaseFloat param_stddev,
+                    BaseFloat avg_samples);
+  
+  AffinePreconInputComponent() { } // use Init to really initialize.
+  virtual std::string Type() const { return "AffinePreconInputComponent"; }
+  virtual void InitFromString(std::string args);
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value, // dummy
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat total_weight,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+  virtual void SetZero(bool treat_as_gradient);
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+  virtual Component* Copy() const;
+ private:
+  KALDI_DISALLOW_COPY_AND_ASSIGN(AffinePreconInputComponent);
+  BaseFloat avg_samples_; // Config parameter; determines how many samples
+  // we average the input feature variance over during training
+  bool is_gradient_; // Set this to true if we consider this as a gradient.
+  // In this case we don't do the input preconditioning.
+
+  // Note: linear_params_ and bias_params_ are inherited from
+  // AffineComponent.
+  Vector<BaseFloat> input_precision_; // Inverse variance of input features; used
+  // to precondition the update.
+};
+
 
 
 // Affine means a linear function plus an offset.  "Block" means
@@ -307,13 +407,15 @@ class BlockAffineComponent: public UpdatableComponent {
   virtual bool BackpropNeedsInput() const { return true; }
   virtual bool BackpropNeedsOutput() const { return false; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,
                         Component *to_update, // may be identical to "this".                        
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
   virtual void Read(std::istream &is, bool binary);
   virtual void Write(std::ostream &os, bool binary) const;
@@ -357,14 +459,16 @@ class MixtureProbComponent: public UpdatableComponent {
   virtual bool BackpropNeedsInput() const { return true; }
   virtual bool BackpropNeedsOutput() const { return false; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const;
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const;
   // Note: in_value and out_value are both dummy variables.
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,                        
                         Component *to_update, // may be identical to "this".
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
   virtual Component* Copy() const;
   
   virtual void Read(std::istream &is, bool binary);
@@ -398,19 +502,84 @@ class PermuteComponent: public Component {
   virtual bool BackpropNeedsInput() const { return false; }
   virtual bool BackpropNeedsOutput() const { return false; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
-                         MatrixBase<BaseFloat> *out) const; 
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value, // dummy
                         const MatrixBase<BaseFloat> &out_value, // dummy
                         const MatrixBase<BaseFloat> &out_deriv,
                         BaseFloat total_weight,
+                        int32 num_chunks,
                         Component *to_update, // dummy
-                        MatrixBase<BaseFloat> *in_deriv) const;
+                        Matrix<BaseFloat> *in_deriv) const;
   
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(PermuteComponent);
   std::vector<int32> reorder_; // This class sends input dimension i to
   // output dimension reorder_[i].
 };
+
+
+/// Discrete cosine transform.  
+class DctComponent: public Component {
+ public:
+  DctComponent() { dim_ = 0; } 
+  virtual std::string Type() const { return "DctComponent"; }
+  void Init(int32 dim, int32 dct_dim, bool reorder);
+  // InitFromString takes numeric options
+  // dim, dct-dim, and (optionally) reorder={true,false}
+  // Note: reorder defaults to false.
+  virtual void InitFromString(std::string args);
+  virtual int32 InputDim() const { return dim_; }
+  virtual int32 OutputDim() const { return dim_; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const;
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        BaseFloat tot_weight,
+                        int32 num_chunks, // see num_chunks in Propagate.
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+  virtual bool BackpropNeedsInput() const { return false; }
+  virtual bool BackpropNeedsOutput() const { return false; }
+  virtual Component* Copy() const;
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+ private:
+  void Reorder(MatrixBase<BaseFloat> *mat, bool reverse) const;
+  int32 dim_; // Dimension of input and output features.
+  bool reorder_; // If true, transformation matrix we use is not
+  // block diagonal but is block diagonal after reordering-- so
+  // effectively we transform with the Kronecker product D x I,
+  // rather than a matrix with D's on the diagonal (i.e. I x D,
+  // where x is the Kronecker product).  We'll set reorder_ to
+  // true if we want to use this to transform in the time domain,
+  // because the SpliceComponent splices blocks of e.g. MFCCs
+  // together so each time is a dimension of the block.
+
+  Matrix<BaseFloat> dct_mat_;
+
+  KALDI_DISALLOW_COPY_AND_ASSIGN(DctComponent);
+};
+
+
+/// Functions used in Init routines.  Suppose name=="foo", if "string" has a
+/// field like foo=12, this function will set "param" to 12 and remove that
+/// element from "string".  It returns true if the parameter was read.
+bool ParseFromString(const std::string &name, std::string *string,
+                     int32 *param);
+/// This version is for parameters of type BaseFloat.
+bool ParseFromString(const std::string &name, std::string *string,
+                     BaseFloat *param);
+/// This version is for parameters of type std::vector<int32>; it expects
+/// them as a colon-separated list, without spaces.
+bool ParseFromString(const std::string &name, std::string *string,
+                     std::vector<int32> *param);
+/// This version is for parameters of type bool, which can appear
+/// as any string beginning with f, F, t or T.
+bool ParseFromString(const std::string &name, std::string *string,
+                     bool *param);
 
 
 } // namespace kaldi

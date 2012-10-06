@@ -208,7 +208,7 @@ void NnetComputer::Propagate(bool will_do_backprop) {
     }
     const Matrix<BaseFloat> &input = (use_temp_input ? temp_input : prev_output);
     Matrix<BaseFloat> &output = forward_data_[c+1];
-    component.Propagate(input, &output);
+    component.Propagate(input, 1, &output);
     bool need_last_output =
         will_do_backprop &&
         (c>0 && nnet_.GetComponent(c-1).BackpropNeedsOutput()) ||
@@ -283,7 +283,7 @@ BaseFloat NnetComputer::Backprop(const std::vector<int32> &labels) {
     
     Matrix<BaseFloat> input_deriv(output.NumRows(), component.InputDim());
     
-    component.Backprop(input, output, output_deriv, tot_weight,
+    component.Backprop(input, output, output_deriv, tot_weight, 1,
                        component_to_update, &input_deriv);
 
     if (!do_splicing) {

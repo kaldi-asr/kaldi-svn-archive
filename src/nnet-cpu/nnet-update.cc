@@ -126,7 +126,7 @@ void NnetUpdater::Propagate() {
     }
     Matrix<BaseFloat> &input = (do_splicing ? temp_input : forward_data_[c]),
                      &output = forward_data_[c+1];
-    component.Propagate(input, &output);
+    component.Propagate(input, 1, &output);
     // If we won't need the output of the previous layer for
     // backprop, delete it to save memory.
     bool need_last_output =
@@ -199,7 +199,7 @@ void NnetUpdater::Backprop(const std::vector<NnetTrainingExample> &data,
     const Matrix<BaseFloat> &output_deriv(*deriv); // *deriv is currently derivative of objf
     // w.r.t. the output of this layer.
 
-    component.Backprop(input, output, output_deriv, tot_weight,
+    component.Backprop(input, output, output_deriv, tot_weight, 1,
                        component_to_update, &input_deriv);
 
     if (!do_splicing) {

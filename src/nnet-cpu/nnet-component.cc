@@ -17,42 +17,27 @@
 // limitations under the License.
 
 #include "nnet-cpu/nnet-component.h"
+#include "util/text-utils.h"
 
 namespace kaldi {
 
+
 // static
 Component* Component::ReadNew(std::istream &is, bool binary) {
-  int i = PeekToken(is, binary), c = static_cast<char>(i);
-  Component *ans = NULL;
-  if (i == -1) {
-    KALDI_ERR << "Unexpected end of file";
-  } else if (c == 'S') {
-    ans = new SigmoidComponent();
-  } else if (c == 'T') {
-    ans = new TanhComponent();
-  } else if (c == 'A') {
-    ans = new AffineComponent();
-  } else if (c == 'M') {
-    ans = new MixtureProbComponent();
-  } else if (c == 'B') {
-    ans = new BlockAffineComponent();
-  } else if (c == 'P') {
-    ans = new PermuteComponent();
-  } else if (c == 's') {
-    ans = new SoftmaxComponent();
-  } else {
-    KALDI_ERR << "Unexpected character " << CharToString(c);
-  }
+  std::string token;
+  ReadToken(is, binary, &token); // e.g. "<SigmoidComponent>".
+  token.erase(0, 1); // erase "<".
+  token.erase(token.length()-1); // erase ">".
+  Component *ans = NewComponentOfType(token);
+  if (!ans)
+    KALDI_ERR << "Unknown component type " << token;
   ans->Read(is, binary);
   return ans;
 }
 
+
 // static
-Component* Component::NewFromString(const std::string &initializer_line) {
-  std::istringstream istr(initializer_line);
-  std::string component_type; // e.g. "SigmoidComponent".
-  istr >> component_type >> std::ws; 
-  std::string args = istr.str();
+Component* Component::NewComponentOfType(const std::string &component_type) {
   Component *ans = NULL;
   if (component_type == "SigmoidComponent") {
     ans = new SigmoidComponent();
@@ -62,19 +47,169 @@ Component* Component::NewFromString(const std::string &initializer_line) {
     ans = new SoftmaxComponent();
   } else if (component_type == "AffineComponent") {
     ans = new AffineComponent();
+  } else if (component_type == "AffinePreconInputComponent") {
+    ans = new AffinePreconInputComponent();
   } else if (component_type == "MixtureProbComponent") {
     ans = new MixtureProbComponent();
   } else if (component_type == "BlockAffineComponent") {
     ans = new BlockAffineComponent();
   } else if (component_type == "PermuteComponent") {
     ans = new PermuteComponent();
-  } else {
-    KALDI_ERR << "Bad initializer line for component: "
-              << initializer_line;
+  } else if (component_type == "DctComponent") {
+    ans = new DctComponent();
+  } else if (component_type == "SpliceComponent") {
+    ans = new SpliceComponent();
   }
+  return ans;
+}
+
+// static
+Component* Component::NewFromString(const std::string &initializer_line) {
+  std::istringstream istr(initializer_line);
+  std::string component_type; // e.g. "SigmoidComponent".
+  istr >> component_type >> std::ws; 
+  std::string args = istr.str();
+  Component *ans = NewComponentOfType(component_type);
+  if (ans == NULL)
+    KALDI_ERR << "Bad initializer line (no such type of Component): "
+              << initializer_line;
   ans->InitFromString(args);
   return ans;
 }
+
+
+// This is like ExpectToken but for two tokens, and it
+// will either accept token1 and then token2, or just token2.
+// This is useful in Read functions where the first token
+// may already have been consumed.
+static void ExpectOneOrTwoTokens(std::istream &is, bool binary,
+                                 const std::string &token1,
+                                 const std::string &token2) {
+  KALDI_ASSERT(token1 != token2);
+  std::string temp;
+  ReadToken(is, binary, &temp);
+  if (temp == token1) {
+    ExpectToken(is, binary, token2);
+  } else {
+    if (temp != token2) {
+      KALDI_ERR << "Expecting token " << token1 << " or " << token2
+                << " but got " << temp;
+    }
+  }
+}
+
+
+// static
+bool ParseFromString(const std::string &name, std::string *string,
+                     int32 *param) {
+  std::vector<std::string> split_string;
+  SplitStringToVector(*string, " \t", true,
+                      &split_string);
+  std::string name_equals = name + "="; // the name and then the equals sign.
+  size_t len = name_equals.length();
+  
+  for (size_t i = 0; i < split_string.size(); i++) {
+    if (split_string[i].compare(0, len, name_equals) == 0) {
+      if (!ConvertStringToInteger(split_string[i].substr(len), param))
+        KALDI_ERR << "Bad option " << split_string[i];
+      *string = "";
+      // Set "string" to all the pieces but the one we used.
+      for (size_t j = 0; j < split_string.size(); j++) {
+        if (j != i) {
+          if (!string->empty()) *string += " ";
+          *string += split_string[j];
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ParseFromString(const std::string &name, std::string *string,
+                     bool *param) {
+  std::vector<std::string> split_string;
+  SplitStringToVector(*string, " \t", true,
+                      &split_string);
+  std::string name_equals = name + "="; // the name and then the equals sign.
+  size_t len = name_equals.length();
+  
+  for (size_t i = 0; i < split_string.size(); i++) {
+    if (split_string[i].compare(0, len, name_equals) == 0) {
+      std::string b = split_string[i].substr(len);
+      if (b.empty())
+        KALDI_ERR << "Bad option " << split_string[i];
+      if (b[0] == 'f' || b[0] == 'F') *param = false;
+      else if (b[0] == 't' || b[0] == 'T') *param = true;
+      else
+        KALDI_ERR << "Bad option " << split_string[i];
+      *string = "";
+      // Set "string" to all the pieces but the one we used.
+      for (size_t j = 0; j < split_string.size(); j++) {
+        if (j != i) {
+          if (!string->empty()) *string += " ";
+          *string += split_string[j];
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ParseFromString(const std::string &name, std::string *string,
+                     BaseFloat *param) {
+  std::vector<std::string> split_string;
+  SplitStringToVector(*string, " \t", true,
+                      &split_string);
+  std::string name_equals = name + "="; // the name and then the equals sign.
+  size_t len = name_equals.length();
+  
+  for (size_t i = 0; i < split_string.size(); i++) {
+    if (split_string[i].compare(0, len, name_equals) == 0) {
+      if (!ConvertStringToReal(split_string[i].substr(len), param))
+        KALDI_ERR << "Bad option " << split_string[i];
+      *string = "";
+      // Set "string" to all the pieces but the one we used.
+      for (size_t j = 0; j < split_string.size(); j++) {
+        if (j != i) {
+          if (!string->empty()) *string += " ";
+          *string += split_string[j];
+        }
+      }
+      return true;      
+    }
+  }
+  return false;
+}
+
+bool ParseFromString(const std::string &name, std::string *string,
+                     std::vector<int32> *param) {
+  std::vector<std::string> split_string;
+  SplitStringToVector(*string, " \t", true,
+                      &split_string);
+  std::string name_equals = name + "="; // the name and then the equals sign.
+  size_t len = name_equals.length();
+  
+  for (size_t i = 0; i < split_string.size(); i++) {
+    if (split_string[i].compare(0, len, name_equals) == 0) {
+      if (!SplitStringToIntegers(split_string[i].substr(len), ":",
+                                 false, param))
+        KALDI_ERR << "Bad option " << split_string[i];
+      *string = "";
+      // Set "string" to all the pieces but the one we used.
+      for (size_t j = 0; j < split_string.size(); j++) {
+        if (j != i) {
+          if (!string->empty()) *string += " ";
+          *string += split_string[j];
+        }
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 
 Component *PermuteComponent::Copy() const {
   PermuteComponent *ans = new PermuteComponent();
@@ -86,8 +221,7 @@ void NonlinearComponent::Read(std::istream &is, bool binary) {
   std::ostringstream ostr_beg, ostr_end;
   ostr_beg << "<" << Type() << ">"; // e.g. "<SigmoidComponent>"
   ostr_end << "</" << Type() << ">"; // e.g. "</SigmoidComponent>"
-  ExpectToken(is, binary, ostr_beg.str());
-  ExpectToken(is, binary, "<Dim>");
+  ExpectOneOrTwoTokens(is, binary, ostr_beg.str(), "<Dim>");
   ReadBasicType(is, binary, &dim_); // Read dimension.
   ExpectToken(is, binary, ostr_end.str());  
 }
@@ -103,17 +237,17 @@ void NonlinearComponent::Write(std::ostream &os, bool binary) const {
 }
 
 void NonlinearComponent::InitFromString(std::string args) {
-  std::istringstream istr(args);
-  istr >> dim_ >> std::ws;
-  if (!istr || !istr.eof() || dim_ <= 0) {
+  std::string orig_args(args);
+  bool ok = ParseFromString("dim", &args, &dim_);
+  if (!ok || !args.empty() || dim_ <= 0)
     KALDI_ERR << "Invalid initializer for layer of type "
-              << Type() << ": \"" << args << "\"";
-  }
+              << Type() << ": \"" << orig_args << "\"";
 }
 
 void SigmoidComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                                 MatrixBase<BaseFloat> *out) const {
-  KALDI_ASSERT(SameDim(in, *out));
+                                 int32, // num_chunks
+                                 Matrix<BaseFloat> *out) const {
+  out->Resize(in.NumRows(), in.NumCols());
   int32 num_rows = in.NumRows(), num_cols = in.NumCols();
   for(int32 r = 0; r < num_rows; r++) {
     const BaseFloat *in_data = in.RowData(r),
@@ -135,14 +269,16 @@ void SigmoidComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
                                 BaseFloat tot_weight,
+                                int32, // num_chunks
                                 Component *to_update,
-                                MatrixBase<BaseFloat> *in_deriv) const {
+                                Matrix<BaseFloat> *in_deriv) const {
   // we ignore in_value and to_update.
 
   // The element by element equation would be:
   // in_deriv = out_deriv * out_value * (1.0 - out_value);
   // We can accomplish this via calls to the matrix library.
 
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
   in_deriv->Set(1.0);
   in_deriv->AddMat(-1.0, out_value);
   // now in_deriv = 1.0 - out_value [element by element]
@@ -154,12 +290,12 @@ void SigmoidComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
 
 
 void TanhComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                              MatrixBase<BaseFloat> *out) const {
+                              int32, // num_chunks
+                              Matrix<BaseFloat> *out) const {
   // Apply tanh function to each element of the output...
   // the tanh function may be written as -1 + ( 2 / (1 + e^{-2 x})),
   // which is a scaled and shifted sigmoid.
-  
-  KALDI_ASSERT(SameDim(in, *out));
+  out->Resize(in.NumRows(), in.NumCols());
   int32 num_rows = in.NumRows(), num_cols = in.NumCols();
   for(int32 r = 0; r < num_rows; r++) {
     const BaseFloat *in_data = in.RowData(r),
@@ -179,15 +315,17 @@ void TanhComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                              const MatrixBase<BaseFloat> &out_value,
                              const MatrixBase<BaseFloat> &out_deriv,
                              BaseFloat, //  tot_weight,
+                             int32, // num_chunks
                              Component *, // to_update
-                             MatrixBase<BaseFloat> *in_deriv) const {
+                             Matrix<BaseFloat> *in_deriv) const {
   /*
     Note on the derivative of the tanh function:
     tanh'(x) = sech^2(x) = -(tanh(x)+1) (tanh(x)-1) = 1 - tanh^2(x)
 
     The element by element equation of what we're doing would be:
     in_deriv = out_deriv * (1.0 - out_value^2).
-    We can accomplish this via calls to the matrix library. */    
+    We can accomplish this via calls to the matrix library. */
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
   in_deriv->CopyFromMat(out_value);
   in_deriv->ApplyPow(2.0);
   in_deriv->Scale(-1.0);
@@ -196,12 +334,12 @@ void TanhComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
 }  
 
 void SoftmaxComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                                 MatrixBase<BaseFloat> *out) const {
+                                 int32, // num_chunks
+                                 Matrix<BaseFloat> *out) const {
   // Apply softmax function to each row of the output...
   // for that row, we do
   // x_i = exp(x_i) / sum_j exp(x_j).
-  
-  out->CopyFromMat(in);
+  *out = in; // Resizes also.
   int32 num_rows = out->NumRows();
   for(int32 r = 0; r < num_rows; r++) {
     SubVector<BaseFloat> row(*out, r);
@@ -213,8 +351,9 @@ void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
                                 BaseFloat, //  tot_weight
+                                int32, // num_chunks
                                 Component *to_update,
-                                MatrixBase<BaseFloat> *in_deriv) const {
+                                Matrix<BaseFloat> *in_deriv) const {
   /*
     Note on the derivative of the softmax function: let it be
     p_i = exp(x_i) / sum_i exp_i
@@ -225,6 +364,7 @@ void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
     d = diag(p) e - p (p^T e).
     d_i = p_i e_i - p_i (p^T e).    
   */
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());  
   KALDI_ASSERT(SameDim(out_value, out_deriv) && SameDim(out_value, *in_deriv));
   const MatrixBase<BaseFloat> &P(out_value), &E(out_deriv);
   MatrixBase<BaseFloat> &D (*in_deriv);
@@ -286,18 +426,31 @@ void AffineComponent::Init(BaseFloat learning_rate, BaseFloat l2_penalty,
 }
 
 void AffineComponent::InitFromString(std::string args) {
-  std::istringstream is(args);
-  BaseFloat learning_rate, l2_penalty, param_stddev;
-  int32 input_dim, output_dim;
-  is >> learning_rate >> l2_penalty >> input_dim >> output_dim
-     >> param_stddev >> std::ws;
-  if (!is || !is.eof())
-    KALDI_ERR << "Bad initializer " << args;
+  std::string orig_args(args);
+  bool ok = true;
+  BaseFloat learning_rate = learning_rate_,
+               l2_penalty = l2_penalty_;
+  int32 input_dim = -1, output_dim = -1;
+  ParseFromString("learning-rate", &args, &learning_rate); // optional.
+  ParseFromString("l2-penalty", &args, &l2_penalty); // optional.
+  ok = ok && ParseFromString("input-dim", &args, &input_dim);
+  ok = ok && ParseFromString("output-dim", &args, &output_dim);
+  BaseFloat param_stddev = 1.0 / std::sqrt(input_dim);
+  ParseFromString("param-stddev", &args, &param_stddev);
+  if (!args.empty())
+    KALDI_ERR << "Could not process these elements in initializer: "
+              << args;
+  if (!ok)
+    KALDI_ERR << "Bad initializer " << orig_args;
   Init(learning_rate, l2_penalty, input_dim, output_dim, param_stddev);
 }
+
+
 void AffineComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                                MatrixBase<BaseFloat> *out) const {
+                                int32, // num_chunks
+                                Matrix<BaseFloat> *out) const {
   // No need for asserts as they'll happen within the matrix operations.
+  out->Resize(in.NumRows(), linear_params_.NumRows());
   out->CopyRowsFromVec(bias_params_); // copies bias_params_ to each row
   // of *out.
   out->AddMatMat(1.0, in, kNoTrans, linear_params_, kTrans, 1.0);
@@ -307,9 +460,11 @@ void AffineComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                const MatrixBase<BaseFloat> &, // out_value
                                const MatrixBase<BaseFloat> &out_deriv,
                                BaseFloat tot_weight,
+                               int32, // num_chunks
                                Component *to_update_in,
-                               MatrixBase<BaseFloat> *in_deriv) const {
+                               Matrix<BaseFloat> *in_deriv) const {
   AffineComponent *to_update = dynamic_cast<AffineComponent*>(to_update_in);
+  in_deriv->Resize(out_deriv.NumRows(), InputDim());
   // Propagate the derivative back to the input.
   in_deriv->AddMatMat(1.0, out_deriv, kNoTrans, linear_params_, kNoTrans,
                       0.0);
@@ -327,9 +482,9 @@ void AffineComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
   }
 }
 
+
 void AffineComponent::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "<AffineComponent>");
-  ExpectToken(is, binary, "<LearningRate>");
+  ExpectOneOrTwoTokens(is, binary, "<AffineComponent>", "<LearningRate>");
   ReadBasicType(is, binary, &learning_rate_);
   ExpectToken(is, binary, "<L2Penalty>");
   ReadBasicType(is, binary, &l2_penalty_);
@@ -351,6 +506,169 @@ void AffineComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<BiasParams>");
   bias_params_.Write(os, binary);
   WriteToken(os, binary, "</AffineComponent>");  
+}
+
+
+void AffinePreconInputComponent::SetZero(bool treat_as_gradient) {
+  if (treat_as_gradient) {
+    SetLearningRate(1.0);
+    SetL2Penalty(0.0);
+    is_gradient_ = true;
+  }
+  linear_params_.SetZero();
+  bias_params_.SetZero();
+}
+
+void AffinePreconInputComponent::Backprop(
+    const MatrixBase<BaseFloat> &in_value,
+    const MatrixBase<BaseFloat> &, // out_value
+    const MatrixBase<BaseFloat> &out_deriv,
+    BaseFloat tot_weight,
+    int32, // num_chunks
+    Component *to_update_in,
+    Matrix<BaseFloat> *in_deriv) const {
+  AffinePreconInputComponent *to_update =
+      dynamic_cast<AffinePreconInputComponent*>(to_update_in);
+  in_deriv->Resize(out_deriv.NumRows(), InputDim());
+  // Propagate the derivative back to the input.
+  in_deriv->AddMatMat(1.0, out_deriv, kNoTrans, linear_params_, kNoTrans,
+                      0.0);
+
+  if (to_update) {
+    BaseFloat old_weight = to_update->OldWeight(tot_weight);
+    // Next update the model (must do this 2nd so the derivatives we propagate
+    // are accurate, in case this == to_update_in.)
+    // add the sum of the rows of out_deriv, to the bias_params_.
+    to_update->bias_params_.AddRowSumMat(to_update->learning_rate_, out_deriv,
+                                         old_weight);
+    if (to_update->is_gradient_) { // simple update, getting gradient.
+      to_update->linear_params_.AddMatMat(to_update->learning_rate_,
+                                          out_deriv, kTrans,
+                                          in_value, kNoTrans,
+                                          old_weight);
+    } else {
+      // more complex update, correcting for variance of input features.  Note:
+      // most likely to_update == this, but we don't insist on this.
+      Matrix<BaseFloat> in_value_tmp(in_value);
+      in_value_tmp.MulColsVec(input_precision_); // Scale each column of in_value_tmp
+      // (i.e. each dimension of the input features) by the corresponding element of
+      // input_precision_.
+    
+      to_update->linear_params_.AddMatMat(to_update->learning_rate_,
+                                          out_deriv, kTrans, in_value_tmp,
+                                          kNoTrans, old_weight);
+      // Next update input_precision_.  Note: we don't use any scaling on the
+      // samples at this point.  This really won't matter in practice, it's just
+      // for preconditioning.  Note: avg_samples_ is not very precisely a number
+      // of samples to average over, just in an approximate dimensional sense; the
+      // inverse of this is the constant in the exponential averaging.  Note: the
+      // least we can actually average over is one minibatch; this is where the
+      // std::max comes in below.
+      int32 num_frames = in_value_tmp.NumRows();
+      BaseFloat avg_samples_scaled =
+          std::max(1.0, static_cast<double>(avg_samples_ / num_frames));
+      BaseFloat cur_scale = 1.0 / avg_samples_scaled,
+               prev_scale = 1.0 - cur_scale;
+      Vector<BaseFloat> &input_precision = to_update->input_precision_;
+      input_precision.InvertElements();
+      input_precision.AddDiagMat2(cur_scale, in_value, kTrans, prev_scale);
+      if (input_precision.ApplyFloor(1.0e-10) > 0)
+        KALDI_WARN << "Flooring elements of input feature variance.";
+      input_precision.InvertElements();
+    }
+  }
+}
+
+void AffinePreconInputComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<AffinePreconInputComponent>", "<LearningRate>");
+  ReadBasicType(is, binary, &learning_rate_);
+  ExpectToken(is, binary, "<L2Penalty>");
+  ReadBasicType(is, binary, &l2_penalty_);
+  ExpectToken(is, binary, "<AvgSamples>");
+  ReadBasicType(is, binary, &avg_samples_);
+  ExpectToken(is, binary, "<IsGradient>");
+  ReadBasicType(is, binary, &is_gradient_);
+  ExpectToken(is, binary, "<LinearParams>");
+  linear_params_.Read(is, binary);
+  ExpectToken(is, binary, "<BiasParams>");
+  bias_params_.Read(is, binary);
+  ExpectToken(is, binary, "<InputPrecision>");
+  input_precision_.Read(is, binary);
+  ExpectToken(is, binary, "</AffinePreconInputComponent>");  
+}
+
+void AffinePreconInputComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<AffinePreconInputComponent>");
+  WriteToken(os, binary, "<LearningRate>");
+  WriteBasicType(os, binary, learning_rate_);
+  WriteToken(os, binary, "<L2Penalty>");
+  WriteBasicType(os, binary, l2_penalty_);
+  WriteToken(os, binary, "<AvgSamples>");
+  WriteBasicType(os, binary, avg_samples_);
+  WriteToken(os, binary, "<IsGradient>");
+  WriteBasicType(os, binary, is_gradient_);
+  WriteToken(os, binary, "<LinearParams>");
+  linear_params_.Write(os, binary);
+  WriteToken(os, binary, "<BiasParams>");
+  bias_params_.Write(os, binary);
+  WriteToken(os, binary, "<InputPrecision>");
+  input_precision_.Write(os, binary);
+  WriteToken(os, binary, "</AffinePreconInputComponent>");  
+}
+
+void AffinePreconInputComponent::Init(
+    BaseFloat learning_rate, BaseFloat l2_penalty,
+    int32 input_dim, int32 output_dim,
+    BaseFloat param_stddev,
+    BaseFloat avg_samples) {
+  is_gradient_ = false;
+  UpdatableComponent::Init(learning_rate, l2_penalty);
+  linear_params_.Resize(output_dim, input_dim);
+  bias_params_.Resize(output_dim);
+  KALDI_ASSERT(output_dim > 0 && input_dim > 0 && param_stddev >= 0.0);
+  linear_params_.SetRandn(); // sets to random normally distributed noise.
+  linear_params_.Scale(param_stddev);
+  bias_params_.SetRandn();
+  bias_params_.Scale(param_stddev);
+  avg_samples_ = avg_samples;
+  KALDI_ASSERT(avg_samples_ > 1.0);
+  input_precision_.Resize(input_dim);
+  input_precision_.Set(1.0); // Set to all ones, as initially we
+  // have no idea what the parameter variance is.
+}
+
+void AffinePreconInputComponent::InitFromString(std::string args) {
+  std::string orig_args(args);
+  bool ok = true;
+  BaseFloat learning_rate = learning_rate_,
+               l2_penalty = l2_penalty_,
+             avg_samples = 2000.0;
+  int32 input_dim = -1, output_dim = -1;
+  ParseFromString("learning-rate", &args, &learning_rate); // optional.
+  ParseFromString("l2-penalty", &args, &l2_penalty); // optional.
+  ParseFromString("avg-samples", &args, &avg_samples); // optional.
+  ok = ok && ParseFromString("input-dim", &args, &input_dim);
+  ok = ok && ParseFromString("output-dim", &args, &output_dim);
+  BaseFloat param_stddev = 1.0 / std::sqrt(input_dim);
+  ParseFromString("param-stddev", &args, &param_stddev);
+  if (!args.empty())
+    KALDI_ERR << "Could not process these elements in initializer: "
+              << args;
+  if (!ok)
+    KALDI_ERR << "Bad initializer " << orig_args;
+  Init(learning_rate, l2_penalty, input_dim, output_dim,
+       param_stddev, avg_samples);
+}
+
+Component* AffinePreconInputComponent::Copy() const {
+  AffinePreconInputComponent *ans = new AffinePreconInputComponent();
+  ans->learning_rate_ = learning_rate_;
+  ans->l2_penalty_ = l2_penalty_;
+  ans->avg_samples_ = avg_samples_;
+  ans->linear_params_ = linear_params_;
+  ans->bias_params_ = bias_params_;
+  ans->input_precision_ = input_precision_;
+  return ans;
 }
 
 void BlockAffineComponent::SetZero(bool treat_as_gradient) {
@@ -391,7 +709,9 @@ Component* BlockAffineComponent::Copy() const {
 }
 
 void BlockAffineComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                                     MatrixBase<BaseFloat> *out) const {
+                                     int32, // num_chunks
+                                     Matrix<BaseFloat> *out) const {
+  out->Resize(in.NumRows(), bias_params_.Dim());
   out->CopyRowsFromVec(bias_params_); // copies bias_params_ to each row
   // of *out.
 
@@ -430,13 +750,14 @@ void BlockAffineComponent::Backprop(
     const MatrixBase<BaseFloat> &, // out_value
     const MatrixBase<BaseFloat> &out_deriv,
     BaseFloat tot_weight,
+    int32, // num_chunks
     Component *to_update_in,
-    MatrixBase<BaseFloat> *in_deriv) const {
+    Matrix<BaseFloat> *in_deriv) const {
   // This code mirrors the code in Propagate().
   int32 num_frames = in_value.NumRows();
   BlockAffineComponent *to_update = dynamic_cast<BlockAffineComponent*>(
       to_update_in);
-  
+  in_deriv->Resize(out_deriv.NumRows(), InputDim());
   int32 input_block_dim = linear_params_.NumCols(),
        output_block_dim = linear_params_.NumRows() / num_blocks_;
   KALDI_ASSERT(in_value.NumCols() == input_block_dim * num_blocks_);
@@ -501,20 +822,30 @@ void BlockAffineComponent::Init(BaseFloat learning_rate, BaseFloat l2_penalty,
 }
 
 void BlockAffineComponent::InitFromString(std::string args) {
-  std::istringstream is(args);
-  BaseFloat learning_rate, l2_penalty, param_stddev;
-  int32 input_dim, output_dim, num_blocks;
-  is >> learning_rate >> l2_penalty >> input_dim >> output_dim
-     >> param_stddev >> num_blocks >> std::ws;
-  if (!is || !is.eof())
-    KALDI_ERR << "Bad initializer " << args;
-  Init(learning_rate, l2_penalty, input_dim, output_dim,
-       param_stddev, num_blocks);
+  std::string orig_args(args);
+  bool ok = true;
+  BaseFloat learning_rate = learning_rate_,
+               l2_penalty = l2_penalty_;
+  int32 input_dim = -1, output_dim = -1, num_blocks = 1;
+  ParseFromString("learning-rate", &args, &learning_rate); // optional.
+  ParseFromString("l2-penalty", &args, &l2_penalty); // optional.
+  ok = ok && ParseFromString("input-dim", &args, &input_dim);
+  ok = ok && ParseFromString("output-dim", &args, &output_dim);
+  ok = ok && ParseFromString("num-blocks", &args, &num_blocks);
+  BaseFloat param_stddev = 1.0 / std::sqrt(input_dim);
+  ParseFromString("param-stddev", &args, &param_stddev);
+  if (!args.empty())
+    KALDI_ERR << "Could not process these elements in initializer: "
+              << args;
+  if (!ok)
+    KALDI_ERR << "Bad initializer " << orig_args;
+  Init(learning_rate, l2_penalty, input_dim, output_dim, param_stddev,
+       num_blocks);
 }
+  
 
 void BlockAffineComponent::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "<BlockAffineComponent>");
-  ExpectToken(is, binary, "<LearningRate>");
+  ExpectOneOrTwoTokens(is, binary, "<BlockAffineComponent>", "<LearningRate>");
   ReadBasicType(is, binary, &learning_rate_);
   ExpectToken(is, binary, "<L2Penalty>");
   ReadBasicType(is, binary, &l2_penalty_);
@@ -544,13 +875,14 @@ void BlockAffineComponent::Write(std::ostream &os, bool binary) const {
 
 
 void PermuteComponent::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "<PermuteComponent>");
+  ExpectOneOrTwoTokens(is, binary, "<PermuteComponent>", "<Reorder>");
   ReadIntegerVector(is, binary, &reorder_);
   ExpectToken(is, binary, "</PermuteComponent>");
 }
 
 void PermuteComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<PermuteComponent>");
+  WriteToken(os, binary, "<Reorder>");
   WriteIntegerVector(os, binary, reorder_);
   WriteToken(os, binary, "</PermuteComponent>");
 }
@@ -563,17 +895,19 @@ void PermuteComponent::Init(int32 dim) {
 }
 
 void PermuteComponent::InitFromString(std::string args) {
-  std::istringstream is(args);
+  std::string orig_args(args);
   int32 dim;
-  is >> dim >> std::ws;
-  if (!is || !is.eof())
-    KALDI_ERR << "Bad initializer: " << args;
+  bool ok = ParseFromString("dim", &args, &dim);
+  if (!ok || !args.empty() || dim <= 0)
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
   Init(dim);
 }
 
 void PermuteComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                                 MatrixBase<BaseFloat> *out) const {
-  KALDI_ASSERT(SameDim(in, *out) && in.NumCols() == OutputDim());
+                                 int32, // num_chunks
+                                 Matrix<BaseFloat> *out) const {
+  out->Resize(in.NumRows(), in.NumCols());
   
   int32 num_rows = in.NumRows(), num_cols = in.NumCols();
   for (int32 r = 0; r < num_rows; r++) {
@@ -588,10 +922,11 @@ void PermuteComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
                                 BaseFloat, //  tot_weight
+                                int32, // num_chunks
                                 Component *to_update,
-                                MatrixBase<BaseFloat> *in_deriv) const {
-  KALDI_ASSERT(SameDim(out_deriv, *in_deriv) &&
-               out_deriv.NumCols() == OutputDim());
+                                Matrix<BaseFloat> *in_deriv) const {
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
+  KALDI_ASSERT(out_deriv.NumCols() == OutputDim());
   
   int32 num_rows = in_deriv->NumRows(), num_cols = in_deriv->NumCols();
   for (int32 r = 0; r < num_rows; r++) {
@@ -666,23 +1001,27 @@ void MixtureProbComponent::Init(BaseFloat learning_rate, BaseFloat l2_penalty,
 }  
 
 void MixtureProbComponent::InitFromString(std::string args) {
-  std::istringstream is(args);
-  BaseFloat learning_rate, l2_penalty, diag_element;
-  is >> learning_rate >> l2_penalty >> diag_element;
-  if (!is)
-    KALDI_ERR << "Invalid initializer";
-  std::vector<int32> sizes;
-  int32 i;
-  while (is >> i) sizes.push_back(i);
-  is >> std::ws;
-  if (!is.eof() || sizes.empty())
-    KALDI_ERR << "Invalid initializer";
-  Init(learning_rate, l2_penalty, diag_element, sizes);
+  std::string orig_args(args);
+  bool ok = true;
+  BaseFloat learning_rate = learning_rate_,
+               l2_penalty = l2_penalty_,
+             diag_element = 0.9;
+  std::vector<int32> dims;
+  ParseFromString("learning-rate", &args, &learning_rate); // optional.
+  ParseFromString("l2-penalty", &args, &l2_penalty); // optional.
+  ParseFromString("diag-element", &args, &diag_element); // optional.
+  ok = ok && ParseFromString("dims", &args, &dims);
+  if (!args.empty())
+    KALDI_ERR << "Could not process these elements in initializer: "
+              << args;
+  if (!ok)
+    KALDI_ERR << "Bad initializer " << orig_args;
+  Init(learning_rate, l2_penalty, diag_element, dims);
 }
 
+
 void MixtureProbComponent::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "<MixtureProbComponent>");
-  ExpectToken(is, binary, "<LearningRate>");
+  ExpectOneOrTwoTokens(is, binary, "<MixtureProbComponent>", "<LearningRate>");
   ReadBasicType(is, binary, &learning_rate_);
   ExpectToken(is, binary, "<L2Penalty>");
   ReadBasicType(is, binary, &l2_penalty_);
@@ -730,10 +1069,11 @@ void MixtureProbComponent::SetZero(bool treat_as_gradient) {
 }
 
 void MixtureProbComponent::Propagate(const MatrixBase<BaseFloat> &in,
-                                     MatrixBase<BaseFloat> *out) const {
-  KALDI_ASSERT(in.NumRows() == out->NumRows() &&
-               in.NumCols() == InputDim() && out->NumCols() == OutputDim());
-
+                                     int32, // num_chunks
+                                     Matrix<BaseFloat> *out) const {
+  KALDI_ASSERT(in.NumCols() == InputDim());
+  out->Resize(in.NumRows(), OutputDim());
+  
   int32 num_frames = in.NumRows(),
       input_offset = 0,
      output_offset = 0;
@@ -756,11 +1096,13 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                     const MatrixBase<BaseFloat> &,// out_value
                                     const MatrixBase<BaseFloat> &out_deriv,
                                     BaseFloat tot_weight,
+                                    int32, // num_chunks
                                     Component *to_update_in,
-                                    MatrixBase<BaseFloat> *in_deriv) const {
+                                    Matrix<BaseFloat> *in_deriv) const {
   MixtureProbComponent *to_update = dynamic_cast<MixtureProbComponent*>(
       to_update_in);
 
+  in_deriv->Resize(out_deriv.NumRows(), InputDim());
   KALDI_ASSERT(in_value.NumRows() == out_deriv.NumRows() &&
                in_value.NumCols() == InputDim() && out_deriv.NumCols() == OutputDim());
   int32 num_frames = in_value.NumRows(),
@@ -847,6 +1189,262 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
   }
 }
 
+void SpliceComponent::Init(int32 input_dim, int32 left_context,
+                           int32 right_context) {
+  input_dim_ = input_dim;
+  left_context_ = left_context;
+  right_context_ = right_context;
+  KALDI_ASSERT(input_dim_ > 0 && left_context >= 0 && right_context >= 0);
+}
 
+// e.g. args == "input-dim=10 left-context=2 right-context=2
+void SpliceComponent::InitFromString(std::string args) {
+  std::string orig_args(args);
+  int32 input_dim, left_context, right_context;
+  bool ok = ParseFromString("input-dim", &args, &input_dim) &&
+            ParseFromString("left-context", &args, &left_context) &&
+            ParseFromString("right-context", &args, &right_context);
+  if (!ok || !args.empty() || input_dim <= 0)
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
+  Init(input_dim, left_context, right_context);
+}
+
+int32 SpliceComponent::OutputDim() const {
+  return input_dim_ * (1 + left_context_ + right_context_);
+}
+
+void SpliceComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                                int32 num_chunks,
+                                Matrix<BaseFloat> *out) const {
+  KALDI_ASSERT(in.NumRows() > 0 && num_chunks > 0);
+  if (in.NumRows() % num_chunks != 0)
+    KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
+              << "number of frames " << in.NumRows();
+  int32 input_chunk_size = in.NumRows() / num_chunks,
+       output_chunk_size = input_chunk_size - left_context_ - right_context_,
+               input_dim = in.NumCols(),
+              output_dim = input_dim * (1 + left_context_ + right_context_);
+  if (output_chunk_size <= 0)
+    KALDI_ERR << "Splicing features: output will have zero dimension. "
+              << "Probably a code error.";
+  out->Resize(num_chunks * output_chunk_size, output_dim);
+  for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+    SubMatrix<BaseFloat> input_chunk(in,
+                                     chunk * input_chunk_size, input_chunk_size,
+                                     0, input_dim),
+        output_chunk(*out,
+                     chunk * output_chunk_size, output_chunk_size,
+                     0, output_dim);
+    for (int32 c = 0; c < left_context_ + right_context_ + 1; c++) {
+      SubMatrix<BaseFloat> input_part(input_chunk, c, output_chunk_size,
+                                      0, input_dim),
+          output_part(output_chunk, 0, output_chunk_size,
+                      input_dim * c, input_dim);
+      output_part.CopyFromMat(input_part);
+    }
+  }  
+}
+
+void SpliceComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
+                               const MatrixBase<BaseFloat> &, // out_value,
+                               const MatrixBase<BaseFloat> &out_deriv,
+                               BaseFloat, //  tot_weight
+                               int32 num_chunks, // see num_chunks in Propagate.
+                               Component *to_update, // may == "this".
+                               Matrix<BaseFloat> *in_deriv) const {
+  KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
+  if (out_deriv.NumRows() % num_chunks != 0)
+    KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
+              << "number of frames " << out_deriv.NumRows();
+  int32 output_chunk_size = out_deriv.NumRows() / num_chunks,
+         input_chunk_size = output_chunk_size + left_context_ + right_context_,
+               output_dim = out_deriv.NumCols(),
+                input_dim = output_dim / (1 + left_context_ + right_context_);
+  KALDI_ASSERT(output_dim * (1 + left_context_ + right_context_) == input_dim);
+
+  in_deriv->Resize(num_chunks * input_chunk_size, input_dim); // Will zero it.
+  for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+    SubMatrix<BaseFloat> in_deriv_chunk(*in_deriv, chunk * input_chunk_size,
+                                        input_chunk_size, 0, input_dim),
+        out_deriv_chunk(out_deriv,
+                        chunk * output_chunk_size, output_chunk_size,
+                        0, output_dim);
+    for (int32 c = 0; c < left_context_ + right_context_ + 1; c++) {
+      SubMatrix<BaseFloat> in_deriv_part(in_deriv_chunk, c, output_chunk_size,
+                                         0, input_dim),
+          out_deriv_part(out_deriv_chunk, 0, output_chunk_size,
+                         input_dim * c, input_dim);
+      in_deriv_part.AddMat(1.0, out_deriv_part);
+    }
+  }  
+}
+
+Component *SpliceComponent::Copy() const {
+  SpliceComponent *ans = new SpliceComponent();
+  ans->left_context_ = left_context_;
+  ans->right_context_ = right_context_;
+  ans->right_context_ = right_context_;
+  return ans;
+}
+
+void SpliceComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<SpliceComponent>", "<InputDim>");
+  ReadBasicType(is, binary, &input_dim_);
+  ExpectToken(is, binary, "<LeftContext>");
+  ReadBasicType(is, binary, &left_context_);
+  ExpectToken(is, binary, "<RightContext>");
+  ReadBasicType(is, binary, &right_context_);
+  ExpectToken(is, binary, "</SpliceComponent>");  
+}
+
+void SpliceComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<SpliceComponent>");
+  WriteToken(os, binary, "<InputDim>");
+  WriteBasicType(os, binary, input_dim_);
+  WriteToken(os, binary, "<LeftContext>");
+  WriteBasicType(os, binary, left_context_);
+  WriteToken(os, binary, "<RightContext>");
+  WriteBasicType(os, binary, right_context_);
+  WriteToken(os, binary, "</SpliceComponent>");  
+}
+
+
+void DctComponent::Init(int32 dim, int32 dct_dim, bool reorder) {
+  KALDI_ASSERT(dim > 0 && dct_dim > 0);
+  KALDI_ASSERT(dim % dct_dim == 0); // dct_dim must divide dim.
+  dim_ = dim;
+  dct_mat_.Resize(dct_dim, dct_dim);
+  reorder_ = reorder;
+  ComputeDctMatrix(&dct_mat_);
+}
+
+void DctComponent::InitFromString(std::string args) {
+  std::string orig_args(args);
+  int32 dim, dct_dim;
+  bool reorder = false;
+  bool ok = ParseFromString("dim", &args, &dim) &&
+            ParseFromString("dct-dim", &args, &dct_dim);
+  ParseFromString("reorder", &args, &reorder);
+  if (!ok || !args.empty() || dim <= 0 || dct_dim <= 0)
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
+  Init(dim, dct_dim, reorder);
+}
+
+void DctComponent::Reorder(MatrixBase<BaseFloat> *mat, bool reverse) const {
+  // reorders into contiguous blocks of dize "dct_dim_", assuming that
+  // such blocks were interlaced before.  if reverse==true, does the
+  // reverse.
+  int32 dct_dim = dct_mat_.NumCols(),
+      block_size_in = dim_ / dct_dim,
+      block_size_out = dct_dim;
+  KALDI_ASSERT(mat->NumCols() == dim_);
+  if (reverse) std::swap(block_size_in, block_size_out);
+
+  Vector<BaseFloat> temp(mat->NumCols());
+  for (int32 i = 0; i < mat->NumRows(); i++) {
+    SubVector<BaseFloat> row(*mat, i);
+    int32 num_blocks_in = block_size_out;
+    for (int32 b = 0; b < num_blocks_in; b++) {
+      for (int32 j = 0; j < block_size_in; j++) {
+        temp(j * block_size_out + b) = row(b * block_size_in + j);
+      }
+    }
+    row.CopyFromVec(temp);
+  }
+}
+
+void DctComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                             int32, // num_chunks
+                             Matrix<BaseFloat> *out) const {
+  KALDI_ASSERT(in.NumCols() == InputDim());
+  out->Resize(in.NumRows(), in.NumCols());
+  Matrix<BaseFloat> in_tmp;
+  if (reorder_) {
+    in_tmp = in;
+    Reorder(&in_tmp, false);
+  }
+  int32 dct_dim = dct_mat_.NumRows(),
+     num_chunks = dim_ / dct_dim,
+       num_rows = in.NumRows();
+  for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+    SubMatrix<BaseFloat> in_mat(reorder_ ? in_tmp : in,
+                                0, num_rows, dct_dim * chunk, dct_dim),
+        out_mat(*out,
+                0, num_rows, dct_dim * chunk, dct_dim);
+    out_mat.AddMatMat(1.0, in_mat, kNoTrans, dct_mat_, kTrans, 0.0);
+  }
+  if (reorder_)
+    Reorder(out, true);
+}
+
+void DctComponent::Backprop(const MatrixBase<BaseFloat>&, // in_value,
+                            const MatrixBase<BaseFloat>&, // out_value,
+                            const MatrixBase<BaseFloat> &out_deriv,
+                            BaseFloat, //  tot_weight
+                            int32, //  num_chunks
+                            Component*,// to_update
+                            Matrix<BaseFloat> *in_deriv) const {
+  KALDI_ASSERT(out_deriv.NumCols() == InputDim());
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
+  
+  Matrix<BaseFloat> out_deriv_tmp;
+  if (reorder_) {
+    out_deriv_tmp = out_deriv;
+    Reorder(&out_deriv_tmp, true);
+  }
+  int32 dct_dim = dct_mat_.NumRows(),
+     num_chunks = dim_ / dct_dim,
+       num_rows = in_deriv->NumRows();
+  for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+    SubMatrix<BaseFloat> in_deriv_mat(*in_deriv,
+                                      0, num_rows, dct_dim * chunk, dct_dim),
+        out_deriv_mat(reorder_ ? out_deriv_tmp : out_deriv,
+                      0, num_rows, dct_dim * chunk, dct_dim);
+    // Note: in the reverse direction the DCT matrix is transposed.  This is
+    // normal when computing derivatives; the necessity for the transpose is
+    // obvious if you consider what happens when the input and output dims
+    // differ.
+    in_deriv_mat.AddMatMat(1.0, out_deriv_mat, kNoTrans,
+                           dct_mat_, kNoTrans, 0.0);
+  }
+  if (reorder_)
+    Reorder(in_deriv, false);
+}
+
+Component* DctComponent::Copy() const {
+  DctComponent *ans = new DctComponent();
+  ans->dct_mat_ = dct_mat_;
+  ans->dim_ = dim_;
+  ans->reorder_ = reorder_;
+  return ans;
+}
+
+void DctComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<DctComponent>");
+  WriteToken(os, binary, "<Dim>");
+  WriteBasicType(os, binary, dim_);
+  WriteToken(os, binary, "<DctDim>");
+  int32 dct_dim = dct_mat_.NumRows();
+  WriteBasicType(os, binary, dct_dim);
+  WriteToken(os, binary, "<Reorder>");
+  WriteBasicType(os, binary, reorder_);
+  WriteToken(os, binary, "</DctComponent>");  
+}
+
+void DctComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<DctComponent>", "<Dim>");
+  ReadBasicType(is, binary, &dim_);
+  ExpectToken(is, binary, "<DctDim>");
+  int32 dct_dim;
+  ReadBasicType(is, binary, &dct_dim);
+  ExpectToken(is, binary, "<Reorder>");
+  ReadBasicType(is, binary, &reorder_);
+  ExpectToken(is, binary, "</DctComponent>");
+  KALDI_ASSERT(dct_dim > 0 && dim_ > 0 && dim_ % dct_dim == 0);
+  dct_mat_.Resize(dct_dim, dct_dim);
+  ComputeDctMatrix(&dct_mat_);
+}
 
 } // namespace kaldi

@@ -33,7 +33,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
       output(num_egs, output_dim);
   input.SetRandn();
   
-  component.Propagate(input, &output);
+  component.Propagate(input, 1, &output);
   {
     bool binary = (rand() % 2 == 0);
     Output ko("tmpf", binary);
@@ -56,8 +56,14 @@ void UnitTestGenericComponentInternal(const Component &component) {
       output_deriv.Row(i).CopyFromVec(objf_vec);
 
     Matrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
-    
-    component_copy->Backprop(input, output, output_deriv, num_egs, NULL, &input_deriv);
+
+    Matrix<BaseFloat> empty_mat;
+    Matrix<BaseFloat> &input_ref =
+        (component_copy->BackpropNeedsInput() ? input : empty_mat),
+        &output_ref =
+        (component_copy->BackpropNeedsOutput() ? output : empty_mat);
+    component_copy->Backprop(input_ref, output_ref,
+                             output_deriv, num_egs, 1, NULL, &input_deriv);
 
     int32 num_ok = 0, num_bad = 0, num_tries = 7;
     KALDI_LOG << "Comparing feature gradients " << num_tries << " times.";
@@ -70,7 +76,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
       perturbed_input.AddMat(1.0, input); // now it's the input + a delta.
       { // Compute objf with perturbed input and make sure it matches prediction.
         Matrix<BaseFloat> perturbed_output(output.NumRows(), output.NumCols());
-        component.Propagate(perturbed_input, &perturbed_output);
+        component.Propagate(perturbed_input, 1, &perturbed_output);
         Vector<BaseFloat> perturbed_output_objfs(num_egs);
         perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
                                          objf_vec);
@@ -116,16 +122,16 @@ void UnitTestGenericComponentInternal(const Component &component) {
       Matrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
       for (int32 i = 0; i < output_deriv.NumRows(); i++)
         output_deriv.Row(i).CopyFromVec(objf_vec);
-      Matrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
+      Matrix<BaseFloat> input_deriv; // (input.NumRows(), input.NumCols());
 
       // This will compute the parameter gradient.
-      ucomponent->Backprop(input, output, output_deriv, num_egs, gradient_ucomponent, &input_deriv);
+      ucomponent->Backprop(input, output, output_deriv, num_egs, 1, gradient_ucomponent, &input_deriv);
 
       // Now compute the perturbed objf.
       BaseFloat objf_perturbed;
       {
-        Matrix<BaseFloat> output_perturbed(num_egs, output_dim);
-        perturbed_ucomponent->Propagate(input, &output_perturbed);
+        Matrix<BaseFloat> output_perturbed; // (num_egs, output_dim);
+        perturbed_ucomponent->Propagate(input, 1, &output_perturbed);
         Vector<BaseFloat> output_objfs_perturbed(num_egs);
         output_objfs_perturbed.AddMatVec(1.0, output_perturbed,
                                          kNoTrans, objf_vec, 0.0);
@@ -165,7 +171,7 @@ void UnitTestSigmoidComponent() {
   }
   {
     SigmoidComponent sigmoid_component;
-    sigmoid_component.InitFromString("15");
+    sigmoid_component.InitFromString("dim=15");
     UnitTestGenericComponentInternal(sigmoid_component);
   }
 }
@@ -184,7 +190,7 @@ void UnitTestGenericComponent() { // works if it has an initializer from int,
   }
   {
     T component;
-    component.InitFromString("15");
+    component.InitFromString("dim=15");
     UnitTestGenericComponentInternal(component);
   }
 }
@@ -201,8 +207,27 @@ void UnitTestAffineComponent() {
     UnitTestGenericComponentInternal(component);
   }
   {
-    const char *str = "0.01 0.001 10 15 0.1";
+    const char *str = "learning-rate=0.01 l2-penalty=0.001 input-dim=10 output-dim=15 param-stddev=0.1";
     AffineComponent component;
+    component.InitFromString(str);
+    UnitTestGenericComponentInternal(component);
+  }
+}
+
+void UnitTestAffinePreconInputComponent() {
+  BaseFloat learning_rate = 0.01, l2_penalty = 0.001,
+             param_stddev = 0.1, avg_samples = 100.0;
+  int32 input_dim = 5 + rand() % 10, output_dim = 5 + rand() % 10;
+
+  {
+    AffinePreconInputComponent component;
+    component.Init(learning_rate, l2_penalty, input_dim, output_dim,
+                   param_stddev, avg_samples);
+    UnitTestGenericComponentInternal(component);
+  }
+  {
+    const char *str = "learning-rate=0.01 l2-penalty=0.001 input-dim=10 output-dim=15 param-stddev=0.1 avg-samples=100";
+    AffinePreconInputComponent component;
     component.InitFromString(str);
     UnitTestGenericComponentInternal(component);
   }
@@ -222,7 +247,7 @@ void UnitTestBlockAffineComponent() {
     UnitTestGenericComponentInternal(component);
   }
   {
-    const char *str = "0.01 0.001 10 15 0.1 5";
+    const char *str = "learning-rate=0.01 l2-penalty=0.001 input-dim=10 output-dim=15 param-stddev=0.1 num-blocks=5";
     BlockAffineComponent component;
     component.InitFromString(str);
     UnitTestGenericComponentInternal(component);
@@ -244,135 +269,82 @@ void UnitTestMixtureProbComponent() {
     UnitTestGenericComponentInternal(component);
   }
   {
-    const char *str = "0.01 0.001 0.9 3 4 5";
+    const char *str = "learning-rate=0.01 l2-penalty=0.001 diag-element=0.9 dims=3:4:5";
     MixtureProbComponent component;
     component.InitFromString(str);
     UnitTestGenericComponentInternal(component);
   }
 }
 
-
-/*
-void UnitTestGenericComponentInternal(
-    ComponentGenericLayer &test_layer,
-                                  GenericLayer &gradient,
-                                  int32 input_dim,
-                                  int32 output_dim) {
-  Vector<BaseFloat> objf_vec(output_dim); // objective function is linear function of output.
-  objf_vec.SetRandn(); // set to Gaussian noise.
-  
-  int32 num_egs = 10 + rand() % 5;
-  Matrix<BaseFloat> input(num_egs, input_dim),
-      output(num_egs, output_dim);
-  input.SetRandn();
-  
-  test_layer.Forward(input, &output);
-  { // Test backward derivative and model derivatives are correct.
-    Vector<BaseFloat> output_objfs(num_egs);
-    output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec);
-    BaseFloat objf = output_objfs.Sum();
-
-    Matrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
-    for (int32 i = 0; i < output_deriv.NumRows(); i++)
-      output_deriv.Row(i).CopyFromVec(objf_vec);
-
-    Matrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
-    
-    test_layer.Backward(input, output, output_deriv, &input_deriv, &gradient);
-
-    {
-      Matrix<BaseFloat> perturbed_input(input.NumRows(), input.NumCols());
-      perturbed_input.SetRandn();
-      perturbed_input.Scale(1.0e-05); // scale by a small amount so it's like a delta.
-      BaseFloat predicted_difference = TraceMatMat(perturbed_input,
-                                                   input_deriv, kTrans);
-      perturbed_input.AddMat(1.0, input);
-      { // Compute objf with perturbed input and make sure it matches prediction.
-        Matrix<BaseFloat> perturbed_output(output.NumRows(), output.NumCols());
-        test_layer.Forward(perturbed_input, &perturbed_output);
-        Vector<BaseFloat> perturbed_output_objfs(num_egs);
-        perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
-                                         objf_vec);
-        BaseFloat perturbed_objf = perturbed_output_objfs.Sum(),
-            observed_difference = perturbed_objf - objf;
-        KALDI_LOG << "Input gradients: comparing " << predicted_difference
-                  << " and " << observed_difference;
-        KALDI_ASSERT (fabs(predicted_difference - observed_difference) <
-                      0.1 * fabs((predicted_difference + observed_difference)/2));
-      }
-    }
-    {
-      Matrix<BaseFloat> perturbed_params(output_dim, input_dim);
-      perturbed_params.SetRandn();
-      perturbed_params.Scale(1.0e-06);
-      BaseFloat predicted_difference = TraceMatMat(gradient.Params(),
-                                                   perturbed_params,
-                                                   kTrans);
-      perturbed_params.AddMat(1.0, test_layer.Params());
-      test_layer.SetParams(perturbed_params);
-      { // Compute objf with perturbed params and make sure it matches prediction.
-        Matrix<BaseFloat> perturbed_output(output.NumRows(), output.NumCols());
-        test_layer.Forward(input, &perturbed_output);
-        Vector<BaseFloat> perturbed_output_objfs(num_egs);
-        perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
-                                         objf_vec);
-        BaseFloat perturbed_objf = perturbed_output_objfs.Sum(),
-            observed_difference = perturbed_objf - objf;
-        KALDI_LOG << "Param gradients: comparing " << predicted_difference
-                  << " and " << observed_difference;
-        KALDI_ASSERT (fabs(predicted_difference - observed_difference) <
-                      0.1 * fabs((predicted_difference + observed_difference)/2));
-      }
-    }
+void UnitTestDctComponent() {
+  int32 m = 1 + rand() % 4, n = 1 + rand() % 4,
+  dct_dim = m, dim = m * n;
+  bool reorder = (rand() % 2 == 0);
+  {
+    DctComponent component;
+    component.Init(dim, dct_dim, reorder);
+    UnitTestGenericComponentInternal(component);
+  }
+  {
+    const char *str = "dim=10 dct-dim=5 reorder=true";
+    DctComponent component;
+    component.InitFromString(str);
+    UnitTestGenericComponentInternal(component);
   }
 }
 
 
-
-void UnitTestSoftmaxLayer() {
-  // We're testing that the gradients are computed correctly:
-  // the input gradients and the model gradients.
-  
-  int32 input_dim = 10 + rand() % 50, output_dim = 10 + rand() % 50;
-  BaseFloat learning_rate = 0.2; // arbitrary.
-  
-  SoftmaxLayer test_layer(input_dim, output_dim, learning_rate);
+void UnitTestParsing() {
+  int32 i;
+  BaseFloat f;
+  bool b;
+  std::vector<int32> v;
+  std::string s = "x=y";
+  KALDI_ASSERT(ParseFromString("foo", &s, &i) == false
+               && s == "x=y");
+  KALDI_ASSERT(ParseFromString("foo", &s, &f) == false
+               && s == "x=y");
+  KALDI_ASSERT(ParseFromString("foo", &s, &v) == false
+               && s == "x=y");
+  KALDI_ASSERT(ParseFromString("foo", &s, &b) == false
+               && s == "x=y");
   {
-    Matrix<BaseFloat> temp(output_dim, input_dim);
-    temp.SetRandn();
-    temp.Scale(0.1);
-    test_layer.SetParams(temp);
-  }  
-
-  SoftmaxLayer gradient(test_layer);
-  gradient.SetZero();
-  gradient.SetLearningRate(1.0);
-  UnitTestGenericLayerInternal(test_layer, gradient, input_dim, output_dim);
-}
-void UnitTestLinearLayer() {
-  // We're testing that the gradients are computed correctly:
-  // the input gradients and the model gradients.
-  
-  int32 input_dim = 10 + rand() % 50, output_dim = input_dim;
-  BaseFloat learning_rate = 0.2; // arbitrary.
-  BaseFloat diag_element = 0.9;
-  
-  LinearLayer test_layer(input_dim, diag_element, learning_rate);
+    std::string s = "x=1";
+    KALDI_ASSERT(ParseFromString("x", &s, &i) == true
+                 && i == 1 && s == "");
+    s = "a=b x=1";
+    KALDI_ASSERT(ParseFromString("x", &s, &i) == true
+                 && i == 1 && s == "a=b");
+  }
+  {
+    std::string s = "foo=false";
+    KALDI_ASSERT(ParseFromString("foo", &s, &b) == true
+                 && b == false && s == "");
+    s = "x=y foo=true a=b";
+    KALDI_ASSERT(ParseFromString("foo", &s, &b) == true
+                 && b == true && s == "x=y a=b");    
+  }
 
   {
-    Matrix<BaseFloat> temp(output_dim, input_dim);
-    temp.SetRandn();
-    temp.Scale(0.1);
-    test_layer.SetParams(temp);
-  }  
+    std::string s = "foobar x=1";
+    KALDI_ASSERT(ParseFromString("x", &s, &f) == true
+                 && f == 1.0 && s == "foobar");
+    s = "a=b x=1 bxy";
+    KALDI_ASSERT(ParseFromString("x", &s, &f) == true
+                 && f == 1.0 && s == "a=b bxy");
+  }
+  {
+    std::string s = "x=1:2:3";
+    KALDI_ASSERT(ParseFromString("x", &s, &v) == true
+                 && v.size() == 3 && v[0] == 1 && v[1] == 2 && v[2] == 3
+                 && s == "");
+    s = "a=b x=1:2:3 c=d";
+    KALDI_ASSERT(ParseFromString("x", &s, &v) == true
+                 && f == 1.0 && s == "a=b c=d");
+  }
 
-  LinearLayer gradient(test_layer);
-  gradient.SetZero();
-  gradient.SetLearningRate(1.0);
-  UnitTestGenericLayerInternal(test_layer, gradient, input_dim, output_dim);
 }
 
-*/
 
 } // namespace kaldi
 
@@ -383,8 +355,11 @@ int main() {
     UnitTestGenericComponent<TanhComponent>();
     UnitTestGenericComponent<PermuteComponent>();
     UnitTestGenericComponent<SoftmaxComponent>();
+    UnitTestAffineComponent();
+    UnitTestAffinePreconInputComponent();
+    UnitTestBlockAffineComponent();
+    UnitTestMixtureProbComponent();
+    UnitTestDctComponent();
+    UnitTestParsing();
   }
-  UnitTestAffineComponent();
-  UnitTestBlockAffineComponent();
-  UnitTestMixtureProbComponent();
 }
