@@ -1392,7 +1392,7 @@ void DctComponent::Backprop(const MatrixBase<BaseFloat>&, // in_value,
   Matrix<BaseFloat> out_deriv_tmp;
   if (reorder_) {
     out_deriv_tmp = out_deriv;
-    Reorder(&out_deriv_tmp, true);
+    Reorder(&out_deriv_tmp, false);
   }
   int32 dct_dim = dct_mat_.NumRows(),
      num_chunks = dim_ / dct_dim,
@@ -1410,7 +1410,7 @@ void DctComponent::Backprop(const MatrixBase<BaseFloat>&, // in_value,
                            dct_mat_, kNoTrans, 0.0);
   }
   if (reorder_)
-    Reorder(in_deriv, false);
+    Reorder(in_deriv, true);
 }
 
 Component* DctComponent::Copy() const {
