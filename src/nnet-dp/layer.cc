@@ -195,10 +195,13 @@ void LinearLayer::Update(const MatrixBase<BaseFloat> &input,
 }
 
 
-// We initialize the weights to be uniformly distributed on
-// [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
-// Apparently this is widely used: see  glorot10a.pdf (search term), 
+// We initialize the weights to be Gaussian distributed with standard
+// deviation 1/sqrt(n).
+// Note: in
 // Glorot and Bengio, "Understanding the difficulty of training deep feedforward networks".
+// they use a uniform distributino on
+// [-1/sqrt(n), +1/sqrt(n)], where n is the input dimension.
+
 TanhLayer::TanhLayer(int32 input_size, int32 output_size,
                      BaseFloat learning_rate, BaseFloat shrinkage_rate,
                      BaseFloat parameter_stddev) {
