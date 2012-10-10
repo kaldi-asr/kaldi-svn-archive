@@ -22,6 +22,7 @@
 #include "matrix/kaldi-vector.h"
 #include "matrix/kaldi-matrix.h"
 #include "matrix/matrix-functions.h"
+#include "matrix/cblas-wrappers.h"
 
 namespace kaldi {
 
@@ -50,23 +51,19 @@ void SpMatrix<Real>::Swap(SpMatrix<Real> *other) {
 }
 
 template<typename Real>
-void SpMatrix<Real>::SymPosSemiDefEig(VectorBase<Real> *rs,
-                                      MatrixBase<Real> *rP,
+void SpMatrix<Real>::SymPosSemiDefEig(VectorBase<Real> *s,
+                                      MatrixBase<Real> *P,
                                       Real tolerance) const {
-  if (tolerance >= 1.0) {  // Quicker version where we do no checking.
-    Matrix<Real> M(*this);
-    M.Svd(rs, rP, NULL);
-  } else {
-    Matrix<Real> M(*this);  // full copy of *this.
-    M.SymPosSemiDefEig(rs, rP, tolerance);
-  }
+  Eig(s, P);
+  Real max = s->Max(), min = s->Min();
+  KALDI_ASSERT(-min <= tolerance * max);
+  s->ApplyFloor(0.0);
 }
 
 template<typename Real>
 Real SpMatrix<Real>::MaxAbsEig() const {
-  Matrix<Real> M(*this);  // full copy of *this.
   Vector<Real> s(this->NumRows());
-  M.Svd(&s);
+  this->Eig(&s, static_cast<MatrixBase<Real>*>(NULL));
   return std::max(s.Max(), -s.Min());
 }
 
@@ -185,13 +182,22 @@ void SpMatrix<Real>::CopyFromMat(const MatrixBase<Real> &M,
   }
 }
 
+template<class Real>
+Real SpMatrix<Real>::Trace() const {
+  const Real *data = this->data_;
+  MatrixIndexT num_rows = this->num_rows_;
+  Real ans = 0.0;
+  for (int32 i = 1; i <= num_rows; i++, data += i)
+    ans += *data;
+  return ans;
+}
 
 // diagonal update, this <-- this + diag(v)
 template<class Real>
 template<class OtherReal>
 void  SpMatrix<Real>::AddVec(const Real alpha, const VectorBase<OtherReal> &v) {
   int32 num_rows = this->num_rows_;
-  KALDI_ASSERT(num_rows == v.Dim());
+  KALDI_ASSERT(num_rows == v.Dim() && num_rows > 0);
   const OtherReal *src = v.Data();
   Real *dst = this->data_;
   if (alpha == 1.0)
@@ -214,10 +220,6 @@ void SpMatrix<float>::AddVec(const float alpha, const VectorBase<float> &v);
 
 template
 void SpMatrix<double>::AddVec(const double alpha, const VectorBase<double> &v);
-
-template<>
-template<>
-void  SpMatrix<float>::AddVec2(const float alpha, const VectorBase<float> &v);
 
 template<>
 template<>
@@ -400,12 +402,28 @@ bool SpMatrix<Real>::IsDiagonal(Real cutoff) const {
 template<class Real>
 bool SpMatrix<Real>::IsUnit(Real cutoff) const {
   MatrixIndexT R = this->NumRows();
-  Real max = *(this->data_) - 1.0;  // max error
+  Real max = 0.0;  // max error
   for (MatrixIndexT i = 0; i < R; i++)
     for (MatrixIndexT j = 0; j <= i; j++)
       max = std::max(max, static_cast<Real>(std::abs((*this)(i, j) -
                                                      (i == j ? 1.0 : 0.0))));
-    return (max <= cutoff);
+  return (max <= cutoff);
+}
+
+template<class Real>
+bool SpMatrix<Real>::IsTridiagonal(Real cutoff) const {
+  MatrixIndexT R = this->NumRows();
+  Real max_abs_2diag = 0.0, max_abs_offdiag = 0.0;
+  for (MatrixIndexT i = 0; i < R; i++)
+    for (MatrixIndexT j = 0; j <= i; j++) {
+      if (j+1 < i)
+        max_abs_offdiag = std::max(max_abs_offdiag,
+                                   std::abs((*this)(i, j)));
+      else
+        max_abs_2diag = std::max(max_abs_2diag,
+                                 std::abs((*this)(i, j)));
+    }
+  return (max_abs_offdiag <= cutoff * max_abs_2diag);
 }
 
 template<class Real>
@@ -465,6 +483,7 @@ int SpMatrix<Real>::ApplyFloor(const SpMatrix<Real> &C, Real alpha,
   // We added the "Eig" function more recently.  It's not as accurate as in the
   // symmetric positive semidefinite case, so we only use it if the user says
   // the calling matrix is not positive semidefinite.
+  // [Note: we since changed it to be more accurate.]
   if (verbose) {
     KALDI_LOG << "ApplyFloor: flooring following diagonal to 1: " << l;
   }
@@ -482,59 +501,6 @@ int SpMatrix<Real>::ApplyFloor(const SpMatrix<Real> &C, Real alpha,
     (*this).AddMat2Sp(1.0, LFull, kNoTrans, D, 0.0);  // A := L * D' * L^T
   }
   return nfloored;
-}
-
-
-template<typename Real>
-void SpMatrix<Real>::EigInternal(VectorBase<Real> *eigs, MatrixBase<Real> *P,
-                                 Real tolerance, int recurse) const {
-  MatrixIndexT dim = this->NumRows();
-  KALDI_ASSERT(eigs->Dim() == dim && P->NumRows() == dim && P->NumCols() == dim);
-
-  if (recurse > 5) {
-    tolerance *= 2.0;
-    KALDI_WARN << "Doing symmetric eigenvalue problem: recursed to level "
-               << recurse << ", decreasing tolerance to " << tolerance;
-  } else if (recurse > 20) {
-    KALDI_ERR << "Doing symmetric eigenvalue problem: recursed 20 times and "
-        "still no success. ";
-  }
-  // Note: P takes the place of U in the SVD.
-  Matrix<Real> M(*this), Vt(dim, dim);
-  M.DestructiveSvd(eigs, P, &Vt);
-  P->Transpose();  // make it so the rows correspond to the eigenvalues.
-  Real max_abs_eig = eigs->Max();
-  MatrixIndexT d;
-  for (d = 0; d < dim; d++) {
-    if (VecVec(P->Row(d), Vt.Row(d)) < 0.0) {
-      (*eigs)(d) *= -1.0;
-      Vt.Row(d).Scale(-1.0);
-    }
-  }
-  Vt.AddMat(-1.0, *P);
-  for (d = 0; d < dim; d++) {
-    BaseFloat error = fabs((*eigs)(d)) * Vt.Row(d).Norm(2.0);
-    if (error > tolerance * max_abs_eig) // reject this SVD.
-      break;
-  }
-  if (d == dim) { // we didn't break -> success.
-    P->Transpose(); // Transpose back.
-    return;
-  } else { // We'll add something times the unit matrix to our matrix,
-    // do the computation again, and then subtract that from the eigenvalues.
-    // We could be super-careful about how much we add, trying to pick a nice
-    // gap in eigenvalues or something, but right now we just add 10^{-5}
-    // times the maximum eigenvalue.  It will fail extremely rarely, and
-    // in those cases we'll just recurse again.
-    Real to_add = max_abs_eig * 1.0e-3;
-    SpMatrix<Real> perturbed(*this);
-    for (MatrixIndexT d = 0; d < dim; d++)
-      perturbed(d, d) += to_add;
-    KALDI_VLOG(1) << "Recursing in eigenvalue computation.";
-    perturbed.EigInternal(eigs, P, tolerance, recurse+1);
-    eigs->Add(-to_add);
-    return;
-  }
 }
 
 template<class Real>
@@ -780,7 +746,7 @@ double SolveDoubleQuadraticMatrixProblem(const MatrixBase<double> &G,
   S.AddMat2Sp(1.0, LInvFull, kNoTrans, P2, 0.0);  // S := L^{-1} P_2 L^{-T}
   Matrix<double> U(rows, rows);
   Vector<double> d(rows);
-  S.SymPosSemiDefEig(&d, &U);  // does Svd S = U D V^T and checks that S == U D U^T.
+  S.SymPosSemiDefEig(&d, &U);
   Matrix<double> T(rows, rows);
   T.AddMatMat(1.0, U, kTrans, LInvFull, kNoTrans, 0.0);  // T := U^T * L^{-1}
 
@@ -1049,7 +1015,7 @@ void SpMatrix<double>::AddMat2Vec(const double alpha,
 template<>
 void SpMatrix<float>::AddMat2(const float alpha, const MatrixBase<float> &M, MatrixTransposeType transM, const float beta) {
   KALDI_ASSERT((transM == kNoTrans && this->NumRows() == M.NumRows())
-         || (transM == kTrans && this->NumRows() == M.NumCols()));
+               || (transM == kTrans && this->NumRows() == M.NumCols()));
   Vector<float> tmp_vec(transM == kTrans ? M.NumRows() : 0);
   SpMatrix<float> tmp_A;
   float *p_row_data = this->Data();
@@ -1248,6 +1214,14 @@ void SpMatrix<Real>::AddTp2Sp(const Real alpha, const TpMatrix<Real> &T,
                               const Real beta) {
   Matrix<Real> Tmat(T);
   AddMat2Sp(alpha, Tmat, transM, A, beta);
+}
+
+template<class Real>
+void SpMatrix<Real>::AddVecVec(const Real alpha, const VectorBase<Real> &v,
+                               const VectorBase<Real> &w) {
+  int32 dim = this->NumRows();
+  KALDI_ASSERT(dim == v.Dim() && dim == w.Dim() && dim > 0);
+  cblas_Xspr2(dim, alpha, v.Data(), 1, w.Data(), 1, this->data_);
 }
 
 

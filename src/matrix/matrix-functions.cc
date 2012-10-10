@@ -816,7 +816,8 @@ template<class Real>
 void ComputePca(const MatrixBase<Real> &X,
                 MatrixBase<Real> *U,
                 MatrixBase<Real> *A,
-                bool print_eigs) {
+                bool print_eigs,
+                bool exact) {
   // Note that some of these matrices may be transposed w.r.t. the
   // way it's most natural to describe them in math... it's the rows
   // of X and U that correspond to the (data-points, basis elements).
@@ -829,24 +830,58 @@ void ComputePca(const MatrixBase<Real> &X,
   if (D < N) {  // Do conventional PCA.
     SpMatrix<Real> Msp(D);  // Matrix of outer products.
     Msp.AddMat2(1.0, X, kTrans, 0.0);  // M <-- X^T X
-    Matrix<Real> M(Msp);
-    Matrix<Real> Utmp(D, D);
-    Vector<Real> l(D);
-    M.DestructiveSvd(&l, &Utmp, NULL);
+    Matrix<Real> Utmp;
+    Vector<Real> l;
+    if (exact) {
+      Utmp.Resize(D, D);
+      l.Resize(D);
+      //Matrix<Real> M(Msp);
+      //M.DestructiveSvd(&l, &Utmp, NULL);
+      Msp.Eig(&l, &Utmp);
+    } else {
+      Utmp.Resize(D, G);
+      l.Resize(G);
+      Msp.TopEigs(&l, &Utmp);
+    }
+    SortSvd(&l, &Utmp);
+    
     for (MatrixIndexT g = 0; g < G; g++)
       U->Row(g).CopyColFromMat(Utmp, g);
+    if (print_eigs)
+      KALDI_LOG << (exact ? "" : "Retained ")
+                << "PCA eigenvalues are " << l;
     if (A != NULL)
       A->AddMatMat(1.0, X, kNoTrans, *U, kTrans, 0.0);
-    if (print_eigs)
-      KALDI_LOG << "PCA eigenvalues are " << l;
   } else {  // Do inner-product PCA.
     SpMatrix<Real> Nsp(N);  // Matrix of inner products.
     Nsp.AddMat2(1.0, X, kNoTrans);  // M <-- X X^T
-    Matrix<Real> Nmat(Nsp);
-    Matrix<Real> Vtmp(N, N);
-    Vector<Real> l(N);
-    Nmat.DestructiveSvd(&l, &Vtmp, NULL);
+
+    Matrix<Real> Vtmp;
+    Vector<Real> l;
+    if (exact) {
+      Vtmp.Resize(N, N);
+      l.Resize(N);
+      Matrix<Real> Nmat(Nsp);
+      Nmat.DestructiveSvd(&l, &Vtmp, NULL);
+    } else {
+      Vtmp.Resize(N, G);
+      l.Resize(G);
+      Nsp.TopEigs(&l, &Vtmp);
+    }
+    
+    MatrixIndexT num_zeroed = 0;
+    for (MatrixIndexT g = 0; g < G; g++) {
+      if (l(g) < 0.0) {
+        KALDI_WARN << "In PCA, setting element " << l(g) << " to zero.";
+        l(g) = 0.0;
+        num_zeroed++;
+      }
+    }
+    SortSvd(&l, &Vtmp); // Make sure zero elements are last, this
+    // is necessary for Orthogonalize() to work properly later.
+
     Vtmp.Transpose();  // So eigenvalues are the rows.
+    
     for (MatrixIndexT g = 0; g < G; g++) {
       Real sqrtlg = sqrt(l(g));
       if (l(g) != 0.0) {
@@ -862,44 +897,26 @@ void ComputePca(const MatrixBase<Real> &X,
     // Now orthogonalize.  This is mainly useful in
     // case there were zero eigenvalues, but we do it
     // for all of them.
-    for (MatrixIndexT g = 0; g < G; g++) {
-      while (1) {
-        for (MatrixIndexT h = 0; h < g; h++) {
-          Real prod = VecVec(U->Row(g), U->Row(h));
-          U->Row(g).AddVec(-prod, U->Row(h));
-        }
-        Real prod = VecVec(U->Row(g), U->Row(g));
-        if (prod > 0.001) {  // we were not close to singular... all is OK.
-          U->Row(g).Scale(1.0 / sqrt(prod));
-          break;
-        } else {
-          // We almost got to the zero vector, so we'll lose precision
-          // if we scale by 1.0 / sqrt(prod).
-          // We set U->Row(g) to random vector, and
-          // try again.  This vector will have unit variance
-          // in any arbitrary direction, so shouldn't lead
-          // to "prod <= 0.001" very often.
-          for (MatrixIndexT i = 0; i < D; i++)
-            (*U)(g, i) = RandGauss();
-        }
-      }
-    }
+    U->OrthogonalizeRows();
     if (print_eigs)
       KALDI_LOG << "(inner-product) PCA eigenvalues are " << l;
   }
 }
 
+
 template
 void ComputePca(const MatrixBase<float> &X,
                 MatrixBase<float> *U,
                 MatrixBase<float> *A,
-                bool print_eigs);
+                bool print_eigs,
+                bool exact);
 
 template
 void ComputePca(const MatrixBase<double> &X,
                 MatrixBase<double> *U,
                 MatrixBase<double> *A,
-                bool print_eigs);
+                bool print_eigs,
+                bool exact);
 
 
 // Added by Dan, Feb. 13 2012. 

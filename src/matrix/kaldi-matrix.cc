@@ -668,18 +668,20 @@ template<typename Real>
 template<typename OtherReal>
 void MatrixBase<Real>::CopyFromMat(const MatrixBase<OtherReal> & M,
                                    MatrixTransposeType Trans) {
-  // CopyFromMat called from ourself.  Nothing to do.
   if (sizeof(Real) == sizeof(OtherReal) && (void*)(&M) == (void*)this)
-    return;
+    return; // CopyFromMat called from ourself.  Nothing to do.
   if (Trans == kNoTrans) {
     KALDI_ASSERT(num_rows_ == M.NumRows() && num_cols_ == M.NumCols());
     for (MatrixIndexT i = 0; i < num_rows_; i++)
       (*this).Row(i).CopyFromVec(M.Row(i));
   } else {
     KALDI_ASSERT(num_cols_ == M.NumRows() && num_rows_ == M.NumCols());
+    int32 this_stride = stride_, other_stride = M.Stride();
+    Real *this_data = data_;
+    const OtherReal *other_data = M.Data();
     for (MatrixIndexT i = 0; i < num_rows_; i++)
       for (MatrixIndexT j = 0; j < num_cols_; j++)
-        (*this)(i, j) = M(j, i);
+        this_data[i * this_stride + j] += other_data[j * other_stride + i];
   }
 }
 
@@ -1545,6 +1547,39 @@ Real MatrixBase<Real>::LargestAbsElem() const{
 }
 
 
+template<class Real>
+void MatrixBase<Real>::OrthogonalizeRows() {
+  KALDI_ASSERT(NumRows() <= NumCols());
+  int32 num_rows = num_rows_;
+  for (MatrixIndexT i = 0; i < num_rows; i++) {
+    int32 counter = 0;
+    while (1) {
+      Real start_prod = VecVec(this->Row(i), this->Row(i));
+      for (MatrixIndexT j = 0; j < i; j++) {
+        Real prod = VecVec(this->Row(i), this->Row(j));
+        this->Row(i).AddVec(-prod, this->Row(j));
+      }
+      Real end_prod = VecVec(this->Row(i), this->Row(i));
+      if (end_prod <= 0.01 * start_prod) { // We removed
+        // almost all of the vector during orthogonalization,
+        // so we have reason to doubt (for roundoff reasons)
+        // that it's still orthogonal to the other vectors.
+        // We need to orthogonalize again.
+        if (end_prod == 0.0) { // Row is exactly zero:
+          // generate random direction.
+          this->Row(i).SetRandn();
+        }
+        counter++;
+        if (counter > 100)
+          KALDI_ERR << "Loop detected while orthogalizing matrix.";
+      } else {
+        this->Row(i).Scale(1.0 / sqrt(end_prod));
+        break;
+      } 
+    }
+  }
+}
+
 
 // Uses Svd to compute the eigenvalue decomposition of a symmetric positive semidefinite
 //   matrix:
@@ -1951,39 +1986,47 @@ double TraceMatMatMatMat(const MatrixBase<double> &A, MatrixTransposeType transA
                          const MatrixBase<double> &C, MatrixTransposeType transC,
                          const MatrixBase<double> &D, MatrixTransposeType transD);
 
-template<class Real> void  SortSvd(VectorBase<Real> *rs, MatrixBase<Real> *rU,
-                                   MatrixBase<Real> *rVt) {
-  // Makes sure the Svd is sorted (from greatest to least element).
-  MatrixIndexT D = rs->Dim();
-  KALDI_ASSERT(rU->NumCols() == D && (!rVt || rVt->NumRows() == D) && rs->Min() >= 0);
-  std::vector<std::pair<Real, MatrixIndexT> > vec(D);
-  for (MatrixIndexT d = 0;d<D;d++) vec[d] = std::pair<Real, MatrixIndexT>(-(*rs)(d), d);  // negative because we want reverse order.
+template<class Real> void  SortSvd(VectorBase<Real> *s, MatrixBase<Real> *U,
+                                   MatrixBase<Real> *Vt, bool sort_on_absolute_value) {
+  /// Makes sure the Svd is sorted (from greatest to least absolute value).
+  MatrixIndexT num_singval = s->Dim();
+  KALDI_ASSERT(U == NULL || U->NumCols() == num_singval);
+  KALDI_ASSERT(Vt == NULL || Vt->NumRows() == num_singval);
+
+  std::vector<std::pair<Real, MatrixIndexT> > vec(num_singval);
+  // negative because we want revese order.
+  for (MatrixIndexT d = 0; d < num_singval; d++) {
+    Real val = (*s)(d),
+        sort_val = -(sort_on_absolute_value ? std::abs(val) : val);
+    vec[d] = std::pair<Real, MatrixIndexT>(sort_val, d);
+  }
   std::sort(vec.begin(), vec.end());
-  for (MatrixIndexT d = 0;d < D;d++) (*rs)(d) = -vec[d].first;
-  {
-    Matrix<Real> rUtmp(*rU);
-    MatrixIndexT R = rU->NumRows();
-    for (MatrixIndexT d = 0;d < D;d++) {
+  Vector<Real> s_copy(*s);
+  for (MatrixIndexT d = 0; d < num_singval; d++)
+    (*s)(d) = s_copy(vec[d].second);
+  if (U != NULL) {
+    Matrix<Real> Utmp(*U);
+    int32 dim = Utmp.NumRows();
+    for (MatrixIndexT d = 0; d < num_singval; d++) {
       MatrixIndexT oldidx = vec[d].second;
-      for (MatrixIndexT r = 0;r < R;r++) (*rU)(r, d) = rUtmp(r, oldidx);
+      for (MatrixIndexT e = 0; e < dim; e++)
+        (*U)(e, d) = Utmp(e, oldidx);
     }
   }
-  if (rVt) {
-    Matrix<Real> rVttmp(*rVt);
-    for (MatrixIndexT d = 0;d < D;d++) {
-      MatrixIndexT oldidx = vec[d].second;
-      (*rVt).Row(d).CopyFromVec(rVttmp.Row(oldidx));
-    }
+  if (Vt != NULL) {
+    Matrix<Real> Vttmp(*Vt);
+    for (MatrixIndexT d = 0; d < num_singval; d++)
+      (*Vt).Row(d).CopyFromVec(Vttmp.Row(vec[d].second));
   }
 }
 
 template
-void SortSvd(VectorBase<float> *rs, MatrixBase<float> *rU,
-             MatrixBase<float> *rVt);
+void SortSvd(VectorBase<float> *s, MatrixBase<float> *U,
+             MatrixBase<float> *Vt, bool);
 
 template
-void SortSvd(VectorBase<double> *rs, MatrixBase<double> *rU,
-             MatrixBase<double> *rVt);
+void SortSvd(VectorBase<double> *s, MatrixBase<double> *U,
+             MatrixBase<double> *Vt, bool);
 
 template<class Real>
 void CreateEigenvalueMatrix(const VectorBase<Real> &re, const VectorBase<Real> &im,
