@@ -244,7 +244,7 @@ class VectorBase {
 
   /// Adds sum of the rows of M to existing contents, times alpha.
   void AddRowSumMat(Real alpha, const MatrixBase<Real>& M, Real beta = 1.0);
-
+  
   /// Adds sum of the columns of M to existing contents.
   void AddColSumMat(Real alpha, const MatrixBase<Real>& M, Real beta = 1.0);
 

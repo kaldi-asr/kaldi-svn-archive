@@ -59,64 +59,30 @@ namespace kaldi {
 class Nnet {
  public:
   /// Returns number of components-- think of this as similar to # of layers, but
-  /// e.g. the nonlinearity and the linear part count as separate components.
+  /// e.g. the nonlinearity and the linear part count as separate components,
+  /// so the number of components will be more than the number of layers.
   int32 NumComponents() const { return components_.size(); }
 
-  /// For 0 <= component < NumComponents(), gives a vector of the
-  /// relative frame indices that are spliced together at the input of
-  /// this component.  For typical hidden layers will just be the
-  /// vector [ 0 ].  For component == NumComponents(), returns the
-  /// vector [ 0 ]; this happens to be convenient.
-  const std::vector<int32> &RawSplicingForComponent(int32 component) const;
-
-  /// Returns the relative frame indices at the input of this component that
-  /// we'll need to get a single frame of the output.  This is a function of
-  /// RawSplicingForComponent() for this component and later ones.  For
-  /// component == NumComponents(), returns the vector [ 0 ]; this happens to be
-  /// convenient.
-  const std::vector<int32> &FullSplicingForComponent(int32 component) const;
-
-  /// This returns a matrix that lets us know in a convenient form how to splice
-  /// together the outputs of the previous layer (or the frame-level input to
-  /// the network) to become the input of this layer.  To be more precise: For a
-  /// particular component index 0 <= c < NumComponents(), this returns an array
-  /// of size M by N, where M equals FullSplicingForComponent(c+1).size(), 
-  /// and N equals RawSplicingForComponent(c).size().  This array specifies how
-  /// we splice together the list of frames at the output of the previous layer
-  /// (or the raw input), into the list of frames at the input of this layer.
-  /// All the values in this
-  /// array are positive, unlike the results of RawSplicingForComponent() and
-  /// FullSplicingForComponent(), because they are not frame indexes but indexes
-  /// into the result that FullSplicingForComponent() returns.
-  /// See the comment above the code for Nnet::InitializeArrays() for an example.
-  const std::vector<std::vector<int32> > &RelativeSplicingForComponent(
-      int32 component) const;
-
-  /// The output dimension of the network -- typically
-  /// the number of pdfs.
-  int32 OutputDim() const; 
-
-  /// Dimension of the per-frame input features, e.g. 13.
-  /// Does not take account of splicing-- see FullSplicingForComponent(0) to
-  /// see what relative frame indices you'll need (typically a contiguous
-  /// stretch but we don't guarantee this.  
-  int32 FeatureDim() const; 
-
-  /// Dimension of any speaker-specific or utterance-specific
-  /// input features-- the dimension of a vector we provide that says something about
-  /// the speaker.  This will be zero if we don't give any speaker-specific information
-  /// to the network.
-  int32 SpeakerDim() const { return speaker_info_dim_; }
-  
   const Component &GetComponent(int32 component) const;
 
-  /// Number of frames of left context the network needs.
-  int32 LeftContext() const { return -FullSplicingForComponent(0).front(); }
-  
-  /// Number of frames of right context the network needs.
-  int32 RightContext() const { return FullSplicingForComponent(0).back(); }
-
   Component &GetComponent(int32 component);
+  
+  /// Returns the LeftContext() summed over all the Components... this is the
+  /// entire left-context in frames that the network requires.
+  int32 LeftContext() const;
+
+  /// Returns the LeftContext() summed over all the Components... this is the
+  /// entire left-context in frames that the network requires.
+  int32 RightContext() const;
+  
+  /// The output dimension of the network -- typically
+  /// the number of pdfs.
+  int32 OutputDim() const;
+
+  /// Dimension of the input features, e.g. 13 or 40.  Does not
+  /// take account of frame splicing-- that is done with the "chunk"
+  /// mechanism, where you provide chunks of features over time.
+  int32 InputDim() const; 
   
   void ZeroOccupancy(); // calls ZeroOccupancy() on the softmax layers.  This
   // resets the occupancy counters; it makes sense to do this once in
@@ -209,33 +175,13 @@ class Nnet {
   void ComputeDotProduct(
       const Nnet &validation_gradient,
       VectorBase<BaseFloat> *dot_prod) const;
+
+  void Check() const; // Consistency check.
   
   friend class NnetUpdater;
   friend class DecodableNnet;
  private:
-  /// Sets up full_splicing_ and relative_splicing_, which
-  /// are functions of raw_splicing_.
-  void InitializeArrays();
-  
   const Nnet &operator = (const Nnet &other);  // Disallow assignment.
-
-  int32 speaker_info_dim_; /// Dimension of speaker information the
-  /// networks accepts; will be zero for traditional networks.
-  
-  /// raw_splicing_ contains a sorted list of the frames that are
-  /// spliced together for each layer-- the elements are relative
-  /// frame indices.  Note: for the input layer, this is the splicing
-  /// that's applied to the raw features, and
-  std::vector<std::vector<int32> > raw_splicing_;
-
-  /// full_splicing_ is a function of raw_splicing_; it's
-  /// a list of the frame offsets that we'd need at the
-  /// beginning of this component, in order to compute
-  /// a single frame of output.
-  std::vector<std::vector<int32> > full_splicing_;
-
-  /// See comment for function RelativeSplicingForComponent().
-  std::vector<std::vector<std::vector<int32> > >  relative_splicing_;
   
   std::vector<Component*> components_;
 };

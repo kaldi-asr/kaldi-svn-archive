@@ -83,15 +83,20 @@ class Component {
   /// of the component, and these may be dummy variables if respectively
   /// BackpropNeedsInput() or BackpropNeedsOutput() return false for
   /// that component (not all components need these).
-  /// tot_weight would normally be the same as the number of frames with
-  /// labels on,
-  /// but we support frame weighting so it could be more or less; this
-  /// is only needed for reasons relating to l2 regularization.
+  ///
+  /// chunk_weights is a vector, indexed by chunk (i.e. the same size as the
+  /// "num_chunks" argument to Propagate()), that gives a weighting for each
+  /// chunk; in the normal case each of these would be equal to the number of
+  /// labels in the chunk (one label per chunk, for standard SGD); but we
+  /// support weighting of samples so these may not be 1.  This is only needed
+  /// for reasons relating to l2 regularization and the storing of occupation
+  /// counts.  For SGD we don't need this information, because the code that
+  /// computes the objective-function derivative at the output layer
+  /// incorporates this weighting.  
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
-                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_value,                        
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat tot_weight,
-                        int32 num_chunks, // see num_chunks in Propagate.
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const = 0;
   
@@ -179,7 +184,13 @@ class UpdatableComponent : public Component {
  protected:
   BaseFloat learning_rate_; ///< learning rate (0.0..0.01)
   BaseFloat l2_penalty_; ///< L2 regularization constant (0.0..1e-4)
-  BaseFloat OldWeight(BaseFloat num_frames) const;
+
+  /// This function is used in SGD with l2 regularization; it uses
+  /// total weight of all labels we're training on in this minibatch,
+  /// together with the learning rate, to work out by how much we
+  /// should scale down the previous parameter values during this step
+  /// of SGD.
+  BaseFloat OldWeight(BaseFloat tot_weight) const;
 };
 
 /// This kind of Component is a base-class for things like
@@ -187,7 +198,7 @@ class UpdatableComponent : public Component {
 class NonlinearComponent: public Component {
  public:
   virtual void Init(int32 dim) { dim_ = dim; }
-  NonlinearComponent(int32 dim): dim_(dim) { }
+  NonlinearComponent(int32 dim) { Init(dim); }
   NonlinearComponent(): dim_(0) { } // e.g. prior to Read().
   
   virtual int32 InputDim() const { return dim_; }
@@ -220,8 +231,7 @@ class SigmoidComponent: public NonlinearComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
  private:
@@ -242,8 +252,7 @@ class TanhComponent: public NonlinearComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
  private:
@@ -265,11 +274,23 @@ class SoftmaxComponent: public NonlinearComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
+  
+  /// This function is unique to SoftmaxComponent; it sets to zero
+  /// the occupation counts that are stored in this layer.
+  void ZeroOccupancy() { counts_.SetZero(); }
+  
+  // The functions below are already implemented at the
+  // NonlinearComponent level, but we override them for reasons relating
+  // to the occupation counts.
+  virtual void Init(int32 dim) { dim_ = dim; counts_.Resize(dim); }
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
  private:
+  Vector<BaseFloat> counts_; // Occupation counts per dim.
+  
   KALDI_DISALLOW_COPY_AND_ASSIGN(SoftmaxComponent);
 };
 
@@ -294,8 +315,7 @@ class AffineComponent: public UpdatableComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value, // dummy
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
@@ -314,7 +334,9 @@ class AffineComponent: public UpdatableComponent {
 class SpliceComponent: public Component {
  public:
   SpliceComponent() { }  // called only prior to Read() or Init().
-  void Init(int32 input_dim, int32 left_context, int32 right_context);
+  void Init(int32 input_dim,
+            int32 left_context,
+            int32 right_context);
   virtual std::string Type() const { return "SpliceComponent"; }
   virtual void InitFromString(std::string args);
   virtual int32 InputDim() const { return input_dim_; }
@@ -327,8 +349,7 @@ class SpliceComponent: public Component {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat tot_weight,
-                        int32 num_chunks, // see num_chunks in Propagate.
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
   virtual bool BackpropNeedsInput() const { return false; }
@@ -365,8 +386,7 @@ class AffinePreconInputComponent: public AffineComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value, // dummy
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
@@ -412,8 +432,7 @@ class BlockAffineComponent: public UpdatableComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".                        
                         Matrix<BaseFloat> *in_deriv) const;
   virtual void SetZero(bool treat_as_gradient);
@@ -465,8 +484,7 @@ class MixtureProbComponent: public UpdatableComponent {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,                        
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
   virtual Component* Copy() const;
@@ -507,8 +525,7 @@ class PermuteComponent: public Component {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value, // dummy
                         const MatrixBase<BaseFloat> &out_value, // dummy
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat total_weight,
-                        int32 num_chunks,
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // dummy
                         Matrix<BaseFloat> *in_deriv) const;
   
@@ -519,7 +536,8 @@ class PermuteComponent: public Component {
 };
 
 
-/// Discrete cosine transform.  
+/// Discrete cosine transform.
+/// TODO: modify this Component so that it supports only keeping a subset 
 class DctComponent: public Component {
  public:
   DctComponent() { dim_ = 0; } 
@@ -537,8 +555,7 @@ class DctComponent: public Component {
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
-                        BaseFloat tot_weight,
-                        int32 num_chunks, // see num_chunks in Propagate.
+                        const VectorBase<BaseFloat> &chunk_weights,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
   virtual bool BackpropNeedsInput() const { return false; }

@@ -265,12 +265,11 @@ void SigmoidComponent::Propagate(const MatrixBase<BaseFloat> &in,
   }
 }
 
-void SigmoidComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
+void SigmoidComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
-                                BaseFloat tot_weight,
-                                int32, // num_chunks
-                                Component *to_update,
+                                const VectorBase<BaseFloat> &, //chunk_weights
+                                Component *, // to_update
                                 Matrix<BaseFloat> *in_deriv) const {
   // we ignore in_value and to_update.
 
@@ -314,8 +313,7 @@ void TanhComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void TanhComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                              const MatrixBase<BaseFloat> &out_value,
                              const MatrixBase<BaseFloat> &out_deriv,
-                             BaseFloat, //  tot_weight,
-                             int32, // num_chunks
+                             const VectorBase<BaseFloat> &, // chunk_weights
                              Component *, // to_update
                              Matrix<BaseFloat> *in_deriv) const {
   /*
@@ -347,12 +345,11 @@ void SoftmaxComponent::Propagate(const MatrixBase<BaseFloat> &in,
   }
 }
 
-void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
+void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
-                                BaseFloat, //  tot_weight
-                                int32, // num_chunks
-                                Component *to_update,
+                                const VectorBase<BaseFloat> &chunk_weights, // chunk_weights
+                                Component *to_update, // only thing updated is counts_.
                                 Matrix<BaseFloat> *in_deriv) const {
   /*
     Note on the derivative of the softmax function: let it be
@@ -375,7 +372,47 @@ void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
     BaseFloat pT_e = VecVec(p, e); // p^T e.
     d.AddVec(-pT_e, p); // d_i -= (p^T e) p_i
   }
+
+
+  if (to_update) {
+    SoftmaxComponent *to_update_softmax =
+        dynamic_cast<SoftmaxComponent*>(to_update);
+    // The next loop updates the counts_ variable, which is the soft-count of
+    // each output dimension.
+    int32 num_chunks = chunk_weights.Dim(),
+          chunk_size = out_value.NumRows() / num_chunks;
+    KALDI_ASSERT(num_chunks > 0 && chunk_size * num_chunks == out_value.NumRows());
+    for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+      BaseFloat chunk_weight = chunk_weights(chunk) / chunk_size; // the "chunk_weights"
+      // variable stores the weighting factor times the number of labeled frames in
+      // the chunk, which happens to be convenient.  Here we want the actual weight
+      // that was applied; typically these weights will be close to one.
+      SubMatrix<BaseFloat> output_chunk(out_value, chunk * chunk_size, chunk_size,
+                                        0, out_value.NumCols());
+      to_update_softmax->counts_.AddRowSumMat(chunk_weight, output_chunk, 1.0);
+      // Add the sum of the frames in the chunk to the counts, weighted by the
+      // chunk weight.
+    }
+  }
 }
+
+void SoftmaxComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<SoftmaxComponent>", "<Dim>");
+  ReadBasicType(is, binary, &dim_); // Read dimension.
+  ExpectToken(is, binary, "<Counts>");
+  counts_.Read(is, binary);
+  ExpectToken(is, binary, "</SoftmaxComponent>");
+}
+
+void SoftmaxComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<SoftmaxComponent>");
+  WriteToken(os, binary, "<Dim>");
+  WriteBasicType(os, binary, dim_);
+  WriteToken(os, binary, "<Counts>");
+  counts_.Write(os, binary);
+  WriteToken(os, binary, "</SoftmaxComponent>");
+}
+
 
 void AffineComponent::SetZero(bool treat_as_gradient) {
   if (treat_as_gradient) {
@@ -457,10 +494,9 @@ void AffineComponent::Propagate(const MatrixBase<BaseFloat> &in,
 }
 
 void AffineComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
-                               const MatrixBase<BaseFloat> &, // out_value
+                               const MatrixBase<BaseFloat> &,  // out_value
                                const MatrixBase<BaseFloat> &out_deriv,
-                               BaseFloat tot_weight,
-                               int32, // num_chunks
+                               const VectorBase<BaseFloat> &chunk_weights,
                                Component *to_update_in,
                                Matrix<BaseFloat> *in_deriv) const {
   AffineComponent *to_update = dynamic_cast<AffineComponent*>(to_update_in);
@@ -470,7 +506,7 @@ void AffineComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                       0.0);
 
   if (to_update) {
-    BaseFloat old_weight = to_update->OldWeight(tot_weight);
+    BaseFloat old_weight = to_update->OldWeight(chunk_weights.Sum());
     // Next update the model (must do this 2nd so the derivatives we propagate
     // are accurate, in case this == to_update_in.)
     // add the sum of the rows of out_deriv, to the bias_params_.
@@ -523,8 +559,7 @@ void AffinePreconInputComponent::Backprop(
     const MatrixBase<BaseFloat> &in_value,
     const MatrixBase<BaseFloat> &, // out_value
     const MatrixBase<BaseFloat> &out_deriv,
-    BaseFloat tot_weight,
-    int32, // num_chunks
+    const VectorBase<BaseFloat> &chunk_weights,
     Component *to_update_in,
     Matrix<BaseFloat> *in_deriv) const {
   AffinePreconInputComponent *to_update =
@@ -535,7 +570,7 @@ void AffinePreconInputComponent::Backprop(
                       0.0);
 
   if (to_update) {
-    BaseFloat old_weight = to_update->OldWeight(tot_weight);
+    BaseFloat old_weight = to_update->OldWeight(chunk_weights.Sum());
     // Next update the model (must do this 2nd so the derivatives we propagate
     // are accurate, in case this == to_update_in.)
     // add the sum of the rows of out_deriv, to the bias_params_.
@@ -749,8 +784,7 @@ void BlockAffineComponent::Backprop(
     const MatrixBase<BaseFloat> &in_value,
     const MatrixBase<BaseFloat> &, // out_value
     const MatrixBase<BaseFloat> &out_deriv,
-    BaseFloat tot_weight,
-    int32, // num_chunks
+    const VectorBase<BaseFloat> &chunk_weights,
     Component *to_update_in,
     Matrix<BaseFloat> *in_deriv) const {
   // This code mirrors the code in Propagate().
@@ -766,7 +800,7 @@ void BlockAffineComponent::Backprop(
   // add the sum of the rows of out_deriv, to the bias_params_.
   if (to_update)
     to_update->bias_params_.AddRowSumMat(to_update->learning_rate_, out_deriv,
-                                         to_update->OldWeight(tot_weight));
+                                         to_update->OldWeight(chunk_weights.Sum()));
   
   for (int32 b = 0; b < num_blocks_; b++) {
     SubMatrix<BaseFloat> in_value_block(in_value, 0, num_frames,
@@ -793,7 +827,7 @@ void BlockAffineComponent::Backprop(
       param_block_to_update.AddMatMat(
           to_update->learning_rate_,
           out_deriv_block, kTrans, in_value_block, kNoTrans,
-          to_update->OldWeight(tot_weight));
+          to_update->OldWeight(chunk_weights.Sum()));
     }
   }  
 }
@@ -921,8 +955,7 @@ void PermuteComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void PermuteComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                 const MatrixBase<BaseFloat> &out_value,
                                 const MatrixBase<BaseFloat> &out_deriv,
-                                BaseFloat, //  tot_weight
-                                int32, // num_chunks
+                                const VectorBase<BaseFloat> &, // chunk_weights
                                 Component *to_update,
                                 Matrix<BaseFloat> *in_deriv) const {
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
@@ -1095,8 +1128,7 @@ void MixtureProbComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                                     const MatrixBase<BaseFloat> &,// out_value
                                     const MatrixBase<BaseFloat> &out_deriv,
-                                    BaseFloat tot_weight,
-                                    int32, // num_chunks
+                                    const VectorBase<BaseFloat> &chunk_weights,
                                     Component *to_update_in,
                                     Matrix<BaseFloat> *in_deriv) const {
   MixtureProbComponent *to_update = dynamic_cast<MixtureProbComponent*>(
@@ -1131,7 +1163,7 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
         // the gradient there, so it's a linear update rule as for any other layer.
         // Note: most likely the learning_rate_ will be 1.0 and OldWeight() will
         // be 1.0 because of zero l2_penalty_.
-        KALDI_ASSERT(to_update->OldWeight(tot_weight) == 1.0 &&
+        KALDI_ASSERT(to_update->OldWeight(chunk_weights.Sum()) == 1.0 &&
                      to_update->learning_rate_ == 1.0);
         param_block_to_update.AddMatMat(1.0, out_deriv_block, kTrans, in_value_block,
                                         kNoTrans, 1.0);
@@ -1159,7 +1191,7 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
         Matrix<BaseFloat> gradient(num_rows, num_cols);
         gradient.AddMatMat(1.0, out_deriv_block, kTrans, in_value_block, kNoTrans,
                            0.0);
-        BaseFloat old_weight = to_update->OldWeight(tot_weight);
+        BaseFloat old_weight = to_update->OldWeight(chunk_weights.Sum());
         for (int32 col = 0; col < num_cols; col++) {
           Vector<BaseFloat> param_col(num_rows);
           param_col.CopyColFromMat(param_block_to_update, col);
@@ -1249,10 +1281,10 @@ void SpliceComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void SpliceComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                                const MatrixBase<BaseFloat> &, // out_value,
                                const MatrixBase<BaseFloat> &out_deriv,
-                               BaseFloat, //  tot_weight
-                               int32 num_chunks, // see num_chunks in Propagate.
+                               const VectorBase<BaseFloat> &chunk_weights,
                                Component *to_update, // may == "this".
                                Matrix<BaseFloat> *in_deriv) const {
+  int32 num_chunks = chunk_weights.Dim();
   KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
   if (out_deriv.NumRows() % num_chunks != 0)
     KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
@@ -1382,8 +1414,7 @@ void DctComponent::Propagate(const MatrixBase<BaseFloat> &in,
 void DctComponent::Backprop(const MatrixBase<BaseFloat>&, // in_value,
                             const MatrixBase<BaseFloat>&, // out_value,
                             const MatrixBase<BaseFloat> &out_deriv,
-                            BaseFloat, //  tot_weight
-                            int32, //  num_chunks
+                            const VectorBase<BaseFloat> &chunk_weights,
                             Component*,// to_update
                             Matrix<BaseFloat> *in_deriv) const {
   KALDI_ASSERT(out_deriv.NumCols() == InputDim());

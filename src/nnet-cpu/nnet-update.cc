@@ -113,6 +113,11 @@ BaseFloat NnetUpdater::ComputeForMinibatch(
 }
 
 void NnetUpdater::Propagate() {
+  // TODO: write simpler version for new interface of Component.
+  // Now this object doesn't have to worry about splicing, and also
+  // the Component does the resizing of the matrices itself.
+  
+  /*
   int32 num_components = nnet_.NumComponents();
   for (int32 c = 0; c < num_components; c++) {
     const Component &component = nnet_.GetComponent(c);
@@ -135,6 +140,7 @@ void NnetUpdater::Propagate() {
     if (!need_last_output)
       forward_data_[c].Resize(0, 0); // We won't need this data.
   }
+  */
 }
 
 BaseFloat NnetUpdater::ComputeObjfAndDeriv(
@@ -169,6 +175,8 @@ BaseFloat NnetUpdater::ComputeObjfAndDeriv(
 
 void NnetUpdater::Backprop(const std::vector<NnetTrainingExample> &data,
                            Matrix<BaseFloat> *deriv) {
+
+  /*
   BaseFloat tot_weight = 0.0;
   for (size_t i = 0; i < data.size(); i++)
     tot_weight += data[i].weight;
@@ -211,102 +219,14 @@ void NnetUpdater::Backprop(const std::vector<NnetTrainingExample> &data,
       // SpliceData().
     }
   }
+  */
 }
 
-/**
-  Explanation for SpliceData:
-  Suppose for each sample, at the output of component c+1 we need frames
-  [ -1, 0, 1 ] relative to each sample, and this component splices frames
-  [ -5, 0, 5 ] at its input.  At the output of component c we'd need frames
-  [ -6, -5, -4, -1, 0, 1, 4, 5, 6 ].
-  As indexes into this array, the first of the three outputs (frame -1)
-  would have spliced together relative frame indexes [ -6 -1 4 ], which
-  expressed as indexes into the list are [ 0 3 6 ].  So rel_splicing
-  (a variable used in this function) would be an array [ 0 3 6; 1 4 7; 2 5 8 ].
- */
-void NnetUpdater::SpliceData(const MatrixBase<BaseFloat> &prev_output,
-                             int32 c, // c is component index of input.
-                             MatrixBase<BaseFloat> *input) {
-  int32 prev_num_frames = prev_output.NumRows() / minibatch_size_,
-             num_frames = input->NumRows() / minibatch_size_,
-        prev_output_dim = prev_output.NumCols(),
-              input_dim = input->NumCols();
-      
-  // This function handles the data splicing from the output of
-  // component c-1 to the input of component c.
-  if (nnet_.RawSplicingForComponent(c).size() == 1) { // no splicing is going on,
-    // so just copy data.  Note: even if this array is not [ 0 ] but something
-    // like [ -1 ], this would not matter.
-    input->CopyFromMat(prev_output);
-  } else {
-    const std::vector<std::vector<int32> > &rel_splicing =
-        nnet_.RelativeSplicingForComponent(c);
-    KALDI_ASSERT(num_frames == rel_splicing.size());
-    int32 num_splice = rel_splicing[0].size(); // #times we splice old output
-    KALDI_ASSERT(prev_output_dim * num_splice == input_dim);
-    for (int32 m = 0; m < minibatch_size_; m++) {
-      for (int32 frame_idx = 0; frame_idx < num_frames; frame_idx++) {
-        SubVector<BaseFloat> frame(*input, m * num_frames + frame_idx);
-        for (int32 splice_idx = 0;
-             splice_idx < num_splice;
-             splice_idx++) {
-          int32 prev_frame_idx = rel_splicing[frame_idx][splice_idx];
-          KALDI_ASSERT(prev_frame_idx >= 0 && prev_frame_idx < prev_num_frames);
-          SubVector<BaseFloat> frame_part(frame, prev_output_dim * splice_idx,
-                                          prev_output_dim);
-          SubVector<BaseFloat> prev_frame(prev_output,
-                                          m * prev_num_frames + prev_frame_idx);
-          frame_part.CopyFromVec(prev_frame);
-        }
-      }
-    }
-  }
-}
-
-void NnetUpdater::UnSpliceDerivatives(
-    const MatrixBase<BaseFloat> &input_deriv,
-    int32 c, // c is component index of layer for which input_deriv is input.
-    MatrixBase<BaseFloat> *prev_output_deriv) {
-  int32 prev_num_frames = prev_output_deriv->NumRows() / minibatch_size_,
-             num_frames = input_deriv.NumRows() / minibatch_size_,
-        prev_output_dim = prev_output_deriv->NumCols(),
-              input_dim = input_deriv.NumCols();
-  
-  // This function handles the data splicing from the output of
-  // component c-1 to the input of component c.
-  if (nnet_.RawSplicingForComponent(c).size() == 1) { // no splicing is going on,
-    // so just copy data.  Note: even if this array is not [ 0 ] but something
-    // like [ -1 ], this would not matter.
-    prev_output_deriv->CopyFromMat(input_deriv);
-  } else {
-    const std::vector<std::vector<int32> > &rel_splicing =
-        nnet_.RelativeSplicingForComponent(c);
-    KALDI_ASSERT(num_frames == rel_splicing.size());
-    int32 num_splice = rel_splicing[0].size(); // #times we splice old output
-    KALDI_ASSERT(prev_output_dim * num_splice == input_dim);
-    prev_output_deriv->SetZero();
-    for (int32 m = 0; m < minibatch_size_; m++) {
-      for (int32 frame_idx = 0; frame_idx < num_frames; frame_idx++) {
-        SubVector<BaseFloat> frame(input_deriv, m * num_frames + frame_idx);
-        for (int32 splice_idx = 0;
-             splice_idx < num_splice;
-             splice_idx++) {
-          int32 prev_frame_idx = rel_splicing[frame_idx][splice_idx];
-          KALDI_ASSERT(prev_frame_idx >= 0 && prev_frame_idx < prev_num_frames);
-          SubVector<BaseFloat> frame_part(frame, prev_output_dim * splice_idx,
-                                          prev_output_dim);
-          SubVector<BaseFloat> prev_frame(*prev_output_deriv,
-                                          m * prev_num_frames + prev_frame_idx);
-          prev_frame.AddVec(1.0, frame_part);
-          // The "forward" version of the code that just does the splicing did:
-          // frame_part.CopyFromVec(prev_frame);
-        }
-      }
-    }
-  }
-}
 
 void NnetUpdater::FormatInput(const std::vector<NnetTrainingExample> &data) {
+  // TODO-- see what has to be done here, maybe this code can be modified
+  // tow work with current interface.
+  /*
   // first, some checks.
   KALDI_ASSERT(data.size() > 0);
   KALDI_ASSERT(data[0].input_frames.NumRows() ==
@@ -353,6 +273,8 @@ void NnetUpdater::FormatInput(const std::vector<NnetTrainingExample> &data) {
       }
     }
   }
+  */
+  
 }
 
 BaseFloat TotalNnetTrainingWeight(const std::vector<NnetTrainingExample> &egs) {

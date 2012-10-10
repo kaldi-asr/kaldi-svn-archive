@@ -78,6 +78,9 @@ NnetComputer::NnetComputer(const Nnet &nnet,
                            bool pad,
                            Nnet *nnet_to_update):
     nnet_(nnet), spk_info_(spk_info), nnet_to_update_(nnet_to_update) {
+  // TODO: fix all these compilation errors that appeared
+  // after I changed the component interface.
+  /*
   KALDI_ASSERT(input_feats.NumRows() != 0 &&
                input_feats.NumCols() == nnet_.FeatureDim());
   forward_data_.resize(nnet.NumComponents() + 1);
@@ -97,98 +100,15 @@ NnetComputer::NnetComputer(const Nnet &nnet,
       padded_input.Row(num_rows - i - 1).CopyFromVec(input_feats.Row(last_row));
   }
   KALDI_ASSERT(spk_info_.Dim() == nnet_.SpeakerDim());
+  */
 }
 
-
-// Splices together the output of one layer into the input of the next,
-// taking care of splicing.  Caution: "input" is the input of the next
-// layer; it's actually the output of this function.
-void NnetComputer::SpliceData(const MatrixBase<BaseFloat> &prev_output,
-                              int32 c, // component index of component for which
-                                       // "input" is the input
-                              MatrixBase<BaseFloat> *input) const {
-  const std::vector<int32> &raw_splicing = nnet_.RawSplicingForComponent(c);
-  int32 left_context = -raw_splicing.front(),
-       right_context = raw_splicing.back();
-  if (left_context == 0 && right_context == 0) {
-    input->CopyFromMat(prev_output);
-    return;
-  }
-  KALDI_ASSERT(input->NumRows() == prev_output.NumRows() - left_context - right_context);
-  int32 num_splice = raw_splicing.size();
-  int32 raw_dim = prev_output.NumCols();
-  KALDI_ASSERT(input->NumCols() == raw_dim * num_splice);
-  for (int32 splice_idx = 0; splice_idx < num_splice; splice_idx++) {
-    int32 frame_offset = raw_splicing[splice_idx];
-    int32 num_frames = input->NumRows();  // the smaller #frames.
-    SubMatrix<BaseFloat> dest(*input, 0, num_frames,
-                              raw_dim * splice_idx, raw_dim),
-        src(prev_output, frame_offset, num_frames,
-            0, raw_dim);
-    dest.CopyFromMat(src);
-  }
-}
-
-
-// This is like SpliceData but for backpropagating derivatives.
-void NnetComputer::UnSpliceDerivatives(
-    const MatrixBase<BaseFloat> &input_deriv,
-    int32 c, // component index of component for which "input_deriv" is the
-             // derivative w.r.t. the input
-    MatrixBase<BaseFloat> *prev_output_deriv) const {
-  const std::vector<int32> &raw_splicing = nnet_.RawSplicingForComponent(c);
-  int32 left_context = -raw_splicing.front(),
-       right_context = raw_splicing.back();
-  if (left_context == 0 && right_context == 0) {
-    prev_output_deriv->CopyFromMat(input_deriv);
-    return;
-  }
-  KALDI_ASSERT(input_deriv.NumRows() ==
-               prev_output_deriv->NumRows() - left_context - right_context);
-  prev_output_deriv->SetZero();
-  int32 num_splice = raw_splicing.size();
-  int32 raw_dim = prev_output_deriv->NumCols();
-  KALDI_ASSERT(input_deriv.NumCols() == raw_dim * num_splice);
-  for (int32 splice_idx = 0; splice_idx < num_splice; splice_idx++) {
-    int32 frame_offset = raw_splicing[splice_idx];
-    int32 num_frames = input_deriv.NumRows(); // the smaller #frames.
-    SubMatrix<BaseFloat> input_deriv_part(input_deriv, 0, num_frames,
-                                          raw_dim * splice_idx, raw_dim),
-        prev_output_deriv_part(*prev_output_deriv, frame_offset, num_frames,
-                               0, raw_dim);
-    prev_output_deriv_part.AddMat(1.0, input_deriv_part);
-  }
-}
-
-// Splices together the input to the whole neural net, from
-// the possibly-padded (but not spliced) feature data, into
-// "spliced_input" which is the input to the first layer.
-void NnetComputer::SpliceFirstLayerInput(Matrix<BaseFloat> *spliced_input) const {
-  const std::vector<int32> &raw_splicing = nnet_.RawSplicingForComponent(0);
-  int32 left_context = -raw_splicing.front(),
-       right_context = raw_splicing.back();
-  const MatrixBase<BaseFloat> &raw_feats = forward_data_[0];
-  int32 num_splice = raw_splicing.size(),
-       feature_dim = nnet_.FeatureDim(),
-       speaker_dim = nnet_.SpeakerDim(),
-        num_frames = raw_feats.NumRows(),
-smaller_num_frames = num_frames - left_context - right_context;
-  int32 total_feature_dim = num_splice * feature_dim + speaker_dim;
-  KALDI_ASSERT(nnet_.GetComponent(0).InputDim() == total_feature_dim);
-  spliced_input->Resize(smaller_num_frames, total_feature_dim);
-  SubMatrix<BaseFloat> feature_part(*spliced_input, 0, smaller_num_frames,
-                                    0, num_splice * feature_dim);
-  SpliceData(raw_feats, 0, &feature_part); // Splice the "real" part of the
-  // features...
-
-  SubMatrix<BaseFloat> speaker_part(*spliced_input, 0, smaller_num_frames,
-                                    0, speaker_dim);
-  speaker_part.CopyRowsFromVec(spk_info_);
-}
 
 /// This is the forward part of the computation.
 void NnetComputer::Propagate(bool will_do_backprop) {
   for (int32 c = 0; c < nnet_.NumComponents(); c++) {
+    // TODO: The code will now be simpler than what's commented out below.
+    /*
     const Component &component = nnet_.GetComponent(c);
     const std::vector<int32> &raw_splicing =
         nnet_.RawSplicingForComponent(c);
@@ -215,6 +135,8 @@ void NnetComputer::Propagate(bool will_do_backprop) {
         component.BackpropNeedsInput();
     if (!need_last_output)
       forward_data_[c].Resize(0, 0); // We won't need this data.
+  }
+    */
   }
 }
 
@@ -253,7 +175,11 @@ BaseFloat NnetComputer::Backprop(const std::vector<int32> &labels) {
   BaseFloat tot_weight = labels.size();
   Matrix<BaseFloat> temp_deriv;
   BaseFloat ans = ComputeLastLayerDeriv(labels, &temp_deriv);
+
+  // TODO: simplify this code to work with current interface
+  //  of Component.
   
+  /*
   for (int32 c = nnet_.NumComponents() - 1; c >= 0; c--) {
     const Component &component = nnet_.GetComponent(c);
     Component *component_to_update = (nnet_to_update_ == NULL ? NULL :
@@ -296,6 +222,7 @@ BaseFloat NnetComputer::Backprop(const std::vector<int32> &labels) {
     }
   }
   return ans;
+  */
 }
 
 void NnetComputation(const Nnet &nnet,

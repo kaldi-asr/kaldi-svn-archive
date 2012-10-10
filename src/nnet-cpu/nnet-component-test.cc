@@ -62,8 +62,10 @@ void UnitTestGenericComponentInternal(const Component &component) {
         (component_copy->BackpropNeedsInput() ? input : empty_mat),
         &output_ref =
         (component_copy->BackpropNeedsOutput() ? output : empty_mat);
+    Vector<BaseFloat> chunk_weights(1);
+    chunk_weights(0) = output.NumRows();
     component_copy->Backprop(input_ref, output_ref,
-                             output_deriv, num_egs, 1, NULL, &input_deriv);
+                             output_deriv, chunk_weights, NULL, &input_deriv);
 
     int32 num_ok = 0, num_bad = 0, num_tries = 7;
     KALDI_LOG << "Comparing feature gradients " << num_tries << " times.";
@@ -124,8 +126,12 @@ void UnitTestGenericComponentInternal(const Component &component) {
         output_deriv.Row(i).CopyFromVec(objf_vec);
       Matrix<BaseFloat> input_deriv; // (input.NumRows(), input.NumCols());
 
+      Vector<BaseFloat> chunk_weights(1);
+      chunk_weights(0) = output.NumRows();
+
       // This will compute the parameter gradient.
-      ucomponent->Backprop(input, output, output_deriv, num_egs, 1, gradient_ucomponent, &input_deriv);
+      ucomponent->Backprop(input, output, output_deriv, chunk_weights,
+                           gradient_ucomponent, &input_deriv);
 
       // Now compute the perturbed objf.
       BaseFloat objf_perturbed;
