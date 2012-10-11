@@ -97,9 +97,9 @@ void UnitTestTanhLayer() {
   // the input gradients and the model gradients.
   
   int32 input_dim = 10 + rand() % 50, output_dim = 10 + rand() % 50;
-  BaseFloat learning_rate = 0.2, parameter_stddev = 0.1; // both arbitrary.
+  BaseFloat learning_rate = 0.2, shrinkage_rate = 0.001, parameter_stddev = 0.1; // both arbitrary.
   
-  TanhLayer test_layer(input_dim, output_dim, learning_rate, parameter_stddev);
+  TanhLayer test_layer(input_dim, output_dim, learning_rate, shrinkage_rate, parameter_stddev);
 
   TanhLayer gradient(test_layer);
   gradient.SetZero();
@@ -113,9 +113,10 @@ void UnitTestSoftmaxLayer() {
   // the input gradients and the model gradients.
   
   int32 input_dim = 10 + rand() % 50, output_dim = 10 + rand() % 50;
-  BaseFloat learning_rate = 0.2; // arbitrary.
+  BaseFloat learning_rate = 0.2, shrinkage_rate = 0.0001; // arbitrary.
   
-  SoftmaxLayer test_layer(input_dim, output_dim, learning_rate);
+  SoftmaxLayer test_layer(input_dim, output_dim, learning_rate,
+                          shrinkage_rate);
   {
     Matrix<BaseFloat> temp(output_dim, input_dim);
     temp.SetRandn();
@@ -133,11 +134,12 @@ void UnitTestLinearLayer() {
   // the input gradients and the model gradients.
   
   int32 input_dim = 10 + rand() % 50, output_dim = input_dim;
-  BaseFloat learning_rate = 0.2; // arbitrary.
+  BaseFloat learning_rate = 0.2, shrinkage_rate = 0.0001; // arbitrary.
   BaseFloat diag_element = 0.9;
   
-  LinearLayer test_layer(input_dim, diag_element, learning_rate);
-
+  LinearLayer test_layer(input_dim, diag_element, learning_rate,
+                         shrinkage_rate);
+  
   {
     Matrix<BaseFloat> temp(output_dim, input_dim);
     temp.SetRandn();

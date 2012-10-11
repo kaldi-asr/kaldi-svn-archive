@@ -4,7 +4,8 @@ all:
 
 include ../kaldi.mk
 
-TESTFILES = layer-test
+TESTFILES = 
+#layer-test
 
 OBJFILES = layer.o nnet1.o update-nnet1.o train-nnet1.o am-nnet1.o nnet1-utils.o \
            decodable-am-nnet1.o
