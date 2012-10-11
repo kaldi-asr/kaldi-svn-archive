@@ -413,7 +413,6 @@ void SoftmaxComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "</SoftmaxComponent>");
 }
 
-
 void AffineComponent::SetZero(bool treat_as_gradient) {
   if (treat_as_gradient) {
     SetLearningRate(1.0);

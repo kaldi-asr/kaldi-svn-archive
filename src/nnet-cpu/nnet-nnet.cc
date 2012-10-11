@@ -80,6 +80,16 @@ void Nnet::Read(std::istream &is, bool binary) {
   ExpectToken(is, binary, "</Nnet>");  
 }
 
+
+void Nnet::ZeroOccupancy() {
+  for (size_t i = 0; i < components_.size(); i++) {
+    SoftmaxComponent *softmax_component =
+        dynamic_cast<SoftmaxComponent*>(components_[i]);
+    if (softmax_component != NULL) { // If it was this type
+      softmax_component->ZeroOccupancy();
+    }
+  }
+}
 void Nnet::Destroy() {
   while (!components_.empty()) {
     delete components_.back();
@@ -93,8 +103,12 @@ Nnet::Nnet(const Nnet &other): components_(other.components_.size()) {
 }
 
 void Nnet::Check() const {
-  // TODO.  Make sure the OutputDim() of each layer is the same as
-  // the InputDim() of the next.
+  KALDI_ASSERT(!components_.empty());
+  for (size_t i = 0; i + 1 < components_.size(); i++) {
+    int32 output_dim = components_[i]->OutputDim(),
+      next_input_dim = components_[i+1]->InputDim();
+    KALDI_ASSERT(output_dim == next_input_dim);
+  }
 }
 
 void Nnet::InitFromConfig(std::istream &is) {

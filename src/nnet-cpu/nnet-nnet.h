@@ -107,18 +107,12 @@ class Nnet {
   // Use #nodes of top hidden layer.  The new layer will have zero-valued parameters
   void AddTanhLayer(int32 left_context, int32 right_context,
                     BaseFloat learning_rate);
-
-  // Combines with another neural net model, as weighted combination.
-  // other_weight = 0.5 means half-and-half.  this_weight will be
-  // 1.0 - other_weight.
-  // Keeps learning rates of *this.
-  void CombineWithWeight(const Nnet1 &other, BaseFloat other_weight);
+  */
 
   std::string Info() const; // some human-readable summary info.
 
-  // some human-readable summary info (summed over final-layers.)
-  std::string Info(const std::vector<std::vector<int32> > &final_sets) const;
 
+  /*
   std::string LrateInfo() const; // some info on the learning rates,
   // in human-readable form.
 
@@ -129,7 +123,6 @@ class Nnet {
   // the same, broken down by sets, for shrinkage rates.
   std::string SrateInfo(const std::vector<std::vector<int32> > &final_sets)
       const;
-  
   // Mix up by increasing the dimension of the output of softmax layer (and the
   // input of the linear layer).  This is exactly analogous to mixing up
   // Gaussians in a GMM-HMM system, and we use a similar power rule to allocate
@@ -140,7 +133,7 @@ class Nnet {
              BaseFloat perturb_stddev);
   
   void Init(const Nnet1InitInfo &init_info);
-  */
+*/
   void Destroy();
   
   void Write(std::ostream &os, bool binary) const;
