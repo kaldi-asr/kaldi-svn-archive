@@ -23,7 +23,7 @@ void NnetDataRandomizer::RandomizeSamplesRecurse(
     std::vector<std::vector<std::pair<int32, int32> > > *samples_by_pdf,
     std::vector<std::pair<int32, int32> > *samples) {
   int32 tot_num_samples = 0, num_pdfs = samples_by_pdf->size();
-  for (size_t i = 0; i < num_pdfs; i++)
+  for (int32 i = 0; i < num_pdfs; i++)
     tot_num_samples += (*samples_by_pdf)[i].size();
   int32 cutoff = 250; // Just hardcode this.  When the #samples is
   // smaller than a plausible minibatch size, there's no point randomizing at
@@ -34,7 +34,7 @@ void NnetDataRandomizer::RandomizeSamplesRecurse(
   if (tot_num_samples < cutoff) {   // Append all the pdfs to "samples".
     // Base case.
     size_t cur_size = samples->size();
-    for (size_t i = 0; i < num_pdfs; i++)
+    for (int32 i = 0; i < num_pdfs; i++)
       samples->insert(samples->end(),
                       (*samples_by_pdf)[i].begin(), (*samples_by_pdf)[i].end());
     // Randomize the samples we just added, so they're not in order by pdf.
@@ -46,7 +46,7 @@ void NnetDataRandomizer::RandomizeSamplesRecurse(
     // we try to ensure as even as possible a balance for its samples: we split
     // them in two, and if there's an odd number, allocate the odd one randomly
     // to the left or right.  (Has less variance than Bernoulli distribution.)
-    for (size_t i = 0; i < num_pdfs; i++) {
+    for (int32 i = 0; i < num_pdfs; i++) {
       size_t size = (*samples_by_pdf)[i].size(); // #samples for this pdf.
       size_t half_size = size / 2; // Will round down.
       if (size % 2 != 0 && rand() % 2 == 0) // If odd #samples, allocate
@@ -81,7 +81,8 @@ void NnetDataRandomizer::GetRawSamples(
     const TrainingFile &tfile = *(data_[i]);
     if (i == 0) spk_data_size = tfile.spk_info.Dim();
     else KALDI_ASSERT(tfile.spk_info.Dim() == spk_data_size);
-    KALDI_ASSERT(tfile.feats.NumRows() == tfile.labels.size());
+    KALDI_ASSERT(tfile.feats.NumRows() ==
+                 static_cast<int32>(tfile.labels.size()));
     for (size_t j = 0; j < tfile.labels.size(); j++) {
       int32 pdf = tfile.labels[j];
       KALDI_ASSERT(pdf >= 0);
@@ -152,7 +153,7 @@ void NnetDataRandomizer::RandomizeSamples() {
       std::random_shuffle(this_samples.begin(), this_samples.end());
 
       std::vector<std::pair<int32, int32> > this_samples_new; // with repeats.
-      for (int32 i = 0; i < this_samples.size(); i++) {
+      for (int32 i = 0; i < static_cast<int32>(this_samples.size()); i++) {
         int32 n = num_repeats;
         if (i < num_extra) n++;
         for (int32 j = 0; j < n; j++) this_samples_new.push_back(this_samples[i]);

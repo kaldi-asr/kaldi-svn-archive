@@ -131,7 +131,7 @@ class Nnet {
   void MixUp(int32 target_tot_neurons,
              BaseFloat power, // e.g. 0.2.
              BaseFloat perturb_stddev);
-  
+             
   void Init(const Nnet1InitInfo &init_info);
 */
   void Destroy();
@@ -162,11 +162,12 @@ class Nnet {
       BaseFloat max_shrinkage_rate);
   */
   
-  // This sets *info to the dot prod of *this . validation_gradient,
-  // separately for each component.
+  // This sets *dot_prod to the dot prod of *this . validation_gradient,
+  // separately for each component; zero for non-updatable components.
+  // (The vector must have size equal to this->NumComponents()).
   // This is used in updating learning rates and shrinkage rates.
-  void ComputeDotProduct(
-      const Nnet &validation_gradient,
+  void ComponentDotProducts(
+      const Nnet &other,
       VectorBase<BaseFloat> *dot_prod) const;
 
   void Check() const; // Consistency check.

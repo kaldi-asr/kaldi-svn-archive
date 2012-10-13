@@ -32,21 +32,17 @@ namespace kaldi {
 // one frame of input.  
 struct NnetTrainingExample {
   BaseFloat weight; // Allows us to put a weight on each training
-  // sample.  Will often just be one.
-
-  int32 label; // Typically the pdf-id. 
-  // each element of "labels" is a list of pairs (category, label).
-  // For a typical, monolingual setup with a two-level tree we'll
-  // have two pairs: something
-  // like ((0, first-level-tree-node),
-  // (first-level-tree-node, second-level-tree-node))-- although
-  // there may be some integer offsets involved here.
+  // sample.  Might just be 1.0.
+  
+  int32 label; // Typically the pdf-id of the example.
   
   Matrix<BaseFloat> input_frames; // The input data-- typically a number of frames
-  // of raw features, not necessarily contiguous.
+  // (nnet.LeftContext() + 1 + nnet.RightContext()) of raw features, not
+  // necessarily contiguous.
 
   Vector<BaseFloat> spk_info; // The speaker-specific input, if any;
-  // a vector of possibly zero length.
+  // a vector of possibly zero length.  We'll append this to each of the
+  // input frames.
   
   void Write(std::ostream &os, bool binary) const;
   void Read(std::istream &is, bool binary);
@@ -63,7 +59,8 @@ BaseFloat DoBackprop(const Nnet &nnet,
                      const std::vector<NnetTrainingExample> &examples,
                      Nnet *net_to_update);
 
-/// Returns the total weight summed over all the examples.
+/// Returns the total weight summed over all the examples... just a simple
+/// utility function.
 BaseFloat TotalNnetTrainingWeight(const std::vector<NnetTrainingExample> &egs);
 
 

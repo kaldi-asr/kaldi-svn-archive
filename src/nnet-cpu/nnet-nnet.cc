@@ -53,7 +53,13 @@ Component& Nnet::GetComponent(int32 component) {
   return *(components_[component]);
 }
 
-
+void Nnet::SetZero(bool treat_as_gradient) {
+  for (size_t i = 0; i < components_.size(); i++) {
+    UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[i]);
+    if (uc != NULL) uc->SetZero(treat_as_gradient);
+  }
+}
+  
 void Nnet::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<Nnet>");
   int32 num_components = components_.size();
@@ -95,6 +101,22 @@ void Nnet::Destroy() {
     delete components_.back();
     components_.pop_back();
   }
+}
+
+void Nnet::ComponentDotProducts(
+    const Nnet &other,
+    VectorBase<BaseFloat> *dot_prod) const {
+  KALDI_ASSERT(dot_prod->Dim() == NumComponents());
+  for (size_t i = 0; i < components_.size(); i++) {
+    UpdatableComponent *uc1 = dynamic_cast<UpdatableComponent*>(components_[i]);
+    const UpdatableComponent *uc2 = dynamic_cast<const UpdatableComponent*>(
+        &(other.GetComponent(i)));
+    KALDI_ASSERT((uc1 != NULL) == (uc2 != NULL));
+    if (uc1 != NULL)
+      (*dot_prod)(i) = uc1->DotProduct(*uc2);
+    else
+      (*dot_prod)(i) = 0.0;
+  }    
 }
 
 Nnet::Nnet(const Nnet &other): components_(other.components_.size()) {
