@@ -297,6 +297,30 @@ void UnitTestDctComponent() {
     component.InitFromString(str);
     UnitTestGenericComponentInternal(component);
   }
+  {
+    const char *str = "dim=10 dct-dim=5 reorder=true dct-keep-dim=1";
+    DctComponent component;
+    component.InitFromString(str);
+    UnitTestGenericComponentInternal(component);
+  }
+  {
+    const char *str = "dim=10 dct-dim=5 reorder=true dct-keep-dim=2";
+    DctComponent component;
+    component.InitFromString(str);
+    UnitTestGenericComponentInternal(component);
+  }
+  {
+    const char *str = "dim=10 dct-dim=5 reorder=true dct-keep-dim=3";
+    DctComponent component;
+    component.InitFromString(str);
+    UnitTestGenericComponentInternal(component);
+  }
+  {
+    const char *str = "dim=10 dct-dim=5 reorder=true dct-keep-dim=4";
+    DctComponent component;
+    component.InitFromString(str);
+    UnitTestGenericComponentInternal(component);
+  }
 }
 
 
@@ -354,8 +378,12 @@ void UnitTestParsing() {
 
 } // namespace kaldi
 
+#include "matrix/matrix-functions.h"
+
+
 int main() {
   using namespace kaldi;
+
   for (int32 i = 0; i < 5; i++) {
     UnitTestGenericComponent<SigmoidComponent>();
     UnitTestGenericComponent<TanhComponent>();

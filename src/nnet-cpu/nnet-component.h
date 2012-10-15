@@ -543,13 +543,15 @@ class DctComponent: public Component {
  public:
   DctComponent() { dim_ = 0; } 
   virtual std::string Type() const { return "DctComponent"; }
-  void Init(int32 dim, int32 dct_dim, bool reorder);
+  //dim = dimension of vector being processed
+  //dct_dim =
+  void Init(int32 dim, int32 dct_dim, bool reorder, int32 keep_dct_dim=0);
   // InitFromString takes numeric options
   // dim, dct-dim, and (optionally) reorder={true,false}
   // Note: reorder defaults to false.
   virtual void InitFromString(std::string args);
   virtual int32 InputDim() const { return dim_; }
-  virtual int32 OutputDim() const { return dim_; }
+  virtual int32 OutputDim() const { return dct_mat_.NumRows() * (dim_ / dct_mat_.NumCols()); }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
                          int32 num_chunks,
                          Matrix<BaseFloat> *out) const;
@@ -566,7 +568,8 @@ class DctComponent: public Component {
   virtual void Write(std::ostream &os, bool binary) const;
  private:
   void Reorder(MatrixBase<BaseFloat> *mat, bool reverse) const;
-  int32 dim_; // Dimension of input and output features.
+  int32 dim_; // The input dimension of the (sub)vector.
+
   bool reorder_; // If true, transformation matrix we use is not
   // block diagonal but is block diagonal after reordering-- so
   // effectively we transform with the Kronecker product D x I,

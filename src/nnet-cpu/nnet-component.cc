@@ -1341,26 +1341,37 @@ void SpliceComponent::Write(std::ostream &os, bool binary) const {
 }
 
 
-void DctComponent::Init(int32 dim, int32 dct_dim, bool reorder) {
+void DctComponent::Init(int32 dim, int32 dct_dim, bool reorder, int32 dct_keep_dim) {
+  int dct_keep_dim_ = (dct_keep_dim > 0) ? dct_keep_dim : dct_dim;
+
   KALDI_ASSERT(dim > 0 && dct_dim > 0);
   KALDI_ASSERT(dim % dct_dim == 0); // dct_dim must divide dim.
+  KALDI_ASSERT(dct_dim >= dct_keep_dim_)
   dim_ = dim;
-  dct_mat_.Resize(dct_dim, dct_dim);
+  dct_mat_.Resize(dct_keep_dim_, dct_dim);
   reorder_ = reorder;
   ComputeDctMatrix(&dct_mat_);
+  
+  KALDI_WARN << dct_mat_ << "\n";
 }
+
+
 
 void DctComponent::InitFromString(std::string args) {
   std::string orig_args(args);
   int32 dim, dct_dim;
   bool reorder = false;
+  int32 dct_keep_dim = 0;
+
   bool ok = ParseFromString("dim", &args, &dim) &&
             ParseFromString("dct-dim", &args, &dct_dim);
   ParseFromString("reorder", &args, &reorder);
-  if (!ok || !args.empty() || dim <= 0 || dct_dim <= 0)
+  ParseFromString("dct-keep-dim", &args, &dct_keep_dim);
+
+  if (!ok || !args.empty() || dim <= 0 || dct_dim <= 0 || dct_keep_dim < 0)
     KALDI_ERR << "Invalid initializer for layer of type "
               << Type() << ": \"" << orig_args << "\"";
-  Init(dim, dct_dim, reorder);
+  Init(dim, dct_dim, reorder, dct_keep_dim);
 }
 
 void DctComponent::Reorder(MatrixBase<BaseFloat> *mat, bool reverse) const {
@@ -1368,9 +1379,12 @@ void DctComponent::Reorder(MatrixBase<BaseFloat> *mat, bool reverse) const {
   // such blocks were interlaced before.  if reverse==true, does the
   // reverse.
   int32 dct_dim = dct_mat_.NumCols(),
+      dct_keep_dim = dct_mat_.NumRows(),
       block_size_in = dim_ / dct_dim,
-      block_size_out = dct_dim;
-  KALDI_ASSERT(mat->NumCols() == dim_);
+      block_size_out = dct_keep_dim;
+
+  //This does not necesarily needs to be true anymore -- output must be reordered as well, but the dimension differs... 
+  //KALDI_ASSERT(mat->NumCols() == dim_);
   if (reverse) std::swap(block_size_in, block_size_out);
 
   Vector<BaseFloat> temp(mat->NumCols());
@@ -1390,20 +1404,26 @@ void DctComponent::Propagate(const MatrixBase<BaseFloat> &in,
                              int32, // num_chunks
                              Matrix<BaseFloat> *out) const {
   KALDI_ASSERT(in.NumCols() == InputDim());
-  out->Resize(in.NumRows(), in.NumCols());
+  
+  int32 dct_dim = dct_mat_.NumCols(),
+        dct_keep_dim = dct_mat_.NumRows(),
+        num_chunks = dim_ / dct_dim,
+        num_rows = in.NumRows();
+  
+  out->Resize(num_rows, num_chunks * dct_keep_dim);
+
   Matrix<BaseFloat> in_tmp;
   if (reorder_) {
     in_tmp = in;
     Reorder(&in_tmp, false);
   }
-  int32 dct_dim = dct_mat_.NumRows(),
-     num_chunks = dim_ / dct_dim,
-       num_rows = in.NumRows();
+  
   for (int32 chunk = 0; chunk < num_chunks; chunk++) {
     SubMatrix<BaseFloat> in_mat(reorder_ ? in_tmp : in,
                                 0, num_rows, dct_dim * chunk, dct_dim),
-        out_mat(*out,
-                0, num_rows, dct_dim * chunk, dct_dim);
+                        out_mat(*out, 
+                                0, num_rows, dct_keep_dim * chunk, dct_keep_dim);
+
     out_mat.AddMatMat(1.0, in_mat, kNoTrans, dct_mat_, kTrans, 0.0);
   }
   if (reorder_)
@@ -1416,22 +1436,26 @@ void DctComponent::Backprop(const MatrixBase<BaseFloat>&, // in_value,
                             const VectorBase<BaseFloat> &chunk_weights,
                             Component*,// to_update
                             Matrix<BaseFloat> *in_deriv) const {
-  KALDI_ASSERT(out_deriv.NumCols() == InputDim());
-  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
+  KALDI_ASSERT(out_deriv.NumCols() == OutputDim());
+
+  int32 dct_dim = dct_mat_.NumCols(),
+        dct_keep_dim = dct_mat_.NumRows(),
+        num_chunks = dim_ / dct_dim,
+        num_rows = out_deriv.NumRows();
+
+  in_deriv->Resize(num_rows, dim_);
   
   Matrix<BaseFloat> out_deriv_tmp;
   if (reorder_) {
     out_deriv_tmp = out_deriv;
     Reorder(&out_deriv_tmp, false);
   }
-  int32 dct_dim = dct_mat_.NumRows(),
-     num_chunks = dim_ / dct_dim,
-       num_rows = in_deriv->NumRows();
   for (int32 chunk = 0; chunk < num_chunks; chunk++) {
     SubMatrix<BaseFloat> in_deriv_mat(*in_deriv,
                                       0, num_rows, dct_dim * chunk, dct_dim),
-        out_deriv_mat(reorder_ ? out_deriv_tmp : out_deriv,
-                      0, num_rows, dct_dim * chunk, dct_dim);
+                        out_deriv_mat(reorder_ ? out_deriv_tmp : out_deriv,
+                                      0, num_rows, dct_keep_dim * chunk, dct_keep_dim);
+
     // Note: in the reverse direction the DCT matrix is transposed.  This is
     // normal when computing derivatives; the necessity for the transpose is
     // obvious if you consider what happens when the input and output dims
@@ -1456,25 +1480,42 @@ void DctComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<Dim>");
   WriteBasicType(os, binary, dim_);
   WriteToken(os, binary, "<DctDim>");
-  int32 dct_dim = dct_mat_.NumRows();
+  int32 dct_dim = dct_mat_.NumCols();
   WriteBasicType(os, binary, dct_dim);
   WriteToken(os, binary, "<Reorder>");
   WriteBasicType(os, binary, reorder_);
+  WriteToken(os, binary, "<DctKeepDim>");
+  int32 dct_keep_dim = dct_mat_.NumRows();
+  WriteBasicType(os, binary, dct_keep_dim);
   WriteToken(os, binary, "</DctComponent>");  
 }
 
 void DctComponent::Read(std::istream &is, bool binary) {
   ExpectOneOrTwoTokens(is, binary, "<DctComponent>", "<Dim>");
   ReadBasicType(is, binary, &dim_);
+  
   ExpectToken(is, binary, "<DctDim>");
-  int32 dct_dim;
+  int32 dct_dim; 
   ReadBasicType(is, binary, &dct_dim);
+  
   ExpectToken(is, binary, "<Reorder>");
   ReadBasicType(is, binary, &reorder_);
-  ExpectToken(is, binary, "</DctComponent>");
+
+  int32 dct_keep_dim = dct_dim;
+  std::string token;
+  ReadToken(is, binary, &token);
+  if (token == "<DctKeepDim>") {
+    ReadBasicType(is, binary, &dct_keep_dim);
+    ExpectToken(is, binary, "</DctComponent>");
+  } else if (token != "</DctComponent>") {
+    KALDI_ERR << "Expected token \"</DctComponent>\", got instead \""
+              << token << "\".";
+  }
+
   KALDI_ASSERT(dct_dim > 0 && dim_ > 0 && dim_ % dct_dim == 0);
-  dct_mat_.Resize(dct_dim, dct_dim);
-  ComputeDctMatrix(&dct_mat_);
+  Init(dim_, dct_dim, reorder_, dct_keep_dim);
+  //idct_mat_.Resize(dct_keep_dim, dct_dim);
+  //ComputeDctMatrix(&dct_mat_);
 }
 
 } // namespace kaldi
