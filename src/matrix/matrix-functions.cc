@@ -629,7 +629,8 @@ void MatrixExponential<Real>::Compute(const MatrixBase<Real> &M,
   MatrixIndexT dim = M.NumRows();
   P_.Resize(dim, dim);
   P_.CopyFromMat(M);
-  P_.Scale(std::pow(0.5, N_));
+  P_.Scale(std::pow(static_cast<Real>(0.5),
+                    static_cast<Real>(N_)));
   // would need to keep this code in sync with ComputeN().
   B_.resize(N_+1);
   B_[0].Resize(dim, dim);
@@ -739,7 +740,8 @@ void MatrixExponential<Real>::Backprop(const MatrixBase<Real> &hX,
   // we have to backprop this and we get df/dP_.
   BackpropTaylor(dB, hM);  // at this point, hM is temporarily used to store
   // df/dP_.
-  hM->Scale(std::pow(0.5, N_));  // Since A_Scaled = A * std::pow(0.5, N_).
+  hM->Scale(std::pow(static_cast<Real>(0.5),
+                     static_cast<Real>(N_)));  // Since A_Scaled = A * std::pow(0.5, N_).
 }
 
 
