@@ -86,11 +86,11 @@ class Component {
   /// "num_chunks" argument to Propagate()), that gives a weighting for each
   /// chunk; in the normal case each of these would be equal to the number of
   /// labels in the chunk (one label per chunk, for standard SGD); but we
-  /// support weighting of samples so these may not be 1.  This is only needed
-  /// for reasons relating to l2 regularization and the storing of occupation
-  /// counts.  For SGD we don't need this information, because the code that
-  /// computes the objective-function derivative at the output layer
-  /// incorporates this weighting.  
+  /// support weighting of samples so there may be an additional factor.  This
+  /// is only needed for reasons relating to l2 regularization and the storing
+  /// of occupation counts.  For SGD we don't need this information, because the
+  /// code that computes the objective-function derivative at the output layer
+  /// incorporates this weighting. 
   virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
                         const MatrixBase<BaseFloat> &out_value,                        
                         const MatrixBase<BaseFloat> &out_deriv,

@@ -19,163 +19,56 @@
 
 namespace kaldi {
 
-void NnetDataRandomizer::RandomizeSamplesRecurse(
-    std::vector<std::vector<std::pair<int32, int32> > > *samples_by_pdf,
-    std::vector<std::pair<int32, int32> > *samples) {
-  int32 tot_num_samples = 0, num_pdfs = samples_by_pdf->size();
-  for (int32 i = 0; i < num_pdfs; i++)
-    tot_num_samples += (*samples_by_pdf)[i].size();
-  int32 cutoff = 250; // Just hardcode this.  When the #samples is
-  // smaller than a plausible minibatch size, there's no point randomizing at
-  // any smaller scale.  We will randomize the order of what we put out,
-  // using standard methods; we just won't do this super-careful randomization
-  // that tries to minimize variance of counts of different labels.
-  
-  if (tot_num_samples < cutoff) {   // Append all the pdfs to "samples".
-    // Base case.
-    size_t cur_size = samples->size();
-    for (int32 i = 0; i < num_pdfs; i++)
-      samples->insert(samples->end(),
-                      (*samples_by_pdf)[i].begin(), (*samples_by_pdf)[i].end());
-    // Randomize the samples we just added, so they're not in order by pdf.
-    std::random_shuffle(samples->begin() + cur_size, samples->end());
-  } else {
-    std::vector<std::vector<std::pair<int32, int32> > > samples1(num_pdfs),
-        samples2(num_pdfs);
-    // Divide up samples_by_pdf into two pieces and recurse.  For each pdf
-    // we try to ensure as even as possible a balance for its samples: we split
-    // them in two, and if there's an odd number, allocate the odd one randomly
-    // to the left or right.  (Has less variance than Bernoulli distribution.)
-    for (int32 i = 0; i < num_pdfs; i++) {
-      size_t size = (*samples_by_pdf)[i].size(); // #samples for this pdf.
-      size_t half_size = size / 2; // Will round down.
-      if (size % 2 != 0 && rand() % 2 == 0) // If odd #samples, allocate
-        half_size++; // odd sample randomly to left or right.
-      std::vector<std::pair<int32, int32> >::const_iterator
-          begin_iter = (*samples_by_pdf)[i].begin(),
-          middle_iter = begin_iter + half_size,
-          end_iter = begin_iter + size;
-      samples1[i].insert(samples1[i].end(), begin_iter, middle_iter);
-      samples2[i].insert(samples2[i].end(), middle_iter, end_iter);
-      std::vector<std::pair<int32, int32> > temp;
-      (*samples_by_pdf)[i].swap(temp); // Trick to free up memory.
-    }
-    {
-      std::vector<std::vector<std::pair<int32, int32> > > temp;
-      samples_by_pdf->swap(temp); // Trick to free up memory.
-    }
-    RandomizeSamplesRecurse(&samples1, samples);
-    {
-      std::vector<std::vector<std::pair<int32, int32> > > temp;
-      samples1.swap(temp); // Trick to free up memory.
-    }
-    RandomizeSamplesRecurse(&samples2, samples);
+void NnetValidationSet::AddUtterance(
+    const MatrixBase<BaseFloat> &features,
+    const VectorBase<BaseFloat> &spk_info, // may be empty
+    std::vector<int32> &pdf_ids,
+    BaseFloat utterance_weight) {
+  KALDI_ASSERT(pdf_ids.size() == static_cast<size_t>(features.NumRows()));
+  KALDI_ASSERT(utterance_weight > 0.0);
+  utterances_.push_back(new Utterance(features, spk_info,
+                                      pdf_ids, utterance_weight));
+  if (utterances_.size() != 0) { // Check they have consistent dimensions.
+    KALDI_ASSERT(features.NumCols() == utterances_[0]->features.NumCols());
+    KALDI_ASSERT(spk_info.Dim() == utterances_[0]->spk_info.Dim());
   }
 }
 
-void NnetDataRandomizer::GetRawSamples(
-    std::vector<std::vector<std::pair<int32, int32> > > *pdf_counts) {
-  pdf_counts->clear();
-  int32 spk_data_size = 0;
-  for (size_t i = 0; i < data_.size(); i++) { // For each training file
-    const TrainingFile &tfile = *(data_[i]);
-    if (i == 0) spk_data_size = tfile.spk_info.Dim();
-    else KALDI_ASSERT(tfile.spk_info.Dim() == spk_data_size);
-    KALDI_ASSERT(tfile.feats.NumRows() ==
-                 static_cast<int32>(tfile.labels.size()));
-    for (size_t j = 0; j < tfile.labels.size(); j++) {
-      int32 pdf = tfile.labels[j];
-      KALDI_ASSERT(pdf >= 0);
-      if (static_cast<int32>(pdf_counts->size()) <= pdf)
-        pdf_counts->resize(pdf+1);
-      // The pairs are pairs of (file-index, frame-index).
-      (*pdf_counts)[pdf].push_back(std::make_pair(i, j));
-    }
-  }
+NnetValidationSet::~NnetValidationSet() {
+  for (size_t i = 0; i < utterances_.size(); i++)
+    delete utterances_[i];
 }
 
-void NnetDataRandomizer::RandomizeSamples() {
-  KALDI_ASSERT(samples_.empty());
 
-  // The samples, indexed first by pdf.
-  std::vector<std::vector<std::pair<int32, int32> > > samples_by_pdf;
-  GetRawSamples(&samples_by_pdf);
-
-  int32 num_pdfs = samples_by_pdf.size();
-  // counts of each pdf.
-  Vector<BaseFloat> reweighted_counts(num_pdfs);
-  for (int32 i = 0; i < reweighted_counts.Dim(); i++)
-    reweighted_counts(i) = static_cast<BaseFloat>(samples_by_pdf[i].size());
-  KALDI_ASSERT(config_.frequency_power >= 0.0 &&
-               config_.frequency_power <= 1.0);
-  BaseFloat old_max_count = reweighted_counts.Max();
-  KALDI_ASSERT(old_max_count > 0.0);  
-  reweighted_counts.ApplyPow(config_.frequency_power);  
-  // We now modify "reweighted_counts_" so that the maximum count
-  // is the same as it was before.  This ensures that all counts
-  // are at least as large as they were before we reweighted
-  // (since the largest count will have been decreased by the
-  // largest factor).
-  reweighted_counts.Scale(old_max_count / reweighted_counts.Max());
-
-  pdf_weights_.Resize(num_pdfs);
-  /*
-    For each pdf:
-    Work out how many times each instance of that pdf appears.
-    It's all about minimizing variance, so we don't just draw
-    from a distribution with the right expectation.
-   */
-  for (int32 label = 0; label < reweighted_counts.Dim(); label++) {
-    std::vector<std::pair<int32, int32> > &this_samples = samples_by_pdf[label];
-    BaseFloat orig_count = this_samples.size(),
-               new_count = reweighted_counts(label);
-    KALDI_ASSERT(new_count >= orig_count);
-    if (orig_count == 0) {
-      pdf_weights_(label) = 0.0; // don't care.
-      // nothing else to do.
-    } else {
-      int32 num_repeats = static_cast<int32>(new_count / orig_count); // Number
-      // of times we repeat each sample; round down.  Some samples we'll repeat
-      // one more time (num_extra samples)
-      BaseFloat num_extra_float = new_count - orig_count*num_repeats;
-      int32 num_extra = static_cast<int32>(num_extra_float); // round down.
-      if (RandUniform() < num_extra_float - num_extra) num_extra++;
-      // num_extra is an integer that is either slightly more or slightly
-      // less than num_extra_float, but has the same expectation.
-
-      { // set pdf_weights_[i] to the weight necessary to rescale the new
-        // count to the old, original count.
-        BaseFloat actual_count = num_repeats*orig_count + num_extra;
-        pdf_weights_(label) = static_cast<BaseFloat>(orig_count) / actual_count;
-      }
-      // Randomize order of samples.  The first "num_extra" samples will
-      // get count num_repeats+1, the rest will get count num_repeats.
-      std::random_shuffle(this_samples.begin(), this_samples.end());
-
-      std::vector<std::pair<int32, int32> > this_samples_new; // with repeats.
-      for (int32 i = 0; i < static_cast<int32>(this_samples.size()); i++) {
-        int32 n = num_repeats;
-        if (i < num_extra) n++;
-        for (int32 j = 0; j < n; j++) this_samples_new.push_back(this_samples[i]);
-      }
-      std::random_shuffle(this_samples_new.begin(), this_samples_new.end());
-      this_samples = this_samples_new; // Write back to where we got it from.
-    }
+BaseFloat NnetValidationSet::ComputeGradient(const Nnet &nnet,
+                                             Nnet *nnet_gradient) const {
+  KALDI_ASSERT(!utterances_.empty());
+  bool treat_as_gradient = true, pad_input = true;
+  BaseFloat tot_objf = 0.0, tot_weight = 0.0;
+  nnet_gradient->SetZero(treat_as_gradient);  
+  for (size_t i = 0; i < utterances_.size(); i++) {
+    const Utterance &utt = *(utterances_[i]);
+    tot_objf += NnetGradientComputation(nnet,
+                                        utt.features, utt.spk_info,
+                                        pad_input, utt.weight,
+                                        utt.pdf_ids, nnet_gradient);
+    tot_weight += utt.weight * utt.features.NumRows();
   }
-  RandomizeSamplesRecurse(&samples_by_pdf, &samples_); // destroys samples_by_pdf.
-  
-  // Renormalize pdf_weights_ so that after weighting by the frequency
-  // with which the trainer will see different pdfs, the average count
-  // is 1.  This is an attempt to make the same learning rates applicable
-  // (approximately), regardless what type of reweighting we used.
-  // Note: we use the "reweighted_counts", which are floats not the actual
-  // integerized counts, because otherwise I think expectations would  be
-  // wrong in some exremely small way (due to the nonlinearity in the inverse
-  // function).
-  pdf_weights_.Scale(VecVec(pdf_weights_, reweighted_counts) /
-                     reweighted_counts.Sum());  
+  KALDI_VLOG(2) << "Validation set objective function " << (tot_objf / tot_weight)
+                << " over " << tot_weight << " frames.";
+  return tot_objf / tot_weight;
 }
 
+NnetAdaptiveTrainer::NnetAdaptiveTrainer(const NnetAdaptiveTrainerConfig &config,
+                                         Nnet *nnet,
+                                         NnetValidationSet *validation_set) {
   
+}
+
+
+void NnetAdaptiveTrainer::TrainOnExample(const NnetTrainingExample &value) {
+  
+}
+
   
 } // namespace

@@ -92,6 +92,8 @@ class Nnet {
   
   Nnet() { }
 
+  Nnet &operator = (const Nnet &other); // assignment operator.
+
   /// Initialize from config file.
   /// Each line of the config is either a comment line starting
   /// with whitespace then #, or it is a vector specifying splicing to the
@@ -175,11 +177,8 @@ class Nnet {
   friend class NnetUpdater;
   friend class DecodableNnet;
  private:
-  const Nnet &operator = (const Nnet &other);  // Disallow assignment.
-  
   std::vector<Component*> components_;
 };
-
 
 
 

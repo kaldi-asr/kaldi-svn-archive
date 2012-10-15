@@ -199,6 +199,34 @@ BaseFloat DoBackprop(const Nnet &nnet,
   return updater.ComputeForMinibatch(examples);  
 }
 
+void NnetTrainingExample::Write(std::ostream &os, bool binary) const {
+  // Note: weight, label, input_frames and spk_info are members.  This is a
+  // struct.
+  WriteToken(os, binary, "<NnetTrainingExample>");
+  WriteToken(os, binary, "<Weight>");
+  WriteBasicType(os, binary, weight);
+  WriteToken(os, binary, "<Label>");
+  WriteBasicType(os, binary, label);
+  WriteToken(os, binary, "<InputFrames>");
+  input_frames.Write(os, binary);
+  WriteToken(os, binary, "<SpkInfo>");
+  spk_info.Write(os, binary);
+  WriteToken(os, binary, "</NnetTrainingExample>");
+}
+void NnetTrainingExample::Read(std::istream &is, bool binary) {
+  // Note: weight, label, input_frames and spk_info are members.  This is a
+  // struct.
+  ExpectToken(is, binary, "<NnetTrainingExample>");
+  ExpectToken(is, binary, "<Weight>");
+  ReadBasicType(is, binary, &weight);
+  ExpectToken(is, binary, "<Label>");
+  ReadBasicType(is, binary, &label);
+  ExpectToken(is, binary, "<InputFrames>");
+  input_frames.Read(is, binary);
+  ExpectToken(is, binary, "<SpkInfo>");
+  spk_info.Read(is, binary);
+  ExpectToken(is, binary, "</NnetTrainingExample>");
+}
 
 
   

@@ -19,6 +19,7 @@
 #define KALDI_NNET_CPU_NNET_UPDATE_H_
 
 #include "nnet-cpu/nnet-nnet.h"
+#include "util/table-types.h"
 
 namespace kaldi {
 
@@ -26,6 +27,10 @@ namespace kaldi {
    gradient descent and gradient computation with a neural net.
    See also nnet-compute.h which is the same thing but for
    whole utterances.
+   This is the inner part of the training code; see nnet-train.h
+   which contains a wrapper for this, with functionality for
+   automatically keeping the learning rates for each layer updated
+   using a heuristic involving validation-set gradients.
 */
 
 // NnetTrainingExample is the label (the pdf) and input data for
@@ -47,6 +52,11 @@ struct NnetTrainingExample {
   void Write(std::ostream &os, bool binary) const;
   void Read(std::istream &is, bool binary);
 };
+
+
+typedef TableWriter<KaldiObjectHolder<NnetTrainingExample > > NnetTrainingExampleWriter;
+typedef SequentialTableReader<KaldiObjectHolder<NnetTrainingExample > > SequentialNnetTrainingExampleReader;
+typedef RandomAccessTableReader<KaldiObjectHolder<NnetTrainingExample > > RandomAccessNnetTrainingExampleReader;
 
 
 /// This function computes the objective function and either updates the model

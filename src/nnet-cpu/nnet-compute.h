@@ -1,4 +1,4 @@
-// nnet-dp/nnet-update.h
+// nnet-dp/nnet-compute.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
@@ -15,17 +15,16 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_CPU_NNET_UPDATE_H_
-#define KALDI_NNET_CPU_NNET_UPDATE_H_
+#ifndef KALDI_NNET_CPU_NNET_COMPUTE_H_
+#define KALDI_NNET_CPU_NNET_COMPUTE_H_
 
 #include "nnet-cpu/nnet-nnet.h"
 
 namespace kaldi {
 
-/* This header provides functionality for doing forward computation
-   and backpropagation for whole chunks of features, e.g. whole
-   utterances.  The code in nnet-update.h is more suited to sample-by-sample
-   computation.
+/* This header provides functionality for doing forward computation and
+   backpropagation for whole chunks of features, e.g. whole utterances.  The
+   code in nnet-update.h is designed for sample-by-sample computation.
 */
 
 
@@ -52,16 +51,19 @@ void NnetComputation(const Nnet &nnet,
     the right.  If nnet_to_update == &nnet, then this does stochastic
     gradient descent, otherwise (assuming you have called SetZero(true)
     on *nnet_to_update) it will compute the gradient on this data.
+    Returns the total objective function summed over the frames, times
+    the utterance weight.
 */
 BaseFloat NnetGradientComputation(const Nnet &nnet,
                                   const MatrixBase<BaseFloat> &input,
                                   const VectorBase<BaseFloat> &spk_info,
                                   bool pad_input,
-                                  std::vector<int32> &labels,
+                                  BaseFloat utterance_weight,
+                                  const std::vector<int32> &labels,
                                   Nnet *nnet_to_update);
 
 
 
 } // namespace
 
-#endif // KALDI_NNET_CPU_NNET_UPDATE_H_
+#endif // KALDI_NNET_CPU_NNET_COMPUTE_H_

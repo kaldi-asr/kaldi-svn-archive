@@ -119,9 +119,19 @@ void Nnet::ComponentDotProducts(
   }    
 }
 
+
 Nnet::Nnet(const Nnet &other): components_(other.components_.size()) {
   for (size_t i = 0; i < other.components_.size(); i++)
     components_[i] = other.components_[i]->Copy();
+}
+
+
+Nnet &Nnet::operator = (const Nnet &other) {
+  Destroy();
+  components_.resize(other.components_.size());
+  for (size_t i = 0; i < other.components_.size(); i++)
+    components_[i] = other.components_[i]->Copy();
+  return *this;
 }
 
 void Nnet::Check() const {

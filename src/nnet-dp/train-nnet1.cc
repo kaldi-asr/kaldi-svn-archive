@@ -206,7 +206,7 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
   
   Nnet1 &nnet_at_end(basic_trainer_->Nnet()); // this one
   // is a reference, not a copy.
-
+  
   {
     Nnet1ProgressInfo start_info, end_info;
     nnet_at_start.ComputeDotProduct(validation_set_->Gradient(), &start_info);
