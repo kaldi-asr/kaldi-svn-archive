@@ -149,20 +149,19 @@ class Nnet {
   // LinearComponent).
 
 
-  /*
-  // This is used to separately adjust learning rates of each layer,
-  // after each "phase" of training.  We basically ask (using the validation
-  // gradient), do we wish we had gone further in this direction?  Yes->
-  // increase learning rate, no -> decrease it.
-  void AdjustLearningAndShrinkageRates(
-      const Nnet1ProgressInfo &start_dotprod, // dot-prod of param@start with valid-grad@end
-      const Nnet1ProgressInfo &end_dotprod, // dot-prod of param@end with valid-grad@end
-      const std::vector<std::vector<int32> > &final_layer_sets,
+  /// This is used to separately adjust learning rates of each layer,
+  /// after each "phase" of training.  We basically ask (using the validation
+  /// gradient), do we wish we had gone further in this direction?  Yes->
+  /// increase learning rate, no -> decrease it.  A similar logic updates
+  /// the "shrinkage rate"... note, we view the shrinkage rate as a product
+  /// of two separate things: a learning rate times an l2 penalty.
+  void AdjustLearningRatesAndL2Penalties(
+      const VectorBase<BaseFloat> &start_dotprod, // param@start . valid-grad@end
+      const VectorBase<BaseFloat>  &end_dotprod, // param@end . valid-grad@end
       BaseFloat learning_rate_ratio,
       BaseFloat max_learning_rate,
-      BaseFloat min_shrinkage_rate,
-      BaseFloat max_shrinkage_rate);
-  */
+      BaseFloat min_l2_penalty,
+      BaseFloat max_l2_penalty);
   
   // This sets *dot_prod to the dot prod of *this . validation_gradient,
   // separately for each component; zero for non-updatable components.

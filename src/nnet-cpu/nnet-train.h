@@ -100,18 +100,25 @@ class NnetValidationSet {
  public:
   NnetValidationSet() { }
 
+  /// This is used while initializing the object.
   void AddUtterance(const MatrixBase<BaseFloat> &features,
                     const VectorBase<BaseFloat> &spk_info, // may be empty
                     std::vector<int32> &pdf_ids,
                     BaseFloat utterance_weight = 1.0);
-  // Here, "nnet" will be a neural net and "gradient" will be a copy of it that
-  // this function will overwrite with the gradient.  This function will compute
-  // the gradient and return the average per-frame objective function.
+
+  /// Here, "nnet" will be a neural net and "gradient" will be a copy of it that
+  /// this function will overwrite with the gradient.  This function will compute
+  /// the gradient and return the *average* per-frame objective function
   BaseFloat ComputeGradient(const Nnet &nnet,
                             Nnet *gradient) const;
+
+  /// Returns the total #frames weighted by the utterance_weight (which is
+  /// typically one).
+  BaseFloat TotalWeight() const; 
                     
   ~NnetValidationSet();
  private:
+  KALDI_DISALLOW_COPY_AND_ASSIGN(NnetValidationSet);
   struct Utterance {
     Matrix<BaseFloat> features;
     Vector<BaseFloat> spk_info;
@@ -133,16 +140,16 @@ struct NnetAdaptiveTrainerConfig {
   int32 minibatch_size;
   int32 minibatches_per_phase;
   BaseFloat learning_rate_ratio;
-  BaseFloat shrinkage_rate_ratio;
   BaseFloat max_learning_rate;
-  BaseFloat min_shrinkage_rate;
-  BaseFloat max_shrinkage_rate;  
+  BaseFloat min_l2_penalty;
+  BaseFloat max_l2_penalty;
   int32 num_phases;
   
   NnetAdaptiveTrainerConfig():
-      minibatch_size(500), minibatches_per_phase(50), learning_rate_ratio(1.1),
-      shrinkage_rate_ratio(1.1), max_learning_rate(0.1),
-      min_shrinkage_rate(1.0e-20), max_shrinkage_rate(0.001),
+      minibatch_size(500), minibatches_per_phase(50),
+      learning_rate_ratio(1.1),
+      max_learning_rate(0.1),
+      min_l2_penalty(1.0e-10), max_l2_penalty(1.0),
       num_phases(50) { }
   
   void Register (ParseOptions *po) {
@@ -152,15 +159,16 @@ struct NnetAdaptiveTrainerConfig {
                  "Number of minibatches accessed in each phase of training "
                  "(after each phase we adjust learning rates");
     po->Register("learning-rate-ratio", &learning_rate_ratio,
-                 "Ratio by which we change the learning rate in each phase of "
-                 "training (can get larger or smaller by this factor).");
+                 "Ratio by which we change the learning and shrinkage rates "
+                 "in each phase of training (can get larger or smaller by "
+                 "this factor).");
     po->Register("max-learning-rate", &max_learning_rate,
                  "Maximum learning rate we allow when dynamically updating "
                  "learning and shrinkage rates");
-    po->Register("min-shrinkage-rate", &min_shrinkage_rate,
-                 "Minimum allowed shrinkage rate.");
-    po->Register("max-shrinkage-rate", &max_shrinkage_rate,
-                 "Maximum allowed shrinkage rate.");
+    po->Register("min-l2-penalty", &min_l2_penalty,
+                 "Minimum allowed l2 penalty.");
+    po->Register("max-l2-penalty", &max_l2_penalty,
+                 "Maximum allowed l2 penalty.");
     po->Register("num-phases", &num_phases,
                  "Number of \"phases\" of training (a phase is a sequence of "
                  "num-minibatches minibatches; after each phase we modify "
@@ -176,46 +184,41 @@ struct NnetAdaptiveTrainerConfig {
 class NnetAdaptiveTrainer {
  public:
   NnetAdaptiveTrainer(const NnetAdaptiveTrainerConfig &config,
-                      Nnet *nnet,
-                      NnetValidationSet *validation_set);
+                      const NnetValidationSet &validation_set,
+                      Nnet *nnet);
 
   /// TrainOnExample will take the example and add it to a buffer;
   /// if we've reached the minibatch size it will do the training.
   void TrainOnExample(const NnetTrainingExample &value);
- private:
 
+  ~NnetAdaptiveTrainer();
+ private:
+  KALDI_DISALLOW_COPY_AND_ASSIGN(NnetAdaptiveTrainer);
 
   void TrainOneMinibatch();
   
-  // The following two functions are called by TrainOneMinibatch()
+  // The following function is called by TrainOneMinibatch()
   // when we enter a new phase.
-  void BeginNewPhase();
-  void EndNewPhase();
+  void BeginNewPhase(bool first_time);
   
-  void PrintProgress();  
-  void TrainOnePhase();
-
   // Things we were given in the initializer:
   NnetAdaptiveTrainerConfig config_;
-  Nnet *nnet_; // the nnet we're training.
-  NnetValidationSet *validation_set_; // Stores validation data, used
+  const NnetValidationSet &validation_set_; // Stores validation data, used
   // to compute gradient on validation set.
+  Nnet *nnet_; // the nnet we're training.
 
-  // State information:  
+  // State information:
+  int32 num_phases_;
   int32 minibatches_seen_this_phase_;
   std::vector<NnetTrainingExample> buffer_;
   BaseFloat validation_objf_; // stores validation objective function at
   // start/end of phase.
-  Nnet nnet_at_phase_start_; // Snapshot of the neural net at the start
-  // of this phase of training.
-
-  
-  //
+  Nnet validation_gradient_; // validation gradient at start of this phase.
+  Nnet nnet_snapshot_; // snapshot of nnet params at start of this phase.
+    
+  // Stuff that's not really specific to a phase:
   BaseFloat initial_validation_objf_; // validation objf at start.
   Vector<BaseFloat> progress_stats_; // Per-layer stats on progress so far.
-
-  std::vector<std::vector<int32> > final_layer_sets_; // relates to updating
-  // learning rates.
 };
 
 

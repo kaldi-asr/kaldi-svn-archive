@@ -165,5 +165,52 @@ void Nnet::InitFromConfig(std::istream &is) {
   }
   Check();
 }
-  
+
+
+void Nnet::AdjustLearningRatesAndL2Penalties(
+    const VectorBase<BaseFloat> &start_dotprod, // param@start . valid-grad@end
+    const VectorBase<BaseFloat>  &end_dotprod, // param@end . valid-grad@end
+    BaseFloat ratio, // e.g. 1.1
+    BaseFloat max_learning_rate,
+    BaseFloat min_l2_penalty,
+    BaseFloat max_l2_penalty) {
+  std::vector<BaseFloat> new_lrates, new_l2_penalties;
+  KALDI_ASSERT(start_dotprod.Dim() == NumComponents() &&
+               end_dotprod.Dim() == NumComponents());
+  KALDI_ASSERT(ratio >= 1.0);  
+  BaseFloat inv_ratio = 1.0 / ratio;
+  for (int32 c = 0; c < NumComponents(); c++) {
+    UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[c]);
+    if (uc == NULL) { // Non-updatable component.
+      KALDI_ASSERT(start_dotprod(c) == 0.0);
+      continue; 
+    }
+    BaseFloat this_end_dotprod = end_dotprod(c),
+        grad_dotprod = this_end_dotprod - start_dotprod(c);
+    // Will be positive if we want more of the gradient term -> faster learning
+    // rate for this component
+
+    BaseFloat lrate = uc->LearningRate(),
+        l2_penalty = uc->L2Penalty();
+    lrate *= (grad_dotprod > 0 ? ratio : inv_ratio);
+    l2_penalty *= (this_end_dotprod > 0 ? inv_ratio : ratio);
+    if (lrate > max_learning_rate) lrate = max_learning_rate;
+    if (l2_penalty > max_l2_penalty) l2_penalty = max_l2_penalty;
+    if (l2_penalty < min_l2_penalty) l2_penalty = min_l2_penalty;
+    
+    new_lrates.push_back(lrate);
+    new_l2_penalties.push_back(l2_penalty);
+    uc->SetLearningRate(lrate);
+    uc->SetL2Penalty(l2_penalty);
+  }
+  std::ostringstream lrate_str;
+  for (size_t i = 0; i < new_lrates.size(); i++)
+    lrate_str << new_lrates[i] << ' ';
+  KALDI_VLOG(2) << "Learning rates are " << lrate_str.str();
+  std::ostringstream l2_penalty_str;
+  for (size_t i = 0; i < new_l2_penalties.size(); i++)
+    l2_penalty_str << new_l2_penalties[i] << ' ';
+  KALDI_VLOG(3) << "Shrinkage rates are " << l2_penalty_str.str();
+}
+
 } // namespace

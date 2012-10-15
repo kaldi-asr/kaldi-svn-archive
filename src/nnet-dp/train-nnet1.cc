@@ -217,7 +217,7 @@ void Nnet1AdaptiveTrainer::TrainOnePhase() {
     KALDI_VLOG(4) << "End-info-before: " << end_info.Info(final_layer_sets_);
   }
     
-
+  
   // Now recompute validation set objf and gradient.
   validation_objf_ = validation_set_->ComputeGradient();
   KALDI_VLOG(1) << "Average objf is " << train_objf << " (train) and "
