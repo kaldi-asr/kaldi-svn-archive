@@ -125,8 +125,7 @@ class Component {
   /// Write component to stream
   virtual void Write(std::ostream &os, bool binary) const = 0;
 
-  // TODO (yenda?)
-  // virtual std::string Info() const = 0;
+  virtual std::string Info() const;
   
   virtual ~Component() { }
 
@@ -213,7 +212,7 @@ class NonlinearComponent: public Component {
   
   /// Write component to stream.
   virtual void Write(std::ostream &os, bool binary) const;
-  
+ 
  protected:
   int32 dim_;
 };
@@ -340,6 +339,7 @@ class SpliceComponent: public Component {
             int32 right_context,
             int32 const_component_dim=0);
   virtual std::string Type() const { return "SpliceComponent"; }
+  virtual std::string Info() const;
   virtual void InitFromString(std::string args);
   virtual int32 InputDim() const { return input_dim_; }
   virtual int32 OutputDim() const;
@@ -545,6 +545,7 @@ class DctComponent: public Component {
  public:
   DctComponent() { dim_ = 0; } 
   virtual std::string Type() const { return "DctComponent"; }
+  virtual std::string Info() const;
   //dim = dimension of vector being processed
   //dct_dim =
   void Init(int32 dim, int32 dct_dim, bool reorder, int32 keep_dct_dim=0);

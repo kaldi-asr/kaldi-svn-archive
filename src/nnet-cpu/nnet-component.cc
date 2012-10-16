@@ -19,6 +19,8 @@
 #include "nnet-cpu/nnet-component.h"
 #include "util/text-utils.h"
 
+#include <sstream>
+
 namespace kaldi {
 
 
@@ -215,6 +217,12 @@ Component *PermuteComponent::Copy() const {
   PermuteComponent *ans = new PermuteComponent();
   ans->reorder_ = reorder_;
   return ans;
+}
+
+std::string Component::Info() const {
+  std::stringstream stream;
+  stream << Type() << " component, inputDim=" << InputDim() <<", outputDim=" << OutputDim();
+  return stream.str();
 }
 
 void NonlinearComponent::Read(std::istream &is, bool binary) {
@@ -1220,6 +1228,16 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
   }
 }
 
+
+std::string SpliceComponent::Info() const {
+  std::stringstream stream;
+  stream << Component::Info() << ", context=" << left_context_ << "/" << right_context_;
+  if (const_component_dim_ != 0)
+    stream << ", const_component_dim=" << const_component_dim_;
+
+  return stream.str();
+}
+
 void SpliceComponent::Init(int32 input_dim, int32 left_context,
                            int32 right_context, int32 const_component_dim) {
   input_dim_ = input_dim;
@@ -1395,6 +1413,14 @@ void SpliceComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "</SpliceComponent>");  
 }
 
+std::string DctComponent::Info() const {
+  std::stringstream stream;
+  stream << Component::Info() << ", dct_dim=" << dct_mat_.NumCols();
+  if (dct_mat_.NumCols() != dct_mat_.NumRows())
+    stream << ", dct_keep_dim=" << dct_mat_.NumRows();
+
+  return stream.str();
+}
 
 void DctComponent::Init(int32 dim, int32 dct_dim, bool reorder, int32 dct_keep_dim) {
   int dct_keep_dim_ = (dct_keep_dim > 0) ? dct_keep_dim : dct_dim;

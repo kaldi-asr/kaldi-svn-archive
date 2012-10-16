@@ -25,6 +25,9 @@ void UnitTestGenericComponentInternal(const Component &component) {
   int32 input_dim = component.InputDim(),
        output_dim = component.OutputDim();
 
+
+  KALDI_LOG << component.Info();
+
   Vector<BaseFloat> objf_vec(output_dim); // objective function is linear function of output.
   objf_vec.SetRandn(); // set to Gaussian noise.
   
