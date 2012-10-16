@@ -547,11 +547,11 @@ class DctComponent: public Component {
   virtual std::string Type() const { return "DctComponent"; }
   virtual std::string Info() const;
   //dim = dimension of vector being processed
-  //dct_dim =
+  //dct_dim = effective lenght of DCT, i.e. how many compoments will be kept
   void Init(int32 dim, int32 dct_dim, bool reorder, int32 keep_dct_dim=0);
   // InitFromString takes numeric options
-  // dim, dct-dim, and (optionally) reorder={true,false}
-  // Note: reorder defaults to false.
+  // dim, dct-dim, and (optionally) reorder={true,false}, keep-dct-dim
+  // Note: reorder defaults to false. keep-dct-dim defaults to dct-dim
   virtual void InitFromString(std::string args);
   virtual int32 InputDim() const { return dim_; }
   virtual int32 OutputDim() const { return dct_mat_.NumRows() * (dim_ / dct_mat_.NumCols()); }
