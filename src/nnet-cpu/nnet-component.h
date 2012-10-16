@@ -519,7 +519,7 @@ class PermuteComponent: public Component {
   virtual void InitFromString(std::string args);
   virtual void Read(std::istream &is, bool binary);
   virtual void Write(std::ostream &os, bool binary) const;
-  virtual std::string Type() const { return "MixtureComponent"; }
+  virtual std::string Type() const { return "PermuteComponent"; }
   virtual bool BackpropNeedsInput() const { return false; }
   virtual bool BackpropNeedsOutput() const { return false; }
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
