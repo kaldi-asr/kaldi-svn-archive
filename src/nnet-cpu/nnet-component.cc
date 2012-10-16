@@ -1406,8 +1406,6 @@ void DctComponent::Init(int32 dim, int32 dct_dim, bool reorder, int32 dct_keep_d
   dct_mat_.Resize(dct_keep_dim_, dct_dim);
   reorder_ = reorder;
   ComputeDctMatrix(&dct_mat_);
-  
-  KALDI_WARN << dct_mat_ << "\n";
 }
 
 
