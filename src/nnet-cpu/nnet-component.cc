@@ -1373,8 +1373,8 @@ void SpliceComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
 
 Component *SpliceComponent::Copy() const {
   SpliceComponent *ans = new SpliceComponent();
+  ans->input_dim_ = input_dim_;
   ans->left_context_ = left_context_;
-  ans->right_context_ = right_context_;
   ans->right_context_ = right_context_;
   ans->const_component_dim_ = const_component_dim_;
   return ans;
