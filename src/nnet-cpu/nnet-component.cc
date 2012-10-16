@@ -1221,12 +1221,15 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
 }
 
 void SpliceComponent::Init(int32 input_dim, int32 left_context,
-                           int32 right_context) {
+                           int32 right_context, int32 const_component_dim) {
   input_dim_ = input_dim;
+  const_component_dim_ = const_component_dim;
   left_context_ = left_context;
   right_context_ = right_context;
   KALDI_ASSERT(input_dim_ > 0 && left_context >= 0 && right_context >= 0);
+  KALDI_ASSERT(const_component_dim_ >= 0 && const_component_dim_ < input_dim_);
 }
+
 
 // e.g. args == "input-dim=10 left-context=2 right-context=2
 void SpliceComponent::InitFromString(std::string args) {
@@ -1235,14 +1238,18 @@ void SpliceComponent::InitFromString(std::string args) {
   bool ok = ParseFromString("input-dim", &args, &input_dim) &&
             ParseFromString("left-context", &args, &left_context) &&
             ParseFromString("right-context", &args, &right_context);
+
+  int32 const_component_dim = 0;
+  ParseFromString("const-component-dim", &args, &const_component_dim);
+
   if (!ok || !args.empty() || input_dim <= 0)
     KALDI_ERR << "Invalid initializer for layer of type "
               << Type() << ": \"" << orig_args << "\"";
-  Init(input_dim, left_context, right_context);
+  Init(input_dim, left_context, right_context, const_component_dim);
 }
 
 int32 SpliceComponent::OutputDim() const {
-  return input_dim_ * (1 + left_context_ + right_context_);
+  return (input_dim_  - const_component_dim_) * (1 + left_context_ + right_context_) + const_component_dim_;
 }
 
 void SpliceComponent::Propagate(const MatrixBase<BaseFloat> &in,
@@ -1255,7 +1262,7 @@ void SpliceComponent::Propagate(const MatrixBase<BaseFloat> &in,
   int32 input_chunk_size = in.NumRows() / num_chunks,
        output_chunk_size = input_chunk_size - left_context_ - right_context_,
                input_dim = in.NumCols(),
-              output_dim = input_dim * (1 + left_context_ + right_context_);
+              output_dim = OutputDim();
   if (output_chunk_size <= 0)
     KALDI_ERR << "Splicing features: output will have zero dimension. "
               << "Probably a code error.";
@@ -1264,16 +1271,30 @@ void SpliceComponent::Propagate(const MatrixBase<BaseFloat> &in,
     SubMatrix<BaseFloat> input_chunk(in,
                                      chunk * input_chunk_size, input_chunk_size,
                                      0, input_dim),
-        output_chunk(*out,
-                     chunk * output_chunk_size, output_chunk_size,
-                     0, output_dim);
+                        output_chunk(*out,
+                                     chunk * output_chunk_size, output_chunk_size,
+                                     0, output_dim);
+
     for (int32 c = 0; c < left_context_ + right_context_ + 1; c++) {
-      SubMatrix<BaseFloat> input_part(input_chunk, c, output_chunk_size,
-                                      0, input_dim),
-          output_part(output_chunk, 0, output_chunk_size,
-                      input_dim * c, input_dim);
+      SubMatrix<BaseFloat> input_part(input_chunk, 
+                                      c, output_chunk_size,
+                                      0, input_dim - const_component_dim_),
+                           output_part(output_chunk, 
+                                      0, output_chunk_size,
+                                      (input_dim - const_component_dim_) * c, input_dim - const_component_dim_);
       output_part.CopyFromMat(input_part);
     }
+    //Append the constant component at the end of the output vector
+    if (const_component_dim_ != 0) {
+      SubMatrix<BaseFloat> input_part(input_chunk, 
+                                    0, output_chunk_size,
+                                    InputDim() - const_component_dim_, const_component_dim_),
+                           output_part(output_chunk, 
+                                    0, output_chunk_size,
+                                    OutputDim() - const_component_dim_, const_component_dim_);
+      output_part.CopyFromMat(input_part);
+    }
+
   }  
 }
 
@@ -1284,29 +1305,50 @@ void SpliceComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                                Component *to_update, // may == "this".
                                Matrix<BaseFloat> *in_deriv) const {
   int32 num_chunks = chunk_weights.Dim();
-  KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
+ 
+ KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
+
   if (out_deriv.NumRows() % num_chunks != 0)
     KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
               << "number of frames " << out_deriv.NumRows();
+  
   int32 output_chunk_size = out_deriv.NumRows() / num_chunks,
          input_chunk_size = output_chunk_size + left_context_ + right_context_,
                output_dim = out_deriv.NumCols(),
-                input_dim = output_dim / (1 + left_context_ + right_context_);
-  KALDI_ASSERT(output_dim * (1 + left_context_ + right_context_) == input_dim);
+                input_dim = InputDim();
+ 
+ KALDI_ASSERT( OutputDim() == output_dim );
 
   in_deriv->Resize(num_chunks * input_chunk_size, input_dim); // Will zero it.
   for (int32 chunk = 0; chunk < num_chunks; chunk++) {
-    SubMatrix<BaseFloat> in_deriv_chunk(*in_deriv, chunk * input_chunk_size,
-                                        input_chunk_size, 0, input_dim),
-        out_deriv_chunk(out_deriv,
-                        chunk * output_chunk_size, output_chunk_size,
-                        0, output_dim);
+    SubMatrix<BaseFloat> in_deriv_chunk(*in_deriv, 
+                            chunk * input_chunk_size, input_chunk_size, 
+                            0, input_dim),
+                        out_deriv_chunk(out_deriv,
+                            chunk * output_chunk_size, output_chunk_size,
+                            0, output_dim);
+
+
     for (int32 c = 0; c < left_context_ + right_context_ + 1; c++) {
-      SubMatrix<BaseFloat> in_deriv_part(in_deriv_chunk, c, output_chunk_size,
-                                         0, input_dim),
-          out_deriv_part(out_deriv_chunk, 0, output_chunk_size,
-                         input_dim * c, input_dim);
+      SubMatrix<BaseFloat> in_deriv_part(in_deriv_chunk, 
+                                         c, output_chunk_size,
+                                         0, input_dim - const_component_dim_),
+                          out_deriv_part(out_deriv_chunk, 
+                                        0, output_chunk_size,
+                                        c * (input_dim - const_component_dim_), input_dim - const_component_dim_);
       in_deriv_part.AddMat(1.0, out_deriv_part);
+    }
+    
+    if (const_component_dim_ > 0) {
+      SubMatrix<BaseFloat> out_deriv_const_part(out_deriv_chunk, 
+                              chunk * output_chunk_size, 1,
+                              output_dim - const_component_dim_, const_component_dim_); 
+                      
+      for (int32 c = 0; c < in_deriv_chunk.NumRows(); c++) {
+        SubMatrix<BaseFloat> in_deriv_part(in_deriv_chunk, c, 1,
+                                           input_dim - const_component_dim_, const_component_dim_);
+        in_deriv_part.CopyFromMat(out_deriv_const_part);
+      } 
     }
   }  
 }
@@ -1316,6 +1358,7 @@ Component *SpliceComponent::Copy() const {
   ans->left_context_ = left_context_;
   ans->right_context_ = right_context_;
   ans->right_context_ = right_context_;
+  ans->const_component_dim_ = const_component_dim_;
   return ans;
 }
 
@@ -1326,7 +1369,17 @@ void SpliceComponent::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &left_context_);
   ExpectToken(is, binary, "<RightContext>");
   ReadBasicType(is, binary, &right_context_);
-  ExpectToken(is, binary, "</SpliceComponent>");  
+  
+
+  std::string token;
+  ReadToken(is, binary, &token);
+  if (token == "<ConstComponentDim>") {
+    ReadBasicType(is, binary, &const_component_dim_);
+    ExpectToken(is, binary, "</SpliceComponent>");
+  } else if (token != "</SpliceComponent>") {
+    KALDI_ERR << "Expected token \"</SpliceComponent>\", got instead \""
+              << token << "\".";
+  }
 }
 
 void SpliceComponent::Write(std::ostream &os, bool binary) const {
@@ -1337,6 +1390,8 @@ void SpliceComponent::Write(std::ostream &os, bool binary) const {
   WriteBasicType(os, binary, left_context_);
   WriteToken(os, binary, "<RightContext>");
   WriteBasicType(os, binary, right_context_);
+  WriteToken(os, binary, "<ConstComponentDim>");
+  WriteBasicType(os, binary, const_component_dim_);
   WriteToken(os, binary, "</SpliceComponent>");  
 }
 

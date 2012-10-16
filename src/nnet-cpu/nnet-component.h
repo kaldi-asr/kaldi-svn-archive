@@ -337,7 +337,8 @@ class SpliceComponent: public Component {
   SpliceComponent() { }  // called only prior to Read() or Init().
   void Init(int32 input_dim,
             int32 left_context,
-            int32 right_context);
+            int32 right_context,
+            int32 const_component_dim=0);
   virtual std::string Type() const { return "SpliceComponent"; }
   virtual void InitFromString(std::string args);
   virtual int32 InputDim() const { return input_dim_; }
@@ -363,6 +364,7 @@ class SpliceComponent: public Component {
   int32 input_dim_;
   int32 left_context_;
   int32 right_context_;
+  int32 const_component_dim_;
 };
 
 

@@ -375,6 +375,44 @@ void UnitTestParsing() {
 
 }
 
+int BasicDebugTestForSplice (bool output=false) {
+  int32 C=5;
+  int32 K=4, contextLen=1;
+  int32 R=3+2 * contextLen;
+ 
+  SpliceComponent *c = new SpliceComponent();
+  c->Init(C, contextLen, contextLen, K);
+  Matrix<BaseFloat> in(R, C);
+  Matrix<BaseFloat> out(R, c->OutputDim());
+
+  in.SetRandn();
+  if (output)
+    KALDI_WARN << in;
+
+  c->Propagate(in, 1, &out);
+  
+  if (output) 
+    KALDI_WARN << out;
+
+  out.Set(1);
+  
+  if (K > 0) {
+    SubMatrix<BaseFloat> k(out, 0, out.NumRows(), c->OutputDim() - K, K);
+    k.Set(-2);
+  }
+
+  if (output)
+    KALDI_WARN << out;
+  
+  Vector<BaseFloat> chunk_weights(1);
+  chunk_weights(0) = 1;
+  c->Backprop(in, in, out, chunk_weights, c, &in);
+  
+  if (output)
+    KALDI_WARN << in ;
+
+  return 0;
+}
 
 } // namespace kaldi
 
@@ -383,6 +421,8 @@ void UnitTestParsing() {
 
 int main() {
   using namespace kaldi;
+
+  BasicDebugTestForSplice(true);
 
   for (int32 i = 0; i < 5; i++) {
     UnitTestGenericComponent<SigmoidComponent>();
