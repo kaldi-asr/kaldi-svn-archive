@@ -1,27 +1,25 @@
 
-
 all:
-
+EXTRA_CXXFLAGS = -Wsign-compare
 include ../kaldi.mk
 
-TESTFILES = nnet-component-test
+LDFLAGS += $(CUDA_LDFLAGS)
 
-OBJFILES = nnet-component.o nnet-nnet.o nnet-update.o nnet-train.o \
-     nnet-randomize.o nnet-compute.o am-nnet.o
+BINFILES = nnet-randomize-frames nnet-info
 
-#nnet-compute.o nnet-train.o
-# nnet-nnet.o nnet-loss.o nnet-rnnlm.o
+##nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-train-mse-tgtmat-frmshuff nnet-forward nnet-copy rbm-train-cd1-frmshuff rbm-convert-to-nnet nnet-trim-n-last-transforms nnet-train-mmi-sequential
 
-LIBFILE = kaldi-nnet-cpu.a 
+OBJFILES =
 
-all:  $(LIBFILE)
-
-$(LIBFILE): $(OBJFILES)
-	$(AR) -cru $(LIBFILE) $(OBJFILES)
-	$(RANLIB) $(LIBFILE)
+all:  $(BINFILES)
 
 
-$(TESTFILES): $(LIBFILE) ../matrix/kaldi-matrix.a ../base/kaldi-base.a  ../util/kaldi-util.a 
+TESTFILES =
+
+
+$(BINFILES): ../nnet-cpu/kaldi-nnet-cpu.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a 
+
+
 
 # Rule below would expand to, e.g.:
 # ../base/kaldi-base.a:
@@ -31,7 +29,7 @@ $(TESTFILES): $(LIBFILE) ../matrix/kaldi-matrix.a ../base/kaldi-base.a  ../util/
 	$(MAKE) -C ${@D} ${@F}
 
 clean:
-	-rm -f *.o *.a $(TESTFILES) tmp* *.tmp
+	rm *.o $(TESTFILES) $(BINFILES)
 
 test_compile: $(TESTFILES)
   

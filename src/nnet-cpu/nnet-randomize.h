@@ -33,7 +33,7 @@ struct NnetDataRandomizerConfig {
   /// higher weight to compensate.  Note: we'll give these weights an overall
   /// scale such that the expected weight of any given sample is 1; this helps
   /// keep this independent from the learning rates.  frequency_power=1.0
-  /// means "normal" training.  We probably want between 0.5 and 1.0.
+  /// means "normal" training.  We probably want 0.5 or so.
   BaseFloat frequency_power;
   
   int32 num_samples; // Total number of samples we want to train on (if >0).  The program
@@ -42,17 +42,18 @@ struct NnetDataRandomizerConfig {
   BaseFloat num_epochs; // Total number of epochs we want (if >0).  The program will run
   // for this many epochs before it stops.
 
-  NnetDataRandomizerConfig(): frequency_power(0.5), num_samples(1000000),
+  NnetDataRandomizerConfig(): frequency_power(1.0), num_samples(-1),
                               num_epochs(-1) { }
 
   void Register(ParseOptions *po) {
     po->Register("frequency-power", &frequency_power, "Power by which we rescale "
                  "the frequencies of samples.");
     po->Register("num-epochs", &num_epochs, "If >0, this will define how many "
-                 "times to train on the whole data.  Note, we will see some "
-                 "samples more than once if frequency-power < 1.0.");
+                 "times to train on the whole data.  Note, you will see some "
+                 "samples more than once if frequency-power < 1.0.  You must"
+                 "define num-samples or num-epochs.");
     po->Register("num-samples", &num_samples, "The number of samples of training "
-                 "data to train on.");
+                 "data to train on.  You must define num-samples or num-epochs.");
   }
 
 };
@@ -64,7 +65,8 @@ struct NnetDataRandomizerConfig {
 /// the same.
 class NnetDataRandomizer {
  public:
-  NnetDataRandomizer(const Nnet &nnet,
+  NnetDataRandomizer(int32 left_context,
+                     int32 right_context,
                      const NnetDataRandomizerConfig &config);
       
   void AddTrainingFile(const Matrix<BaseFloat> &feats,
@@ -76,13 +78,17 @@ class NnetDataRandomizer {
   const NnetTrainingExample &Value();
   ~NnetDataRandomizer();
  private:
-  /// Called from RandomizeSamples().
-  void GetPdfCounts(std::vector<int32> *pdf_counts);
+  void Init(); // This function is called the first time Next() or Value() is
+  // called.
+  
   /// Called from RandomizeSamples().  Get samples indexed first
   /// by pdf-id, without any randomization or reweighting.
   void GetRawSamples(
       std::vector<std::vector<std::pair<int32, int32> > > *pdf_counts);
-
+  /// Called from Next().
+  void GetExample(const std::pair<int32, int32> &pair,
+                  NnetTrainingExample *example) const;
+  
   /// Called from RandomizeSamples().  Takes the samples indexed first by pdf,
   /// which are assumed to be in random order for each pdf, and writes them in
   /// pseudo-random order to *samples as one long sequence.  Uses a recursive
@@ -103,20 +109,29 @@ class NnetDataRandomizer {
     CompressedMatrix feats;
     Vector<BaseFloat> spk_info;
     std::vector<int32> labels; // Vector of pdf-ids (targets for training).
+    TrainingFile(const MatrixBase<BaseFloat> &feats_in,
+                 const VectorBase<BaseFloat> &spk_info_in,
+                 const std::vector<int32> &labels_in):
+        feats(feats_in), spk_info(spk_info_in), labels(labels_in) { }
   };
-
-  const Nnet &nnet_;
+  
+  int32 left_context_;
+  int32 right_context_;
   NnetDataRandomizerConfig config_;    
+  int32 num_samples_tgt_; // a function of the config.
+  int32 num_samples_returned_; // increases during training.
+  
   std::vector<TrainingFile*> data_;
-
-  int32 num_samples_tgt_;
-  int32 num_samples_given_;
+  
   std::vector<std::pair<int32, int32> > samples_; // each time we randomize
-  // the whole data, we store it here.
+  // the whole data, we store pairs here that record the (file, frame) index
+  // of each randomized sample.  We pop elements off this list.
+
   Vector<BaseFloat> pdf_weights_; // each time we randomize the data,
   // we compute a new weighting for each pdf, which is to cancel out the
   // difference in frequency between the original frequency and the sampled
   // frequency.
+  
   NnetTrainingExample cur_example_; // Returned from Value().  NnetDataRandomizerConfig_ config_;
 };
 

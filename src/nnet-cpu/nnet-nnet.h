@@ -96,11 +96,11 @@ class Nnet {
 
   /// Initialize from config file.
   /// Each line of the config is either a comment line starting
-  /// with whitespace then #, or it is a vector specifying splicing to the
-  /// input of this layer, e.g. [ -1 0 1 ] or [ 0 ] followed by
-  /// a string that would initialize a Component: for example,
-  /// AffineComponent 0.01 0.001 1000 1000.
-  void InitFromConfig(std::istream &is); 
+  /// with whitespace then #, or it is a line that specifies one
+  /// layer of the network, as accepted by Component::InitFromString().
+  /// An example non-comment line is:
+  /// AffineComponent learning-rate=0.01 l2-penalty=0.001 input-dim=10 output-dim=15 param-stddev=0.1
+  void Init(std::istream &is); 
   
   ~Nnet() { Destroy(); }
 

@@ -173,9 +173,91 @@ void NnetDataRandomizer::RandomizeSamples() {
   // wrong in some exremely small way (due to the nonlinearity in the inverse
   // function).
   pdf_weights_.Scale(VecVec(pdf_weights_, reweighted_counts) /
-                     reweighted_counts.Sum());  
+                     reweighted_counts.Sum());
+
+  if (num_samples_tgt_ == -1) { // set this variable.
+    if (config_.num_samples > 0 && config_.num_epochs > 0) 
+      KALDI_ERR << "You cannot set both of the --num-samples and --num-epochs "
+                << "options to greater than zero.";
+    if (config_.num_samples > 0)
+      num_samples_tgt_ = config_.num_samples;
+    else if (config_.num_epochs > 0)
+      num_samples_tgt_ = static_cast<int>(config_.num_epochs *
+                                          samples_.size());
+    else 
+      KALDI_ERR << "At least one of --num-samples and --num-epochs must be "
+                << "greater than zero.";
+    KALDI_ASSERT(num_samples_tgt_ > 0);
+  }
 }
 
-  
-  
+NnetDataRandomizer::NnetDataRandomizer(int32 left_context_,
+                                       int32 right_context_,
+                                       const NnetDataRandomizerConfig &config):
+    left_context_(left_context_), right_context_(right_context_), config_(config) {
+  num_samples_returned_ = 0;
+  num_samples_tgt_ = -1; // We'll set this the first time we call Done() or Value(),
+  // inside RandomizeSamples().
+}
+
+void NnetDataRandomizer::AddTrainingFile(const Matrix<BaseFloat> &feats,
+                                         const Vector<BaseFloat> &spk_info,
+                                         const std::vector<int32> &labels) {
+  TrainingFile *tf = new TrainingFile(feats, spk_info, labels);
+  data_.push_back(tf);
+}
+
+NnetDataRandomizer::~NnetDataRandomizer() {
+  for (size_t i = 0; i < data_.size(); i++)
+    delete data_[i];
+}
+
+void NnetDataRandomizer::GetExample(const std::pair<int32, int32> &pair,
+                                    NnetTrainingExample *example) const {
+  int32 file_index = pair.first,
+      frame_index = pair.second;
+  KALDI_ASSERT(static_cast<size_t>(file_index) < data_.size());
+  const TrainingFile &tf = *(data_[file_index]);
+  KALDI_ASSERT(static_cast<size_t>(frame_index) < tf.labels.size());
+  int32 label = tf.labels[frame_index];
+  KALDI_ASSERT(label >= 0 && label < pdf_weights_.Dim());
+  example->weight = pdf_weights_(label);
+  example->spk_info = tf.spk_info;
+  example->input_frames.Resize(left_context_ + 1 + right_context_,
+                               tf.feats.NumCols());
+  int32 start_frame = frame_index - left_context_,
+      end_frame = frame_index + left_context_;
+  for (int32 frame = start_frame; frame <= end_frame; frame++) {
+    SubVector<BaseFloat> dest(example->input_frames, frame - start_frame);
+    int32 frame_limited = frame; // we'll duplicate the start/end frame if we
+    // cross the boundary of the utterance.
+    if (frame_limited < 0)
+      frame_limited = 0;
+    if (frame_limited >= tf.feats.NumRows())
+      frame_limited = tf.feats.NumRows() - 1;
+    tf.feats.CopyRowToVec(frame_limited, &dest);
+  }
+}
+
+bool NnetDataRandomizer::Done() {
+  if (data_.empty()) return true;  // no data, so must be done.
+  if (num_samples_tgt_ == -1) RandomizeSamples();  // first time called.
+  if (num_samples_returned_ >= num_samples_tgt_) return true;
+  if (samples_.empty()) RandomizeSamples();
+  KALDI_ASSERT(!samples_.empty());
+  return false;
+}
+
+const NnetTrainingExample &NnetDataRandomizer::Value() {
+  KALDI_ASSERT(!Done());  // implies !samples_.empty().
+  GetExample(samples_.back(), &cur_example_);
+  return cur_example_;
+}
+
+void NnetDataRandomizer::Next() {
+  KALDI_ASSERT(!Done());  // implies !samples_.empty().
+  samples_.pop_back();
+  num_samples_returned_++;
+}
+
 } // namespace

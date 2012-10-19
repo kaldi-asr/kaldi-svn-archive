@@ -27,6 +27,12 @@ int32 Nnet::OutputDim() const {
   return components_.back()->OutputDim();
 }
 
+int32 Nnet::InputDim() const {
+  KALDI_ASSERT(!components_.empty());
+  return components_.back()->InputDim();
+}
+
+
 int32 Nnet::LeftContext() const {
   KALDI_ASSERT(!components_.empty());
   int32 ans = 0;
@@ -134,6 +140,18 @@ Nnet &Nnet::operator = (const Nnet &other) {
   return *this;
 }
 
+std::string Nnet::Info() const {
+  std::ostringstream ostr;
+  ostr << "num-components " << NumComponents() << std::endl;
+  ostr << "left-context " << LeftContext() << std::endl;
+  ostr << "right-context " << RightContext() << std::endl;
+  ostr << "input-dim " << InputDim() << std::endl;
+  ostr << "output-dim " << OutputDim() << std::endl;
+  for (int32 i = 0; i < NumComponents(); i++)
+    ostr << "component " << i << " : " << components_[i]->Info() << std::endl;
+  return ostr.str();
+}
+
 void Nnet::Check() const {
   KALDI_ASSERT(!components_.empty());
   for (size_t i = 0; i + 1 < components_.size(); i++) {
@@ -143,7 +161,7 @@ void Nnet::Check() const {
   }
 }
 
-void Nnet::InitFromConfig(std::istream &is) {
+void Nnet::Init(std::istream &is) {
   Destroy();
   std::string line;
   /* example config file as follows.  The things in brackets specify the context

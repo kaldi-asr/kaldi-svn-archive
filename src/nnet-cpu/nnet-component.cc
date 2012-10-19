@@ -381,7 +381,8 @@ void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
     d.AddVec(-pT_e, p); // d_i -= (p^T e) p_i
   }
 
-
+  // The SoftmaxComponent does not have any real trainable parameters, but
+  // during the backprop we
   if (to_update) {
     SoftmaxComponent *to_update_softmax =
         dynamic_cast<SoftmaxComponent*>(to_update);
@@ -392,9 +393,15 @@ void SoftmaxComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
     KALDI_ASSERT(num_chunks > 0 && chunk_size * num_chunks == out_value.NumRows());
     for (int32 chunk = 0; chunk < num_chunks; chunk++) {
       BaseFloat chunk_weight = chunk_weights(chunk) / chunk_size; // the "chunk_weights"
-      // variable stores the weighting factor times the number of labeled frames in
-      // the chunk, which happens to be convenient.  Here we want the actual weight
-      // that was applied; typically these weights will be close to one.
+      // variable stores the weighting factor times the number of labeled frames
+      // in the chunk, which happens to be convenient when implementing l2
+      // regularization with SGD.  Here we want the actual weighting factor on
+      // the chunk; typically these weights will be close to one.  Note: this
+      // code assumes that this softmax layer doesn't undergo any frame splicing
+      // before the output, so the chunk_size equals the number of labels at the
+      // output.  This is a safe assumption, as we anticipate we won't be
+      // needing this count information in cases where such splicing might be
+      // applied.
       SubMatrix<BaseFloat> output_chunk(out_value, chunk * chunk_size, chunk_size,
                                         0, out_value.NumCols());
       to_update_softmax->counts_.AddRowSumMat(chunk_weight, output_chunk, 1.0);

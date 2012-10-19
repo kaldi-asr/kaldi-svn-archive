@@ -126,7 +126,7 @@ class Component {
   virtual void Write(std::ostream &os, bool binary) const = 0;
 
   virtual std::string Info() const;
-  
+
   virtual ~Component() { }
 
  private:
@@ -504,8 +504,8 @@ class MixtureProbComponent: public UpdatableComponent {
   bool is_gradient_; // true if we're treating this as just a store for the gradient.
 };
 
-// PermuteComponent does a random permutation of the dimensions.
-// Useful in conjunction with block-diagonal transforms.
+/// PermuteComponent does a random permutation of the dimensions.  Useful in
+/// conjunction with block-diagonal transforms.
 class PermuteComponent: public Component {
  public:
   virtual void Init(int32 dim);
