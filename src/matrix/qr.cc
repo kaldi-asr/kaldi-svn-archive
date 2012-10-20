@@ -76,6 +76,8 @@ void HouseBackward(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
     sigma += x[i] * x[i];
     v[i] = x[i];
   }
+  KALDI_ASSERT(!isnan(sigma) &&
+               "Tridiagonalizing matrix that is too large or has NaNs.");
   if (sigma == 0.0) *beta = 0.0;
   else {
     Real x1 = x[dim-1], mu = sqrt(x1*x1 + sigma);
@@ -246,7 +248,7 @@ void QrStep(MatrixIndexT n,
       Real &elem_kp2_k = z, 
           &elem_kp2_kp1 = off_diag[k+1];
       // Note: elem_kp2_k == z would start off as zero because it's
-      // two off the diagonal, and not been touched yet.  Therefore
+       // two off the diagonal, and not been touched yet.  Therefore
       // we eliminate it in expressions below, commenting it out.
       // If we didn't do this we should set it to zero first.
       elem_kp2_k =  - s*elem_kp2_kp1; // + c*elem_kp2_k
@@ -278,7 +280,7 @@ void QrInternal(MatrixIndexT n,
                                            // loop when we converge.
     if (counter == large_iters) {
       KALDI_WARN << "Took " << large_iters
-                 << " iterations in QR (dim is " << n << ", doubling epsilon.";
+                 << " iterations in QR (dim is " << n << "), doubling epsilon.";
       epsilon *= 2.0;
     }
     for (MatrixIndexT i = 0; i+1 < n; i++) {
