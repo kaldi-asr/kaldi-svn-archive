@@ -1,4 +1,4 @@
-// nnet-cpu/nnet-train.h
+// nnet-cpu/train-nnet.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
@@ -15,8 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_CPU_NNET_TRAIN_H_
-#define KALDI_NNET_CPU_NNET_TRAIN_H_
+#ifndef KALDI_NNET_CPU_TRAIN_NNET_H_
+#define KALDI_NNET_CPU_TRAIN_NNET_H_
 
 #include "nnet-cpu/nnet-update.h"
 #include "nnet-cpu/nnet-compute.h"
@@ -24,73 +24,6 @@
 
 namespace kaldi {
 
-
-
-/*
-
-
-/// Class NnetBackpropComputation is responsible for storing the temporary
-/// variables necessary to do propagation and backprop, and
-/// either updating the network or computing gradients.  This class
-/// is defined in nnet-train.cc because it isn't needed at the use
-/// level; its functionality is exported by the function DoBackprop().
-///You give it a neural
-/// net to do the computation on, and a ponter to a neural net to
-/// update; these will be the same for typical SGD training, and
-/// different if what you're doing is computing the parameter gradient
-/// on a validation set.  The logic for doing things like keeping
-/// the learning rates updated lies outside this class.
-
-class NnetBasicTrainer {
- public:
-//    The initializer takes: the features [one per training file]; and
-//    the labels, which are indexed [training file][t][list of pair (category, label)].
-//    For construction of labels from pdf-ids etc., see am-nnet1.h.    
-  Nnet1BasicTrainer(
-      const NnetBasicTrainerConfig &config,
-      Nnet &nnet,
-      Nnet *nnet_to_update); // may equal &nnet or may be different.
-
-  void void UseOneMinibatch
-
-  
-  BaseFloat TrainOnOneMinibatch(); // returns average objective function over this minibatch.
-  
-  BaseFloat NumEpochs(); // returns approximate number of epochs we've seen already.
-
-  const Nnet1 &Nnet() const { return updater_.Nnet(); }
-  Nnet1 &Nnet() { return *updater_.NnetToUpdate(); } // actually same object as updater.Nnet().
-  int32 NumChunks() { return num_chunks_; }
-  int32 ChunkSize() { return chunk_size_; }
- private:
-  void GetTrainingExamples(std::vector<TrainingExample> *egs); // gets num_chunks_ training
-  // examples.
-
-  static void ExtractToMatrix(const CompressedMatrix &input,
-                              int32 time_offset,
-                              Matrix<BaseFloat> *output);
-
-  AmNnet1 *am_nnet_; // not owned here.
-  Nnet1Updater updater_;
-  const std::vector<CompressedMatrix> &features_;
-  const std::vector<std::vector<int32> > &pdf_ids_;
-
-  int32 chunk_size_;
-  int32 num_chunks_; // Num chunks per minibatch.
-  int32 left_context_; // left context required by the network.
-  int32 right_context_; // right context required by the network.
-  
-  void FillQueue();
-  void GetChunk(int32 *file_id, int32 *chunk_offset);
-                
-  std::vector<std::pair<int32, int32> > chunk_queue_; // queue of chunks, in randomized
-  // order, in the form of pairs (file-index, start-time).
-
-  int32 num_chunks_trained_;
-  int32 chunks_per_epoch_;
-};
-
-*/
 
 
 /// Class Nnet1ValidationSet stores the validation set feature data and labels,
@@ -103,7 +36,7 @@ class NnetValidationSet {
   /// This is used while initializing the object.
   void AddUtterance(const MatrixBase<BaseFloat> &features,
                     const VectorBase<BaseFloat> &spk_info, // may be empty
-                    std::vector<int32> &pdf_ids,
+                    const std::vector<int32> &pdf_ids,
                     BaseFloat utterance_weight = 1.0);
 
   /// Here, "nnet" will be a neural net and "gradient" will be a copy of it that
@@ -149,8 +82,7 @@ struct NnetAdaptiveTrainerConfig {
       minibatch_size(500), minibatches_per_phase(50),
       learning_rate_ratio(1.1),
       max_learning_rate(0.1),
-      min_l2_penalty(1.0e-10), max_l2_penalty(1.0),
-      num_phases(50) { }
+      min_l2_penalty(1.0e-10), max_l2_penalty(1.0) { }
   
   void Register (ParseOptions *po) {
     po->Register("minibatch-size", &minibatch_size,
@@ -169,10 +101,6 @@ struct NnetAdaptiveTrainerConfig {
                  "Minimum allowed l2 penalty.");
     po->Register("max-l2-penalty", &max_l2_penalty,
                  "Maximum allowed l2 penalty.");
-    po->Register("num-phases", &num_phases,
-                 "Number of \"phases\" of training (a phase is a sequence of "
-                 "num-minibatches minibatches; after each phase we modify "
-                 "learning rates).  If <= 0, continue till input stream stops.");
   }  
 };
 
@@ -186,7 +114,7 @@ class NnetAdaptiveTrainer {
   NnetAdaptiveTrainer(const NnetAdaptiveTrainerConfig &config,
                       const NnetValidationSet &validation_set,
                       Nnet *nnet);
-
+  
   /// TrainOnExample will take the example and add it to a buffer;
   /// if we've reached the minibatch size it will do the training.
   void TrainOnExample(const NnetTrainingExample &value);
@@ -222,8 +150,6 @@ class NnetAdaptiveTrainer {
 };
 
 
-
 } // namespace
 
 #endif
-

@@ -1,4 +1,4 @@
-// nnet/nnet-train.cc
+// nnet/train-nnet.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -15,14 +15,14 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet-cpu/nnet-train.h"
+#include "nnet-cpu/train-nnet.h"
 
 namespace kaldi {
 
 void NnetValidationSet::AddUtterance(
     const MatrixBase<BaseFloat> &features,
     const VectorBase<BaseFloat> &spk_info, // may be empty
-    std::vector<int32> &pdf_ids,
+    const std::vector<int32> &pdf_ids,
     BaseFloat utterance_weight) {
   KALDI_ASSERT(pdf_ids.size() == static_cast<size_t>(features.NumRows()));
   KALDI_ASSERT(utterance_weight > 0.0);
@@ -177,10 +177,11 @@ NnetAdaptiveTrainer::~NnetAdaptiveTrainer() {
               << buffer_.size();
     TrainOneMinibatch();
   }
-  KALDI_LOG << "Following numbers exclude last (partial) minibatch.";
-  KALDI_LOG << "Overall progress (based on gradients) is "
-                << progress_stats_ << ", total "
-                << progress_stats_.Sum();
+  KALDI_LOG << "Trained for " << num_phases_ << " phases of training.";
+  KALDI_LOG << "The following numbers include only whole phases of training\n";
+  KALDI_LOG << "Predicted progress (based on gradients) broken down by "
+            << "component is " << progress_stats_;
+  KALDI_LOG << "Total of the above over all layers is " << progress_stats_.Sum();
   KALDI_LOG << "Actual progress " << initial_validation_objf_
             << " to " << validation_objf_ << ": change is "
             << (validation_objf_-initial_validation_objf_);  
@@ -191,6 +192,5 @@ void NnetAdaptiveTrainer::TrainOnExample(const NnetTrainingExample &value) {
     TrainOneMinibatch();
   buffer_.push_back(value);  
 }
-
   
 } // namespace
