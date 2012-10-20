@@ -1564,11 +1564,9 @@ static void UnitTestAddDiagMat2() {
   for (MatrixIndexT iter = 0; iter < 4; iter++) {
 	MatrixIndexT dimM = 10 + rand() % 3,
                  dimN = 1 + rand() % 4;
-
     Vector<Real> v(dimM);
     InitRand(&v);
     Vector<Real> w(v);
-
     if (iter % 2 == 1) {
       Matrix<Real> M(dimM, dimN);
       InitRand(&M);
@@ -2052,8 +2050,8 @@ template<class Real> static void UnitTestHtkIo() {
     hdr.mNSamples = dimM;
     hdr.mSamplePeriod = 10000;  // in funny HTK units-- can set it arbitrarily
     hdr.mSampleSize = sizeof(float)*dimN;
-    hdr.mSampleKind = 10;  // don't know what this is.
-
+    hdr.mSampleKind = 8;  // Mel spectrum.
+    
     Matrix<Real> M(dimM, dimN);
     InitRand(&M);
 
@@ -2762,13 +2760,12 @@ template<class Real> static void UnitTestRealFftSpeed() {
 }
 
 template<class Real> static void UnitTestSplitRadixRealFftSpeed() {
-
-  // First, test RealFftInefficient.
   KALDI_LOG << "starting. ";
   MatrixIndexT sz = 512;  // fairly typical size.
   SplitRadixRealFft<Real> srfft(sz);
   for (MatrixIndexT i = 0; i < 6000; i++) {
-    if (i % 1000 == 0) KALDI_LOG << "done 1000 [ == ten seconds of speech, split-radix]\n";
+    if (i % 1000 == 0)
+      KALDI_LOG << "done 1000 [ == ten seconds of speech, split-radix]\n";
     Vector<Real> v(sz);
     srfft.Compute(v.Data(), true);
   }

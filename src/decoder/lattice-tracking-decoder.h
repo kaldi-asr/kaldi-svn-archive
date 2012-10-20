@@ -1,6 +1,7 @@
-// decoder/lattice-faster-decoder.h
+// decoder/lattice-tracking-decoder.h
 
-// Copyright 2009-2012  Microsoft Corporation  Mirko Hannemann  Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2012 BUT (Author: Mirko Hannemann) Johns Hopkins University
+// (Author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +16,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_DECODER_LATTICE_FASTER_DECODER_H_
-#define KALDI_DECODER_LATTICE_FASTER_DECODER_H_
-
+#ifndef KALDI_DECODER_LATTICE_TRACKING_DECODER_H_
+#define KALDI_DECODER_LATTICE_TRACKING_DECODER_H_
 
 #include "util/stl-utils.h"
 #include "util/hash-list.h"
@@ -29,7 +29,7 @@
 
 namespace kaldi {
 
-struct LatticeFasterDecoderConfig {
+struct LatticeTrackingDecoderConfig {
   BaseFloat beam;
   int32 max_active;
   BaseFloat lattice_beam;
@@ -42,7 +42,10 @@ struct LatticeFasterDecoderConfig {
   int32 max_arcs; // max #arcs in lattice.
   BaseFloat beam_delta; // has nothing to do with beam_ratio
   BaseFloat hash_ratio;
-  LatticeFasterDecoderConfig(): beam(16.0),
+  BaseFloat extra_beam; // added to beam of tracked tokens from first pass
+  BaseFloat max_beam; // maximum beam (in case tracked tokens go too far from beam)
+
+  LatticeTrackingDecoderConfig(): beam(16.0),
                                 max_active(std::numeric_limits<int32>::max()),
                                 lattice_beam(10.0),
                                 prune_interval(25),
@@ -51,7 +54,9 @@ struct LatticeFasterDecoderConfig {
                                 max_loop(0), // means we don't use this constraint.
                                 max_arcs(-1),
                                 beam_delta(0.5),
-                                hash_ratio(2.0) { }
+                                hash_ratio(2.0),
+                                extra_beam(4.0),
+                                max_beam(40.0) { }
   void Register(ParseOptions *po) {
     po->Register("beam", &beam, "Decoding beam.");
     po->Register("max-active", &max_active, "Decoder max active states.");
@@ -61,23 +66,42 @@ struct LatticeFasterDecoderConfig {
     po->Register("max-mem", &max_mem, "Maximum approximate memory consumption (in bytes) to use in determinization (probably real consumption would be many times this)");
     po->Register("max-loop", &max_loop, "Option to detect a certain type of failure in lattice determinization (not critical)");
     po->Register("max-arcs", &max_arcs, "If >0, maximum #arcs allowed in output lattice (total, not per state)");
-    po->Register("beam-delta", &beam_delta, "Increment used in decoding-- this parameter is obscure"
-                 "and relates to a speedup in the way the max-active constraint is applied.  Larger"
-                 "is more accurate.");
+    po->Register("beam-delta", &beam_delta, "Increment used in decoding");
     po->Register("hash-ratio", &hash_ratio, "Setting used in decoder to control hash behavior");
+    po->Register("extra-beam", &extra_beam, "Increment used in decoding (added to worst tracked token from first pass)");
+    po->Register("max-beam", &max_beam, "Maximum beam (in case tracked tokens go too far from beam)");
+
   }
   void Check() const {
     KALDI_ASSERT(beam > 0.0 && max_active > 1 && lattice_beam > 0.0 
-                 && prune_interval > 0 && beam_delta > 0.0 && hash_ratio >= 1.0);
+                 && prune_interval > 0 && beam_delta > 0.0 && hash_ratio >= 1.0
+                 && extra_beam >= 0.0 && max_beam >= beam);
   }
 };
 
 
-/** A bit more optimized version of the lattice decoder.
-   See \ref lattices_generation \ref decoders_faster and \ref decoders_simple
-    for more information.
+/**
+   This is the "tracking" version of the lattice-generating decoder.  It relates
+   to a "forward-backward decoding" concept that Mirko Hannemann and Dan Povey
+   are pursuing.  The idea is to use information from, say, a forward pass over
+   the data to inform the search of a backward pass over the same data.
+   Note: this code is modified from lattice-faster-decoder.h.
+
+   The basic idea is we take a lattice, say from a backward-in-time decoding
+   (for complementarity with the forward-in-time one), and for the forward-in-time
+   HCLG graph, we work out which arcs in the graph each lattice arc corresponds to...
+   this is done in a shortest-path sense, in that we work out for each path through
+   the lattice the best path through HCLG that it corresponds to... then when
+   decoding forward in time, we make sure on each time to, to keep each of the
+   arcs in HCLG that the backwards lattice would require us to keep active..
+
+   The lattice that we give to the decoder to help the search, has a format where
+   the ilabels contain the state in HCLG (corresponding to the preceding-state of
+   the arc in the lattice), and the olabels contain the arc index corresponding to
+   that transition in the lattice, i.e. the offset into the list of arcs transitioning
+   from that state in HCLG.   
  */
-class LatticeFasterDecoder {
+class LatticeTrackingDecoder {
  public:
   typedef fst::StdArc Arc;
   typedef Arc::Label Label;
@@ -85,18 +109,24 @@ class LatticeFasterDecoder {
   typedef Arc::Weight Weight;
 
   // instantiate this class once for each thing you have to decode.
-  LatticeFasterDecoder(const fst::Fst<fst::StdArc> &fst,
-                       const LatticeFasterDecoderConfig &config);
+  LatticeTrackingDecoder(const fst::Fst<fst::StdArc> &fst,
+                         const LatticeTrackingDecoderConfig &config);
 
-  void SetOptions(const LatticeFasterDecoderConfig &config) {
+  void SetOptions(const LatticeTrackingDecoderConfig &config) {
     config_ = config;
   }
 
-  ~LatticeFasterDecoder() { ClearActiveTokens(); }
+  ~LatticeTrackingDecoder() { ClearActiveTokens(); }
 
-  // Returns true if any kind of traceback is available (not necessarily from
-  // a final state).
-  bool Decode(DecodableInterface *decodable);
+  /// Returns true if any kind of traceback is available (not necessarily from
+  /// a final state).
+  /// The "arc_graph" argument is a specially processed lattice derived from
+  /// a normal lattice (typically from decoding in an opposite direction in time),
+  /// and the HCLG decoding graph we're decoding with in this decoder.
+  /// Look at the comment for LatticeTrackingDecoder for more details on its
+  /// format.
+  bool Decode(DecodableInterface *decodable,
+              const fst::StdVectorFst &arc_graph);
   
   /// says whether a final-state was active on the last frame.  If it was not, the
   /// lattice (or traceback) will end with states that are not final-states.
@@ -151,9 +181,12 @@ class LatticeFasterDecoder {
     
     Token *next; // Next in list of tokens for this frame.
     
+    StateId lat_state; // current state in graph arc lattice from first pass decoding
+    // lat_state == fst::kNoStateId means that this token is not tracked
+    
     inline Token(BaseFloat tot_cost, BaseFloat extra_cost, ForwardLink *links,
-                 Token *next): tot_cost(tot_cost), extra_cost(extra_cost),
-                 links(links), next(next) { }
+                 Token *next, StateId lat_state): tot_cost(tot_cost), extra_cost(extra_cost),
+                 links(links), next(next), lat_state(lat_state) { }
     inline void DeleteForwardLinks() {
       ForwardLink *l = links, *m; 
       while (l != NULL) {
@@ -185,9 +218,12 @@ class LatticeFasterDecoder {
   // and also into the singly linked list of tokens active on this frame
   // (whose head is at active_toks_[frame]).
   // Returns the Token pointer.  Sets "changed" (if non-NULL) to true
-  // if the token was newly created or the cost changed.
-  inline Token *FindOrAddToken(StateId state, int32 frame, BaseFloat tot_cost,
-                               bool *changed);
+  // if the token was newly created or the cost was changed,
+  // or when the token inherits the status "tracked"
+  // this will be needed when deciding whether to put it to the queue
+  // lat_state is the next state in the arc graph lattice
+  inline Token *FindOrAddToken(StateId state, StateId lat_state, int32 frame,
+                               BaseFloat tot_cost, bool *changed);
   
   // prunes outgoing links for all tokens in active_toks_[frame]
   // it's called by PruneActiveTokens
@@ -254,14 +290,16 @@ class LatticeFasterDecoder {
   std::vector<BaseFloat> cost_offsets_; // This contains, for each
   // frame, an offset that was added to the acoustic likelihoods on that
   // frame in order to keep everything in a nice dynamic range.
-  LatticeFasterDecoderConfig config_;
+  LatticeTrackingDecoderConfig config_;
   int32 num_toks_; // current total #toks allocated...
   bool warned_;
   bool final_active_; // use this to say whether we found active final tokens
   // on the last frame.
   std::map<Token*, BaseFloat> final_costs_; // A cache of final-costs
   // of tokens on the last frame-- it's just convenient to store it this way.
-  
+
+  const fst::StdVectorFst *arc_graph_; // graph arc lattice from first pass
+
   // It might seem unclear why we call ClearToks(toks_.Clear()).
   // There are two separate cleanup tasks we need to do at when we start a new file.
   // one is to delete the Token objects in the list; the other is to delete
@@ -281,9 +319,10 @@ class LatticeFasterDecoder {
 // other obvious place to put it.  If determinize == false, it writes to
 // lattice_writer, else to compact_lattice_writer.  The writers for
 // alignments and words will only be written to if they are open.
-bool DecodeUtteranceLatticeFaster(
-    LatticeFasterDecoder &decoder, // not const but is really an input.
+bool DecodeUtteranceLatticeTracking(
+    LatticeTrackingDecoder &decoder, // not const but is really an input.
     DecodableInterface &decodable, // not const but is really an input.
+    const fst::StdVectorFst &arc_graph, // contains graph arcs from forward pass lattice
     const fst::SymbolTable *word_syms,
     std::string utt,
     double acoustic_scale,

@@ -1,7 +1,7 @@
-// decoder/lattice-faster-decoder.cc
+// decoder/lattice-tracking-decoder.cc
 
-// Copyright 2009-2012  Microsoft Corporation  Mirko Hannemann
-//                      Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2012  BUT (Author: Mirko Hannemann)
+//                 Johns Hopkins University (Author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "decoder/lattice-faster-decoder.h"
+#include "decoder/lattice-tracking-decoder.h"
 
 namespace kaldi {
 
 // instantiate this class once for each thing you have to decode.
-LatticeFasterDecoder::LatticeFasterDecoder(const fst::Fst<fst::StdArc> &fst,
-                                           const LatticeFasterDecoderConfig &config):
+LatticeTrackingDecoder::LatticeTrackingDecoder(const fst::Fst<fst::StdArc> &fst,
+                                           const LatticeTrackingDecoderConfig &config):
     fst_(fst), config_(config), num_toks_(0) {
   config.Check();
   toks_.SetSize(1000);  // just so on the first frame we do something reasonable.
@@ -31,7 +31,9 @@ LatticeFasterDecoder::LatticeFasterDecoder(const fst::Fst<fst::StdArc> &fst,
 
 // Returns true if any kind of traceback is available (not necessarily from
 // a final state).
-bool LatticeFasterDecoder::Decode(DecodableInterface *decodable) {
+bool LatticeTrackingDecoder::Decode(DecodableInterface *decodable,
+                                    const fst::StdVectorFst &arc_graph) {
+  arc_graph_ = &arc_graph;
   // clean up from last time:
   ClearToks(toks_.Clear());
   cost_offsets_.clear();
@@ -43,7 +45,8 @@ bool LatticeFasterDecoder::Decode(DecodableInterface *decodable) {
   StateId start_state = fst_.Start();
   KALDI_ASSERT(start_state != fst::kNoStateId);
   active_toks_.resize(1);
-  Token *start_tok = new Token(0.0, 0.0, NULL, NULL);
+  // the initial token will be tracked and starts the arc_graph
+  Token *start_tok = new Token(0.0, 0.0, NULL, NULL, arc_graph.Start());
   active_toks_[0].toks = start_tok;
   toks_.Insert(start_state, start_tok);
   num_toks_++;
@@ -71,7 +74,7 @@ bool LatticeFasterDecoder::Decode(DecodableInterface *decodable) {
 
 // Outputs an FST corresponding to the single best path
 // through the lattice.
-bool LatticeFasterDecoder::GetBestPath(fst::MutableFst<LatticeArc> *ofst) const {
+bool LatticeTrackingDecoder::GetBestPath(fst::MutableFst<LatticeArc> *ofst) const {
   fst::VectorFst<LatticeArc> fst;
   if (!GetRawLattice(&fst)) return false;
   // std::cout << "Raw lattice is:\n";
@@ -83,7 +86,7 @@ bool LatticeFasterDecoder::GetBestPath(fst::MutableFst<LatticeArc> *ofst) const 
 
 // Outputs an FST corresponding to the raw, state-level
 // tracebacks.
-bool LatticeFasterDecoder::GetRawLattice(fst::MutableFst<LatticeArc> *ofst) const {
+bool LatticeTrackingDecoder::GetRawLattice(fst::MutableFst<LatticeArc> *ofst) const {
   typedef LatticeArc Arc;
   typedef Arc::StateId StateId;
   typedef Arc::Weight Weight;
@@ -150,7 +153,7 @@ bool LatticeFasterDecoder::GetRawLattice(fst::MutableFst<LatticeArc> *ofst) cons
 
 // Outputs an FST corresponding to the lattice-determinized
 // lattice (one path per word sequence).
-bool LatticeFasterDecoder::GetLattice(fst::MutableFst<CompactLatticeArc> *ofst) const {
+bool LatticeTrackingDecoder::GetLattice(fst::MutableFst<CompactLatticeArc> *ofst) const {
   Lattice raw_fst;
   if (!GetRawLattice(&raw_fst)) return false;
   Invert(&raw_fst); // make it so word labels are on the input.
@@ -175,7 +178,7 @@ bool LatticeFasterDecoder::GetLattice(fst::MutableFst<CompactLatticeArc> *ofst) 
   return true;
 }
 
-void LatticeFasterDecoder::PossiblyResizeHash(size_t num_toks) {
+void LatticeTrackingDecoder::PossiblyResizeHash(size_t num_toks) {
   size_t new_sz = static_cast<size_t>(static_cast<BaseFloat>(num_toks)
                                       * config_.hash_ratio);
   if (new_sz > toks_.Size()) {
@@ -188,29 +191,35 @@ void LatticeFasterDecoder::PossiblyResizeHash(size_t num_toks) {
 // for the current frame.  [note: it's inserted if necessary into hash toks_
 // and also into the singly linked list of tokens active on this frame
 // (whose head is at active_toks_[frame]).
-inline LatticeFasterDecoder::Token *LatticeFasterDecoder::FindOrAddToken(
-    StateId state, int32 frame, BaseFloat tot_cost,
-    bool *changed) {
+// Returns the Token pointer.  Sets "changed" (if non-NULL) to true
+// if the token was newly created or the cost was changed,
+// or when the token inherits the status "tracked"
+// this will be needed when deciding whether to put it to the queue
+// lat_state is the next state in the arc graph lattice
+inline LatticeTrackingDecoder::Token *LatticeTrackingDecoder::FindOrAddToken(
+    StateId state, StateId lat_state, int32 frame, BaseFloat tot_cost,
+    bool *changed) { // "changed" also can be "newly_tracked"
+    
   // Returns the Token pointer.  Sets "changed" (if non-NULL) to true
   // if the token was newly created or the cost changed.
   KALDI_ASSERT(frame < active_toks_.size());
   Token *&toks = active_toks_[frame].toks;
   Elem *e_found = toks_.Find(state);
-  if (e_found == NULL) { // no such token presently.
+  if (e_found == NULL) { // no such token presently exists.
     const BaseFloat extra_cost = 0.0;
     // tokens on the currently final frame have zero extra_cost
-    // as any of them could end up
-    // on the winning path.
-    Token *new_tok = new Token (tot_cost, extra_cost, NULL, toks);
+    // as any of them could end up on the winning path.
+    Token *new_tok = new Token (tot_cost, extra_cost, NULL, toks, lat_state);
     // NULL: no forward links yet
     toks = new_tok;
     num_toks_++;
     toks_.Insert(state, new_tok);
-    if (changed) *changed = true;
+    //if (lat_state!=fst::kNoStateId) // newly tracked, but changed=true anyway
+    if (changed) *changed = true; // new token means "changed"
     return new_tok;
   } else {
     Token *tok = e_found->val; // There is an existing Token for this state.
-    if (tok->tot_cost > tot_cost) { // replace old token
+    if (tok->tot_cost > tot_cost) { // old cost was higher -> replace old token
       tok->tot_cost = tot_cost;
       // we don't allocate a new token, the old stays linked in active_toks_
       // we only replace the tot_cost
@@ -220,8 +229,24 @@ inline LatticeFasterDecoder::Token *LatticeFasterDecoder::FindOrAddToken(
       // those forward links, that lead to this replaced token before:
       // they remain and will hopefully be pruned later (PruneForwardLinks...)
       if (changed) *changed = true;
+      // we don't need to update the lat_state: if two "tracked" token meet
+      // they meet at the same time in the same arc_graph state (lat_state)
+      // all successor arcs will have the same HCLG state as ilabel
     } else {
       if (changed) *changed = false;
+    }
+    //          old new result
+    // tracked? no  no  no
+    //          no  yes yes (no matter which cost is better)
+    //          yes no  yes (no matter which cost is better)
+    //          yes yes yes
+    // The "tracked" status can be turned on,
+    // even if the token wasn't updated by the tracked token.
+    // It can never be turned off, even if updated by a non-tracked token.
+    if ((tok->lat_state == fst::kNoStateId) && // old token not yet "tracked"
+        (lat_state != fst::kNoStateId)) {
+      tok->lat_state = lat_state;
+      if (changed) *changed = true; // newly tracked token -> put to queue
     }
     return tok;
   }
@@ -230,7 +255,7 @@ inline LatticeFasterDecoder::Token *LatticeFasterDecoder::FindOrAddToken(
 // prunes outgoing links for all tokens in active_toks_[frame]
 // it's called by PruneActiveTokens
 // all links, that have link_extra_cost > lattice_beam are pruned
-void LatticeFasterDecoder::PruneForwardLinks(
+void LatticeTrackingDecoder::PruneForwardLinks(
     int32 frame, bool *extra_costs_changed,
     bool *links_pruned, BaseFloat delta) {
   // delta is the amount by which the extra_costs must change
@@ -305,7 +330,7 @@ void LatticeFasterDecoder::PruneForwardLinks(
 // PruneForwardLinksFinal is a version of PruneForwardLinks that we call
 // on the final frame.  If there are final tokens active, it uses
 // the final-probs for pruning, otherwise it treats all tokens as final.
-void LatticeFasterDecoder::PruneForwardLinksFinal(int32 frame) {
+void LatticeTrackingDecoder::PruneForwardLinksFinal(int32 frame) {
   KALDI_ASSERT(static_cast<size_t>(frame+1) == active_toks_.size());
   if (active_toks_[frame].toks == NULL ) // empty list; should not happen.
     KALDI_WARN << "No tokens alive at end of file\n";
@@ -315,7 +340,10 @@ void LatticeFasterDecoder::PruneForwardLinksFinal(int32 frame) {
   // the one with final-probs if it's valid).
   const BaseFloat infinity = std::numeric_limits<BaseFloat>::infinity();
   BaseFloat best_cost_final = infinity,
-      best_cost_nofinal = infinity;
+    best_cost_nofinal = infinity;
+    //worst_cost_final = - infinity,
+    //best_tracked_final = infinity,
+    //worst_tracked_final = -infinity,
   unordered_map<Token*, BaseFloat> tok_to_final_cost;
     
   Elem *cur_toks = toks_.Clear(); // swapping prev_toks_ / cur_toks_
@@ -323,7 +351,14 @@ void LatticeFasterDecoder::PruneForwardLinksFinal(int32 frame) {
     StateId state = e->key;
     Token *tok = e->val;
     BaseFloat final_cost = fst_.Final(state).Value();
+    // check if both final weights set: final weight and arc_graph final weight
+    if ((tok->lat_state != fst::kNoStateId) && (final_cost != infinity)) {
+      KALDI_ASSERT(arc_graph_->Final(tok->lat_state) != Weight::Zero());
+      //best_tracked_final = std::min(best_tracked_final, tok->tot_cost + final_cost);
+      //worst_tracked_final = std::max(worst_tracked_final, tok->tot_cost + final_cost);
+    }
     best_cost_final = std::min(best_cost_final, tok->tot_cost + final_cost);
+    //worst_cost_final = std::max(worst_cost_final, tok->tot_cost + final_cost);
     tok_to_final_cost[tok] = final_cost;
     best_cost_nofinal = std::min(best_cost_nofinal, tok->tot_cost);
   }
@@ -408,7 +443,7 @@ void LatticeFasterDecoder::PruneForwardLinksFinal(int32 frame) {
 // [we don't do this in PruneForwardLinks because it would give us
 // a problem with dangling pointers].
 // It's called by PruneActiveTokens if any forward links have been pruned
-void LatticeFasterDecoder::PruneTokensForFrame(int32 frame) {
+void LatticeTrackingDecoder::PruneTokensForFrame(int32 frame) {
   KALDI_ASSERT(frame >= 0 && frame < active_toks_.size());
   Token *&toks = active_toks_[frame].toks;
   if (toks == NULL)
@@ -436,7 +471,7 @@ void LatticeFasterDecoder::PruneTokensForFrame(int32 frame) {
 // delta controls when it considers a cost to have changed enough to continue
 // going backward and propagating the change.
 // for a larger delta, we will recurse less far back
-void LatticeFasterDecoder::PruneActiveTokens(int32 cur_frame, BaseFloat delta) {
+void LatticeTrackingDecoder::PruneActiveTokens(int32 cur_frame, BaseFloat delta) {
   int32 num_toks_begin = num_toks_;
   for (int32 frame = cur_frame-1; frame >= 0; frame--) {
     // Reason why we need to prune forward links in this situation:
@@ -464,7 +499,7 @@ void LatticeFasterDecoder::PruneActiveTokens(int32 cur_frame, BaseFloat delta) {
 
 // Version of PruneActiveTokens that we call on the final frame.
 // Takes into account the final-prob of tokens.
-void LatticeFasterDecoder::PruneActiveTokensFinal(int32 cur_frame) {
+void LatticeTrackingDecoder::PruneActiveTokensFinal(int32 cur_frame) {
   int32 num_toks_begin = num_toks_;
   PruneForwardLinksFinal(cur_frame); // prune final frame (with final-probs)
   // sets final_active_ and final_probs_
@@ -478,26 +513,45 @@ void LatticeFasterDecoder::PruneActiveTokensFinal(int32 cur_frame) {
   KALDI_VLOG(3) << "PruneActiveTokensFinal: pruned tokens from " << num_toks_begin
                 << " to " << num_toks_;
 }
-  
+
 /// Gets the weight cutoff.  Also counts the active tokens.
-BaseFloat LatticeFasterDecoder::GetCutoff(Elem *list_head, size_t *tok_count,
+BaseFloat LatticeTrackingDecoder::GetCutoff(Elem *list_head, size_t *tok_count,
                                           BaseFloat *adaptive_beam, Elem **best_elem) {
   BaseFloat best_weight = std::numeric_limits<BaseFloat>::infinity();
   // positive == high cost == bad.
+  BaseFloat worst_tracked = -std::numeric_limits<BaseFloat>::infinity();
+  // this will contain the lower bound of the tracked tokens
   size_t count = 0;
   if (config_.max_active == std::numeric_limits<int32>::max()) {
+  // no active tokens limit
     for (Elem *e = list_head; e != NULL; e = e->tail, count++) {
       BaseFloat w = static_cast<BaseFloat>(e->val->tot_cost);
       if (w < best_weight) {
         best_weight = w;
         if (best_elem) *best_elem = e;
       }
+      if (e->val->lat_state != fst::kNoStateId) { // tracked token
+        worst_tracked = std::max(worst_tracked, static_cast<BaseFloat>(e->val->tot_cost));
+      }
     }
     if (tok_count != NULL) *tok_count = count;
-    if (adaptive_beam != NULL) *adaptive_beam = config_.beam;
-    return best_weight + config_.beam;
-  } else {
-    tmp_array_.clear();
+    BaseFloat cutoff = best_weight + config_.beam; // original beam
+    BaseFloat extra_cutoff = std::min(worst_tracked + config_.extra_beam,
+                                      best_weight + config_.max_beam);
+    // the beam should at least include the worst tracked token
+    // (plus a small extra beam) and should not exceed the max_beam
+    if (extra_cutoff > cutoff) { // extending the original beam
+      if (adaptive_beam != NULL) *adaptive_beam = extra_cutoff - best_weight;
+      // this will be either the difference between the best token
+      // and the worst tracked token or the max_beam
+      KALDI_VLOG(2) << "increase beam:" << *adaptive_beam;
+      return extra_cutoff; // use the extended beam
+    } else { // using just original beam
+      if (adaptive_beam != NULL) *adaptive_beam = config_.beam;
+      return cutoff;
+    }
+  } else { // using active tokens limit
+    tmp_array_.clear(); // will contain all weights (sorted)
     for (Elem *e = list_head; e != NULL; e = e->tail, count++) {
       BaseFloat w = e->val->tot_cost;
       tmp_array_.push_back(w);
@@ -505,44 +559,72 @@ BaseFloat LatticeFasterDecoder::GetCutoff(Elem *list_head, size_t *tok_count,
         best_weight = w;
         if (best_elem) *best_elem = e;
       }
+      if (e->val->lat_state != fst::kNoStateId) { // tracked token
+        worst_tracked = std::max(worst_tracked, static_cast<BaseFloat>(e->val->tot_cost));
+      }
     }
     if (tok_count != NULL) *tok_count = count;
     if (tmp_array_.size() <= static_cast<size_t>(config_.max_active)) {
-      if (adaptive_beam) *adaptive_beam = config_.beam;
-      return best_weight + config_.beam;
-    } else {
+      // no need to limit tokens (similar case as above)
+      BaseFloat cutoff = best_weight + config_.beam;
+      BaseFloat extra_cutoff = std::min(worst_tracked + config_.extra_beam,
+                                        best_weight + config_.max_beam);
+      // the beam should at least include the worst tracked token
+      // (plus a small extra beam) and should not exceed the max_beam
+      if (extra_cutoff > cutoff) { // extending the original beam
+        if (adaptive_beam != NULL) *adaptive_beam = extra_cutoff - best_weight;
+        KALDI_VLOG(2) << "increase beam:" << *adaptive_beam;
+        return extra_cutoff;
+      } else { // using just original beam
+        if (adaptive_beam != NULL) *adaptive_beam = config_.beam;
+        return cutoff;
+      }
+    } else { // limit tokens
       // the lowest elements (lowest costs, highest likes)
       // will be put in the left part of tmp_array.
-      std::nth_element(tmp_array_.begin(),
-                       tmp_array_.begin()+config_.max_active,
-                       tmp_array_.end());
+      std::vector<BaseFloat>::iterator nth_weight = 
+                                    tmp_array_.begin() + config_.max_active;
+      std::nth_element(tmp_array_.begin(), nth_weight, tmp_array_.end());
+
+      BaseFloat cutoff = best_weight + config_.beam; // original beam
+      BaseFloat extra_cutoff = std::min(worst_tracked + config_.extra_beam,
+                                        best_weight + config_.max_beam);
+      if (extra_cutoff > cutoff) { // extending the original beam
+        cutoff = extra_cutoff;
+        KALDI_VLOG(2) << "increase beam:" << extra_cutoff - best_weight;
+      }
       // return the tighter of the two beams.
-      BaseFloat ans = std::min(best_weight + config_.beam,
-                               *(tmp_array_.begin()+config_.max_active));
-      if (adaptive_beam)
-        *adaptive_beam = std::min(config_.beam,
+      BaseFloat ans = std::min(cutoff, *(nth_weight));
+      if (adaptive_beam) 
+        *adaptive_beam = std::min(cutoff - best_weight,
                                   ans - best_weight + config_.beam_delta);
+      if ( *(nth_weight) < cutoff) {
+        KALDI_VLOG(2) << "limit beam:" << *adaptive_beam;
+      }
       return ans;
     }
   }
 }
 
-void LatticeFasterDecoder::ProcessEmitting(DecodableInterface *decodable, int32 frame) {
+void LatticeTrackingDecoder::ProcessEmitting(DecodableInterface *decodable, int32 frame) {
   // Processes emitting arcs for one frame.  Propagates from prev_toks_ to cur_toks_.
-  Elem *last_toks = toks_.Clear(); // analogous to swapping prev_toks_ / cur_toks_
-  // in simple-decoder.h.  
+  Elem *last_toks = toks_.Clear();
+  // is analogous to swapping prev_toks_ / cur_toks_ in simple-decoder.h.
   Elem *best_elem = NULL;
   BaseFloat adaptive_beam;
   size_t tok_cnt;
   BaseFloat cur_cutoff = GetCutoff(last_toks, &tok_cnt, &adaptive_beam, &best_elem);
-  PossiblyResizeHash(tok_cnt);  // This makes sure the hash is always big enough.    
-    
+  PossiblyResizeHash(tok_cnt);  // This makes sure the hash is always big enough.
+
   BaseFloat next_cutoff = std::numeric_limits<BaseFloat>::infinity();
   // pruning "online" before having seen all tokens
+  BaseFloat next_beam = std::max(config_.beam, adaptive_beam);
+  // used for updating next_cutoff
+  // maybe the adaptive beam is bigger than the beam because of tracked tokens
 
   BaseFloat cost_offset = 0.0; // Used to keep probabilities in a good
   // dynamic range.
-  
+
   // First process the best token to get a hopefully
   // reasonably tight bound on the next cutoff.  The only
   // products of the next block are "next_cutoff" and "cost_offset".
@@ -570,7 +652,7 @@ void LatticeFasterDecoder::ProcessEmitting(DecodableInterface *decodable, int32 
   // do it this way as it's more robust to future code changes.
   cost_offsets_.resize(frame, 0.0);
   cost_offsets_[frame-1] = cost_offset;
-  
+
   // the tokens are now owned here, in last_toks, and the hash is empty.
   // 'owned' is a complex thing here; the point is we need to call DeleteElem
   // on each elem 'e' to let toks_ know we're done with them.
@@ -578,10 +660,42 @@ void LatticeFasterDecoder::ProcessEmitting(DecodableInterface *decodable, int32 
     // loop this way because we delete "e" as we go.
     StateId state = e->key;
     Token *tok = e->val;
-    if (tok->tot_cost <=  cur_cutoff) {
-      for (fst::ArcIterator<fst::Fst<Arc> > aiter(fst_, state);
+    if ((tok->tot_cost <= cur_cutoff) || (tok->lat_state != fst::kNoStateId)) {
+      // only prune tokens that are not tracked
+      std::vector<std::pair<Label, StateId> > lat_arcs; // arc number and next state
+      if (tok->lat_state != fst::kNoStateId) {
+        // in case of tracked tokens, iterate all outgoing arcs from arc_graph_
+        fst::MutableArcIterator<fst::StdVectorFst> lat_iter
+          (const_cast<fst::StdVectorFst*>(arc_graph_), tok->lat_state);
+        // do final states correspond? (lat_state and HCLG state should be final)
+        if (arc_graph_->Final(tok->lat_state) != Weight::Zero()) {
+          KALDI_ASSERT(fst_.Final(state) != Weight::Zero());
+        }
+        int32 last_arc_num = -1;
+        for (; !lat_iter.Done(); lat_iter.Next()) {
+          const Arc &lat_arc = lat_iter.Value();
+          KALDI_ASSERT(lat_arc.ilabel == state); // ilabel contains HCLG state
+          KALDI_ASSERT(lat_arc.olabel > last_arc_num);
+          // assume arc_graph arcs are sorted by arc_num, each arc_num occurs once
+          last_arc_num = lat_arc.olabel; // olabel contains HCLG arc number
+          lat_arcs.push_back(std::make_pair(lat_arc.olabel, lat_arc.nextstate));
+        }
+      }
+      int32 arc_num = 0, lat_arc_num = 0;
+      for (fst::ArcIterator<fst::Fst<Arc> > aiter(fst_, state); // HCLG arcs
            !aiter.Done();
            aiter.Next()) {
+        // match HCLG arcs with arc_graph arcs
+        // not all HCLG arcs are in arc_graph
+        StateId lat_nextstate = fst::kNoStateId;
+        if (lat_arc_num < lat_arcs.size()) { // still graph arcs to process
+          if (arc_num == lat_arcs[lat_arc_num].first) {
+            lat_nextstate = lat_arcs[lat_arc_num].second;
+            lat_arc_num++;
+          }
+        }
+        arc_num++;
+        // normal arc processing
         const Arc &arc = aiter.Value();
         if (arc.ilabel != 0) {  // propagate..
           BaseFloat ac_cost = cost_offset -
@@ -589,12 +703,15 @@ void LatticeFasterDecoder::ProcessEmitting(DecodableInterface *decodable, int32 
               graph_cost = arc.weight.Value(),
               cur_cost = tok->tot_cost,
               tot_cost = cur_cost + ac_cost + graph_cost;
-          if (tot_cost > next_cutoff) continue;
-          else if (tot_cost + config_.beam < next_cutoff)
-            next_cutoff = tot_cost + config_.beam; // prune by best current token
-          Token *next_tok = FindOrAddToken(arc.nextstate, frame, tot_cost, NULL);
-          // NULL: no change indicator needed
-          
+          if ((tot_cost > next_cutoff) &&
+               (lat_nextstate == fst::kNoStateId)) continue;
+               // only prune tokens that are not tracked
+          else if (tot_cost + next_beam < next_cutoff) // maybe new best token?
+              next_cutoff = tot_cost + next_beam; // prune by best current token
+          Token *next_tok = FindOrAddToken(arc.nextstate, lat_nextstate,
+                                           frame, tot_cost, NULL);
+          // NULL: no change indicator needed (no queue used)
+
           // Add ForwardLink from tok to next_tok (put on head of list tok->links)
           tok->links = new ForwardLink(next_tok, arc.ilabel, arc.olabel, 
                                        graph_cost, ac_cost, tok->links);
@@ -608,7 +725,7 @@ void LatticeFasterDecoder::ProcessEmitting(DecodableInterface *decodable, int32 
 
 // TODO: could possibly add adaptive_beam back as an argument here (was
 // returned from ProcessEmitting, in faster-decoder.h).
-void LatticeFasterDecoder::ProcessNonemitting(int32 frame) {
+void LatticeTrackingDecoder::ProcessNonemitting(int32 frame) {
   // note: "frame" is the same as emitting states just processed.
     
   // Processes nonemitting arcs for one frame.  Propagates within toks_.
@@ -619,10 +736,15 @@ void LatticeFasterDecoder::ProcessNonemitting(int32 frame) {
 
   KALDI_ASSERT(queue_.empty());
   BaseFloat best_cost = std::numeric_limits<BaseFloat>::infinity();
+  BaseFloat worst_tracked = -std::numeric_limits<BaseFloat>::infinity();
   for (Elem *e = toks_.GetList(); e != NULL;  e = e->tail) {
     queue_.push_back(e->key);
     // for pruning with current best token
     best_cost = std::min(best_cost, static_cast<BaseFloat>(e->val->tot_cost));
+    if (e->val->lat_state != fst::kNoStateId) {
+      worst_tracked = std::max(worst_tracked,
+                               static_cast<BaseFloat>(e->val->tot_cost));
+    }
   }
   if (queue_.empty()) {
     if (!warned_) {
@@ -631,7 +753,15 @@ void LatticeFasterDecoder::ProcessNonemitting(int32 frame) {
       warned_ = true;
     }
   }
-  BaseFloat cutoff = best_cost + config_.beam;
+  if (frame > 0) KALDI_ASSERT(worst_tracked > 0.0); // track at least one token
+
+  BaseFloat cutoff = best_cost + config_.beam; // original beam
+  BaseFloat extra_cutoff = std::min(worst_tracked + config_.extra_beam,
+                                    best_cost + config_.max_beam);
+  if (extra_cutoff > cutoff) { // extending the beam
+    KALDI_VLOG(2) << "increase beam:" << extra_cutoff - best_cost;
+    cutoff = extra_cutoff;
+  }
     
   while (!queue_.empty()) {
     StateId state = queue_.back();
@@ -639,33 +769,68 @@ void LatticeFasterDecoder::ProcessNonemitting(int32 frame) {
 
     Token *tok = toks_.Find(state)->val;  // would segfault if state not in toks_ but this can't happen.
     BaseFloat cur_cost = tok->tot_cost;
-    if (cur_cost > cutoff) // Don't bother processing successors.
-      continue;
+    if ((cur_cost > cutoff) && (tok->lat_state == fst::kNoStateId)) {
+      // we should never kill a tracked token
+      continue;  // Don't bother processing successors.
+    }
     // If "tok" has any existing forward links, delete them,
     // because we're about to regenerate them.  This is a kind
     // of non-optimality (remember, this is the simple decoder),
     // but since most states are emitting it's not a huge issue.
     tok->DeleteForwardLinks(); // necessary when re-visiting
     tok->links = NULL;
+    //GetArcStateMap(&arc_map, state, tok->lat_state); // in case of tracked tokens, contains nextstates
+    std::vector<std::pair<Label, StateId> > lat_arcs; // arc number and next state
+    if (tok->lat_state != fst::kNoStateId) {
+      // in case of tracked tokens, iterate all outgoing arcs from arc_graph_
+      fst::MutableArcIterator<fst::StdVectorFst> lat_iter
+        (const_cast<fst::StdVectorFst*>(arc_graph_), tok->lat_state);
+      // do final states correspond? (lat_state and HCLG state should be final)
+      if (arc_graph_->Final(tok->lat_state) != Weight::Zero()) {
+        KALDI_ASSERT(fst_.Final(state) != Weight::Zero());
+      }
+      int32 last_arc_num = -1;
+      for (; !lat_iter.Done(); lat_iter.Next()) {
+        const Arc &lat_arc = lat_iter.Value();
+        KALDI_ASSERT(lat_arc.ilabel == state); // ilabel contains HCLG state
+        KALDI_ASSERT(lat_arc.olabel > last_arc_num);
+        // assume arc_graph arcs are sorted by arc_num, each arc_num occurs once
+        last_arc_num = lat_arc.olabel; // olabel contains HCLG arc number
+        lat_arcs.push_back(std::make_pair(lat_arc.olabel, lat_arc.nextstate));
+      }
+    }
+    int32 arc_num = 0, lat_arc_num = 0;
     for (fst::ArcIterator<fst::Fst<Arc> > aiter(fst_, state);
          !aiter.Done();
          aiter.Next()) {
+      // match HCLG arcs with arc_graph arcs
+      // not all HCLG arcs are in arc_graph
+      StateId lat_nextstate = fst::kNoStateId;
+      if (lat_arc_num < lat_arcs.size()) { // still graph arcs to process
+        if (arc_num == lat_arcs[lat_arc_num].first) {
+          lat_nextstate = lat_arcs[lat_arc_num].second;
+          lat_arc_num++;
+        }
+      }
+      arc_num++;
+      // normal arc processing
       const Arc &arc = aiter.Value();
       if (arc.ilabel == 0) {  // propagate nonemitting only...
         BaseFloat graph_cost = arc.weight.Value(),
             tot_cost = cur_cost + graph_cost;
-        if (tot_cost < cutoff) {
+        if ((tot_cost < cutoff) || (lat_nextstate != fst::kNoStateId)) {
           bool changed;
 
-          Token *new_tok = FindOrAddToken(arc.nextstate, frame, tot_cost,
-                                          &changed);
-            
+          Token *new_tok = FindOrAddToken(arc.nextstate, lat_nextstate,
+                                          frame, tot_cost, &changed);
+
           tok->links = new ForwardLink(new_tok, 0, arc.olabel,
                                        graph_cost, 0, tok->links);
-            
+
           // "changed" tells us whether the new token has a different
           // cost from before, or is new [if so, add into queue].
           if (changed) queue_.push_back(arc.nextstate);
+          // it is also true when the "tracked" status was changed
         }
       }
     } // for all arcs
@@ -673,7 +838,7 @@ void LatticeFasterDecoder::ProcessNonemitting(int32 frame) {
 }
 
 
-void LatticeFasterDecoder::ClearToks(Elem *list) {
+void LatticeTrackingDecoder::ClearToks(Elem *list) {
   for (Elem *e = list, *e_tail; e != NULL; e = e_tail) {
     // Token::TokenDelete(e->val);
     e_tail = e->tail;
@@ -682,7 +847,7 @@ void LatticeFasterDecoder::ClearToks(Elem *list) {
   toks_.Clear();
 }
   
-void LatticeFasterDecoder::ClearActiveTokens() { // a cleanup routine, at utt end/begin
+void LatticeTrackingDecoder::ClearActiveTokens() { // a cleanup routine, at utt end/begin
   for (size_t i = 0; i < active_toks_.size(); i++) {
     // Delete all tokens alive on this frame, and any forward
     // links they may have.
@@ -700,9 +865,10 @@ void LatticeFasterDecoder::ClearActiveTokens() { // a cleanup routine, at utt en
 
 
 // Takes care of output.  Returns true on success.
-bool DecodeUtteranceLatticeFaster(
-    LatticeFasterDecoder &decoder, // not const but is really an input.
+bool DecodeUtteranceLatticeTracking(
+    LatticeTrackingDecoder &decoder, // not const but is really an input.
     DecodableInterface &decodable, // not const but is really an input.
+    const fst::StdVectorFst &arc_graph, // contains graph arcs from forward pass lattice
     const fst::SymbolTable *word_syms,
     std::string utt,
     double acoustic_scale,
@@ -715,7 +881,7 @@ bool DecodeUtteranceLatticeFaster(
     double *like_ptr) { // puts utterance's like in like_ptr on success.
   using fst::VectorFst;
 
-  if (!decoder.Decode(&decodable)) {
+  if (!decoder.Decode(&decodable, arc_graph)) {
     KALDI_WARN << "Failed to decode file " << utt;
     return false;
   }

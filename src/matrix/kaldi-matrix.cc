@@ -1774,7 +1774,6 @@ void MatrixBase<Real>::Eig(MatrixBase<Real> *P,
 }
 
 
-
 // Begin non-member function definitions.
 
 //  /**
@@ -1795,6 +1794,7 @@ bool ReadHtk(std::istream &is, Matrix<Real> *M_ptr, HtkHeader *header_ptr)
   Matrix<Real> &M = *M_ptr;
   HtkHeader htk_hdr;
 
+  // TODO(arnab): this fails if the HTK file has CRC cheksum or is compressed.
   is.read((char*)&htk_hdr, sizeof(htk_hdr));  // we're being really POSIX here!
   if (is.fail()) {
     KALDI_WARN << "Could not read header from HTK feature file ";
@@ -1805,6 +1805,29 @@ bool ReadHtk(std::istream &is, Matrix<Real> *M_ptr, HtkHeader *header_ptr)
   KALDI_SWAP4(htk_hdr.mSamplePeriod);
   KALDI_SWAP2(htk_hdr.mSampleSize);
   KALDI_SWAP2(htk_hdr.mSampleKind);
+
+  {
+    // See HParm.h in HTK code for sources of these things.  
+    enum BaseParmKind{
+      Waveform, Lpc, Lprefc, Lpcepstra, Lpdelcep,
+      Irefc, Mfcc, Fbank, Melspec, User, Discrete, Plp, Anon };
+    
+    const int32 IsCompressed = 02000, HasChecksum = 010000, HasVq = 040000,
+        Problem = IsCompressed | HasChecksum | HasVq;
+    int32 base_parm = htk_hdr.mSampleKind & (077);
+    
+    if (htk_hdr.mSampleKind & Problem)
+      KALDI_ERR << "Code to read HTK features does not support compressed or "
+          "checksummed features, or features with VQ.";
+    if (base_parm == Waveform || base_parm == Irefc || base_parm == Discrete)
+      KALDI_ERR << "Attempting to read HTK features from unsupported type "
+          "(e.g. waveform or discrete features.";
+  }
+  
+  KALDI_VLOG(3) << "HTK header: Num Samples: " << htk_hdr.mNSamples
+                << "; Sample period: " << htk_hdr.mSamplePeriod
+                << "; Sample size: " << htk_hdr.mSampleSize
+                << "; Sample kind: " << htk_hdr.mSampleKind;
 
   M.Resize(htk_hdr.mNSamples, htk_hdr.mSampleSize / sizeof(float));
 
