@@ -275,14 +275,15 @@ class MatrixBase {
      In Svd, *this = U*diag(S)*Vt.
      Null pointers for U and/or Vt at input mean we do not want that output.  We
      expect that S.Dim() == m, U is either NULL or m by n,
-     and v is either NULL or n by n. */
+     and v is either NULL or n by n.
+     The singular values are not sorted (use SortSvd for that).  */
   void DestructiveSvd(VectorBase<Real> *s, MatrixBase<Real> *U,
                       MatrixBase<Real> *Vt);  // Destroys calling matrix.
 
-  /// Compute SVD (*this) = U diag(s) Vt.   Note that the v in the call is already
+  /// Compute SVD (*this) = U diag(s) Vt.   Note that the V in the call is already
   /// transposed; the normal formulation is U diag(s) V^T.
   /// Null pointers for U or V mean we don't want that output (this saves
-  /// compute).
+  /// compute).  The singular values are not sorted (use SortSvd for that).
   void Svd(VectorBase<Real> *s, MatrixBase<Real> *U,
            MatrixBase<Real> *Vt) const;
   /// Compute SVD but only retain the singular values.
@@ -447,6 +448,12 @@ class MatrixBase {
                const SpMatrix<Real>& A, const SpMatrix<Real>& B,
                const Real beta);
 
+  /// This function orthogonalizes the rows of a matrix using the Gram-Schmidt
+  /// process.  It is only applicable if NumRows() <= NumCols().  It will use
+  /// random number generation to fill in rows with something nonzero, in cases
+  /// where the original matrix was of deficient row rank.
+  void OrthogonalizeRows();
+
   /// stream read.
   /// Use instead of stream<<*this, if you want to add to existing contents.
   // Will throw exception on failure.
@@ -493,7 +500,6 @@ class MatrixBase {
   inline Real*  Data_workaround() const {
     return data_;
   }
-
 
   /// data memory area
   Real*   data_;
@@ -627,6 +633,7 @@ class Matrix : public MatrixBase<Real> {
 /// @{
 
 /// A structure containing the HTK header.
+/// [TODO: change the style of the variables to Kaldi-compliant]
 struct HtkHeader {
   /// Number of samples.
   int32    mNSamples;
@@ -721,9 +728,16 @@ float TraceMatMat(const MatrixBase<float> &A, const MatrixBase<float> &B,
 /// @{
 
 
-/// Function to ensure that SVD is sorted.
+/// Function to ensure that SVD is sorted.  This function is made as generic as
+/// possible, to be applicable to other types of problems.  s->Dim() should be
+/// the same as U->NumCols(), and we sort s from greatest to least absolute
+/// value (if sort_on_absolute_value == true) or greatest to least value
+/// otherwise, moving the columns of U, if it exists, and the rows of Vt, if it
+/// exists around in the same way.  Note: the "absolute value" part won't matter
+/// if this is an actual SVD, since singular values are non-negative.
 template<class Real> void SortSvd(VectorBase<Real> *s, MatrixBase<Real> *U,
-                                     MatrixBase<Real>* Vt = NULL);
+                                  MatrixBase<Real>* Vt = NULL,
+                                  bool sort_on_absolute_value = true);
 
 /// Creates the eigenvalue matrix D that is part of the decomposition used Matrix::Eig.
 /// D will be block-diagonal with blocks of size 1 (for real eigenvalues) or 2x2

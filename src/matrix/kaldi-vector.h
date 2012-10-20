@@ -225,8 +225,15 @@ class VectorBase {
   /// Extracts the diagonal of the matrix M.
   void CopyDiagFromMat(const MatrixBase<Real>& M);
 
-  /// Extracts the diagonal of a packed matrix M.
+  /// Extracts the diagonal of a packed matrix M; works for Sp or Tp.
   void CopyDiagFromPacked(const PackedMatrix<Real>& M);
+
+
+  /// Extracts the diagonal of a symmetric matrix.
+  inline void CopyDiagFromSp(const SpMatrix<Real>& M) { CopyDiagFromPacked(M); }
+
+  /// Extracts the diagonal of a triangular matrix.
+  inline void CopyDiagFromTp(const TpMatrix<Real>& M) { CopyDiagFromPacked(M); }
 
   /// Returns the maximum value of any element.
   Real Max() const;
@@ -244,9 +251,15 @@ class VectorBase {
 
   /// Adds sum of the rows of M to existing contents, times alpha.
   void AddRowSumMat(Real alpha, const MatrixBase<Real>& M, Real beta = 1.0);
-
+  
   /// Adds sum of the columns of M to existing contents.
   void AddColSumMat(Real alpha, const MatrixBase<Real>& M, Real beta = 1.0);
+
+  /// Add the diagonal of a matrix times itself:
+  /// *this = diag(M M^T) +  beta * *this (if trans == kNoTrans), or
+  /// *this = diag(M^T M) +  beta * *this (if trans == kTrans).
+  void AddDiagMat2(Real alpha, const MatrixBase<Real> &M,
+                   MatrixTransposeType trans = kNoTrans, Real beta = 1.0);
 
   /// Returns log(sum(exp())) without exp overflow
   /// If prune > 0.0, ignores terms less than the max - prune.

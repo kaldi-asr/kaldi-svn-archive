@@ -17,7 +17,7 @@ BINFILES = align-equal align-equal-compiled acc-tree-stats \
         copy-vector copy-int-vector sum-post sum-matrices draw-tree \
         copy-int-vector-vector thresh-post \
         align-mapped align-compiled-mapped latgen-faster-mapped \
-        hmm-info analyze-counts
+        hmm-info pdf-to-counts analyze-counts
 
 OBJFILES = 
 
@@ -38,9 +38,10 @@ $(BINFILES): ../lm/kaldi-lm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a ../h
 clean:
 	-rm -f *.o *.a $(TESTFILES) $(BINFILES) 
 
-test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || { echo "***test $$x failed***"; exit 1; }; done  
-	echo Tests succeeded
+test_compile: $(TESTFILES)
+  
+test: test_compile
+	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
 
 .valgrind: $(TESTFILES)
 

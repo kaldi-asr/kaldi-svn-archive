@@ -4,8 +4,8 @@ OPENFST_CXXFLAGS =
 OPENFST_LDLIBS = 
 include ../kaldi.mk
 
-TESTFILES = am-sgmm-test estimate-am-sgmm-test 
-# fmllr-sgmm-test
+TESTFILES = am-sgmm-test estimate-am-sgmm-test  \
+   fmllr-sgmm-test
 
 OBJFILES = am-sgmm.o estimate-am-sgmm.o estimate-am-sgmm-ebw.o fmllr-sgmm.o \
           am-sgmm-project.o
@@ -33,9 +33,10 @@ $(TESTFILES): $(LIBFILE) ../base/kaldi-base.a ../util/kaldi-util.a ../matrix/kal
 clean:
 	-rm -f *.o *.a $(TESTFILES) tmp* *.tmp
 
-test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || { echo "***test $$x failed***"; exit 1; }; done  
-	echo Tests succeeded
+test_compile: $(TESTFILES)
+  
+test: test_compile
+	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
 
 .valgrind: $(TESTFILES)
 

@@ -11,7 +11,7 @@ include ../kaldi.mk
 TESTFILES = matrix-lib-test kaldi-gpsr-test
 
 OBJFILES = kaldi-matrix.o kaldi-vector.o packed-matrix.o sp-matrix.o tp-matrix.o \
-           matrix-functions.o srfft.o kaldi-gpsr.o compressed-matrix.o
+           matrix-functions.o qr.o srfft.o kaldi-gpsr.o compressed-matrix.o
 
 LIBFILE = kaldi-matrix.a
 
@@ -35,9 +35,10 @@ $(TESTFILES): $(LIBFILE) ../base/kaldi-base.a
 clean:
 	-rm -f *.o *.a $(TESTFILES) tmp* *.tmp
 
-test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || { echo "***test $$x failed***"; exit 1; }; done  
-	echo Tests succeeded
+test_compile: $(TESTFILES)
+  
+test: test_compile
+	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
 
 .valgrind: $(TESTFILES)
 

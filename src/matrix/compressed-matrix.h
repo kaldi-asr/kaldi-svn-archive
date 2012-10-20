@@ -45,11 +45,11 @@ class CompressedMatrix {
   ~CompressedMatrix() { Destroy(); }
   
   template<class Real>
-  CompressedMatrix(const Matrix<Real> &mat): data_(NULL) { CopyFromMat(mat); }
+  CompressedMatrix(const MatrixBase<Real> &mat): data_(NULL) { CopyFromMat(mat); }
 
   template<class Real>
-  void CopyFromMat(const Matrix<Real> &mat);
-
+  void CopyFromMat(const MatrixBase<Real> &mat);
+  
   CompressedMatrix(const CompressedMatrix &mat);
   
   CompressedMatrix &operator = (const CompressedMatrix &mat); // assignment operator.
@@ -64,11 +64,11 @@ class CompressedMatrix {
   void Read(std::istream &is, bool binary);
 
   /// Returns number of rows (or zero for emtpy matrix).
-  inline int32 NumRows() const { return (data_ == NULL) ? 0 :
+  inline MatrixIndexT NumRows() const { return (data_ == NULL) ? 0 :
       (*reinterpret_cast<GlobalHeader*>(data_)).num_rows; }
 
   /// Returns number of columns (or zero for emtpy matrix).
-  inline int32 NumCols() const { return (data_ == NULL) ? 0 :
+  inline MatrixIndexT NumCols() const { return (data_ == NULL) ? 0 :
       (*reinterpret_cast<GlobalHeader*>(data_)).num_cols; }
 
   /// Copies row #row of the matrix into vector v.
