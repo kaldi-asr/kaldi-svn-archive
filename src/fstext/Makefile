@@ -16,11 +16,12 @@ TESTFILES = determinize-star-test \
       remove-eps-local-test rescale-test lattice-weight-test  \
       determinize-lattice-test lattice-utils-test deterministic-fst-test \
       determinize-lattice-pruned-test 
+#push-special-test
 
-OBJFILES =  
+OBJFILES = push-special.o
 
-# actually, this library is currently empty.  Everything is a header.
-LIBFILE = 
+
+LIBFILE = kaldi-fstext.o
 
 all: $(LIBFILE)
 

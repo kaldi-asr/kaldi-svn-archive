@@ -5,7 +5,7 @@ include ../kaldi.mk
 
 LDFLAGS += $(CUDA_LDFLAGS)
 
-BINFILES = nnet-randomize-frames nnet-info nnet-train
+BINFILES = nnet-randomize-frames nnet-info nnet-train nnet-init
 
 ##nnet-train-xent-hardlab-perutt nnet-train-xent-hardlab-frmshuff nnet-train-mse-tgtmat-frmshuff nnet-forward nnet-copy rbm-train-cd1-frmshuff rbm-convert-to-nnet nnet-trim-n-last-transforms nnet-train-mmi-sequential
 
