@@ -48,8 +48,8 @@ static void TestPushSpecial() {
   IsStochasticFstInLog(fst_copy, delta_dontcare, &min, &max);
   // the per-state normalizers are allowed to deviate from the average by delta
   // up and down, so the difference from the min to max weight should be 2*delta
-  // or less.
-  KALDI_ASSERT(std::abs(min.Value() - max.Value()) < 2.01 * delta);
+  // or less.  We give it a bit of wiggle room (->2.5) due to numerical roundoff.
+  KALDI_ASSERT(std::abs(min.Value() - max.Value()) < 2.5 * delta);
   
   KALDI_ASSERT(RandEquivalent(*fst, fst_copy,
                               5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));

@@ -143,8 +143,13 @@ class PushSpecialClass {
     ModifyFst();
   }
  private:
-  void ComputeNormalizers(bool check_unchanged = false) {
+  void ComputeNormalizers() {
     // compute n(s) for each s.
+    // Note: this may produce NaN's if some p_ values were zero,
+    // and the results are meaningless if some p_values were negative,
+    // but this won't matter (ComputeObjf() makes sure to return
+    // +infinity for the objective function if some p values were
+    // negative).
     double n_tot = 0.0;
     for (StateId s = 0; s < num_states_; s++) {
       double n = self_loop_(s), p_s = p_(s), f_s = final_(s);
@@ -154,9 +159,6 @@ class PushSpecialClass {
         n += w_st * p_(t) / p_s;
       }
       n += f_s / p_s;
-      KALDI_ASSERT(!KALDI_ISNAN(n));
-      if (check_unchanged)
-        KALDI_ASSERT(n_(s) - n <= 0.01 * n);
       n_(s) = n;
       n_tot += n;
     }
@@ -304,8 +306,9 @@ class PushSpecialClass {
       } else { // Do the optimization step.
         double f = ComputeObjf();
         kaldi::Vector<double> gradient(num_states_);
-        for (StateId s = 0; s < num_states_; s++)
-          ComputeOneParameterGradient(s, &(gradient(s)));
+        if (f != std::numeric_limits<double>::infinity())
+          for (StateId s = 0; s < num_states_; s++)
+            ComputeOneParameterGradient(s, &(gradient(s)));
         opt_lbfgs.DoStep(f, gradient);
       }
     }
