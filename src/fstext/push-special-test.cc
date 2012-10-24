@@ -32,6 +32,12 @@ static void TestPushSpecial() {
   typedef Arc::Weight Weight;
 
   VectorFst<Arc> *fst = RandFst<StdArc>();
+
+  {
+    FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+    fstprinter.Print(&std::cout, "standard output");
+  }
+  
   VectorFst<Arc> fst_copy(*fst);
 
   float delta = 0.01;
@@ -54,6 +60,7 @@ static void TestPushSpecial() {
 } // namespace fst
 
 int main() {
+  kaldi::g_kaldi_verbose_level = 4;
   using namespace fst;
   for (int i = 0; i < 25; i++) {
     TestPushSpecial();

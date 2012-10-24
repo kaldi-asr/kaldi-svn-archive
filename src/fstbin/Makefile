@@ -19,7 +19,8 @@ BINFILES = fstdeterminizestar  \
            fstmakecontextsyms fstaddsubsequentialloop fstaddselfloops  \
            fstrmepslocal fstcomposecontext fsttablecompose fstrand fstfactor \
            fstdeterminizelog fstphicompose fstpropfinal fstcopy fstpush-kaldi \
-           fsttoindex fstunion-kaldi fstminimize-kaldi fstdeterminize-kws
+           fsttoindex fstunion-kaldi fstminimize-kaldi fstdeterminize-kws \
+           fstpushspecial
 
 # actually, this library is currently empty.  Everything is a header.
 LIBFILE = 
@@ -27,7 +28,7 @@ LIBFILE =
 all: $(BINFILES)
 
 
-$(BINFILES): ../base/kaldi-base.a ../util/kaldi-util.a
+$(BINFILES): ../fstext/kaldi-fstext.a ../matrix/kaldi-matrix.a ../base/kaldi-base.a ../util/kaldi-util.a 
 
 %.a:
 	$(MAKE) -C ${@D} ${@F}
@@ -36,7 +37,7 @@ clean:
 	-rm -f *.o *.a $(TESTFILES) $(BINFILES)
 
 test_compile: $(TESTFILES)
-  
+
 test: test_compile
 	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
 

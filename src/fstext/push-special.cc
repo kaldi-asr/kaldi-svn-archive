@@ -1,6 +1,7 @@
 // fstext/push-special.cc
 
-// Copyright 2012  Johns Hopkins University (author: Daniel Povey)
+// Copyright 2012  Johns Hopkins University (authors: Daniel Povey,
+//                 Ehsan Variani, Pegah Ghahrmani)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +16,9 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include <fstext/push-special.h>
-#include <base/kaldi-error.h>
+#include "fstext/push-special.h"
+#include "base/kaldi-error.h"
+#include "matrix/matrix-lib.h"
 
 namespace fst {
 
@@ -62,7 +64,7 @@ namespace fst {
     the n(s).  We'll write out the part of the objective function that involves p(s),
     and this is:
 
-     F =  (n(s) - n_{avg})^2  +  \sum_t  (n(t) - n_{avg})^2.
+     F =  (n(s) - n_{avg})^2  +  \sum_{t != s}  (n(t) - n_{avg})^2.
 
     Here, n_{avg} is treated as fixed.  We can write n(s) as:
        n(s) = w(s, s) + k(s) / p(s)
@@ -82,11 +84,11 @@ namespace fst {
     Now let's imagine we did the substitutions for n(s) and n(t), and we'll
     write out the terms in F that are functions of p(s).  We have:
 
-    F =                   k(s)^2  p(s)^{-2}
-          + 2(w(s, s) -  n_{avg}) p(s)^{-1}
-       + [constant term that doesn't matter]
-     + (\sum_t 2(j(t) - n_{avg})  p(s)
-    + (\sum_t  (w(t, s)/p(t))^2 ) p(s)^2                 (Eq. 3)
+       F =                         k(s)^2  p(s)^{-2}
+             + 2 k(s) (w(s, s) -  n_{avg}) p(s)^{-1}
+             + [constant term that doesn't matter]
++ (\sum_t 2(j(t) - n_{avg})(w(t, s)/p(t))  p(s)
+             + (\sum_t  (w(t, s)/p(t))^2 ) p(s)^2                 (Eq. 3)
 
     Note that the {-2} and {+2} power terms are both positive, and this means
     that F will get large as p(s) either gets too large or too small.  This is
@@ -114,17 +116,19 @@ class PushSpecialClass {
                    float delta): fst_(fst) {
     num_states_ = fst_->NumStates();
     initial_state_ = fst_->Start();
-    final_.resize(num_states_);
-    self_loop_.resize(num_states_, 0.0);
+    final_.Resize(num_states_);
+    self_loop_.Resize(num_states_);
     foll_.resize(num_states_);
     pred_.resize(num_states_);
-    p_.resize(num_states_, 1.0); // Potentials: default is one.
+    p_.Resize(num_states_);
+    p_.Set(1.0); // Potentials: default is one.
     for (StateId s = 0; s < num_states_; s++) {
       for (ArcIterator<VectorFst<StdArc> > aiter(*fst, s);
            !aiter.Done(); aiter.Next()) {
         const Arc &arc = aiter.Value();
-        if (arc.nextstate == s) self_loop_[s] = exp(-arc.weight.Value());
-        else {
+        if (arc.nextstate == s) {
+          self_loop_(s) += exp(-arc.weight.Value());
+        } else {
           StateId t = arc.nextstate;
           double weight = exp(-arc.weight.Value());
           foll_[s].push_back(std::make_pair(t, weight));
@@ -132,10 +136,9 @@ class PushSpecialClass {
         }
       }
       Weight final = fst_->Final(s);
-      final_[s] = exp(-final.Value());
+      final_(s) = exp(-final.Value());
     }
-    n_.resize(num_states_);
-    ComputeNormalizers();
+    n_.Resize(num_states_);
     OptimizePotentials(delta);
     ModifyFst();
   }
@@ -144,43 +147,111 @@ class PushSpecialClass {
     // compute n(s) for each s.
     double n_tot = 0.0;
     for (StateId s = 0; s < num_states_; s++) {
-      double n = self_loop_[s], p_s = p_[s], f_s = final_[s];
+      double n = self_loop_(s), p_s = p_(s), f_s = final_(s);
       for (size_t i = 0; i < foll_[s].size(); i++) {
         StateId t = foll_[s][i].first;
         double w_st = foll_[s][i].second;
-        n += w_st * p_[t] / p_s;
+        n += w_st * p_(t) / p_s;
       }
       n += f_s / p_s;
       KALDI_ASSERT(!KALDI_ISNAN(n));
       if (check_unchanged)
-        KALDI_ASSERT(n_[s] - n <= 0.01 * n);
-      n_[s] = n;
+        KALDI_ASSERT(n_(s) - n <= 0.01 * n);
+      n_(s) = n;
       n_tot += n;
     }
     n_avg_ = n_tot / num_states_;
   }
-  double ComputeKs(StateId s) { // k(s), see formula above.
-    double k_s = final_[s];
-    for (size_t i = 0; i < foll_[s].size(); i++) {
-      StateId t = foll_[s][i].first;
-      double w_st = foll_[s][i].second;
-      k_s += w_st * p_[t];
-    }
-    return k_s;
+
+  double ComputeF(double c_minus_2, double c_minus_1, double c_plus_1,
+                  double c_plus_2, double p) {
+    return c_minus_2 / (p * p) +
+        c_minus_1 / p +
+        c_plus_1 * p +
+        c_plus_2 * p * p;
   }
 
   double SolveForP(double c_minus_2, double c_minus_1, double c_plus_1,
-                   double c_plus_2, double p) { // p is starting point
-    // for optimization.
-    // CODE GOES HERE.  Subroutines are OK.
+                   double c_plus_2, double p) {
+    int num_iter = 1000; // maximum number of iterations
+    double threshold = 1.0e-07; // Threshold on the derivative;
+    // below this, we accept the value.
+    double c_1 = 1.0e-04, backtrack_constant = 0.5; // c_1 in Armijo rule;
+    // backtrack_constant is what we multiply step size by each time.
+    double p_new;
+    double diff1; // first derivative
+    double diff2; // second derivative
+    double cur_f;
+    int i;
+    for (i = 0; i < num_iter; i++) {
+      cur_f = ComputeF(c_minus_2, c_minus_1, c_plus_1, c_plus_2, p);
+      diff1 = -2.0 * c_minus_2 * pow(p, -3)
+          -1.0 * c_minus_1 * pow(p, -2)
+          + c_plus_1
+          + 2.0 * c_plus_2 * p;
+      diff2 = 6.0 * c_minus_2 * pow(p, -4)
+          + 2.0 * c_minus_1 * pow(p, -3)
+          + 2.0 * c_plus_2;
+      if (std::abs(diff1) < threshold) { // we're done.
+        break;
+      }
+      // Compute proposed new value p_new [we'll then backtrack]
+      if (diff2 > 0){
+        p_new = p - (diff1)/(diff2);
+      } else {
+        if (diff1 > 0) {
+          p_new = 0.1 * p;
+        } else {
+          p_new = 10 * p;
+        }
+      }
+      if (p_new < 0.1*p) p_new = 0.1*p;
+      if (p_new > 10*p) p_new = 10*p;
 
-    return p; // return optimized p.
-  }  
+      // Do backtracking line search with the Armijo rule.
+      while (ComputeF(c_minus_2, c_minus_1, c_plus_1, c_plus_2, p_new) >
+             cur_f + c_1 * (p_new - p) * diff1) {
+        p_new = p + backtrack_constant * (p_new - p);
+        // We had to add the line below as it gets stuck in this loop
+        // with differences between p and p_new that are at the limit of
+        // roundoff.
+        if (fabs(p_new - p) < 1.0e-10 * p) 
+          return p;
+      }
+      p = p_new;
+    }
+    if (i == num_iter)
+      KALDI_WARN << "Did not converge in line search.\n";
+    return p;
+  }
+
+
+  double ComputeObjf() {
+    // sum of squared diffs.
+    // First, if any potentials are zero or negative this is invalid,
+    // so we have to return +infinity.  This matters inside OptimizePotentialsOneIter(),
+    // for the line search.
+    for (StateId s = 0; s < num_states_; s++)
+      if (p_(s) <= 0.0)
+        return std::numeric_limits<double>::infinity();
+    double ans = 0.0;
+    for (StateId s = 0; s < num_states_; s++) {
+      double diff = n_(s) - n_avg_;
+      ans += diff * diff;
+    }
+    return ans;
+  }
   
-  void OptimizePotential(StateId s) {
+  void ComputeOneParameterGradient(StateId s,
+                                   double *gradient) {
+    if (s == initial_state_) { // This state is not allowed to have
+      // its normalizer change.
+      *gradient = 0.0;
+      return;
+    }
     // Optimize potential for state s.
-    double n_s = n_[s], p_s = p_[s], w_s_s = self_loop_[s],
-        k_s = (n_s - w_s_s) / p_s;
+    double n_s = n_(s), p_s = p_(s), w_s_s = self_loop_(s),
+        k_s = (n_s - w_s_s) * p_s;
     if (k_s < 0.0) {
       if (k_s < -1.0e-04) // can't really be negative; allow rounding error.
         KALDI_WARN << "Negative k_s " << k_s;
@@ -188,87 +259,66 @@ class PushSpecialClass {
     }
     // coefficients in (Eq. 3) above.
     double c_minus_2 = k_s * k_s,
-        c_minus_1 = 2.0 * (w_s_s - n_avg_),
-        c_plus_1 = -2.0 * n_avg_, // plus sum over t
-        c_plus_2 = 0.0; // it's a sum over t.
+        c_minus_1 = 2.0 * k_s * (w_s_s - n_avg_),
+        c_plus_1 = 0.0, c_plus_2 = 0.0; // these are sums over t.
     for (size_t i = 0; i < pred_[s].size(); i++) {
       StateId t = pred_[s][i].first;
-      double w_ts = pred_[s][i].second, p_t = p_[t];
-      double j_t = n_[t] - w_ts * p_s / p_t; // (Eq. 2)
+      double w_ts = pred_[s][i].second, p_t = p_(t);
+      double j_t = n_(t) - w_ts * p_s / p_t; // (Eq. 2)
       KALDI_ASSERT(!KALDI_ISNAN(j_t));
       if (j_t < 0.0) { // should not be negative.
         if (j_t < -1.0e-08) KALDI_WARN << "Negative j_t " << j_t;
         j_t = 0.0;
       }
       // all this is part of (Eq. 3):
-      c_plus_1 += 2.0 * j_t;
       double tmp = w_ts / p_t;
-      c_plus_2 += tmp * tmp; 
+      c_plus_2 += tmp * tmp;
+      c_plus_1 += 2.0 * (j_t - n_avg_) * tmp;
     }
-    double new_p_s = SolveForP(c_minus_2, c_minus_1, c_plus_1,
-                               c_plus_2, p_s);
-    // Now we update all the n_s and n_t quantities.
-
-    double diff, tot_diff = 0.0;
-    diff = ((1.0 / new_p_s) - (1.0 / p_s)) * k_s;
-    n_[s] += diff;
-    tot_diff += diff;
-
-    for (size_t i = 0; i < pred_[s].size(); i++) {
-      StateId t = pred_[s][i].first;
-      double w_ts = pred_[s][i].second, p_t = p_[t];
-      diff = (new_p_s - p_s) * w_ts / p_t;
-      n_[t] += diff;
-      tot_diff += diff;
-    }
-    n_avg_ += tot_diff / num_states_; // keeping n_avg_ updated.
+    // The objective function as a function of p is
+    // c_minus_2 p^{-2} + c_minus_1 p^{-1} + c_plus_1 p + c_plus_2 p^2.
+    // derivative is:
+    // -2 c_minus_2 p^{-3} - c_minus_1 p^{-2} + c_plus_1 + 2 p c_plus_2
+    *gradient = -2 * c_minus_2 / (p_s * p_s * p_s)
+        - c_minus_1 / (p_s * p_s)
+        + c_plus_1
+        + 2 * p_s * c_plus_2;
   }
 
+  
   void OptimizePotentials(float delta) {
-    float fraction = 0.1; // Each iteration, optimize only this fraction
-    // of the coefficients.  Chosen so as to roughly balance the computation
-    // in doing the "nth_element" stuff, with the computation of optimizing
-    // the coefficients.  We would have preferred a priority queue, but
-    // this is complex to implement efficiently, since when we change
-    // the potential of s, the n values of a bunch of other states change,
-    // as does n_avg.
-    while (true) {
-      std::vector<std::pair<float, StateId> > badness(num_states_);
-      for (StateId s = 0; s < num_states_; s++) {
-        float abs_diff = std::abs(n_[s] - n_avg_);
-        badness[s].first = abs_diff;
-        badness[s].second = s;
-      }
-      StateId num_to_optimize = static_cast<StateId>(num_states_ * fraction);
-      if (num_to_optimize < 2) {
-        num_to_optimize = 2; // in case one of them is the initial state (not optimized).
-        if (num_to_optimize > num_states_) num_to_optimize = num_states_;
-      }
-      std::nth_element(badness.begin(), badness.end() - num_to_optimize,
-                       badness.end());
-      float worst =
-          std::max_element(badness.end() - num_to_optimize, badness.end())->first;
-      if (worst < delta) break; // We're done to within the tolerance.
-      for (size_t i = badness.size() - static_cast<size_t>(num_to_optimize);
-           i < badness.size(); i++) {
-        StateId s = badness[i].first;
-        if (s != initial_state_)
-          OptimizePotential(s);
+
+    kaldi::LbfgsOptions opts;    
+    kaldi::OptimizeLbfgs<double> opt_lbfgs(p_, opts);
+    for (int num_iters = 0; true; num_iters++) {
+      p_.CopyFromVec(opt_lbfgs.GetProposedValue());
+      ComputeNormalizers();
+      // Test convergence.
+      bool converged = true;
+      for (StateId s = 0; s < num_states_; s++)
+        if (std::abs(n_(s) - n_avg_) > delta)
+          converged = false;
+      if (converged) {
+        KALDI_VLOG(2) << "Did " << num_iters << " iterations of L-BFGS";
+        return;
+      } else { // Do the optimization step.
+        double f = ComputeObjf();
+        kaldi::Vector<double> gradient(num_states_);
+        for (StateId s = 0; s < num_states_; s++)
+          ComputeOneParameterGradient(s, &(gradient(s)));
+        opt_lbfgs.DoStep(f, gradient);
       }
     }
-#ifdef KALDI_PARANOID
-    ComputeNormalizers(true); // Check that the normalizers have been
-    // accurately kept up to date.
-#endif
   }
+
 
   // Modifies the FST weights and the final-prob to take account of these potentials.
   void ModifyFst() {
     // First get the potentials as negative-logs, like the values
     // in the FST.
     for (StateId s = 0; s < num_states_; s++) {
-      p_[s] = -log(p_[s]);
-      KALDI_ASSERT(!isnan(p_[s]));
+      p_(s) = -log(p_(s));
+      KALDI_ASSERT(!isnan(p_(s)));
     }
     for (StateId s = 0; s < num_states_; s++) {
       for (MutableArcIterator<VectorFst<StdArc> > aiter(fst_, s);
@@ -276,24 +326,25 @@ class PushSpecialClass {
         Arc arc = aiter.Value();
         StateId t = arc.nextstate;
         // w(s, t) <-- w(s, t) * p(t) / p(s).
-        arc.weight = Weight(arc.weight.Value() + p_[t] - p_[s]); 
+        arc.weight = Weight(arc.weight.Value() + p_(t) - p_(s));
+        aiter.SetValue(arc);
       }
       // f(s) <-- f(s) / p(s) = f(s) * (1.0 / p(s)).
-      fst_->SetFinal(s, Times(fst_->Final(s).Value(), Weight(-p_[s])));
+      fst_->SetFinal(s, Times(fst_->Final(s).Value(), Weight(-p_(s))));
     }
   }
 
 private:
   StateId num_states_;
   StateId initial_state_;
-  std::vector<double> final_; // final-prob of each state.
-  std::vector<double> self_loop_; // self-loop prob of each state: w(s, s).
+  kaldi::Vector<double> final_; // final-prob of each state.
+  kaldi::Vector<double> self_loop_; // self-loop prob of each state: w(s, s).
   std::vector<std::vector<std::pair<StateId, double> > > foll_; // List of transitions
   // out of each state, to a *different* state.  The pair (t, w(s, t)).
   std::vector<std::vector<std::pair<StateId, double> > > pred_; // List of transitions
   // into each state, to a *different* state.  The pair (t, w(t, s)).
-  std::vector<double> p_; // The potential of each state.
-  std::vector<double> n_; // The normalizer n(s) for each state.
+  kaldi::Vector<double> p_; // The potential of each state.
+  kaldi::Vector<double> n_; // The normalizer n(s) for each state.
   double n_avg_; // The current average normalizer.
   
   VectorFst<StdArc> *fst_;
@@ -304,8 +355,9 @@ private:
 
 
 void PushSpecial(VectorFst<StdArc> *fst, float delta) {
-  PushSpecialClass c(fst, delta); // all the work
-  // gets done in the initializer.
+  if (fst->NumStates() > 0)
+    PushSpecialClass c(fst, delta); // all the work
+    // gets done in the initializer.
 }
 
   

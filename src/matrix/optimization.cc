@@ -276,7 +276,7 @@ void OptimizeLbfgs<Real>::StepSizeIteration(Real function_value,
   // and restart L-BFGS.  Probably we've almost converged.
   if (num_wolfe_i_failures_ + num_wolfe_ii_failures_ >
       opts_.max_line_search_iters) {
-    KALDI_LOG << "Too many steps in line search -> restarting.";
+    KALDI_VLOG(2) << "Too many steps in line search -> restarting.";
     iteration_action = kRestart;
   }
 
