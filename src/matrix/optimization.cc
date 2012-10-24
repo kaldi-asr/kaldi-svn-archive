@@ -151,7 +151,7 @@ bool OptimizeLbfgs<Real>::AcceptStep(Real function_value,
   rho_(k_ % opts_.m) = 1.0 / prod;
   Real len = s.Norm(2.0);
 
-  if ((opts_.minimize && prod <= 1.0e-20 || !opts_.minimize && prod >= -1.0e-20)
+  if ((opts_.minimize && prod <= 1.0e-20) || (!opts_.minimize && prod >= -1.0e-20)
       || len == 0.0)
     return false; // This will force restart.
   
@@ -381,5 +381,3 @@ template
 class OptimizeLbfgs<double>;
 
 } // end namespace kaldi
-
-
