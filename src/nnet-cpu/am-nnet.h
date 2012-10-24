@@ -54,7 +54,7 @@ class AmNnet {
 
   void SetPriors(const VectorBase<BaseFloat> &priors);
   
-  const VectorBase<BaseFloat> &GetPriors() const { return priors_; }
+  const VectorBase<BaseFloat> &Priors() const { return priors_; }
 
   std::string Info() const;
 
