@@ -2396,15 +2396,17 @@ template<class Real> static void UnitTestMaxAbsEig() {
 
 template<class Real> static void UnitTestLbfgs() {
   int32 temp = g_kaldi_verbose_level;
-  g_kaldi_verbose_level = 4; 
+  g_kaldi_verbose_level = 4;
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    bool minimize = (iter % 2 == 0);
     MatrixIndexT dim = 1 + rand() % 30;
     SpMatrix<Real> S(dim);
     RandPosdefSpMatrix(dim, &S);
     Vector<Real> v(dim);
     InitRand(&v);
-    // Function will be f = 0.1 * [ x' v  -0.5 x' S x ]
-
+    // Function will be f = exp(0.1 * [ x' v  -0.5 x' S x ])
+    // This is to maximize; we negate it when minimizing.
+    
     //Vector<Real> hessian(dim);
     //hessian.CopyDiagFromSp(S);
     
@@ -2417,10 +2419,11 @@ template<class Real> static void UnitTestLbfgs() {
     InitRand(&init_x);
 
     LbfgsOptions opts;
-    opts.minimize = false; // This objf has a maximum, not a minimum.
+    opts.minimize = minimize; // This objf has a maximum, not a minimum.
     OptimizeLbfgs<Real> opt_lbfgs(init_x, opts);
     MatrixIndexT num_iters = 0;
     Real c = 0.01;
+    Real sign = (minimize ? -1.0 : 1.0); // function has a maximum not minimum..
     while (opt_lbfgs.RecentStepLength() > 1.0e-04) {
       KALDI_VLOG(2) << "Last step length is " << opt_lbfgs.RecentStepLength();
       const VectorBase<Real> &x = opt_lbfgs.GetProposedValue();
@@ -2431,6 +2434,8 @@ template<class Real> static void UnitTestLbfgs() {
       Real f = exp(c * logf);
       Vector<Real> df_dx(dlogf_dx);
       df_dx.Scale(f * c); // comes from derivative of the exponential function.
+      f *= sign;
+      df_dx.Scale(sign);
       opt_lbfgs.DoStep(f, df_dx);
       num_iters++;
     }
