@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "Usage:  fstpushspecial [options] [in.fst [out.fst] ]\n";
 
-    float delta = kDelta;    
+    BaseFloat delta = kDelta;
     ParseOptions po(usage);
     po.Register("delta", &delta, "Delta cost: after pushing, all states will "
                 "have a total weight that differs from the average by no more "

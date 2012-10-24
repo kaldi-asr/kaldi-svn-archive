@@ -18,7 +18,6 @@
 
 #include "fstext/push-special.h"
 #include "base/kaldi-error.h"
-#include "matrix/matrix-lib.h"
 
 namespace fst {
 
@@ -116,239 +115,126 @@ class PushSpecialClass {
                    float delta): fst_(fst) {
     num_states_ = fst_->NumStates();
     initial_state_ = fst_->Start();
-    final_.Resize(num_states_);
-    self_loop_.Resize(num_states_);
-    foll_.resize(num_states_);
+    occ_.resize(num_states_, 1.0 / sqrt(num_states_)); // unit length
+    
     pred_.resize(num_states_);
-    p_.Resize(num_states_);
-    p_.Set(1.0); // Potentials: default is one.
     for (StateId s = 0; s < num_states_; s++) {
       for (ArcIterator<VectorFst<StdArc> > aiter(*fst, s);
            !aiter.Done(); aiter.Next()) {
         const Arc &arc = aiter.Value();
-        if (arc.nextstate == s) {
-          self_loop_(s) += exp(-arc.weight.Value());
-        } else {
-          StateId t = arc.nextstate;
-          double weight = exp(-arc.weight.Value());
-          foll_[s].push_back(std::make_pair(t, weight));
-          pred_[t].push_back(std::make_pair(s, weight));
-        }
+        StateId t = arc.nextstate;
+        double weight = exp(-arc.weight.Value());
+        pred_[t].push_back(std::make_pair(s, weight));
       }
-      Weight final = fst_->Final(s);
-      final_(s) = exp(-final.Value());
+      double final = exp(-fst_->Final(s).Value());
+      if (final != 0.0)
+        pred_[initial_state_].push_back(std::make_pair(s, final));
     }
-    n_.Resize(num_states_);
-    OptimizePotentials(delta);
+    Iterate(delta);
     ModifyFst();
   }
  private:
-  void ComputeNormalizers() {
-    // compute n(s) for each s.
-    // Note: this may produce NaN's if some p_ values were zero,
-    // and the results are meaningless if some p_values were negative,
-    // but this won't matter (ComputeObjf() makes sure to return
-    // +infinity for the objective function if some p values were
-    // negative).
-    double n_tot = 0.0;
+  double TestAccuracy() { // returns the error (the difference
+    // between the min and max weights).
+    double min_sum = 0, max_sum = 0;
     for (StateId s = 0; s < num_states_; s++) {
-      double n = self_loop_(s), p_s = p_(s), f_s = final_(s);
-      for (size_t i = 0; i < foll_[s].size(); i++) {
-        StateId t = foll_[s][i].first;
-        double w_st = foll_[s][i].second;
-        n += w_st * p_(t) / p_s;
+      double sum = 0.0;
+      for (ArcIterator<VectorFst<StdArc> > aiter(*fst_, s);
+           !aiter.Done(); aiter.Next()) {
+        const Arc &arc = aiter.Value();
+        StateId t = arc.nextstate;
+        sum += exp(-arc.weight.Value()) * occ_[t] / occ_[s];
       }
-      n += f_s / p_s;
-      n_(s) = n;
-      n_tot += n;
-    }
-    n_avg_ = n_tot / num_states_;
-  }
-
-  double ComputeF(double c_minus_2, double c_minus_1, double c_plus_1,
-                  double c_plus_2, double p) {
-    return c_minus_2 / (p * p) +
-        c_minus_1 / p +
-        c_plus_1 * p +
-        c_plus_2 * p * p;
-  }
-
-  double SolveForP(double c_minus_2, double c_minus_1, double c_plus_1,
-                   double c_plus_2, double p) {
-    int num_iter = 1000; // maximum number of iterations
-    double threshold = 1.0e-07; // Threshold on the derivative;
-    // below this, we accept the value.
-    double c_1 = 1.0e-04, backtrack_constant = 0.5; // c_1 in Armijo rule;
-    // backtrack_constant is what we multiply step size by each time.
-    double p_new;
-    double diff1; // first derivative
-    double diff2; // second derivative
-    double cur_f;
-    int i;
-    for (i = 0; i < num_iter; i++) {
-      cur_f = ComputeF(c_minus_2, c_minus_1, c_plus_1, c_plus_2, p);
-      diff1 = -2.0 * c_minus_2 * pow(p, -3)
-          -1.0 * c_minus_1 * pow(p, -2)
-          + c_plus_1
-          + 2.0 * c_plus_2 * p;
-      diff2 = 6.0 * c_minus_2 * pow(p, -4)
-          + 2.0 * c_minus_1 * pow(p, -3)
-          + 2.0 * c_plus_2;
-      if (std::abs(diff1) < threshold) { // we're done.
-        break;
-      }
-      // Compute proposed new value p_new [we'll then backtrack]
-      if (diff2 > 0){
-        p_new = p - (diff1)/(diff2);
+      sum += exp(-(fst_->Final(s).Value())) * occ_[initial_state_] / occ_[s];
+      if (s == 0) {
+        min_sum = sum;
+        max_sum = sum;
       } else {
-        if (diff1 > 0) {
-          p_new = 0.1 * p;
-        } else {
-          p_new = 10 * p;
+        min_sum = std::min(min_sum, sum);
+        max_sum = std::max(max_sum, sum);
+      }
+    }
+    KALDI_VLOG(4) << "min,max is " << min_sum << " " << max_sum;
+    return log(max_sum / min_sum); // In FST world we'll actually
+    // dealing with logs, so the log of the ratio is more suitable
+    // to compare with delta (makes testing the algorithm easier).
+  }
+
+  
+  void Iterate(float delta) {
+    // This is like the power method to find the top eigenvalue of a matrix.
+    // We limit it to 2000 iters max, just in case something unanticipated
+    // happens, but we should exit due to the "delta" thing, usually after
+    // several tens of iterations.
+    int iter;
+    for (iter = 0; iter < 2000; iter++) {
+      std::vector<double> new_occ(num_states_);
+      // We initialize new_occ to 0.1 * occ.  A simpler algorithm would
+      // initialize them to zero, so it's like the pure power method.  This is
+      // like the power method on (M + 0.1 I), and we do it this way to avoid a
+      // problem we encountered with certain very simple linear FSTs where the
+      // eigenvalues of the weight matrix (including negative and imaginary
+      // ones) all have the same magnitude.
+      for (int i = 0; i < num_states_; i++)
+        new_occ[i] = 0.1 * occ_[i];
+      
+      for (int i = 0; i < num_states_; i++) {
+        std::vector<std::pair<StateId, double> >::const_iterator iter,
+            end = pred_[i].end();
+        for (iter = pred_[i].begin(); iter != end; ++iter) {
+          StateId j = iter->first;
+          double p = iter->second;
+          new_occ[j] += occ_[i] * p;
         }
       }
-      if (p_new < 0.1*p) p_new = 0.1*p;
-      if (p_new > 10*p) p_new = 10*p;
-
-      // Do backtracking line search with the Armijo rule.
-      while (ComputeF(c_minus_2, c_minus_1, c_plus_1, c_plus_2, p_new) >
-             cur_f + c_1 * (p_new - p) * diff1) {
-        p_new = p + backtrack_constant * (p_new - p);
-        // We had to add the line below as it gets stuck in this loop
-        // with differences between p and p_new that are at the limit of
-        // roundoff.
-        if (fabs(p_new - p) < 1.0e-10 * p) 
-          return p;
-      }
-      p = p_new;
-    }
-    if (i == num_iter)
-      KALDI_WARN << "Did not converge in line search.\n";
-    return p;
-  }
-
-
-  double ComputeObjf() {
-    // sum of squared diffs.
-    // First, if any potentials are zero or negative this is invalid,
-    // so we have to return +infinity.  This matters inside OptimizePotentialsOneIter(),
-    // for the line search.
-    for (StateId s = 0; s < num_states_; s++)
-      if (p_(s) <= 0.0)
-        return std::numeric_limits<double>::infinity();
-    double ans = 0.0;
-    for (StateId s = 0; s < num_states_; s++) {
-      double diff = n_(s) - n_avg_;
-      ans += diff * diff;
-    }
-    return ans;
-  }
-  
-  void ComputeOneParameterGradient(StateId s,
-                                   double *gradient) {
-    if (s == initial_state_) { // This state is not allowed to have
-      // its normalizer change.
-      *gradient = 0.0;
-      return;
-    }
-    // Optimize potential for state s.
-    double n_s = n_(s), p_s = p_(s), w_s_s = self_loop_(s),
-        k_s = (n_s - w_s_s) * p_s;
-    if (k_s < 0.0) {
-      if (k_s < -1.0e-04) // can't really be negative; allow rounding error.
-        KALDI_WARN << "Negative k_s " << k_s;
-      k_s = 0.0;
-    }
-    // coefficients in (Eq. 3) above.
-    double c_minus_2 = k_s * k_s,
-        c_minus_1 = 2.0 * k_s * (w_s_s - n_avg_),
-        c_plus_1 = 0.0, c_plus_2 = 0.0; // these are sums over t.
-    for (size_t i = 0; i < pred_[s].size(); i++) {
-      StateId t = pred_[s][i].first;
-      double w_ts = pred_[s][i].second, p_t = p_(t);
-      double j_t = n_(t) - w_ts * p_s / p_t; // (Eq. 2)
-      KALDI_ASSERT(!KALDI_ISNAN(j_t));
-      if (j_t < 0.0) { // should not be negative.
-        if (j_t < -1.0e-08) KALDI_WARN << "Negative j_t " << j_t;
-        j_t = 0.0;
-      }
-      // all this is part of (Eq. 3):
-      double tmp = w_ts / p_t;
-      c_plus_2 += tmp * tmp;
-      c_plus_1 += 2.0 * (j_t - n_avg_) * tmp;
-    }
-    // The objective function as a function of p is
-    // c_minus_2 p^{-2} + c_minus_1 p^{-1} + c_plus_1 p + c_plus_2 p^2.
-    // derivative is:
-    // -2 c_minus_2 p^{-3} - c_minus_1 p^{-2} + c_plus_1 + 2 p c_plus_2
-    *gradient = -2 * c_minus_2 / (p_s * p_s * p_s)
-        - c_minus_1 / (p_s * p_s)
-        + c_plus_1
-        + 2 * p_s * c_plus_2;
-  }
-
-  
-  void OptimizePotentials(float delta) {
-
-    kaldi::LbfgsOptions opts;    
-    kaldi::OptimizeLbfgs<double> opt_lbfgs(p_, opts);
-    for (int num_iters = 0; true; num_iters++) {
-      p_.CopyFromVec(opt_lbfgs.GetProposedValue());
-      ComputeNormalizers();
-      // Test convergence.
-      bool converged = true;
-      for (StateId s = 0; s < num_states_; s++)
-        if (std::abs(n_(s) - n_avg_) > delta)
-          converged = false;
-      if (converged) {
-        KALDI_VLOG(2) << "Did " << num_iters << " iterations of L-BFGS";
+      double sumsq = 0.0;
+      for (int i = 0; i < num_states_; i++) sumsq += new_occ[i] * new_occ[i];
+      lambda_ = std::sqrt(sumsq);
+      double inv_lambda = 1.0 / lambda_;
+      for (int i = 0; i < num_states_; i++) occ_[i] = new_occ[i] * inv_lambda;
+      KALDI_VLOG(4) << "Lambda is " << lambda_;
+      if (iter % 5 == 0 && iter > 0 && TestAccuracy() <= delta) {
+        KALDI_VLOG(3) << "Weight-pushing converged after " << iter
+                      << " iterations.";
         return;
-      } else { // Do the optimization step.
-        double f = ComputeObjf();
-        kaldi::Vector<double> gradient(num_states_);
-        if (f != std::numeric_limits<double>::infinity())
-          for (StateId s = 0; s < num_states_; s++)
-            ComputeOneParameterGradient(s, &(gradient(s)));
-        opt_lbfgs.DoStep(f, gradient);
       }
     }
+    KALDI_WARN << "push-special: finished " << iter
+               << " iterations without converging.  Output will be inaccurate.";
   }
-
-
+  
+ 
   // Modifies the FST weights and the final-prob to take account of these potentials.
   void ModifyFst() {
     // First get the potentials as negative-logs, like the values
     // in the FST.
     for (StateId s = 0; s < num_states_; s++) {
-      p_(s) = -log(p_(s));
-      KALDI_ASSERT(!isnan(p_(s)));
+      occ_[s] = -log(occ_[s]);
+      if (KALDI_ISNAN(occ_[s]) || KALDI_ISINF(occ_[s]))
+        KALDI_WARN << "NaN or inf found: " << occ_[s];
     }
     for (StateId s = 0; s < num_states_; s++) {
       for (MutableArcIterator<VectorFst<StdArc> > aiter(fst_, s);
            !aiter.Done(); aiter.Next()) {
         Arc arc = aiter.Value();
         StateId t = arc.nextstate;
-        // w(s, t) <-- w(s, t) * p(t) / p(s).
-        arc.weight = Weight(arc.weight.Value() + p_(t) - p_(s));
+        arc.weight = Weight(arc.weight.Value() + occ_[t] - occ_[s]);
         aiter.SetValue(arc);
       }
-      // f(s) <-- f(s) / p(s) = f(s) * (1.0 / p(s)).
-      fst_->SetFinal(s, Times(fst_->Final(s).Value(), Weight(-p_(s))));
+      fst_->SetFinal(s, Times(fst_->Final(s).Value(),
+                              Weight(occ_[initial_state_] - occ_[s])));
     }
   }
 
-private:
+ private:
   StateId num_states_;
   StateId initial_state_;
-  kaldi::Vector<double> final_; // final-prob of each state.
-  kaldi::Vector<double> self_loop_; // self-loop prob of each state: w(s, s).
-  std::vector<std::vector<std::pair<StateId, double> > > foll_; // List of transitions
-  // out of each state, to a *different* state.  The pair (t, w(s, t)).
+  std::vector<double> occ_; // the top eigenvector of (matrix of weights) transposed.
+  double lambda_; // our current estimate of the top eigenvalue.
+  
   std::vector<std::vector<std::pair<StateId, double> > > pred_; // List of transitions
-  // into each state, to a *different* state.  The pair (t, w(t, s)).
-  kaldi::Vector<double> p_; // The potential of each state.
-  kaldi::Vector<double> n_; // The normalizer n(s) for each state.
-  double n_avg_; // The current average normalizer.
+  // into each state.  For the start state, this list consists of the list of
+  // states with final-probs, each with their final prob.
   
   VectorFst<StdArc> *fst_;
   
@@ -360,10 +246,44 @@ private:
 void PushSpecial(VectorFst<StdArc> *fst, float delta) {
   if (fst->NumStates() > 0)
     PushSpecialClass c(fst, delta); // all the work
-    // gets done in the initializer.
+  // gets done in the initializer.
 }
 
   
 } // end namespace fst.
 
 
+/*
+  Note: in testing an earlier, simpler
+  version of this method (without the 0.1 * old_occ) we had a problem with the following FST.
+0	2	3	3	0
+1	3	1	4	0.5
+2	1	0	0	0.5
+3	0.25
+
+ Corresponds to the following matrix [or maybe its transpose, doesn't matter
+ probably]
+
+ a=exp(-0.5)
+ b=exp(-0.25)
+M =   [ 0 1 0 0
+       0 0 a 0
+       0 0 0 a
+       b 0 0 0 ]
+
+eigs(M)
+eigs(M)
+
+ans =
+
+  -0.0000 - 0.7316i
+  -0.0000 + 0.7316i
+   0.7316
+  -0.7316
+
+   OK, so the issue appears to be that all the eigenvalues of this matrix
+   have the same magnitude.  The solution is to work with the eigenvalues
+   of M + alpha I, for some small alpha such as 0.1 (so as not to slow down
+   convergence in the normal case).
+
+*/
