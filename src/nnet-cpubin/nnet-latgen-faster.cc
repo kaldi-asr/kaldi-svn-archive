@@ -1,4 +1,4 @@
-// nnet-dpbin/nnet1-latgen-faster.cc
+// nnet-cpubin/nnet-latgen-faster.cc
 
 // Copyright 2009-2012   Microsoft Corporation
 //                       Johns Hopkins University (author: Daniel Povey)
@@ -23,9 +23,8 @@
 #include "hmm/transition-model.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/lattice-faster-decoder.h"
-#include "nnet-dp/decodable-am-nnet1.h"
+#include "nnet-cpu/decodable-am-nnet.h"
 #include "util/timer.h"
-
 
 
 int main(int argc, char *argv[]) {
@@ -37,8 +36,8 @@ int main(int argc, char *argv[]) {
     using fst::StdArc;
 
     const char *usage =
-        "Generate lattices using nnet1-based model.\n"
-        "Usage: nnet1-latgen-faster [options] <nnet1-in> <fst-in|fsts-rspecifier> <features-rspecifier>"
+        "Generate lattices using neural net model.\n"
+        "Usage: nnet-latgen-faster [options] <nnet-in> <fst-in|fsts-rspecifier> <features-rspecifier>"
         " <lattice-wspecifier> [ <words-wspecifier> [<alignments-wspecifier>] ]\n";
     ParseOptions po(usage);
     Timer timer;
@@ -46,14 +45,18 @@ int main(int argc, char *argv[]) {
     BaseFloat acoustic_scale = 0.1;
     LatticeFasterDecoderConfig config;
     bool reverse = false;
+    std::string spkvecs_rspecifier = "", utt2spk_rspecifier = "";
     
     std::string word_syms_filename;
     config.Register(&po);
     po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic likelihoods");
-
     po.Register("word-symbol-table", &word_syms_filename, "Symbol table for words [for debug output]");
     po.Register("allow-partial", &allow_partial, "If true, produce output even if end state was not reached.");
     po.Register("reverse", &reverse, "If true, decode on time-reversed features.");
+    po.Register("spk-vecs", &spkvecs_rspecifier, "Rspecifier for a vector that describes each speaker; "
+                "only needed if the neural net was trained this way.");
+    po.Register("utt2spk", &utt2spk_rspecifier, "Rspecifier for map from utterance to speaker; only relevant "
+                "in conjunction with the --spk-vecs option.");
     
     po.Read(argc, argv);
 
@@ -70,7 +73,7 @@ int main(int argc, char *argv[]) {
         alignment_wspecifier = po.GetOptArg(6);
     
     TransitionModel trans_model;
-    AmNnet1 am_nnet;
+    AmNnet am_nnet;
     {
       bool binary;
       Input ki(model_in_filename, &binary);
@@ -96,12 +99,20 @@ int main(int argc, char *argv[]) {
         KALDI_ERR << "Could not read symbol table from file "
                    << word_syms_filename;
 
+
+    RandomAccessBaseFloatVectorReader spkvecs_reader(spkvecs_rspecifier); // We
+    // support reading in a vector to describe each speaker, if the neural
+    // net requires this (i.e. it was trained with this).
+    RandomAccessTokenReader utt2spk_reader(utt2spk_rspecifier); // this
+    // relates to reading in the vectors; it's optional also.
+    
     double tot_like = 0.0;
     kaldi::int64 frame_count = 0;
     int num_success = 0, num_fail = 0;
 
     if (ClassifyRspecifier(fst_in_str, NULL, NULL) == kNoRspecifier) {
       SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
+      
       // Input FST is just one FST, not a table of FSTs.
       VectorFst<StdArc> *decode_fst = NULL;
       {
@@ -125,11 +136,34 @@ int main(int argc, char *argv[]) {
             num_fail++;
             continue;
           }
-          DecodableAmNnet1 nnet1_decodable(trans_model, am_nnet,
-                                           features, acoustic_scale);
+          std::string utt_or_spk;  
+          if (utt2spk_reader.IsOpen()) {
+            if (!utt2spk_reader.HasKey(utt)) {
+              KALDI_WARN << "Utterance " << utt << " not present in utt2spk map; "
+                         << "skipping this utterance.";
+              return false;
+            } else { utt_or_spk = utt2spk_reader.Value(utt); }
+          } else { utt_or_spk = utt; }
+          Vector<BaseFloat> spk_info;
+          if (spkvecs_reader.IsOpen()) {
+            if (spkvecs_reader.HasKey(utt_or_spk)) {
+              spk_info = spkvecs_reader.Value(utt_or_spk);
+            } else {
+              KALDI_WARN << "Cannot find speaker vector for " << utt_or_spk
+                         << " (skipping this utterance).";
+              continue;
+            }
+          }
+          bool pad_input = true;
+          DecodableAmNnet nnet_decodable(trans_model,
+                                         am_nnet,
+                                         features,
+                                         spk_info,
+                                         pad_input,
+                                         acoustic_scale);
           double like;
           if (DecodeUtteranceLatticeFaster(
-                  decoder, nnet1_decodable, word_syms, utt, acoustic_scale,
+                  decoder, nnet_decodable, word_syms, utt, acoustic_scale,
                   determinize, allow_partial, &alignment_writer, &words_writer,
                   &compact_lattice_writer, &lattice_writer, &like)) {
             tot_like += like;
@@ -158,11 +192,35 @@ int main(int argc, char *argv[]) {
         }
         
         LatticeFasterDecoder decoder(fst_reader.Value(), config);
-        DecodableAmNnet1 nnet1_decodable(trans_model, am_nnet,
-                                         features, acoustic_scale);
+
+        std::string utt_or_spk;  
+        if (utt2spk_reader.IsOpen()) {
+          if (!utt2spk_reader.HasKey(utt)) {
+            KALDI_WARN << "Utterance " << utt << " not present in utt2spk map; "
+                       << "skipping this utterance.";
+            return false;
+          } else { utt_or_spk = utt2spk_reader.Value(utt); }
+        } else { utt_or_spk = utt; }
+        Vector<BaseFloat> spk_info;
+        if (spkvecs_reader.IsOpen()) {
+          if (spkvecs_reader.HasKey(utt_or_spk)) {
+            spk_info = spkvecs_reader.Value(utt_or_spk);
+          } else {
+            KALDI_WARN << "Cannot find speaker vector for " << utt_or_spk
+                       << " (skipping this utterance).";
+            continue;
+          }
+        }
+        bool pad_input = true;
+        DecodableAmNnet nnet_decodable(trans_model,
+                                       am_nnet,
+                                       features,
+                                       spk_info,
+                                       pad_input,
+                                       acoustic_scale);
         double like;
         if (DecodeUtteranceLatticeFaster(
-                decoder, nnet1_decodable, word_syms, utt, acoustic_scale,
+                decoder, nnet_decodable, word_syms, utt, acoustic_scale,
                 determinize, allow_partial, &alignment_writer, &words_writer,
                 &compact_lattice_writer, &lattice_writer, &like)) {
           tot_like += like;
