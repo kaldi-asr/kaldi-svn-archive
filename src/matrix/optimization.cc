@@ -93,7 +93,11 @@ void OptimizeLbfgs<Real>::ComputeNewDirection(Real function_value,
   // 7.4 of N&W.
   Vector<Real> &q(deriv_), &r(new_x_); // Use deriv_ as a temporary place to put
   // q, and new_x_ as a temporay place to put r.
-  q.CopyFromVec(gradient); // q <-- \nabla f_k.
+  // The if-statement below is just to get rid of spurious warnings from
+  // valgrind about memcpy source and destination overlap, since sometimes q and
+  // gradient are the same variable.
+  if (&q != &gradient)
+    q.CopyFromVec(gradient); // q <-- \nabla f_k.
   Vector<Real> alpha(m);
   // for i = k - 1, k - 2, ... k - m
   for (SignedMatrixIndexT i = k - 1; i >= std::max(k - m, 0); i--) { 
@@ -123,7 +127,8 @@ void OptimizeLbfgs<Real>::ComputeNewDirection(Real function_value,
   // We're still within iteration k; we haven't yet finalized the step size.
   new_x_.Scale(-1.0);
   new_x_.AddVec(1.0, x_);
-  deriv_.CopyFromVec(gradient);
+  if (&deriv_ != &gradient)
+    deriv_.CopyFromVec(gradient);
   f_ = function_value;
   d_ = opts_.d;
   num_wolfe_i_failures_ = 0;
@@ -190,7 +195,8 @@ void OptimizeLbfgs<Real>::Restart(const VectorBase<Real> &x,
   }
   k_ = 0; // Restart the iterations!  [But note that the Hessian,
   // whatever it was, stays as before.]
-  x_.CopyFromVec(x);
+  if (&x_ != &x)
+    x_.CopyFromVec(x);
   new_x_.CopyFromVec(x);
   f_ = f;
   computation_state_ = kBeforeStep;
