@@ -271,7 +271,7 @@ BaseFloat Nnet1Updater::ForwardAndBackwardFinal(
     double tot_like = 0.0;
     ForwardAndBackwardFinalClass c(*this, data, &mutex,
                                    &other_categories, &tot_like);
-    RunMultiThreadedPersistent(c); // will run with #threads = g_num_threads.
+    RunMultiThreaded(c); // will run with #threads = g_num_threads.
     ans += tot_like;
   }
   return ans / tot_weight;

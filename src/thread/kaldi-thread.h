@@ -70,57 +70,48 @@ class MultiThreadable {
   // the object passed by the user will also be called, so
   // watch out.
 
- public:
-  // do NOT reimplement thread_id_ and num_threads_ in derived classes, as they
-  // are used in *MultiThreadable context, so the derived classes would not see
-  // the changes made to them like this
-  /* final */ int32 thread_id_;  // 0 <= thread_number < num_threads
-  /* final */ int32 num_threads_;
-
- private:
-  // Have additional member variables as needed.
-};
-
-class ThreadWorker {  // worker thread
-  // handles waiting on barriers and launches it's job classes
-
- public:
-  Barrier *barrier_;
-  MultiThreadable *job_;
-
-  static void *run(void *ThisPtr);
-};
-
-class ExampleClass {
- public:
-  ExampleClass(const ExampleClass &other) {
-    // .. optional initalizer.  Run sequentially;
-    // initialized from object passed by user.
-  }
-  void operator() () {
-    // Does the main function of the class
-  }
-  ~ExampleClass() {
-    // Optional destructor.  Note: the destructor
-    // the object passed by the user will also be called, so
-    // watch out.
-  }
-
-  // This function should be provided. Give it this exact implementation, with
-  // the class name replaced with your own class's name.
-  static void *run(void *c_in) {
-    ExampleClass *c = static_cast<ExampleClass*>(c_in);
-    (*c)();  // call operator () on it.
+  static void *run(void *m_in) {
+    MultiThreadable *m = static_cast<MultiThreadable*>(m_in);
+    (*m)();  // call operator () on it.  This is a virtual
+    // function so the one in the child class will be called.
     return NULL;
   }
+  
  public:
-  int32 thread_id_;  // 0 <= thread_number < num_threads
+  // Do not redeclare thread_id_ and num_threads_ in derived classes.
+  int32 thread_id_;  // 0 <= thread_id_ < num_threads_
   int32 num_threads_;
 
  private:
   // Have additional member variables as needed.
 };
 
+
+class ExampleClass: public MultiThreadable {
+ public:
+  ExampleClass(const ExampleClass &other) {
+    // .. optional initalizer.  Run sequentially; each of the parallel
+    // ExampleClass members that we'll run in parallel will in turn
+    // be initialized from the object passed by user.
+  }
+  void operator() () {
+    // Does the main function of the class.  This
+    // function will typically want to look at the values of the 
+    // member variables thread_id_ and num_threads_, inherited
+    // from MultiThreadable.
+  }
+  ~ExampleClass() {
+    // Optional destructor.  Sometimes useful things happen here,
+    // for example summing up of certain quantities.  See code
+    // that uses RunMultiThreaded for examples.
+  }
+ private:
+  // Have additional member variables as needed.
+};
+
+/// RunMultiThreaded takes a class C similar to ExampleClass above, and runs the
+/// code inside it in parallel; it waits till all threads are done and then
+/// returns.  The number of threads used is g_num_threads.
 template<class C> void RunMultiThreaded(const C &c_in) {
   KALDI_ASSERT(g_num_threads > 0);
   if (g_num_threads == 1) {  // Just run one copy.
@@ -155,67 +146,5 @@ template<class C> void RunMultiThreaded(const C &c_in) {
   }
 }
 
-class TerminateThread: public MultiThreadable {  // job used to terminate thread
- public:
-  TerminateThread() { }
-  // Use default copy constructor and assignment operators.
-  void operator() () {
-    pthread_exit(NULL);
-  }
-};
-
-class MultiThreadPool {  // singleton class for managing the thread pool
- public:
-  static MultiThreadPool& Instantiate();
-
-  void *run();
-  void SetJobs(MultiThreadable** jobs);
-
- private:
-  pthread_t *thread_ids_;
-  std::vector<ThreadWorker> threads_;
-  Barrier *barrier_;
-
-  int32 num_threads_;
-  static bool initialized_;
-
-  void Initialize();  // this function creates the actual thread pool
-  void Reinitialize();  // re-create the thread pool, used when g_num_threads is
-  // changed
-  void DeletePool();  // used by destructor and reinitialization - terminates
-  // and deletes existing threas in thread pool
-  ~MultiThreadPool();
-
- private:
-  // prevent copying of existing instance etc.
-  inline explicit MultiThreadPool() {}
-  inline explicit MultiThreadPool(MultiThreadPool const&) {}
-  inline MultiThreadPool& operator=(MultiThreadPool const&) { return *this; }
-};
-
-template<class C> void RunMultiThreadedPersistent(const C &c_in) {
-  if (g_num_threads == 1) {
-    C c(c_in);  // copy of c_in, for the consistency
-    c.num_threads_ = 1;
-    c.thread_id_ = 0;
-    c();  // just call the method on object provided
-  } else {
-    MultiThreadPool::Instantiate();
-    // we have to prepare jobs here, because it is the last place the class C is
-    // known
-    MultiThreadable** jobs = new MultiThreadable*[g_num_threads];
-    for (int32 thread = 0; thread < g_num_threads; thread++) {
-      jobs[thread] = new C(c_in);
-    }
-    MultiThreadPool::Instantiate().SetJobs(jobs);
-    MultiThreadPool::Instantiate().run();
-
-    for (int32 thread = 0; thread < g_num_threads; thread++) {
-      delete jobs[thread];
-    }
-    delete [] jobs;
-  }
-}
-}
-
+} // namespace kaldi
 #endif  // KALDI_THREAD_KALDI_THREAD_H_

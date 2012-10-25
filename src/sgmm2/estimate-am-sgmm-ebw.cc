@@ -259,7 +259,7 @@ double EbwAmSgmm2Updater::UpdatePhoneVectors(const MleAmSgmm2Accs &num_accs,
   for (int32 j1 = 0; j1 < J1; j1++) count += num_accs.gamma_[j1].Sum();
   
   EbwUpdatePhoneVectorsClass c(this, num_accs, den_accs, H, model, &auxf_impr);
-  RunMultiThreadedPersistent(c);
+  RunMultiThreaded(c);
 
   auxf_impr /= count;
 
@@ -380,7 +380,7 @@ double EbwAmSgmm2Updater::UpdateW(const MleAmSgmm2Accs &num_accs,
       MleAmSgmm2Updater::ComputeLogA(num_accs, &log_a_num);
     double garbage;
     UpdateWClass c_num(num_accs, *model, w, log_a_num, &F_i_num, &g_i_num, &garbage);
-    RunMultiThreadedPersistent(c_num);
+    RunMultiThreaded(c_num);
   }
   {
     std::vector<Matrix<double> > log_a_den;
@@ -388,7 +388,7 @@ double EbwAmSgmm2Updater::UpdateW(const MleAmSgmm2Accs &num_accs,
       MleAmSgmm2Updater::ComputeLogA(den_accs, &log_a_den);
     double garbage;
     UpdateWClass c_den(den_accs, *model, w, log_a_den, &F_i_den, &g_i_den, &garbage);
-    RunMultiThreadedPersistent(c_den);
+    RunMultiThreaded(c_den);
   }
 
   for (int32 i = 0; i < I; i++) {

@@ -51,7 +51,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
   
   { // Test backward derivative is correct.
     Vector<BaseFloat> output_objfs(num_egs);
-    output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec);
+    output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec, 0.0);
     BaseFloat objf = output_objfs.Sum();
 
     Matrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
@@ -84,7 +84,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
         component.Propagate(perturbed_input, 1, &perturbed_output);
         Vector<BaseFloat> perturbed_output_objfs(num_egs);
         perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
-                                         objf_vec);
+                                         objf_vec, 0.0);
         BaseFloat perturbed_objf = perturbed_output_objfs.Sum(),
              observed_difference = perturbed_objf - objf;
         KALDI_LOG << "Input gradients: comparing " << predicted_difference

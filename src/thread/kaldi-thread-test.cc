@@ -58,69 +58,6 @@ class MyThreadClass {  // Sums up integers from 0 to max_to_count-1.
   int32 private_counter_;
 };
 
-class MyThreadClassPersist: public MultiThreadable {  // variant of previous
-  // class for testing of persistent threads
- public:
-  MyThreadClassPersist(int32 max_to_count, int32 *i):
-      max_to_count_(max_to_count),
-      iptr_(i),
-      private_counter_(0) { }
-  // Use default copy constructor and assignment operators.
-  void operator() () {
-    int32 block_size = (max_to_count_+ (num_threads_-1) ) / num_threads_;
-    int32 start = block_size * thread_id_,
-        end = std::min(max_to_count_, start + block_size);
-    for (int32 j = start; j < end; j++)
-      private_counter_ += j;
-  }
-  ~MyThreadClassPersist() {
-    *iptr_ += private_counter_;
-  }
-
- public:
-  // do NOT redefine thread_id_ and num_threads_, as they are used in
-  // *MultiThreadable context
-
- private:
-  MyThreadClassPersist() { }  // Disallow empty constructor.
-  int32 max_to_count_;
-  int32 *iptr_;
-  int32 private_counter_;
-};
-
-class MyThreadClassPersist2: public MultiThreadable {  // another version, just
-  // to be able to check if jobs are exchanged properly
- public:
-  int modif_;  // one more variable to make this class of different size
-  // (because different sizes of object were problem in early implementation,
-  // so it's good to check this)
-  MyThreadClassPersist2(int32 max_to_count, int32 *i): modif_(-1),
-                                                max_to_count_(max_to_count),
-                                                iptr_(i),
-                                                private_counter_(0)
-  { }
-  // Use default copy constructor and assignment operators.
-  void operator() () {
-    int32 block_size = (max_to_count_+ (num_threads_-1) ) / num_threads_;
-    int32 start = block_size * thread_id_,
-        end = std::min(max_to_count_, start + block_size);
-    for (int32 j = start; j < end; j++)
-      private_counter_ += j*modif_;  // just count downwards
-  }
-  ~MyThreadClassPersist2() {
-    *iptr_ += private_counter_;
-  }
-
- public:
-  // do NOT redefine thread_id_ and num_threads_, as they are used in
-  // *MultiThreadable context
-
- private:
-  MyThreadClassPersist2() { }  // Disallow empty constructor.
-  int32 max_to_count_;
-  int32 *iptr_;
-  int32 private_counter_;
-};
 
 void TestThreads() {
   g_num_threads = 8;
@@ -141,65 +78,6 @@ void TestThreads() {
     RunMultiThreaded(c);
     KALDI_ASSERT(tot == (10000*(10000-1))/2);
   }
-  // now check if the solution with persistent threads works as well
-  // for starter's just one thread
-  g_num_threads = 1;
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  g_num_threads = 8;
-  // let's check if the thread pool works, so we have to set g_num_threads>1
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  // let's try the same thing again, to see if the worker objects get reset
-  // properly
-  // Note: again, just uncomment following line for simple benchmarking
-  // for(int i=0; i<100000; i++)
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  // now let's try another jobs to see if exchanging works
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist2 c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == -(10000*(10000-1))/2);
-  }
-  g_num_threads = 2;
-  // let's try to modify the number of threads
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  g_num_threads = 1;
-  // once again only one thread
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  g_num_threads = 8;
-  // back to 8 threads
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClassPersist c(max_to_count, &tot);
-    RunMultiThreadedPersistent(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  g_num_threads = 8;
 }
 
 

@@ -777,7 +777,7 @@ double MleAmSgmm2Updater::UpdatePhoneVectors(
     count += accs.gamma_[j1].Sum();
 
   UpdatePhoneVectorsClass c(*this, accs, H, log_a, model, &auxf_impr);
-  RunMultiThreadedPersistent(c);
+  RunMultiThreaded(c);
 
   double auxf_per_frame = auxf_impr / (count + 1.0e-20);
   
@@ -1155,7 +1155,7 @@ double MleAmSgmm2Updater::UpdateW(const MleAmSgmm2Accs &accs,
     double k_like_before = 0.0;
     
     UpdateWClass c(accs, *model, w, log_a, &F_i, &g_i, &k_like_before);
-    RunMultiThreadedPersistent(c);
+    RunMultiThreaded(c);
     
     Matrix<double> w_orig(w);
     double k_predicted_like_impr = 0.0, k_like_after = 0.0;

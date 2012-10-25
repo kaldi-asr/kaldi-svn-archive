@@ -785,7 +785,7 @@ double MleAmSgmmUpdater::UpdatePhoneVectors(const MleAmSgmmAccs &accs,
 
   UpdatePhoneVectorsClass c(*this, accs, model, H, H_sm, y_sm,
                             &auxf_impr, &like_impr);
-  RunMultiThreadedPersistent(c);
+  RunMultiThreaded(c);
 
   auxf_impr /= (count + 1.0e-20);
   like_impr /= (count + 1.0e-20);
@@ -951,7 +951,7 @@ double MleAmSgmmUpdater::UpdatePhoneVectorsCheckedFromClusterable(
   
   UpdatePhoneVectorsCheckedFromClusterableClass c(this, stats, H, model,
                                                   &count, &like_impr);
-  RunMultiThreadedPersistent(c);
+  RunMultiThreaded(c);
 
   KALDI_LOG << "**Overall objf impr for v is " << (like_impr / count)
             << " over " << count << " frames.";
@@ -1314,7 +1314,7 @@ double MleAmSgmmUpdater::UpdateWParallel(const MleAmSgmmAccs &accs,
     double k_like_before = 0.0;
 
     UpdateWParallelClass c(accs, *model, w, &F_i, &g_i, &k_like_before);
-    RunMultiThreadedPersistent(c);
+    RunMultiThreaded(c);
     
     Matrix<double> w_orig(w);
     double k_predicted_like_impr = 0.0, k_like_after = 0.0;

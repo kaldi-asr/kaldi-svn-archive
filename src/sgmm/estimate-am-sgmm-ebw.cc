@@ -243,7 +243,7 @@ double EbwAmSgmmUpdater::UpdatePhoneVectors(const MleAmSgmmAccs &num_accs,
   for (int32 j = 0; j < J; j++) count += num_accs.gamma_[j].Sum();
   
   EbwUpdatePhoneVectorsClass c(this, num_accs, den_accs, model, H, &auxf_impr);
-  RunMultiThreadedPersistent(c);
+  RunMultiThreaded(c);
 
   auxf_impr /= count;
 
@@ -365,12 +365,12 @@ double EbwAmSgmmUpdater::UpdateWParallel(const MleAmSgmmAccs &num_accs,
   {
     double garbage;
     UpdateWParallelClass c_num(num_accs, *model, w, &F_i_num, &g_i_num, &garbage);
-    RunMultiThreadedPersistent(c_num);
+    RunMultiThreaded(c_num);
   }
   {
     double garbage;
     UpdateWParallelClass c_den(den_accs, *model, w, &F_i_den, &g_i_den, &garbage);
-    RunMultiThreadedPersistent(c_den);
+    RunMultiThreaded(c_den);
   }
 
   for (int32 i = 0; i < I; i++) {

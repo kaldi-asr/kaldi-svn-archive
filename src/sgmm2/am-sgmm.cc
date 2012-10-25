@@ -840,7 +840,7 @@ void AmSgmm2::ComputeNormalizers() {
   int32 entropy_count = 0;
   double entropy_sum = 0.0;
   ComputeNormalizersClass c(this, &entropy_count, &entropy_sum);
-  RunMultiThreadedPersistent(c);
+  RunMultiThreaded(c);
 
   KALDI_LOG << "Entropy of weights in substates is "
             << (entropy_sum / entropy_count) << " over " << entropy_count
