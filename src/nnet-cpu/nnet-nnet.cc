@@ -72,8 +72,10 @@ void Nnet::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<NumComponents>");
   WriteBasicType(os, binary, num_components);
   WriteToken(os, binary, "<Components>");
-  for (int32 c = 0; c < num_components; c++) 
+  for (int32 c = 0; c < num_components; c++) {
     components_[c]->Write(os, binary);
+    if (!binary) os << std::endl;
+  }
   WriteToken(os, binary, "</Components>");
   WriteToken(os, binary, "</Nnet>");  
 }

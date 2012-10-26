@@ -70,12 +70,13 @@ Component* Component::NewFromString(const std::string &initializer_line) {
   std::istringstream istr(initializer_line);
   std::string component_type; // e.g. "SigmoidComponent".
   istr >> component_type >> std::ws; 
-  std::string args = istr.str();
+  std::string rest_of_line;
+  getline(istr, rest_of_line);
   Component *ans = NewComponentOfType(component_type);
   if (ans == NULL)
     KALDI_ERR << "Bad initializer line (no such type of Component): "
               << initializer_line;
-  ans->InitFromString(args);
+  ans->InitFromString(rest_of_line);
   return ans;
 }
 
@@ -1274,7 +1275,9 @@ void SpliceComponent::InitFromString(std::string args) {
 }
 
 int32 SpliceComponent::OutputDim() const {
-  return (input_dim_  - const_component_dim_) * (1 + left_context_ + right_context_) + const_component_dim_;
+  return (input_dim_  - const_component_dim_)
+      * (1 + left_context_ + right_context_)
+      + const_component_dim_;
 }
 
 void SpliceComponent::Propagate(const MatrixBase<BaseFloat> &in,
@@ -1360,18 +1363,21 @@ void SpliceComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                                          0, input_dim - const_component_dim_),
                           out_deriv_part(out_deriv_chunk, 
                                         0, output_chunk_size,
-                                        c * (input_dim - const_component_dim_), input_dim - const_component_dim_);
+                                        c * (input_dim - const_component_dim_),
+                                         input_dim - const_component_dim_);
       in_deriv_part.AddMat(1.0, out_deriv_part);
     }
     
     if (const_component_dim_ > 0) {
       SubMatrix<BaseFloat> out_deriv_const_part(out_deriv_chunk, 
                               chunk * output_chunk_size, 1,
-                              output_dim - const_component_dim_, const_component_dim_); 
+                              output_dim - const_component_dim_,
+                                                const_component_dim_);
                       
       for (int32 c = 0; c < in_deriv_chunk.NumRows(); c++) {
         SubMatrix<BaseFloat> in_deriv_part(in_deriv_chunk, c, 1,
-                                           input_dim - const_component_dim_, const_component_dim_);
+                                           input_dim - const_component_dim_,
+                                           const_component_dim_);
         in_deriv_part.CopyFromMat(out_deriv_const_part);
       } 
     }
@@ -1394,17 +1400,9 @@ void SpliceComponent::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &left_context_);
   ExpectToken(is, binary, "<RightContext>");
   ReadBasicType(is, binary, &right_context_);
-  
-
-  std::string token;
-  ReadToken(is, binary, &token);
-  if (token == "<ConstComponentDim>") {
-    ReadBasicType(is, binary, &const_component_dim_);
-    ExpectToken(is, binary, "</SpliceComponent>");
-  } else if (token != "</SpliceComponent>") {
-    KALDI_ERR << "Expected token \"</SpliceComponent>\", got instead \""
-              << token << "\".";
-  }
+  ExpectToken(is, binary, "<ConstComponentDim>");
+  ReadBasicType(is, binary, &const_component_dim_);
+  ExpectToken(is, binary, "</SpliceComponent>");
 }
 
 void SpliceComponent::Write(std::ostream &os, bool binary) const {

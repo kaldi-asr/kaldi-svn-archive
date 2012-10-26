@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
     
     int32 num_done = 0, num_err = 0;
     
-    while (!feat_reader.Done()) {
+    for (; !feat_reader.Done(); feat_reader.Next()) {
       std::string key = feat_reader.Key();
       const Matrix<BaseFloat> &feats = feat_reader.Value();
       if (!pdf_ali_reader.HasKey(key)) {
@@ -105,10 +105,11 @@ int main(int argc, char *argv[]) {
           }
         }
         randomizer.AddTrainingFile(feats, spk_info, pdf_ali);
+        num_done++;
       }
     }
 
-    int64 num_written = 0;
+    kaldi::int64 num_written = 0;
     for (; !randomizer.Done(); randomizer.Next(), num_written++) {
       std::ostringstream os;
       os << num_written;
