@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
-# Copyright 2010-2011 Microsoft Corporation
+# Copyright 2010-2012 Microsoft Corporation
+#                     Johns Hopkins University (author: Daniel Povey)
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +31,6 @@ if ($ARGV[0] eq "--exclude") {
 if(@ARGV < 1 || @ARGV > 2) {
   die "Usage: filter_scp.pl [--exclude] id_list [in.scp] > out.scp ";
 }
-
 
 
 $idlist = shift @ARGV;
