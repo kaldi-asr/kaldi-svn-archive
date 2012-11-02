@@ -19,7 +19,8 @@ BINFILES = fstdeterminizestar  \
            fstmakecontextsyms fstaddsubsequentialloop fstaddselfloops  \
            fstrmepslocal fstcomposecontext fsttablecompose fstrand fstfactor \
            fstdeterminizelog fstphicompose fstpropfinal fstcopy \
-	       fstpushspecial
+	         fstpushspecial fstpush-kaldi fsttoindex fstminimize-kaldi \
+           fstunion-kaldi fstdeterminize-kws
 
 # actually, this library is currently empty.  Everything is a header.
 LIBFILE = 
