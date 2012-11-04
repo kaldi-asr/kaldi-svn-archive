@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 
+# Copyright 2012  Johns Hopkins University (Author: Guoguo Chen)
+# Apache 2.0.
+#
 use strict;
 use warnings;
 use Getopt::Long;

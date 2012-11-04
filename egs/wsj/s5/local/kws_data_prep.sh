@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2009-2012  Johns Hopkins University (Author: Guoguo Chen)
+# Copyright 2012  Johns Hopkins University (Author: Guoguo Chen)
 # Apache 2.0.
 
 
