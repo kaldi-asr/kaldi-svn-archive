@@ -134,6 +134,9 @@ steps/train_lda_mllt.sh --cmd "$train_cmd" \
    exp/tri3a/graph data/eval2000 exp/tri3a/decode_eval2000 || exit 1;
 )&
 
+# Buid an index for the KWS system
+steps/kws_index_utt.sh data/lang data/eval2000/ exp/tri3a/decode_eval2000/ exp/kws3
+
 
 # From now, we start building a more serious system (with SAT), and we'll
 # do the alignment with fMLLR.

@@ -97,6 +97,20 @@ void PushInLog(VectorFst<StdArc> *fst, uint32 ptype, float delta = kDelta) {
   delete fst_pushed_log;
 }
 
+template<ReweightType rtype> // == REWEIGHT_TO_{INITIAL, FINAL}
+void PushInLog(VectorFst<StdArc> *fst, float delta = kDelta, bool remove_total_weight = true) {
+
+  // PushInLog pushes the FST
+  // and returns a new pushed FST (labels and weights pushed to the left).
+  VectorFst<LogArc> *fst_log = new VectorFst<LogArc>;  // Want to determinize in log semiring.
+  Cast(*fst, fst_log);
+  VectorFst<StdArc> tmp;
+  *fst = tmp;  // free up memory.
+  Push<LogArc>(fst_log, rtype, kDelta, remove_total_weight);
+  Cast(*fst_log, fst);
+  delete fst_log;
+}
+
 // Minimizes after encoding; applicable to all FSTs.  It is like what you get
 // from the Minimize() function, except it will not push the weights, or the
 // symbols.  This is better for our recipes, as we avoid ever pushing the
