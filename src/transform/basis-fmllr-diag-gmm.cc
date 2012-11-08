@@ -87,8 +87,10 @@ void BasisFmllrAccus::AccuGradientScatter(
   // The amount of data beta_ is likely to be ZERO, especially
   // when silence-weight is set to be 0 and we are using the
   // per-utt mode.
-  if (spk_stats.beta_ > 0)
+  if (spk_stats.beta_ > 0) {
+	beta_ += spk_stats.beta_;
     grad_scatter_.AddVec2(BaseFloat(1.0 / spk_stats.beta_), grad_vec);
+  }
 }
 
 void BasisFmllrEstimate::WriteBasis(std::ostream &out_stream, bool binary) const {
