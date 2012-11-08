@@ -35,7 +35,7 @@ void BasisFmllrAccus::Write(std::ostream &out_stream, bool binary) const {
   WriteToken(out_stream, binary, "<BASISFMLLRACCUS>");
   WriteToken(out_stream, binary, "<BETA>");
   WriteBasicType(out_stream, binary, beta_);
-  if (!binary) out << '\n';
+  if (!binary) out_stream << '\n';
   if (grad_scatter_.NumCols() != 0) {
     WriteToken(out_stream, binary, "<GRADSCATTER>");
     grad_scatter_.Write(out_stream, binary);
