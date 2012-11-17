@@ -725,7 +725,7 @@ void MleAmSgmm2Updater::ComputeSMeans(const MleAmSgmm2Accs &accs,
 }
 
 
-class UpdatePhoneVectorsClass { // For multi-threaded.
+class UpdatePhoneVectorsClass: public MultiThreadable { // For multi-threaded.
  public:
   UpdatePhoneVectorsClass(const MleAmSgmm2Updater &updater,
                           const MleAmSgmm2Accs &accs,
@@ -747,15 +747,6 @@ class UpdatePhoneVectorsClass { // For multi-threaded.
     updater_.UpdatePhoneVectorsInternal(accs_, H_, log_a_, model_,
                                         &auxf_impr_, num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    UpdatePhoneVectorsClass *c = static_cast<UpdatePhoneVectorsClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   const MleAmSgmm2Updater &updater_;
   const MleAmSgmm2Accs &accs_;
@@ -1704,7 +1695,7 @@ void MleSgmm2SpeakerAccs::UpdateWithU(const AmSgmm2 &model,
     Vector<double> g(y_s_); // g^{(p)} in the techreport.
     g.AddSpVec(-1.0, H_s, v_s, 1.0);
     Vector<double> log_b_is(num_gauss); // b_i^{(s)}, indexed by i.
-    log_b_is.AddMatVec(1.0, Matrix<double>(model.u_), kNoTrans, v_s);
+    log_b_is.AddMatVec(1.0, Matrix<double>(model.u_), kNoTrans, v_s, 0.0);
     Vector<double> tilde_w_is(log_b_is);
     Vector<double> log_a_s_(a_s_);
     log_a_s_.ApplyLog();

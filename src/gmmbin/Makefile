@@ -8,11 +8,13 @@ BINFILES = gmm-init-mono gmm-est gmm-acc-stats-ali gmm-align \
            gmm-decode-faster gmm-decode-simple gmm-decode-nbest gmm-align-compiled \
            gmm-sum-accs gmm-init-trans gmm-est-regtree-fmllr gmm-acc-stats-twofeats \
            gmm-acc-stats gmm-init-lvtln gmm-est-lvtln-trans gmm-train-lvtln-special \
-           gmm-acc-mllt gmm-mixup gmm-init-model gmm-acc-hlda gmm-est-hlda gmm-transform-means \
+           gmm-acc-mllt gmm-mixup gmm-init-model \
+           gmm-acc-hlda gmm-est-hlda gmm-transform-means gmm-init-et gmm-est-et \
+           gmm-et-acc-a gmm-et-est-a gmm-copy-et gmm-et-get-b gmm-et-get-a \
            gmm-make-regtree gmm-decode-faster-regtree-fmllr gmm-post-to-gpost \
            gmm-est-fmllr-gpost gmm-est-fmllr gmm-est-regtree-fmllr-ali \
            gmm-est-regtree-mllr gmm-compute-likes \
-           gmm-decode-faster-regtree-mllr gmm-latgen-simple \
+           gmm-decode-faster-regtree-mllr gmm-et-apply-c gmm-latgen-simple \
            gmm-rescore-lattice gmm-decode-biglm-faster \
            gmm-est-gaussians-ebw gmm-est-weights-ebw gmm-latgen-faster gmm-copy \
            gmm-global-acc-stats gmm-global-est gmm-global-sum-accs gmm-gselect \
@@ -22,7 +24,8 @@ BINFILES = gmm-init-mono gmm-est gmm-acc-stats-ali gmm-align \
            gmm-fmpe-acc-stats gmm-acc-stats2 gmm-init-model-flat gmm-info \
            gmm-scale-accs gmm-get-stats-deriv gmm-est-rescale gmm-boost-silence \
            gmm-diff-accs gmm-basis-fmllr-accs gmm-basis-fmllr-training gmm-est-basis-fmllr \
-           gmm-est-map gmm-latgen-map gmm-basis-fmllr-accs-gpost gmm-est-basis-fmllr-gpost
+           gmm-est-map gmm-adapt-map gmm-latgen-map gmm-basis-fmllr-accs-gpost \
+           gmm-est-basis-fmllr-gpost gmm-latgen-tracking
  
 OBJFILES =
 

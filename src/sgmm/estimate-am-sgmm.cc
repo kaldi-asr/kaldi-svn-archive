@@ -630,7 +630,7 @@ void MleAmSgmmUpdater::ComputeSmoothingTerms(const MleAmSgmmAccs &accs,
 }
 
 
-class UpdatePhoneVectorsClass { // For multi-threaded.
+class UpdatePhoneVectorsClass: public MultiThreadable { // For multi-threaded.
  public:
   UpdatePhoneVectorsClass(const MleAmSgmmUpdater &updater,
                           const MleAmSgmmAccs &accs,
@@ -656,15 +656,6 @@ class UpdatePhoneVectorsClass { // For multi-threaded.
                                         &auxf_impr_, &like_impr_,
                                         num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    UpdatePhoneVectorsClass *c = static_cast<UpdatePhoneVectorsClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   const MleAmSgmmUpdater &updater_;
   const MleAmSgmmAccs &accs_;
@@ -913,7 +904,7 @@ double MleAmSgmmUpdater::UpdatePhoneVectorsChecked(const MleAmSgmmAccs &accs,
 
 
 
-class UpdatePhoneVectorsCheckedFromClusterableClass { // For multi-threaded.
+class UpdatePhoneVectorsCheckedFromClusterableClass: public MultiThreadable { // For multi-threaded.
  public:
   UpdatePhoneVectorsCheckedFromClusterableClass(
       MleAmSgmmUpdater *updater,
@@ -938,16 +929,6 @@ class UpdatePhoneVectorsCheckedFromClusterableClass { // For multi-threaded.
     updater_->UpdatePhoneVectorsCheckedFromClusterableInternal(
         stats_, H_, model_, &count_, &like_impr_, num_threads_, thread_id_);
   }
-  // Copied and modified from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    UpdatePhoneVectorsCheckedFromClusterableClass *c =
-        static_cast<UpdatePhoneVectorsCheckedFromClusterableClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   MleAmSgmmUpdater *updater_;
   const std::vector<SgmmClusterable*> &stats_;
@@ -1124,14 +1105,19 @@ void MleAmSgmmUpdater::RenormalizeV(const MleAmSgmmAccs &accs,
       Sigma.AddVec2(static_cast<BaseFloat>(1.0), model->v_[j].Row(m));
     }
   }
+  Sigma.Scale(1.0 / count);
+  int32 fixed_eigs = Sigma.LimitCondDouble(update_options_.max_cond);
+  if (fixed_eigs != 0) {
+    KALDI_WARN << "Scatter of vectors v is poorly conditioned. Fixed up "
+               << fixed_eigs << " eigenvalues.";
+  }
+  KALDI_LOG << "Eigenvalues of scatter of vectors v is : ";
+  Sigma.PrintEigs("Sigma");
   if (!Sigma.IsPosDef()) {
     KALDI_LOG << "Not renormalizing v because scatter is not positive definite"
               << " -- maybe first iter?";
     return;
   }
-  Sigma.Scale(1.0 / count);
-  KALDI_LOG << "Scatter of vectors v is : ";
-  Sigma.PrintEigs("Sigma");
 
   // Want to make variance of v unit and H_sm (like precision matrix) diagonal.
   TpMatrix<double> L(accs.phn_space_dim_);

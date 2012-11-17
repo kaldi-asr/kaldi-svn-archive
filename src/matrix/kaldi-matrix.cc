@@ -598,18 +598,19 @@ inline void Matrix<Real>::Init(const MatrixIndexT rows,
     return;
   }
   // initialize some helping vars
-  MatrixIndexT  skip;
-  MatrixIndexT  real_cols;
-  MatrixIndexT  size;
+  MatrixIndexT skip;
+  MatrixIndexT real_cols;
+  size_t size;
   void*   data;       // aligned memory block
   void*   free_data;  // memory block to be really freed
 
   // compute the size of skip and real cols
-  skip      = ((16 / sizeof(Real)) - cols % (16 / sizeof(Real)))
+  skip = ((16 / sizeof(Real)) - cols % (16 / sizeof(Real)))
       % (16 / sizeof(Real));
   real_cols = cols + skip;
-  size      = rows * real_cols * sizeof(Real);
-
+  size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols)
+      * sizeof(Real);
+  
   // allocate the memory and set the right dimensions and parameters
   if (NULL != (data = KALDI_MEMALIGN(16, size, &free_data))) {
     MatrixBase<Real>::data_        = static_cast<Real *> (data);
@@ -954,8 +955,8 @@ Real MatrixBase<Real>::Sum() const {
 template<>
 void MatrixBase<float>::Scale(float alpha) {
   if (num_cols_ == stride_) {
-    cblas_sscal(num_rows_ * num_cols_, alpha,
-                data_, 1);
+    cblas_sscal(static_cast<size_t>(num_rows_) * static_cast<size_t>(num_cols_),
+                alpha, data_, 1);
   } else {
     float *data = data_;
     for (MatrixIndexT i = 0; i < num_rows_; ++i, data += stride_) {
@@ -967,7 +968,7 @@ void MatrixBase<float>::Scale(float alpha) {
 template<>
 void MatrixBase<double>::Scale(double alpha) {
   if (num_cols_ == stride_) {
-    cblas_dscal(num_rows_ * num_cols_, alpha,
+    cblas_dscal(static_cast<size_t>(num_rows_) * static_cast<size_t>(num_cols_), alpha,
                 data_, 1);
   } else {
     double *data = data_;
@@ -1055,7 +1056,7 @@ void MatrixBase<Real>::Write(std::ostream &os, bool binary) const {
     }
     if (Stride() == NumCols())
       os.write(reinterpret_cast<const char*> (Data()), sizeof(Real)
-               * num_rows_ * num_cols_);
+               * static_cast<size_t>(num_rows_) * static_cast<size_t>(num_cols_));
     else
       for (MatrixIndexT i = 0; i < num_rows_; i++)
         os.write(reinterpret_cast<const char*> (RowData(i)), sizeof(Real)
@@ -1323,7 +1324,7 @@ Real MatrixBase<Real>::Trace(bool check_square) const  {
 
 template<class Real>
 Real MatrixBase<Real>::Max() const {
-  KALDI_ASSERT(num_rows_ * num_cols_ > 0);
+  KALDI_ASSERT(num_rows_ > 0 && num_cols_ > 0);
   Real ans= *data_;
   for (MatrixIndexT r = 0; r < num_rows_; r++)
     for (MatrixIndexT c = 0; c < num_cols_; c++)
@@ -1334,7 +1335,7 @@ Real MatrixBase<Real>::Max() const {
 
 template<class Real>
 Real MatrixBase<Real>::Min() const {
-  KALDI_ASSERT(num_rows_ * num_cols_ > 0);
+  KALDI_ASSERT(num_rows_ > 0 && num_cols_ > 0);
   Real ans= *data_;
   for (MatrixIndexT r = 0; r < num_rows_; r++)
     for (MatrixIndexT c = 0; c < num_cols_; c++)
@@ -1550,7 +1551,7 @@ Real MatrixBase<Real>::LargestAbsElem() const{
 template<class Real>
 void MatrixBase<Real>::OrthogonalizeRows() {
   KALDI_ASSERT(NumRows() <= NumCols());
-  int32 num_rows = num_rows_;
+  MatrixIndexT num_rows = num_rows_;
   for (MatrixIndexT i = 0; i < num_rows; i++) {
     int32 counter = 0;
     while (1) {
@@ -2029,7 +2030,7 @@ template<class Real> void  SortSvd(VectorBase<Real> *s, MatrixBase<Real> *U,
     (*s)(d) = s_copy(vec[d].second);
   if (U != NULL) {
     Matrix<Real> Utmp(*U);
-    int32 dim = Utmp.NumRows();
+    MatrixIndexT dim = Utmp.NumRows();
     for (MatrixIndexT d = 0; d < num_singval; d++) {
       MatrixIndexT oldidx = vec[d].second;
       for (MatrixIndexT e = 0; e < dim; e++)

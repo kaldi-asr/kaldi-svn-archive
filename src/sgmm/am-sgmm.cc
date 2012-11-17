@@ -614,7 +614,7 @@ void AmSgmm::ComputeDerivedVars() {
   }
 }
 
-class ComputeNormalizersClass { // For multi-threaded.
+class ComputeNormalizersClass: public MultiThreadable { // For multi-threaded.
  public:
   ComputeNormalizersClass(AmSgmm *am_sgmm,
                           int32 *entropy_count_ptr,
@@ -635,15 +635,6 @@ class ComputeNormalizersClass { // For multi-threaded.
                                          &entropy_count_,
                                          &entropy_sum_);
   }
-  // Copied from example in kaldi-thread.h
-  static void *run(void *c_in) {
-    ComputeNormalizersClass *c = static_cast<ComputeNormalizersClass*>(c_in);
-    (*c)(); // call operator () on it.
-    return NULL;
-  }  
- public:
-  int thread_id_;
-  int num_threads_;
  private:
   ComputeNormalizersClass() { } // Disallow empty constructor.
   AmSgmm *am_sgmm_;
@@ -925,7 +916,7 @@ void AmSgmm::ComputeFmllrPreXform(const Vector<BaseFloat> &state_occs,
 
   // Eq. (B.7): b_{pre} = - A_{pre} \mu_{avg}
   Vector<BaseFloat> b_pre(dim);
-  b_pre.AddMatVec(-1.0, Apre, kNoTrans, global_mean);
+  b_pre.AddMatVec(-1.0, Apre, kNoTrans, global_mean, 0.0);
   for (int32 r = 0; r < dim; r++) {
     xform->Row(r)(dim) = b_pre(r);  // W_{pre} = [ A_{pre}, b_{pre} ]
   }
