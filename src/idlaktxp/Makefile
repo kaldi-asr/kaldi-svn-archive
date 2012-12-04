@@ -7,11 +7,17 @@ OPENFST_LDLIBS =
 
 include ../kaldi.mk
 
-TESTFILES = idlak-mod-test
+ifeq ($(IDLAK),true)
+	TESTFILES = idlak-mod-test
 
-OBJFILES = txpconfig.o txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o mod-tokenise.o mod-postag.o mod-pauses.o mod-phrasing.o mod-pronounce.o mod-syllabify.o
+	OBJFILES = txpconfig.o txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o mod-tokenise.o mod-postag.o mod-pauses.o mod-phrasing.o mod-pronounce.o mod-syllabify.o
 
-LIBFILE = idlaktxp.a
+	LIBFILE = idlaktxp.a
+else
+	TESTFILES =
+	OBJJFILES =
+	LIBFILE =
+endif
 
 all:  $(LIBFILE)
 

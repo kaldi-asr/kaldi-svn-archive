@@ -444,7 +444,7 @@ WARN_LOGFILE           =
 
 INPUT       = doc base matrix util feat tree gmm sgmm fstext hmm optimization \
 	    itf lat latbin nnet nnetbin rnn tied tiedbin transform lm decoder \
-            bin fstbin gmmbin fgmmbin sgmmbin featbin
+            bin fstbin gmmbin fgmmbin sgmmbin featbin idlaktxp idlaktxpbin
 
 # If the value of the INPUT tag contains directories, you can use the 
 # FILE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp 
@@ -510,7 +510,7 @@ EXAMPLE_RECURSIVE      = NO
 # directories that contain image that are included in the documentation (see 
 # the \image command).
 
-IMAGE_PATH             = 
+IMAGE_PATH             = doc
 
 # The INPUT_FILTER tag can be used to specify a program that doxygen should 
 # invoke to filter for each input file. Doxygen will invoke the filter program 

@@ -1,0 +1,104 @@
+// idlaktxp/mod-toxparse.cc
+
+// Copyright 2012 CereProc Ltd.  (Author: Matthew Aylett)
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#include <pugixml.hpp>
+#include "base/kaldi-common.h"
+#include "util/common-utils.h"
+#include "idlaktxp/txpmodule.h"
+#include "idlaktxp/idlak-common.h"
+
+/// Example program that runs all modules in idlaktxp and produces
+/// XML output
+/// You need a text processing database (tpdb) to run this. An example is in
+/// ../../idlak-data/arctic-bdl/tpdb
+int main(int argc, char *argv[]) {
+  const char *usage =
+      "Tokenise utf8 input xml\n"
+      "Usage:  idlaktxp [options] xml_input xml_output\n"
+      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/arctic-bdl/tpdb ../idlaktxp/mod-test001.xml output.xml\n" //NOLINT
+      "e.g.: cat  ../idlaktxp/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/arctic-bdl/tpdb - - > output.xml\n"; //NOLINT
+  // input output variables 
+  std::string filein;
+  std::string fileout;
+  std::string tpdb;
+  std::string configf;
+  std::string input;
+  std::ostream *out;
+  std::ofstream fout;
+  // defaults to non-pretty XML output
+  bool pretty = false;
+
+  try {
+    kaldi::ParseOptions po(usage);
+    po.Register("tpdb", &tpdb,
+                "Text processing database (directory XML language/speaker files)"); //NOLINT
+    po.Register("txpconfig", &configf,
+                "XML configuration file for text processing");
+    po.Register("pretty", &pretty,
+                "Output XML with tabbing and line breaks to make it readable");
+    po.Read(argc, argv);
+    // Must have inopout and output filenames for XML
+    if (po.NumArgs() != 2) {
+      po.PrintUsage();
+      exit(1);
+    }
+    filein = po.GetArg(1);
+    fileout = po.GetArg(2);
+    // Allow piping
+    if (fileout == "-") {
+      out = &(std::cout);
+    } else {
+      fout.open(fileout.c_str());
+      out = &fout;
+    }
+    // Set up input/output streams
+    bool binary;
+    kaldi::Input ki(filein, &binary);
+    kaldi::Output kio(fileout, binary);
+    // Set up each module
+    kaldi::TxpTokenise t(tpdb, configf);
+    kaldi::TxpPosTag p(tpdb, configf);
+    kaldi::TxpPauses pz(tpdb, configf);
+    kaldi::TxpPhrasing ph(tpdb, configf);
+    kaldi::TxpPronounce pr(tpdb, configf);
+    kaldi::TxpSyllabify sy(tpdb, configf);
+    // Use pujiXMl to read input file
+    pugi::xml_document doc;
+    pugi::xml_parse_result r = doc.load(ki.Stream(), pugi::encoding_utf8);
+    if (!r) {
+      KALDI_ERR << "PugiXML Parse Error in Input Stream" << r.description()
+                << "Error offset: " << r.offset;
+    }
+    // Run each module on the input XML
+    t.Process(&doc);
+    p.Process(&doc);
+    pz.Process(&doc);
+    ph.Process(&doc);
+    pr.Process(&doc);
+    sy.Process(&doc);
+    // Output result
+    if (!pretty)
+      doc.save(kio.Stream(), "", pugi::format_raw);
+    else
+      doc.save(kio.Stream(), "\t");
+    return 0;
+  } catch(const std::exception &e) {
+    std::cerr << e.what() << '\n';
+    return -1;
+  }
+}

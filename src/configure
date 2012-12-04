@@ -45,6 +45,12 @@ fi
 MATHLIB='ATLAS'
 ATLASROOT=`rel2abs ../tools/ATLAS/`
 FSTROOT=`rel2abs ../tools/openfst`
+## IDLAK LIBRARIES
+## Default locations for pcre, expat and pujiXML
+EXPATROOT=`rel2abs ../tools/expat-2.1.0/`
+PCREROOT=`rel2abs ../tools/pcre-8.20/`
+PUJIXMLROOT=`rel2abs ../tools/pugixml-1.2/`
+
 # Avoid using any variables that are set in the shell.
 unset MKLROOT
 unset MKLLIBDIR
@@ -52,12 +58,14 @@ unset MKLLIBDIR
 function usage {
   echo 'Usage: ./configure [--threaded-atlas={yes|no}] [--atlas-root=ATLASROOT] [--fst-root=FSTROOT] 
   [--mkl-root=MKLROOT] [--mkl-libdir=MKLLIBDIR] [--omp-libdir=OMPDIR]  [--static-math={yes|no}] 
-  [--threaded-math={yes|no}] [--mathlib=ATLAS|MKL|CLAPACK] [--cudatk-dir=CUDATKDIR]';
+  [--threaded-math={yes|no}] [--mathlib=ATLAS|MKL|CLAPACK] [--cudatk-dir=CUDATKDIR][--idlak={yes|no}';
 }
 
 threaded_atlas=false #  By default, use the un-threaded version of ATLAS.
 threaded_math=${threaded_atlas}
 static_math=false
+##set to false to ignore idlak system
+idlak=true
 
 while [ $# -gt 0 ];
 do
@@ -89,6 +97,10 @@ do
   MATHLIB=`read_dirname $1`; shift ;;
   --cudatk-dir=*)
   CUDATKDIR=`read_dirname $1`; shift ;;
+  --idlak=yes)
+  idlak=true; shift;;
+  --idlak=no)
+  idlak=false; shift;;
   *)  echo "Unknown argument: $1, exiting"; usage; exit 1 ;;
   esac
 done
@@ -450,6 +462,25 @@ if ! grep "multiple repeated" $FSTROOT/include/fst/minimize.h >/dev/null; then
     exit 1;
 fi
 
+# IDLAK
+if $idlak; then
+    echo "Checking PCRE library in $PCREROOT ..."
+    if [ ! -f $PCREROOT/include/pcre.h  ]; then
+	failure "Could not find file $PCREROOT/include/pcre.h:
+    you may not have installed PCRE.  See ../tools/install_idlak.sh"
+    fi
+    echo "Checking EXPAT library in $EXPATROOT ..."
+    if [ ! -f $EXPATROOT/include/expat.h  ]; then
+	failure "Could not find file $EXPATROOT/include/expat.h:
+    you may not have installed EXPAT.  See ../tools/install_idlak.sh"
+    fi
+    echo "Checking PUJIXML library in $PUJIXMLROOT ..."
+    if [ ! -f $PUJIXMLROOT/src/pugixml.hpp  ]; then
+	failure "Could not find file $PUJIROOT/src/pugixml.hpp:
+    you may not have installed PUJIXML.  See ../tools/install_idlak.sh"
+    fi
+fi
+
 # back up the old one in case we modified it
 if [ -f kaldi.mk ]; then
   echo "Backing up kaldi.mk to kaldi.mk.bak"
@@ -514,6 +545,16 @@ if [ "`uname`" == "Linux" ]; then
     failure "Static OpenFST library not found:  See ../tools/INSTALL"
   fi
   echo FSTROOT = $FSTROOT >> kaldi.mk
+
+  if $idlak; then
+      echo IDLAK = true >> kaldi.mk
+      echo PCREROOT = $PCREROOT >> kaldi.mk
+      echo EXPATROOT = $EXPATROOT >> kaldi.mk
+      echo PUJIXMLROOT = $PUJIXMLROOT >> kaldi.mk
+  else
+      echo IDLAK = false >> kaldi.mk   
+  fi
+
 
   echo "On Linux: Checking for linear algebra header files ..."
   if [ $MATHLIB == "ATLAS" ]; then
