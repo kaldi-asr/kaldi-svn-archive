@@ -4,7 +4,6 @@
 
 # (1) Install instructions for expat
 
-
 if ! which wget >&/dev/null; then
    echo "This script requires you to first install wget";
    exit 1;
