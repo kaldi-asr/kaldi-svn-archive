@@ -59,7 +59,7 @@ echo "****(3) Installing pcre with utf8 support"
 
 (
   rm pcre-8.20.tar.bz2 2>/dev/null
-  wget -T 10 -t 3 http://sourceforge.net/projects/pcre/files/pcre/8.20/pcre-8.20.tar.bz2/download
+  wget -T 10 -t 3 http://sourceforge.net/projects/pcre/files/pcre/8.20/pcre-8.20.tar.bz2
   if [ ! -e pcre-8.20.tar.bz2]; then
     echo "****download of pcre-8.20.tar.bz2 failed."
     exit 1
