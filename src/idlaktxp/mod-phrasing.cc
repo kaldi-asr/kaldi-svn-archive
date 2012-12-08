@@ -116,7 +116,7 @@ static bool _is_utt_final(const pugi::xml_node &spt) {
   breaks = spt.select_nodes("//break");
   lastbreak = breaks[breaks.size() - 1].node();
   // lastbreak.print(std::cout);
-  std::cout << "!" << lastbreak.attribute("type").value() << "\n";
+  //std::cout << "!" << lastbreak.attribute("type").value() << "\n";
   if (lastbreak.attribute("type").as_int(0) == 4) return true;
   return false;
 }
