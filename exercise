@@ -1,0 +1,68 @@
+#include <iostream>
+#include <algorithm>
+#include <functional>
+#include <vector>
+#include <string>
+using namespace std;
+
+class student{
+public:
+    student(const string &a, int b):name(a), score(b){}
+    string name;
+    int score;
+//    bool operator< (const student &m)const {
+//        //overload the "<" operator, then the class "student" is LessThan Comparable, and the Adaptable Binary Predicate less<T> is adapted as less<student>.
+//        return score < m.score;
+//    }
+    bool operator < (const student &m)const {
+        const char *p=name.c_str();
+        const char *q=m.name.c_str();
+        return strcmp(p,q)<0;
+    }
+};
+
+    struct lessScore : public binary_function<student, student, bool> {
+        bool operator()(student x, student y) { return x.score < y.score; }
+    }lessObj;
+
+    bool lessScoreFunc(student x, student y) { return x.score < y.score; }
+
+    struct lessName : public binary_function<student, student, bool> {
+        bool operator()(student x, student y) {
+            const char *p=x.name.c_str();
+            const char *q=y.name.c_str();
+            return strcmp(p,q)<0;
+        }
+    };
+
+int main() {
+    vector< student> vect;
+    student st1("Tom", 74);vect.push_back(st1);
+    st1.name="Jimy";st1.score=56;vect.push_back(st1);
+    st1.name="Mary";st1.score=92;vect.push_back(st1);
+    st1.name="Aaron";st1.score=85;vect.push_back(st1);
+    st1.name="Zeta";st1.score=46;vect.push_back(st1);
+    
+    
+    cout<<"------before sort..."<<endl;
+    for(int i = 0 ; i < vect.size(); i ++) cout<<vect[i].name<<":\t"<<vect[i].score<<endl;
+    //In this example, the type "student" is not LessThan Comparable, so we can either replace the default comparison functor (which is a binary pridictate) less<T> with a self-defined binary pridictate as a Strict Weak Ordering, or overload the "<" operator in class "student" to make it LessThan Comparable.
+    
+    //method 1:using a class (where the binary function: operator() is defined) as comparison functor, or use it's object
+    stable_sort(vect.begin(), vect.end(),lessScore());
+    stable_sort(vect.begin(), vect.end(),lessObj);
+    
+    //method 2:using a function as comp functor
+    stable_sort(vect.begin(), vect.end(),lessScoreFunc);    
+    cout <<"-----after sort by score ...."<<endl;
+    for(int i = 0 ; i < vect.size(); i ++) cout<<vect[i].name<<":\t"<<vect[i].score<<endl;
+    
+    //method 3:overload the "<" operator, then the class "student" is LessThan Comparable, and the Adaptable Binary Predicate less<T> is adapted as less<student>.
+    stable_sort(vect.begin(), vect.end());
+    cout <<"-----after sort by name ...."<<endl;
+    for(int i = 0 ; i < vect.size(); i ++) cout<<vect[i].name<<":\t"<<vect[i].score<<endl;
+    
+    //if the type T is lessThan comparable but we want a different comparison mechanism, we can use these three methods.
+    
+    return 0 ;
+}
