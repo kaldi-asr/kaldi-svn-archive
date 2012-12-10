@@ -9,8 +9,14 @@
 
 
 #  Example command lines:
-# configure
-# configure --mkl-root=/opt/intel/mkl --threaded-math=yes
+
+# each time you re-configure, you will have to "make clean",
+# because "make" doesn't notice when Makefiles change.
+# configure   # uses ATLAS by default
+# configure --mkl-root=/opt/intel/mkl  # using MKL.
+# before running:
+# export OMP_NUM_THREADS=16
+# configure --mkl-root=/opt/intel/mkl --threaded-math=yes   # using threaded MKL.
 
 function rel2abs {
   local retval=`cd $1 2>/dev/null && pwd || exit 1`
