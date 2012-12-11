@@ -1,0 +1,1974 @@
+------------------------------------------------------------------------
+r1532 | chenguoguo | 2012-11-04 12:59:35 -0500 (Sun, 04 Nov 2012) | 1 line
+
+
+------------------------------------------------------------------------
+r1531 | chenguoguo | 2012-11-04 12:36:47 -0500 (Sun, 04 Nov 2012) | 1 line
+
+added commands for kws in run.sh
+------------------------------------------------------------------------
+r1530 | chenguoguo | 2012-11-04 12:26:52 -0500 (Sun, 04 Nov 2012) | 1 line
+
+script for kws
+------------------------------------------------------------------------
+r1529 | chenguoguo | 2012-11-04 12:26:20 -0500 (Sun, 04 Nov 2012) | 1 line
+
+scripts for kws
+------------------------------------------------------------------------
+r1528 | chenguoguo | 2012-11-04 12:25:23 -0500 (Sun, 04 Nov 2012) | 1 line
+
+script for kws
+------------------------------------------------------------------------
+r1523 | chenguoguo | 2012-11-02 23:21:28 -0400 (Fri, 02 Nov 2012) | 1 line
+
+Added the kws directory for keyword searching
+------------------------------------------------------------------------
+r1522 | chenguoguo | 2012-11-02 23:17:08 -0400 (Fri, 02 Nov 2012) | 1 line
+
+Modified the VectorFstHolder, making it templated on the arc type
+------------------------------------------------------------------------
+r1503 | danielpovey | 2012-10-26 16:39:59 -0400 (Fri, 26 Oct 2012) | 1 line
+
+Adding some neural net training scripts.
+------------------------------------------------------------------------
+r1502 | danielpovey | 2012-10-26 16:38:41 -0400 (Fri, 26 Oct 2012) | 1 line
+
+Fixes to neural net training setup.
+------------------------------------------------------------------------
+r1500 | danielpovey | 2012-10-25 18:19:55 -0400 (Thu, 25 Oct 2012) | 1 line
+
+A couple of small changes; one to get rid of certain valgrind warnings.
+------------------------------------------------------------------------
+r1499 | danielpovey | 2012-10-25 16:41:34 -0400 (Thu, 25 Oct 2012) | 1 line
+
+Add decoding program for neural nets.
+------------------------------------------------------------------------
+r1493 | danielpovey | 2012-10-24 20:59:04 -0400 (Wed, 24 Oct 2012) | 1 line
+
+Removing RunMultiThreadedPersistent and changing RunMultiThreaded.
+------------------------------------------------------------------------
+r1492 | danielpovey | 2012-10-24 19:44:19 -0400 (Wed, 24 Oct 2012) | 1 line
+
+Merging changes from trunk.
+------------------------------------------------------------------------
+r1490 | danielpovey | 2012-10-24 13:41:34 -0400 (Wed, 24 Oct 2012) | 1 line
+
+Finished FST-pushing code.
+------------------------------------------------------------------------
+r1488 | danielpovey | 2012-10-24 00:57:17 -0400 (Wed, 24 Oct 2012) | 1 line
+
+Changes to push-special program (still not fast enough)
+------------------------------------------------------------------------
+r1487 | danielpovey | 2012-10-23 22:40:24 -0400 (Tue, 23 Oct 2012) | 1 line
+
+Modifications to push-special
+------------------------------------------------------------------------
+r1486 | danielpovey | 2012-10-23 21:11:50 -0400 (Tue, 23 Oct 2012) | 1 line
+
+Improved testing for L-BFGS.
+------------------------------------------------------------------------
+r1485 | danielpovey | 2012-10-23 21:05:48 -0400 (Tue, 23 Oct 2012) | 1 line
+
+Added L-BFGS to matrix library in sandbox.
+------------------------------------------------------------------------
+r1482 | danielpovey | 2012-10-21 20:19:46 -0400 (Sun, 21 Oct 2012) | 1 line
+
+Added program to train neural net transitions (and set priors).
+------------------------------------------------------------------------
+r1481 | danielpovey | 2012-10-21 15:13:19 -0400 (Sun, 21 Oct 2012) | 1 line
+
+Committing changes early to sandbox, as my laptop is behaving weird.
+------------------------------------------------------------------------
+r1479 | danielpovey | 2012-10-20 19:03:47 -0400 (Sat, 20 Oct 2012) | 1 line
+
+Mostly changes to nnet-cpu setup (adding more code, and renaming.).
+------------------------------------------------------------------------
+r1477 | danielpovey | 2012-10-20 17:11:29 -0400 (Sat, 20 Oct 2012) | 1 line
+
+Merging changes from trunk
+------------------------------------------------------------------------
+r1473 | danielpovey | 2012-10-19 22:36:50 -0400 (Fri, 19 Oct 2012) | 1 line
+
+Some fixes to the fmllr-sgmm-test and related things, and qr RE checks.
+------------------------------------------------------------------------
+r1472 | danielpovey | 2012-10-19 19:01:53 -0400 (Fri, 19 Oct 2012) | 1 line
+
+Various edits to sandbox, new neural net related code.
+------------------------------------------------------------------------
+r1470 | danielpovey | 2012-10-18 23:43:26 -0400 (Thu, 18 Oct 2012) | 1 line
+
+Improvement to docs RE versions, sandbox, etc.
+------------------------------------------------------------------------
+r1466 | jtrmal | 2012-10-16 18:49:40 -0400 (Tue, 16 Oct 2012) | 1 line
+
+Fixed the SpliceComponent::Copy() function
+------------------------------------------------------------------------
+r1465 | jtrmal | 2012-10-16 17:35:49 -0400 (Tue, 16 Oct 2012) | 1 line
+
+Documentation of parameters for DctComponent
+------------------------------------------------------------------------
+r1464 | jtrmal | 2012-10-16 17:33:15 -0400 (Tue, 16 Oct 2012) | 1 line
+
+Component PermuteComponent now returns correct name in the Type() function
+------------------------------------------------------------------------
+r1463 | jtrmal | 2012-10-16 17:30:09 -0400 (Tue, 16 Oct 2012) | 1 line
+
+Added function Info(), providing human readable debug info about the given compoment
+------------------------------------------------------------------------
+r1461 | jtrmal | 2012-10-16 12:55:01 -0400 (Tue, 16 Oct 2012) | 1 line
+
+Removal of a stray debug print
+------------------------------------------------------------------------
+r1460 | jtrmal | 2012-10-16 12:50:06 -0400 (Tue, 16 Oct 2012) | 1 line
+
+Mark .depend.mk as svn:ignore as well
+------------------------------------------------------------------------
+r1459 | jtrmal | 2012-10-16 11:19:42 -0400 (Tue, 16 Oct 2012) | 1 line
+
+The SpliceComponent now support a constant component -- a subvector that is constant across the bunch
+------------------------------------------------------------------------
+r1453 | danielpovey | 2012-10-15 19:30:56 -0400 (Mon, 15 Oct 2012) | 1 line
+
+Updates to neural net training code (new version).
+------------------------------------------------------------------------
+r1450 | jtrmal | 2012-10-15 16:01:33 -0400 (Mon, 15 Oct 2012) | 1 line
+
+Ignore the produced executable files in the svn status info
+------------------------------------------------------------------------
+r1449 | jtrmal | 2012-10-15 15:30:44 -0400 (Mon, 15 Oct 2012) | 1 line
+
+Ignore executables in svn status output
+------------------------------------------------------------------------
+r1447 | danielpovey | 2012-10-15 12:39:01 -0400 (Mon, 15 Oct 2012) | 1 line
+
+Further changes to nnet setup.
+------------------------------------------------------------------------
+r1446 | danielpovey | 2012-10-15 12:15:20 -0400 (Mon, 15 Oct 2012) | 1 line
+
+Various small changes to matrix library to get it to work if MatrixIndexT=size_t.
+------------------------------------------------------------------------
+r1445 | jtrmal | 2012-10-15 12:05:52 -0400 (Mon, 15 Oct 2012) | 1 line
+
+DctComponent allows for choosing the number of DCT components to keep
+------------------------------------------------------------------------
+r1442 | danielpovey | 2012-10-13 01:09:44 -0400 (Sat, 13 Oct 2012) | 1 line
+
+Updates to nnet-cpu setup.
+------------------------------------------------------------------------
+r1440 | danielpovey | 2012-10-11 01:04:04 -0400 (Thu, 11 Oct 2012) | 1 line
+
+Small changes to neural net setup.
+------------------------------------------------------------------------
+r1438 | jtrmal | 2012-10-10 21:42:00 -0400 (Wed, 10 Oct 2012) | 1 line
+
+Improved build&test system...
+------------------------------------------------------------------------
+r1437 | danielpovey | 2012-10-10 20:23:20 -0400 (Wed, 10 Oct 2012) | 1 line
+
+Merging further changes from trunk (+ improvement to Makefile)
+------------------------------------------------------------------------
+r1435 | danielpovey | 2012-10-10 19:44:56 -0400 (Wed, 10 Oct 2012) | 1 line
+
+Merging changes from trunk.
+------------------------------------------------------------------------
+r1434 | danielpovey | 2012-10-10 01:52:58 -0400 (Wed, 10 Oct 2012) | 1 line
+
+Changes to the nnet-cpu code, further changes to Component interface.
+------------------------------------------------------------------------
+r1427 | danielpovey | 2012-10-05 20:35:49 -0400 (Fri, 05 Oct 2012) | 1 line
+
+Fix to nnet-component.
+------------------------------------------------------------------------
+r1426 | danielpovey | 2012-10-05 20:26:15 -0400 (Fri, 05 Oct 2012) | 1 line
+
+Changes to matrix code necessary for Component stuff.
+------------------------------------------------------------------------
+r1425 | danielpovey | 2012-10-05 20:12:39 -0400 (Fri, 05 Oct 2012) | 1 line
+
+Committing neural-net framework changes (mainly so I can debug something on Linux)
+------------------------------------------------------------------------
+r1416 | londel | 2012-10-01 05:47:49 -0400 (Mon, 01 Oct 2012) | 1 line
+
+Add utility for KWS's recipe.
+------------------------------------------------------------------------
+r1415 | londel | 2012-10-01 05:47:11 -0400 (Mon, 01 Oct 2012) | 1 line
+
+Add recipe for KWS.
+------------------------------------------------------------------------
+r1414 | danielpovey | 2012-09-30 21:23:18 -0400 (Sun, 30 Sep 2012) | 1 line
+
+Committing changes to nnet-cpu setup before I change it substantially.
+------------------------------------------------------------------------
+r1413 | danielpovey | 2012-09-30 14:35:29 -0400 (Sun, 30 Sep 2012) | 1 line
+
+Removing stuff from nnet-cpu that should not have been there.
+------------------------------------------------------------------------
+r1412 | danielpovey | 2012-09-30 13:00:32 -0400 (Sun, 30 Sep 2012) | 1 line
+
+Makefile changes and fixes to nnet-dp setup.
+------------------------------------------------------------------------
+r1409 | danielpovey | 2012-09-29 16:18:10 -0400 (Sat, 29 Sep 2012) | 1 line
+
+Merging changes from trunk.
+------------------------------------------------------------------------
+r1408 | danielpovey | 2012-09-29 16:16:00 -0400 (Sat, 29 Sep 2012) | 1 line
+
+Merging changes from trunk.
+------------------------------------------------------------------------
+r1404 | danielpovey | 2012-09-29 14:35:07 -0400 (Sat, 29 Sep 2012) | 1 line
+
+Merging changes from trunk into sandbox.
+------------------------------------------------------------------------
+r1397 | danielpovey | 2012-09-28 23:49:10 -0400 (Fri, 28 Sep 2012) | 1 line
+
+Committing further changes to nnet-cpu setup.
+------------------------------------------------------------------------
+r1396 | danielpovey | 2012-09-28 20:31:36 -0400 (Fri, 28 Sep 2012) | 1 line
+
+Updates to nnet-cpu setup.
+------------------------------------------------------------------------
+r1390 | danielpovey | 2012-09-26 11:35:52 -0400 (Wed, 26 Sep 2012) | 1 line
+
+Updates to nnet-cpu framework.
+------------------------------------------------------------------------
+r1389 | londel | 2012-09-26 10:25:26 -0400 (Wed, 26 Sep 2012) | 1 line
+
+Test script for the kws indexer>
+------------------------------------------------------------------------
+r1387 | londel | 2012-09-26 07:47:37 -0400 (Wed, 26 Sep 2012) | 1 line
+
+Refactor KWS indexer architecture (pipeline).
+------------------------------------------------------------------------
+r1384 | danielpovey | 2012-09-22 19:26:29 -0400 (Sat, 22 Sep 2012) | 1 line
+
+Additions etc. to nnet-cpu code.
+------------------------------------------------------------------------
+r1370 | danielpovey | 2012-09-19 17:58:32 -0400 (Wed, 19 Sep 2012) | 1 line
+
+Merging changes from trunk to sandbox; other things being added to nnet-cpu/
+------------------------------------------------------------------------
+r1368 | danielpovey | 2012-09-18 16:56:47 -0400 (Tue, 18 Sep 2012) | 1 line
+
+Adding some stuff to testing scripts for my nnet stuff.
+------------------------------------------------------------------------
+r1366 | danielpovey | 2012-09-18 15:10:37 -0400 (Tue, 18 Sep 2012) | 1 line
+
+Checking in version of sandbox where I'm working on new nnet code.
+------------------------------------------------------------------------
+r1361 | danielpovey | 2012-09-17 14:20:20 -0400 (Mon, 17 Sep 2012) | 1 line
+
+Added SameDim function for matrix stuff
+------------------------------------------------------------------------
+r1342 | danielpovey | 2012-09-09 14:54:27 -0400 (Sun, 09 Sep 2012) | 1 line
+
+Small changes>
+------------------------------------------------------------------------
+r1341 | danielpovey | 2012-09-08 18:38:26 -0400 (Sat, 08 Sep 2012) | 1 line
+
+Merging changes from trunk; small changes in Dan's nnet recipes.
+------------------------------------------------------------------------
+r1340 | danielpovey | 2012-09-08 18:23:50 -0400 (Sat, 08 Sep 2012) | 1 line
+
+Updating to more recent version of ATLAS.
+------------------------------------------------------------------------
+r1337 | danielpovey | 2012-09-08 17:26:54 -0400 (Sat, 08 Sep 2012) | 1 line
+
+Changing how the PeekToken() stuff works.
+------------------------------------------------------------------------
+r1334 | danielpovey | 2012-09-04 13:19:00 -0400 (Tue, 04 Sep 2012) | 1 line
+
+Various changes to the nnet setup
+------------------------------------------------------------------------
+r1330 | danielpovey | 2012-09-03 20:39:33 -0400 (Mon, 03 Sep 2012) | 1 line
+
+Improvements to queue.pl (re -pe ) and shuffle_list.pl (make it deterministic)
+------------------------------------------------------------------------
+r1326 | danielpovey | 2012-09-02 13:07:32 -0400 (Sun, 02 Sep 2012) | 1 line
+
+Small changes to neural net recipe, and setting up swbd setup.
+------------------------------------------------------------------------
+r1323 | danielpovey | 2012-08-31 15:39:35 -0400 (Fri, 31 Aug 2012) | 1 line
+
+Various fixes to nnet_dp setup.
+------------------------------------------------------------------------
+r1322 | danielpovey | 2012-08-31 13:52:54 -0400 (Fri, 31 Aug 2012) | 1 line
+
+Merging script changes from the trunk
+------------------------------------------------------------------------
+r1321 | danielpovey | 2012-08-31 13:29:56 -0400 (Fri, 31 Aug 2012) | 1 line
+
+Added decoding for Dan's nnet stuff; removed un-needed scripts; refactoring some decoder stuff.
+------------------------------------------------------------------------
+r1317 | londel | 2012-08-30 08:11:31 -0400 (Thu, 30 Aug 2012) | 1 line
+
+Add kws + kwsbin directory for keyword spotting tools
+------------------------------------------------------------------------
+r1316 | danielpovey | 2012-08-29 22:28:55 -0400 (Wed, 29 Aug 2012) | 1 line
+
+Changes to neural net stuff.
+------------------------------------------------------------------------
+r1315 | danielpovey | 2012-08-28 23:24:17 -0400 (Tue, 28 Aug 2012) | 1 line
+
+Fixes + updates to nnet-dp training setup.
+------------------------------------------------------------------------
+r1314 | danielpovey | 2012-08-28 20:46:03 -0400 (Tue, 28 Aug 2012) | 1 line
+
+Small fixes to neural-net training setup.
+------------------------------------------------------------------------
+r1313 | danielpovey | 2012-08-28 19:27:26 -0400 (Tue, 28 Aug 2012) | 1 line
+
+Added testing code for layers.
+------------------------------------------------------------------------
+r1312 | danielpovey | 2012-08-28 12:35:04 -0400 (Tue, 28 Aug 2012) | 1 line
+
+Fixes etc. to neural net stuff.
+------------------------------------------------------------------------
+r1311 | danielpovey | 2012-08-28 10:08:07 -0400 (Tue, 28 Aug 2012) | 1 line
+
+Various fixes for nnet-dp setup.
+------------------------------------------------------------------------
+r1309 | danielpovey | 2012-08-27 22:02:43 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Changes to nnet-dp stuff
+------------------------------------------------------------------------
+r1308 | danielpovey | 2012-08-27 18:11:23 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Fixes to neural net training.
+------------------------------------------------------------------------
+r1306 | danielpovey | 2012-08-27 10:54:50 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Fix various bugs in nnet1 training script and code.
+------------------------------------------------------------------------
+r1305 | danielpovey | 2012-08-27 08:55:31 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Merging changes from trunk
+------------------------------------------------------------------------
+r1304 | danielpovey | 2012-08-27 08:54:52 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Merging changes from trunk
+------------------------------------------------------------------------
+r1303 | danielpovey | 2012-08-27 08:34:11 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Merging gp changes from trunk
+------------------------------------------------------------------------
+r1302 | danielpovey | 2012-08-27 08:32:05 -0400 (Mon, 27 Aug 2012) | 1 line
+
+Merging changes from trunk
+------------------------------------------------------------------------
+r1299 | danielpovey | 2012-08-26 09:28:10 -0400 (Sun, 26 Aug 2012) | 1 line
+
+Committing some scripts for neural net training.
+------------------------------------------------------------------------
+r1297 | danielpovey | 2012-08-25 12:23:59 -0400 (Sat, 25 Aug 2012) | 1 line
+
+Changes and additions to nnet1 code.
+------------------------------------------------------------------------
+r1296 | danielpovey | 2012-08-25 12:11:59 -0400 (Sat, 25 Aug 2012) | 1 line
+
+Fix fix to parse-options.cc
+------------------------------------------------------------------------
+r1295 | danielpovey | 2012-08-25 12:07:35 -0400 (Sat, 25 Aug 2012) | 1 line
+
+Fix to parse-options.cc
+------------------------------------------------------------------------
+r1294 | funous | 2012-08-25 11:43:01 -0400 (Sat, 25 Aug 2012) | 1 line
+
+Fixed valgrind errors in parse-options-test
+------------------------------------------------------------------------
+r1288 | danielpovey | 2012-08-24 08:53:41 -0400 (Fri, 24 Aug 2012) | 1 line
+
+Lots of changes to nnet_dp code; Fix to compressed-matrix code RE memory leak.
+------------------------------------------------------------------------
+r1277 | danielpovey | 2012-08-22 09:45:35 -0400 (Wed, 22 Aug 2012) | 1 line
+
+Committing new neural-net training scripts (unfinished).
+------------------------------------------------------------------------
+r1275 | danielpovey | 2012-08-22 05:16:27 -0400 (Wed, 22 Aug 2012) | 1 line
+
+Committing changes to nnet_dp code.
+------------------------------------------------------------------------
+r1270 | danielpovey | 2012-08-21 11:28:40 -0400 (Tue, 21 Aug 2012) | 1 line
+
+Merging changes from trunk into sandbox
+------------------------------------------------------------------------
+r1265 | danielpovey | 2012-08-21 07:39:33 -0400 (Tue, 21 Aug 2012) | 1 line
+
+Some small script modifications for neural-net stuff.
+------------------------------------------------------------------------
+r1261 | danielpovey | 2012-08-21 05:35:57 -0400 (Tue, 21 Aug 2012) | 1 line
+
+Changes to the way fbank features are computed.
+------------------------------------------------------------------------
+r1258 | danielpovey | 2012-08-21 02:44:52 -0400 (Tue, 21 Aug 2012) | 1 line
+
+Changing some directory names.
+------------------------------------------------------------------------
+r1257 | danielpovey | 2012-08-21 02:18:32 -0400 (Tue, 21 Aug 2012) | 1 line
+
+Adding some stuff to nnet_dp and updating some other stuff [more of training code done]
+------------------------------------------------------------------------
+r1249 | funous | 2012-08-20 08:41:59 -0400 (Mon, 20 Aug 2012) | 2 lines
+
+Changed CompressedMatrix::CopyToMat not to resize given matrix, but to accept only properly-sized matrix.
+
+------------------------------------------------------------------------
+r1244 | funous | 2012-08-20 07:25:32 -0400 (Mon, 20 Aug 2012) | 1 line
+
+Distinguished standard and non-standard parameters in Register() and PrintUsage().
+------------------------------------------------------------------------
+r1241 | funous | 2012-08-20 05:29:11 -0400 (Mon, 20 Aug 2012) | 1 line
+
+Unified parameter registration using template, improved tests of parse-options.
+------------------------------------------------------------------------
+r1240 | funous | 2012-08-19 04:57:59 -0400 (Sun, 19 Aug 2012) | 1 line
+
+Fixed the order of parameters in CompressedMatrix::CopyRowToVec and CopyColToVec.
+------------------------------------------------------------------------
+r1239 | danielpovey | 2012-08-19 03:24:39 -0400 (Sun, 19 Aug 2012) | 1 line
+
+Updates to neural net framework.
+------------------------------------------------------------------------
+r1238 | danielpovey | 2012-08-18 08:30:17 -0400 (Sat, 18 Aug 2012) | 1 line
+
+Update header of multi sgmm code
+------------------------------------------------------------------------
+r1234 | funous | 2012-08-17 10:57:52 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Added missing name to copyright headers.
+------------------------------------------------------------------------
+r1233 | funous | 2012-08-17 10:36:10 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Added alternative download location for Sctk
+------------------------------------------------------------------------
+r1232 | funous | 2012-08-17 10:14:39 -0400 (Fri, 17 Aug 2012) | 2 lines
+
+Updated the behavior of make test and make valgrind so the make-process terminates after first error.
+
+------------------------------------------------------------------------
+r1231 | danielpovey | 2012-08-17 09:53:44 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Synced changes to Makefiles.
+------------------------------------------------------------------------
+r1230 | funous | 2012-08-17 09:46:39 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Added CopyToMat version that allows to acquire a submatrix
+------------------------------------------------------------------------
+r1229 | funous | 2012-08-17 07:50:28 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Added CopyRowToVec and CopyColToVec to CompressedMatrix. Also, some coding-style issues were fixed.
+------------------------------------------------------------------------
+r1228 | funous | 2012-08-17 07:40:27 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Modified make test to terminate if any of test scripts fails.
+------------------------------------------------------------------------
+r1227 | danielpovey | 2012-08-17 05:16:24 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Rename some files in nnet1.
+------------------------------------------------------------------------
+r1226 | danielpovey | 2012-08-17 05:10:42 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Split files for nnet1 code.
+------------------------------------------------------------------------
+r1225 | danielpovey | 2012-08-17 04:43:36 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Implemented more stuff in nnet.
+------------------------------------------------------------------------
+r1223 | danielpovey | 2012-08-17 02:49:44 -0400 (Fri, 17 Aug 2012) | 1 line
+
+Various small fixes.
+------------------------------------------------------------------------
+r1218 | funous | 2012-08-16 11:09:52 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Added NumRows() and NumCols() to CompressedMatrix.
+------------------------------------------------------------------------
+r1216 | funous | 2012-08-16 10:09:02 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Upgraded all code using RunMultiThreaded to ruse MultiThreadedPersistent. Classes used were modified to use MultiThreadable and it's restrictions.
+------------------------------------------------------------------------
+r1215 | funous | 2012-08-16 09:30:58 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Switched the order of third and fourth argument in SplitStringToVector
+------------------------------------------------------------------------
+r1214 | ndjaitly | 2012-08-16 08:26:33 -0400 (Thu, 16 Aug 2012) | 2 lines
+
+Added functions for Read, Write, Destroy etc. 
+
+------------------------------------------------------------------------
+r1213 | danielpovey | 2012-08-16 08:22:47 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Fix misplaced comment in kaldi-thread.h
+------------------------------------------------------------------------
+r1212 | funous | 2012-08-16 08:14:00 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Explained implemention of thread-pool in comment.
+------------------------------------------------------------------------
+r1211 | funous | 2012-08-16 08:02:05 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Fixed occasional segfault when exiting
+------------------------------------------------------------------------
+r1210 | funous | 2012-08-16 07:43:26 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Made check of header guards less restrictive (ignores missing _SRC part)
+------------------------------------------------------------------------
+r1209 | funous | 2012-08-16 07:41:24 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Fixed coding style issues.
+------------------------------------------------------------------------
+r1208 | danielpovey | 2012-08-16 06:28:12 -0400 (Thu, 16 Aug 2012) | 2 lines
+
+Extend text-utils.h; modifications to nnet code.
+
+------------------------------------------------------------------------
+r1207 | danielpovey | 2012-08-16 04:40:41 -0400 (Thu, 16 Aug 2012) | 1 line
+
+Merging changes from trunk.
+------------------------------------------------------------------------
+r1203 | funous | 2012-08-15 12:04:48 -0400 (Wed, 15 Aug 2012) | 1 line
+
+Added the functionality of thread pool. Old functionality remains untouched.
+------------------------------------------------------------------------
+r1202 | danielpovey | 2012-08-15 08:46:24 -0400 (Wed, 15 Aug 2012) | 1 line
+
+More modifications and additions to neural net training framework-- got it to compile
+------------------------------------------------------------------------
+r1201 | danielpovey | 2012-08-15 08:00:57 -0400 (Wed, 15 Aug 2012) | 1 line
+
+More modifications and additions to neural net training framework.
+------------------------------------------------------------------------
+r1198 | danielpovey | 2012-08-14 13:53:36 -0400 (Tue, 14 Aug 2012) | 2 lines
+
+Modifications and additions to neural net training frameowkr.'
+work.
+------------------------------------------------------------------------
+r1194 | danielpovey | 2012-08-13 04:51:00 -0400 (Mon, 13 Aug 2012) | 1 line
+
+some refactoring
+------------------------------------------------------------------------
+r1193 | danielpovey | 2012-08-12 08:18:41 -0400 (Sun, 12 Aug 2012) | 1 line
+
+Committing some changes before a major revision (will take away the multithreading and use big matrix multiplies.)
+------------------------------------------------------------------------
+r1191 | danielpovey | 2012-08-10 11:16:55 -0400 (Fri, 10 Aug 2012) | 1 line
+
+More functionality for neural net stuff.
+------------------------------------------------------------------------
+r1188 | danielpovey | 2012-08-09 22:46:22 -0400 (Thu, 09 Aug 2012) | 1 line
+
+Fix/improvement to ChunkManager in nnet_dp
+------------------------------------------------------------------------
+r1186 | danielpovey | 2012-08-09 21:22:23 -0400 (Thu, 09 Aug 2012) | 1 line
+
+Small changes to nnet1 code.
+------------------------------------------------------------------------
+r1185 | danielpovey | 2012-08-09 18:45:58 -0400 (Thu, 09 Aug 2012) | 1 line
+
+Finished more stuff, RE chunk manager.
+------------------------------------------------------------------------
+r1184 | danielpovey | 2012-08-09 14:57:47 -0400 (Thu, 09 Aug 2012) | 1 line
+
+Got layer.cc to compile
+------------------------------------------------------------------------
+r1183 | danielpovey | 2012-08-09 14:02:43 -0400 (Thu, 09 Aug 2012) | 1 line
+
+add layer.cc, changes to layer.h
+------------------------------------------------------------------------
+r1181 | danielpovey | 2012-08-08 10:12:30 -0400 (Wed, 08 Aug 2012) | 1 line
+
+Small changes to thread stuff; and more work on layer stuff.
+------------------------------------------------------------------------
+r1179 | danielpovey | 2012-08-07 13:37:47 -0400 (Tue, 07 Aug 2012) | 1 line
+
+Merged changes from trunk into sandbox.
+------------------------------------------------------------------------
+r1176 | vesis84 | 2012-08-07 11:02:38 -0400 (Tue, 07 Aug 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r1160 | vesis84 | 2012-07-31 10:34:31 -0400 (Tue, 31 Jul 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r1159 | vesis84 | 2012-07-31 07:58:01 -0400 (Tue, 31 Jul 2012) | 3 lines
+
+sync with the trunk
+
+
+------------------------------------------------------------------------
+r952 | vesis84 | 2012-05-24 18:33:38 -0400 (Thu, 24 May 2012) | 3 lines
+
+re-fixing the build process
+
+
+------------------------------------------------------------------------
+r942 | vesis84 | 2012-05-23 16:24:06 -0400 (Wed, 23 May 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r933 | vesis84 | 2012-05-18 10:18:22 -0400 (Fri, 18 May 2012) | 3 lines
+
+created autoencoder tool, fixed few bugs...
+
+
+------------------------------------------------------------------------
+r924 | vesis84 | 2012-05-15 08:22:27 -0400 (Tue, 15 May 2012) | 2 lines
+
+disable spkrinfo downloading
+
+------------------------------------------------------------------------
+r923 | vesis84 | 2012-05-15 06:46:27 -0400 (Tue, 15 May 2012) | 3 lines
+
+minor changes, documentation
+
+
+------------------------------------------------------------------------
+r922 | vesis84 | 2012-05-15 05:02:57 -0400 (Tue, 15 May 2012) | 3 lines
+
+adding new s2 scripts based on ``s3 style''
+
+
+------------------------------------------------------------------------
+r921 | vesis84 | 2012-05-15 04:57:43 -0400 (Tue, 15 May 2012) | 4 lines
+
+delete old scripts
+
+
+
+------------------------------------------------------------------------
+r866 | vesis84 | 2012-04-24 08:38:28 -0400 (Tue, 24 Apr 2012) | 3 lines
+
+adding missing include
+
+
+------------------------------------------------------------------------
+r864 | vesis84 | 2012-04-24 07:37:57 -0400 (Tue, 24 Apr 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r856 | vesis84 | 2012-04-23 13:29:43 -0400 (Mon, 23 Apr 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r849 | vesis84 | 2012-04-19 00:48:16 -0400 (Thu, 19 Apr 2012) | 3 lines
+
+updated documentation headers
+
+
+------------------------------------------------------------------------
+r845 | vesis84 | 2012-04-18 07:09:34 -0400 (Wed, 18 Apr 2012) | 3 lines
+
+adding nnet based alignment, nnet based lattice generation
+
+
+------------------------------------------------------------------------
+r844 | vesis84 | 2012-04-17 07:18:27 -0400 (Tue, 17 Apr 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r796 | vesis84 | 2012-03-02 05:39:12 -0500 (Fri, 02 Mar 2012) | 3 lines
+
+minor fix to the experiments
+
+
+------------------------------------------------------------------------
+r794 | vesis84 | 2012-02-28 17:51:22 -0500 (Tue, 28 Feb 2012) | 2 lines
+
+remove the directory locking
+
+------------------------------------------------------------------------
+r793 | vesis84 | 2012-02-28 17:46:29 -0500 (Tue, 28 Feb 2012) | 3 lines
+
+final fix to the parallel building
+
+
+------------------------------------------------------------------------
+r789 | vesis84 | 2012-02-27 14:18:22 -0500 (Mon, 27 Feb 2012) | 3 lines
+
+this recipe is based on the s3 scripts, trains both monophone and triphone MLPs; paramter tuning is involved
+
+
+------------------------------------------------------------------------
+r788 | vesis84 | 2012-02-27 14:14:28 -0500 (Mon, 27 Feb 2012) | 3 lines
+
+the rm/s2 recipe will be replaced
+
+
+------------------------------------------------------------------------
+r777 | vesis84 | 2012-02-22 07:39:38 -0500 (Wed, 22 Feb 2012) | 5 lines
+
+fixed building scripts for parallel run: 
+- each library is now in a critical section
+  - including compilation of all its .o files
+
+
+------------------------------------------------------------------------
+r776 | vesis84 | 2012-02-22 02:06:47 -0500 (Wed, 22 Feb 2012) | 3 lines
+
+adding recipes with frame level shuffling and Peta Schwarz features
+
+
+------------------------------------------------------------------------
+r775 | vesis84 | 2012-02-22 02:04:54 -0500 (Wed, 22 Feb 2012) | 3 lines
+
+adding frame level shuffeling to MLP training
+
+
+------------------------------------------------------------------------
+r770 | vesis84 | 2012-02-21 08:32:04 -0500 (Tue, 21 Feb 2012) | 3 lines
+
+adding fbank computing tool
+
+
+------------------------------------------------------------------------
+r768 | vesis84 | 2012-02-21 08:13:02 -0500 (Tue, 21 Feb 2012) | 3 lines
+
+remove lock by rmdir (it is a directory)
+
+
+------------------------------------------------------------------------
+r766 | vesis84 | 2012-02-20 12:09:46 -0500 (Mon, 20 Feb 2012) | 3 lines
+
+adding tool for computation of fbank features (Mel-filterbank, possibly VTLN warped)
+
+
+------------------------------------------------------------------------
+r765 | vesis84 | 2012-02-20 09:24:01 -0500 (Mon, 20 Feb 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r763 | vesis84 | 2012-02-17 10:46:12 -0500 (Fri, 17 Feb 2012) | 3 lines
+
+fixing training scripts, etc...
+
+
+------------------------------------------------------------------------
+r758 | arnab13 | 2012-02-15 10:46:53 -0500 (Wed, 15 Feb 2012) | 3 lines
+
+Added GlobalPhone recipe in trunk/egs/gp; removed sandbox/discrim; 
+fixed sandbox/karel/src/configure to use CUDA with MKL.
+
+------------------------------------------------------------------------
+r755 | vesis84 | 2012-02-12 17:50:44 -0500 (Sun, 12 Feb 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r754 | vesis84 | 2012-02-10 16:17:56 -0500 (Fri, 10 Feb 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r753 | vesis84 | 2012-02-10 14:24:53 -0500 (Fri, 10 Feb 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r752 | vesis84 | 2012-02-10 14:19:20 -0500 (Fri, 10 Feb 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r751 | vesis84 | 2012-02-10 13:37:39 -0500 (Fri, 10 Feb 2012) | 3 lines
+
+sync with trunk
+
+
+------------------------------------------------------------------------
+r750 | vesis84 | 2012-02-10 13:12:14 -0500 (Fri, 10 Feb 2012) | 3 lines
+
+copied from trunk (merge did not copy actual version)
+
+
+------------------------------------------------------------------------
+r739 | vesis84 | 2012-02-09 14:08:51 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merging with the trunk
+
+
+------------------------------------------------------------------------
+r737 | vesis84 | 2012-02-09 13:38:54 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merging with trunk
+
+
+------------------------------------------------------------------------
+r728 | vesis84 | 2012-02-09 08:35:34 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merging on server
+
+
+------------------------------------------------------------------------
+r727 | vesis84 | 2012-02-09 08:08:52 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merging
+
+
+------------------------------------------------------------------------
+r726 | vesis84 | 2012-02-09 08:05:29 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merge with trunk
+
+
+------------------------------------------------------------------------
+r725 | vesis84 | 2012-02-09 07:37:35 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merging with trunk
+
+
+------------------------------------------------------------------------
+r724 | vesis84 | 2012-02-09 07:32:44 -0500 (Thu, 09 Feb 2012) | 2 lines
+
+tree conflict solving
+
+------------------------------------------------------------------------
+r723 | vesis84 | 2012-02-09 07:27:32 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+merging with trunk
+
+
+------------------------------------------------------------------------
+r722 | vesis84 | 2012-02-09 07:26:39 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+add conflicting file
+
+
+------------------------------------------------------------------------
+r721 | vesis84 | 2012-02-09 07:24:29 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+updating merged directory
+
+
+------------------------------------------------------------------------
+r720 | vesis84 | 2012-02-09 07:20:46 -0500 (Thu, 09 Feb 2012) | 3 lines
+
+deleting tree conflicting file
+
+
+------------------------------------------------------------------------
+r696 | vesis84 | 2012-01-13 10:48:38 -0500 (Fri, 13 Jan 2012) | 2 lines
+
+fixing the build process
+
+------------------------------------------------------------------------
+r695 | vesis84 | 2012-01-12 16:38:19 -0500 (Thu, 12 Jan 2012) | 3 lines
+
+updatating example scripts, setting tuned acwt as default
+
+
+------------------------------------------------------------------------
+r689 | vesis84 | 2012-01-11 15:50:58 -0500 (Wed, 11 Jan 2012) | 2 lines
+
+run training on sge node with gpu
+
+------------------------------------------------------------------------
+r686 | vesis84 | 2012-01-10 08:35:07 -0500 (Tue, 10 Jan 2012) | 3 lines
+
+fix compilation error on 64bits
+
+
+------------------------------------------------------------------------
+r685 | vesis84 | 2012-01-10 08:23:24 -0500 (Tue, 10 Jan 2012) | 4 lines
+
+checking in the s2 examples for the wsj setup
+
+
+
+------------------------------------------------------------------------
+r684 | vesis84 | 2012-01-10 07:31:09 -0500 (Tue, 10 Jan 2012) | 4 lines
+
+commiting merged s3 from trunk
+
+
+
+------------------------------------------------------------------------
+r683 | vesis84 | 2012-01-10 07:27:17 -0500 (Tue, 10 Jan 2012) | 3 lines
+
+updated results
+
+
+------------------------------------------------------------------------
+r682 | vesis84 | 2012-01-10 07:09:22 -0500 (Tue, 10 Jan 2012) | 4 lines
+
+fixed building proces, cuda is linked only when needed
+return value of acc-lda is corrected
+
+
+------------------------------------------------------------------------
+r625 | vesis84 | 2011-11-25 12:06:40 -0500 (Fri, 25 Nov 2011) | 4 lines
+
+adding integer vector wrapper
+
+
+
+------------------------------------------------------------------------
+r624 | vesis84 | 2011-11-25 11:04:45 -0500 (Fri, 25 Nov 2011) | 4 lines
+
+Fixed the building process,
+the CUDA toolkit is automatically located
+
+
+------------------------------------------------------------------------
+r344 | vesis84 | 2011-08-19 05:14:29 -0400 (Fri, 19 Aug 2011) | 3 lines
+
+syncing with trunk
+
+
+------------------------------------------------------------------------
+r342 | vesis84 | 2011-08-19 04:07:44 -0400 (Fri, 19 Aug 2011) | 3 lines
+
+merging with trunk
+
+
+------------------------------------------------------------------------
+r336 | vesis84 | 2011-08-18 15:07:33 -0400 (Thu, 18 Aug 2011) | 3 lines
+
+-optimizing softmax
+
+
+------------------------------------------------------------------------
+r335 | vesis84 | 2011-08-18 14:45:02 -0400 (Thu, 18 Aug 2011) | 3 lines
+
+- accelerated softmax 5x
+
+
+------------------------------------------------------------------------
+r332 | vesis84 | 2011-08-18 11:52:29 -0400 (Thu, 18 Aug 2011) | 3 lines
+
+- accelerated Xent::Eval(...)
+
+
+------------------------------------------------------------------------
+r324 | vesis84 | 2011-08-17 15:14:05 -0400 (Wed, 17 Aug 2011) | 3 lines
+
+- syncing with trunk
+
+
+------------------------------------------------------------------------
+r321 | vesis84 | 2011-08-17 14:56:44 -0400 (Wed, 17 Aug 2011) | 3 lines
+
+- making the code style compliant
+
+
+------------------------------------------------------------------------
+r316 | vesis84 | 2011-08-17 10:52:25 -0400 (Wed, 17 Aug 2011) | 3 lines
+
+- purifying the code style
+
+
+------------------------------------------------------------------------
+r303 | vesis84 | 2011-08-17 09:09:09 -0400 (Wed, 17 Aug 2011) | 3 lines
+
+- modified scripts to use SGE if disponible
+
+
+------------------------------------------------------------------------
+r282 | vesis84 | 2011-08-15 13:31:12 -0400 (Mon, 15 Aug 2011) | 3 lines
+
+- Updating the RM example scripts
+
+
+------------------------------------------------------------------------
+r277 | vesis84 | 2011-08-15 11:20:41 -0400 (Mon, 15 Aug 2011) | 1 line
+
+
+------------------------------------------------------------------------
+r275 | vesis84 | 2011-08-15 11:19:37 -0400 (Mon, 15 Aug 2011) | 1 line
+
+
+------------------------------------------------------------------------
+r270 | vesis84 | 2011-08-15 10:37:52 -0400 (Mon, 15 Aug 2011) | 1 line
+
+Creating GPGPU branch
+------------------------------------------------------------------------
+r269 | danielpovey | 2011-08-15 09:58:58 -0400 (Mon, 15 Aug 2011) | 1 line
+
+Minor script modifications; changes to sgmm-init program; improvements and additions to lattice-related stuff (inc. stop lattice-determinization from sometimes getting bad_alloc)
+------------------------------------------------------------------------
+r267 | arnab13 | 2011-08-14 06:30:23 -0400 (Sun, 14 Aug 2011) | 1 line
+
+Adding lattice-union.cc
+------------------------------------------------------------------------
+r265 | mhannemann | 2011-08-12 12:13:40 -0400 (Fri, 12 Aug 2011) | 2 lines
+
+fix output of lattice fst
+
+------------------------------------------------------------------------
+r264 | mhannemann | 2011-08-12 10:15:32 -0400 (Fri, 12 Aug 2011) | 2 lines
+
+update commandline
+
+------------------------------------------------------------------------
+r263 | mhannemann | 2011-08-12 10:11:05 -0400 (Fri, 12 Aug 2011) | 2 lines
+
+bugfix
+
+------------------------------------------------------------------------
+r261 | katakombi | 2011-08-12 07:15:47 -0400 (Fri, 12 Aug 2011) | 2 lines
+
+modified decode_tri1 to generate lattices
+
+------------------------------------------------------------------------
+r258 | danielpovey | 2011-08-12 03:30:36 -0400 (Fri, 12 Aug 2011) | 1 line
+
+Added unfinished lm-rescoring code
+------------------------------------------------------------------------
+r257 | danielpovey | 2011-08-11 14:57:43 -0400 (Thu, 11 Aug 2011) | 1 line
+
+Minor fix to lattice generation.
+------------------------------------------------------------------------
+r256 | danielpovey | 2011-08-11 14:44:44 -0400 (Thu, 11 Aug 2011) | 1 line
+
+Fixes to lattice generation program.
+------------------------------------------------------------------------
+r255 | mhannemann | 2011-08-11 12:58:48 -0400 (Thu, 11 Aug 2011) | 2 lines
+
+bugfix
+
+------------------------------------------------------------------------
+r254 | mhannemann | 2011-08-11 11:59:41 -0400 (Thu, 11 Aug 2011) | 2 lines
+
+command line interface for n-best decoder
+
+------------------------------------------------------------------------
+r251 | mhannemann | 2011-08-11 10:48:19 -0400 (Thu, 11 Aug 2011) | 2 lines
+
+speed improvement of kaldi decoder
+
+------------------------------------------------------------------------
+r247 | danielpovey | 2011-08-11 07:47:52 -0400 (Thu, 11 Aug 2011) | 1 line
+
+Added lattice-nbest. updated TODO.
+------------------------------------------------------------------------
+r246 | danielpovey | 2011-08-10 10:31:25 -0400 (Wed, 10 Aug 2011) | 1 line
+
+Fixes to some comments.
+------------------------------------------------------------------------
+r245 | mhannemann | 2011-08-10 10:10:23 -0400 (Wed, 10 Aug 2011) | 2 lines
+
+bugfix
+
+------------------------------------------------------------------------
+r244 | mhannemann | 2011-08-10 10:08:24 -0400 (Wed, 10 Aug 2011) | 2 lines
+
+update reading ConstFst and VectorFst
+
+------------------------------------------------------------------------
+r243 | mhannemann | 2011-08-10 10:01:32 -0400 (Wed, 10 Aug 2011) | 2 lines
+
+bugfix visitnode
+
+------------------------------------------------------------------------
+r242 | mhannemann | 2011-08-10 08:39:21 -0400 (Wed, 10 Aug 2011) | 2 lines
+
+handling of FST input type const/vector
+
+------------------------------------------------------------------------
+r237 | mhannemann | 2011-08-09 09:49:30 -0400 (Tue, 09 Aug 2011) | 2 lines
+
+remove some debugging
+
+------------------------------------------------------------------------
+r235 | danielpovey | 2011-08-09 07:48:55 -0400 (Tue, 09 Aug 2011) | 1 line
+
+Fix to install.sh script.
+------------------------------------------------------------------------
+r232 | vesis84 | 2011-08-09 05:51:33 -0400 (Tue, 09 Aug 2011) | 3 lines
+
+-- removing unused scripts
+
+
+------------------------------------------------------------------------
+r231 | vesis84 | 2011-08-09 05:48:16 -0400 (Tue, 09 Aug 2011) | 4 lines
+
+-- merging s2/steps/train_nnet_tri2a_s{1,2}.sh
+-- changing to new global CMVN implementation
+
+
+------------------------------------------------------------------------
+r229 | mhannemann | 2011-08-08 13:07:32 -0400 (Mon, 08 Aug 2011) | 2 lines
+
+bugfix in n-best generation
+
+------------------------------------------------------------------------
+r228 | danielpovey | 2011-08-08 10:58:05 -0400 (Mon, 08 Aug 2011) | 1 line
+
+Fix bug in lattice conversion and in lattice test program.
+------------------------------------------------------------------------
+r227 | danielpovey | 2011-08-08 09:16:17 -0400 (Mon, 08 Aug 2011) | 1 line
+
+Finally got printing-of-occs in transition model code working.
+------------------------------------------------------------------------
+r226 | danielpovey | 2011-08-08 09:01:10 -0400 (Mon, 08 Aug 2011) | 1 line
+
+Bug-fix in TransitionModel::Print [fix to bug-fix]
+------------------------------------------------------------------------
+r225 | danielpovey | 2011-08-08 08:59:59 -0400 (Mon, 08 Aug 2011) | 1 line
+
+Bug-fix in TransitionModel::Print
+------------------------------------------------------------------------
+r224 | danielpovey | 2011-08-08 07:55:27 -0400 (Mon, 08 Aug 2011) | 1 line
+
+Changes to tutorial
+------------------------------------------------------------------------
+r223 | yanminqian | 2011-08-08 06:57:08 -0400 (Mon, 08 Aug 2011) | 1 line
+
+fix two positions in gmm dir
+------------------------------------------------------------------------
+r222 | yanminqian | 2011-08-08 06:51:27 -0400 (Mon, 08 Aug 2011) | 1 line
+
+fix two positions in gmm dir
+------------------------------------------------------------------------
+r221 | ngoel17 | 2011-08-07 22:40:41 -0400 (Sun, 07 Aug 2011) | 1 line
+
+comments
+------------------------------------------------------------------------
+r220 | danielpovey | 2011-08-05 17:10:09 -0400 (Fri, 05 Aug 2011) | 1 line
+
+Modifications to tutorial
+------------------------------------------------------------------------
+r218 | danielpovey | 2011-08-05 14:05:42 -0400 (Fri, 05 Aug 2011) | 1 line
+
+Changes to tutorial, and make matrix test more style compliant.
+------------------------------------------------------------------------
+r217 | danielpovey | 2011-08-04 14:46:02 -0400 (Thu, 04 Aug 2011) | 1 line
+
+Fixes to tutorial
+------------------------------------------------------------------------
+r216 | danielpovey | 2011-08-04 14:34:53 -0400 (Thu, 04 Aug 2011) | 1 line
+
+Minor cosmetic changes, esp. to scripts.
+------------------------------------------------------------------------
+r215 | danielpovey | 2011-08-04 14:34:25 -0400 (Thu, 04 Aug 2011) | 1 line
+
+Broke tutorial up into several pages.
+------------------------------------------------------------------------
+r214 | ngoel17 | 2011-08-04 13:44:57 -0400 (Thu, 04 Aug 2011) | 1 line
+
+preprocessing
+------------------------------------------------------------------------
+r212 | danielpovey | 2011-08-04 13:04:35 -0400 (Thu, 04 Aug 2011) | 1 line
+
+Modified tutorial...
+------------------------------------------------------------------------
+r211 | danielpovey | 2011-08-03 23:53:47 -0400 (Wed, 03 Aug 2011) | 1 line
+
+Modified tutorial...
+------------------------------------------------------------------------
+r210 | danielpovey | 2011-08-03 16:07:26 -0400 (Wed, 03 Aug 2011) | 1 line
+
+Modified tutorial...
+------------------------------------------------------------------------
+r209 | danielpovey | 2011-08-03 13:05:41 -0400 (Wed, 03 Aug 2011) | 1 line
+
+Fixes to RESULTS file in RM, and add #!/bin/bash headers.
+------------------------------------------------------------------------
+r208 | danielpovey | 2011-08-02 17:58:36 -0400 (Tue, 02 Aug 2011) | 1 line
+
+Changes to configure script and names of kaldi.mk prototypes.
+------------------------------------------------------------------------
+r207 | danielpovey | 2011-08-01 00:22:59 -0400 (Mon, 01 Aug 2011) | 1 line
+
+Minor code and test fixes; extensions in latbin/ (lattice-prune, lattice-equivalent; testing script in rm/s1.)
+------------------------------------------------------------------------
+r206 | danielpovey | 2011-07-31 14:52:39 -0400 (Sun, 31 Jul 2011) | 1 line
+
+Simplify some code after change to Table constructors; make sure cmvn stuff works for single transforms.
+------------------------------------------------------------------------
+r205 | danielpovey | 2011-07-31 03:30:48 -0400 (Sun, 31 Jul 2011) | 1 line
+
+Simplify code after changing constructor of Table classes; unify and streamline decoder interfaces; minor fixes to scripts.
+------------------------------------------------------------------------
+r204 | danielpovey | 2011-07-30 16:43:13 -0400 (Sat, 30 Jul 2011) | 1 line
+
+Fix bug in lattice-simple-decoder.h; rewrite to lattice generation programs.
+------------------------------------------------------------------------
+r203 | danielpovey | 2011-07-30 13:39:42 -0400 (Sat, 30 Jul 2011) | 1 line
+
+Fix to kaldi-table
+------------------------------------------------------------------------
+r202 | danielpovey | 2011-07-30 05:08:20 -0400 (Sat, 30 Jul 2011) | 1 line
+
+Fix to table-writer stuff (propagate change to all constructors)
+------------------------------------------------------------------------
+r201 | danielpovey | 2011-07-30 04:56:56 -0400 (Sat, 30 Jul 2011) | 1 line
+
+Add stylistic fixes, and extended lattice code + examples (add rescoring).
+------------------------------------------------------------------------
+r200 | danielpovey | 2011-07-30 02:04:54 -0400 (Sat, 30 Jul 2011) | 1 line
+
+Added Makefile in latbin
+------------------------------------------------------------------------
+r199 | danielpovey | 2011-07-30 02:00:46 -0400 (Sat, 30 Jul 2011) | 1 line
+
+Added lattice binary directory
+------------------------------------------------------------------------
+r198 | danielpovey | 2011-07-29 22:29:43 -0400 (Fri, 29 Jul 2011) | 1 line
+
+Modified TODO.
+------------------------------------------------------------------------
+r197 | vesis84 | 2011-07-29 07:10:51 -0400 (Fri, 29 Jul 2011) | 5 lines
+
+-adding more pure hybrid setups
+-acwt tuning by golden section search algorithm
+-division by priors to the MLP outputs (posteriors)
+
+
+------------------------------------------------------------------------
+r196 | danielpovey | 2011-07-27 14:47:27 -0400 (Wed, 27 Jul 2011) | 1 line
+
+Modifications to decoders (change defaults; new debug statements.)
+------------------------------------------------------------------------
+r194 | danielpovey | 2011-07-27 01:43:28 -0400 (Wed, 27 Jul 2011) | 1 line
+
+Restored old INSTALL file.
+------------------------------------------------------------------------
+r193 | danielpovey | 2011-07-26 23:31:27 -0400 (Tue, 26 Jul 2011) | 1 line
+
+Changed test threshold in fmllr-sgmm-test.
+------------------------------------------------------------------------
+r192 | danielpovey | 2011-07-26 21:07:44 -0400 (Tue, 26 Jul 2011) | 1 line
+
+Documentation fixes; fix to README.
+------------------------------------------------------------------------
+r191 | danielpovey | 2011-07-26 18:38:55 -0400 (Tue, 26 Jul 2011) | 1 line
+
+Modified lattice-generation binary
+------------------------------------------------------------------------
+r190 | danielpovey | 2011-07-26 03:29:18 -0400 (Tue, 26 Jul 2011) | 1 line
+
+Fixes and extra tests for lattice I/O.
+------------------------------------------------------------------------
+r189 | danielpovey | 2011-07-26 02:57:04 -0400 (Tue, 26 Jul 2011) | 1 line
+
+More features finished on lattice generation (I/O, etc.); tests not yet working.
+------------------------------------------------------------------------
+r188 | mhannemann | 2011-07-25 09:19:26 -0400 (Mon, 25 Jul 2011) | 2 lines
+
+changing includes in kaldi-decoder-left and -right
+
+------------------------------------------------------------------------
+r185 | danielpovey | 2011-07-25 04:11:36 -0400 (Mon, 25 Jul 2011) | 1 line
+
+Updates to lattice generation; fix memory leaks in decoder binaries.
+------------------------------------------------------------------------
+r184 | danielpovey | 2011-07-24 19:33:17 -0400 (Sun, 24 Jul 2011) | 1 line
+
+Added lattice-related utility (scaling) and related test code.
+------------------------------------------------------------------------
+r183 | danielpovey | 2011-07-24 01:25:47 -0400 (Sun, 24 Jul 2011) | 1 line
+
+added lattice-utils-test
+------------------------------------------------------------------------
+r182 | danielpovey | 2011-07-24 01:13:31 -0400 (Sun, 24 Jul 2011) | 1 line
+
+Improvements and new functionality to lattice-related FST routines; fix include guard names.
+------------------------------------------------------------------------
+r181 | danielpovey | 2011-07-23 16:37:06 -0400 (Sat, 23 Jul 2011) | 1 line
+
+Fixed the file names at the top of code.
+------------------------------------------------------------------------
+r180 | danielpovey | 2011-07-23 16:20:28 -0400 (Sat, 23 Jul 2011) | 1 line
+
+Fixes to determinize-lattice testing code.
+------------------------------------------------------------------------
+r179 | danielpovey | 2011-07-23 15:41:45 -0400 (Sat, 23 Jul 2011) | 1 line
+
+Minor changes to determinize-lattice stuff.
+------------------------------------------------------------------------
+r178 | danielpovey | 2011-07-23 15:32:17 -0400 (Sat, 23 Jul 2011) | 1 line
+
+Updates to determinize-lattice stuff.
+------------------------------------------------------------------------
+r177 | danielpovey | 2011-07-23 03:55:08 -0400 (Sat, 23 Jul 2011) | 1 line
+
+Nearly finished lattice-determinize function; small updates/fixes to determinize-star.
+------------------------------------------------------------------------
+r176 | danielpovey | 2011-07-23 03:00:59 -0400 (Sat, 23 Jul 2011) | 1 line
+
+Change to rand-fst.h and abortive change to determinize-star-test.cc
+------------------------------------------------------------------------
+r175 | danielpovey | 2011-07-22 23:36:59 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Minor optimization to determinize-star-inl.h
+------------------------------------------------------------------------
+r174 | danielpovey | 2011-07-22 23:30:42 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Fix to determinize-star-inl.h
+------------------------------------------------------------------------
+r173 | danielpovey | 2011-07-22 23:15:17 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Reverting changes that broke determinize-star.
+------------------------------------------------------------------------
+r172 | danielpovey | 2011-07-22 23:13:00 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Revert changes to determinize-star-inl.h
+------------------------------------------------------------------------
+r171 | danielpovey | 2011-07-22 23:09:02 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Optimization to determinize-star-inl.h
+------------------------------------------------------------------------
+r170 | danielpovey | 2011-07-22 23:05:54 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Changed path.sh in wsj recipe.
+------------------------------------------------------------------------
+r169 | danielpovey | 2011-07-22 23:01:09 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Optimization to determinize-star-inl.h
+------------------------------------------------------------------------
+r168 | danielpovey | 2011-07-22 21:59:59 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Minor and cosmetic change, and fixed std::swap issues.
+------------------------------------------------------------------------
+r167 | danielpovey | 2011-07-22 21:57:59 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Mostly cosmetic and minor changes to fstext/ dir, plus added lattice-weight stuff and determinize-lattice stuff (unfinished).
+------------------------------------------------------------------------
+r166 | danielpovey | 2011-07-22 20:21:55 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Adding lattice-weight stuff.
+------------------------------------------------------------------------
+r165 | danielpovey | 2011-07-22 20:08:37 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Minor fixes to determinization routines
+------------------------------------------------------------------------
+r164 | danielpovey | 2011-07-22 19:48:02 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Minor fixes to determinize-star-inl.h
+------------------------------------------------------------------------
+r163 | danielpovey | 2011-07-22 14:53:57 -0400 (Fri, 22 Jul 2011) | 1 line
+
+Added LatticeArc etc.
+------------------------------------------------------------------------
+r162 | mhannemann | 2011-07-22 11:00:59 -0400 (Fri, 22 Jul 2011) | 2 lines
+
+added simple decoder retrieving n-best recognition results, still one bug to be fixed
+
+------------------------------------------------------------------------
+r161 | mhannemann | 2011-07-22 10:59:32 -0400 (Fri, 22 Jul 2011) | 2 lines
+
+update to HashList to allow multiple tokens per state
+
+------------------------------------------------------------------------
+r160 | danielpovey | 2011-07-20 20:06:53 -0400 (Wed, 20 Jul 2011) | 1 line
+
+Fix to ApproxEqual to handle infinity; fixes and changes to lattice generation proto-code.
+------------------------------------------------------------------------
+r159 | danielpovey | 2011-07-20 03:41:37 -0400 (Wed, 20 Jul 2011) | 1 line
+
+Fix to lattice generating decoder (minor)
+------------------------------------------------------------------------
+r157 | danielpovey | 2011-07-20 02:49:08 -0400 (Wed, 20 Jul 2011) | 1 line
+
+Fix to simple-decoder.h
+------------------------------------------------------------------------
+r156 | danielpovey | 2011-07-19 22:19:35 -0400 (Tue, 19 Jul 2011) | 1 line
+
+Committing initial draft of lattice-generator (first half of code only...)
+------------------------------------------------------------------------
+r155 | danielpovey | 2011-07-18 16:57:29 -0400 (Mon, 18 Jul 2011) | 1 line
+
+Lattice code (finishing some stuff).
+------------------------------------------------------------------------
+r154 | danielpovey | 2011-07-17 18:36:56 -0400 (Sun, 17 Jul 2011) | 1 line
+
+Changes to lattice definitions.
+------------------------------------------------------------------------
+r153 | danielpovey | 2011-07-16 18:15:37 -0400 (Sat, 16 Jul 2011) | 1 line
+
+Added partial work on kaldi-lattice.h
+------------------------------------------------------------------------
+r152 | ngoel17 | 2011-07-15 21:20:33 -0400 (Fri, 15 Jul 2011) | 1 line
+
+documentation update
+------------------------------------------------------------------------
+r149 | danielpovey | 2011-07-15 19:38:06 -0400 (Fri, 15 Jul 2011) | 1 line
+
+Added valgrind option to path.sh; minor script fices.
+------------------------------------------------------------------------
+r148 | danielpovey | 2011-07-15 17:51:23 -0400 (Fri, 15 Jul 2011) | 1 line
+
+Fix relating to verbose option in rprop
+------------------------------------------------------------------------
+r147 | vesis84 | 2011-07-15 12:02:19 -0400 (Fri, 15 Jul 2011) | 3 lines
+
+-adding training and decoding with pure hybrid system with CD-PDF targets
+
+
+------------------------------------------------------------------------
+r146 | vesis84 | 2011-07-15 11:50:59 -0400 (Fri, 15 Jul 2011) | 3 lines
+
+-adding training and decoding scripts for mono pure hybrid
+
+
+------------------------------------------------------------------------
+r144 | danielpovey | 2011-07-15 03:27:09 -0400 (Fri, 15 Jul 2011) | 1 line
+
+Changes to error reported in optimization
+------------------------------------------------------------------------
+r142 | danielpovey | 2011-07-15 01:57:05 -0400 (Fri, 15 Jul 2011) | 1 line
+
+Updated WSJ RESULTS file
+------------------------------------------------------------------------
+r141 | vesis84 | 2011-07-14 12:30:46 -0400 (Thu, 14 Jul 2011) | 4 lines
+
+- adding Recurrent Neural Network and its' training implementation
+- adding MLP forwarding tool
+
+
+------------------------------------------------------------------------
+r139 | danielpovey | 2011-07-14 03:54:45 -0400 (Thu, 14 Jul 2011) | 1 line
+
+Minor script and code fixes.
+------------------------------------------------------------------------
+r138 | danielpovey | 2011-07-12 23:52:46 -0400 (Tue, 12 Jul 2011) | 1 line
+
+Updates to branches/1, and minor changes to READMES + one #include statement.
+------------------------------------------------------------------------
+r134 | danielpovey | 2011-07-12 21:29:06 -0400 (Tue, 12 Jul 2011) | 1 line
+
+Minor script improvements[2].
+------------------------------------------------------------------------
+r133 | danielpovey | 2011-07-12 21:27:34 -0400 (Tue, 12 Jul 2011) | 1 line
+
+Minor script improvements.
+------------------------------------------------------------------------
+r132 | danielpovey | 2011-07-12 20:51:04 -0400 (Tue, 12 Jul 2011) | 1 line
+
+Some normalizations to ET options.
+------------------------------------------------------------------------
+r131 | ngoel17 | 2011-07-12 18:14:12 -0400 (Tue, 12 Jul 2011) | 1 line
+
+tools
+------------------------------------------------------------------------
+r130 | ngoel17 | 2011-07-12 18:09:14 -0400 (Tue, 12 Jul 2011) | 1 line
+
+tools
+------------------------------------------------------------------------
+r129 | ngoel17 | 2011-07-12 17:49:20 -0400 (Tue, 12 Jul 2011) | 1 line
+
+tools
+------------------------------------------------------------------------
+r128 | danielpovey | 2011-07-11 23:41:54 -0400 (Mon, 11 Jul 2011) | 1 line
+
+Script updates/fixes and documentation update.
+------------------------------------------------------------------------
+r127 | danielpovey | 2011-07-11 19:39:42 -0400 (Mon, 11 Jul 2011) | 1 line
+
+Various fixes/improvements to error messages; added LDA+ET+SGMM.
+------------------------------------------------------------------------
+r126 | danielpovey | 2011-07-09 16:42:47 -0400 (Sat, 09 Jul 2011) | 1 line
+
+Added sgmme to RM recipe; minor fixes
+------------------------------------------------------------------------
+r125 | danielpovey | 2011-07-08 20:51:21 -0400 (Fri, 08 Jul 2011) | 1 line
+
+Updates to scripts (to be final version of papers); minor fixes to programs; added scale-vecs program.
+------------------------------------------------------------------------
+r124 | danielpovey | 2011-07-08 03:17:52 -0400 (Fri, 08 Jul 2011) | 1 line
+
+Name changes in some math stuff to agree with papers.
+------------------------------------------------------------------------
+r123 | danielpovey | 2011-07-07 20:09:50 -0400 (Thu, 07 Jul 2011) | 1 line
+
+Name changes in matrix exponential and ET code.
+------------------------------------------------------------------------
+r122 | arnab13 | 2011-07-06 12:35:33 -0400 (Wed, 06 Jul 2011) | 1 line
+
+Small fixes to stop compiler warnings.
+------------------------------------------------------------------------
+r121 | danielpovey | 2011-07-05 16:22:52 -0400 (Tue, 05 Jul 2011) | 1 line
+
+Changing to binary mode for reading FSTs
+------------------------------------------------------------------------
+r120 | danielpovey | 2011-07-04 23:19:22 -0400 (Mon, 04 Jul 2011) | 1 line
+
+Added option to check auxf impr for v, to estimate-am-sgmm
+------------------------------------------------------------------------
+r119 | danielpovey | 2011-07-04 18:23:02 -0400 (Mon, 04 Jul 2011) | 1 line
+
+Finishing the scripts for the ASRU papers.
+------------------------------------------------------------------------
+r118 | danielpovey | 2011-07-04 03:43:35 -0400 (Mon, 04 Jul 2011) | 1 line
+
+Improvement to ATLAS install script.
+------------------------------------------------------------------------
+r117 | danielpovey | 2011-07-02 02:33:32 -0400 (Sat, 02 Jul 2011) | 1 line
+
+Modified WSJ RESULTS file
+------------------------------------------------------------------------
+r116 | danielpovey | 2011-07-01 19:32:25 -0400 (Fri, 01 Jul 2011) | 1 line
+
+Fixes to some SGMM decoding scripts.
+------------------------------------------------------------------------
+r115 | danielpovey | 2011-07-01 15:56:14 -0400 (Fri, 01 Jul 2011) | 1 line
+
+Updates to RESULTS file
+------------------------------------------------------------------------
+r114 | danielpovey | 2011-06-30 19:17:11 -0400 (Thu, 30 Jun 2011) | 1 line
+
+Script fixes and additions, and minor fixes and README rearrangements.
+------------------------------------------------------------------------
+r113 | danielpovey | 2011-06-29 17:58:41 -0400 (Wed, 29 Jun 2011) | 1 line
+
+Fixes to recipes; updating RESULTS files [nearly finished with WSJ one].
+------------------------------------------------------------------------
+r112 | mhannemann | 2011-06-28 08:18:47 -0400 (Tue, 28 Jun 2011) | 2 lines
+
+bugfix compare pdf/transition ids, initial pruning
+
+------------------------------------------------------------------------
+r111 | danielpovey | 2011-06-28 04:23:58 -0400 (Tue, 28 Jun 2011) | 1 line
+
+script fix.
+------------------------------------------------------------------------
+r110 | danielpovey | 2011-06-27 22:31:09 -0400 (Mon, 27 Jun 2011) | 1 line
+
+Committing hopefully almost final version of WSJ scripts.
+------------------------------------------------------------------------
+r109 | danielpovey | 2011-06-27 21:41:44 -0400 (Mon, 27 Jun 2011) | 1 line
+
+Changed some scripts to try to make them more consistent.
+------------------------------------------------------------------------
+r108 | danielpovey | 2011-06-27 14:10:52 -0400 (Mon, 27 Jun 2011) | 1 line
+
+Simplification to fMLLR and to ET code.
+------------------------------------------------------------------------
+r107 | danielpovey | 2011-06-27 14:09:47 -0400 (Mon, 27 Jun 2011) | 1 line
+
+Modifications to RM recipe.
+------------------------------------------------------------------------
+r106 | danielpovey | 2011-06-26 20:24:56 -0400 (Sun, 26 Jun 2011) | 1 line
+
+improved comments in ATLAS installation, and name changes in ET.
+------------------------------------------------------------------------
+r105 | danielpovey | 2011-06-26 02:28:17 -0400 (Sun, 26 Jun 2011) | 1 line
+
+Added option to write likelihoods to sgmm-gselect [change].
+------------------------------------------------------------------------
+r104 | danielpovey | 2011-06-26 02:26:04 -0400 (Sun, 26 Jun 2011) | 1 line
+
+Added option to write likelihoods to sgmm-gselect.
+------------------------------------------------------------------------
+r103 | danielpovey | 2011-06-26 01:04:49 -0400 (Sun, 26 Jun 2011) | 1 line
+
+Committing some scripts.
+------------------------------------------------------------------------
+r102 | danielpovey | 2011-06-26 00:47:02 -0400 (Sun, 26 Jun 2011) | 1 line
+
+Making new configure script the default.
+------------------------------------------------------------------------
+r101 | danielpovey | 2011-06-26 00:19:32 -0400 (Sun, 26 Jun 2011) | 1 line
+
+Added new configure script.
+------------------------------------------------------------------------
+r100 | danielpovey | 2011-06-24 19:58:39 -0400 (Fri, 24 Jun 2011) | 1 line
+
+Reverse previous change [fix]
+------------------------------------------------------------------------
+r99 | danielpovey | 2011-06-24 18:33:22 -0400 (Fri, 24 Jun 2011) | 1 line
+
+Changes to SGMM updates.
+------------------------------------------------------------------------
+r98 | danielpovey | 2011-06-24 00:10:16 -0400 (Fri, 24 Jun 2011) | 1 line
+
+Fixed errors with equals-sign in usage messages; updating ET code to be more correct.
+------------------------------------------------------------------------
+r97 | danielpovey | 2011-06-21 18:55:20 -0400 (Tue, 21 Jun 2011) | 1 line
+
+Changes to documentation.
+------------------------------------------------------------------------
+r96 | arnab13 | 2011-06-21 02:53:48 -0400 (Tue, 21 Jun 2011) | 1 line
+
+Adding MLLR to RM recipe.
+------------------------------------------------------------------------
+r95 | danielpovey | 2011-06-20 15:52:02 -0400 (Mon, 20 Jun 2011) | 1 line
+
+Updated RESULTS file.
+------------------------------------------------------------------------
+r94 | arnab13 | 2011-06-19 10:03:06 -0400 (Sun, 19 Jun 2011) | 1 line
+
+Adding support for fMLLR bases for SGMMs + some RM recipe scripts.
+------------------------------------------------------------------------
+r93 | danielpovey | 2011-06-18 18:09:38 -0400 (Sat, 18 Jun 2011) | 1 line
+
+Fix to 64 bit makfile.
+------------------------------------------------------------------------
+r92 | danielpovey | 2011-06-18 03:11:22 -0400 (Sat, 18 Jun 2011) | 1 line
+
+Fixes to SGMM training scripts; fix to gselect program; updating RESULTS.
+------------------------------------------------------------------------
+r91 | danielpovey | 2011-06-17 23:13:41 -0400 (Fri, 17 Jun 2011) | 1 line
+
+Fix to SGMM training scripts.
+------------------------------------------------------------------------
+r90 | danielpovey | 2011-06-17 15:44:56 -0400 (Fri, 17 Jun 2011) | 1 line
+
+Added comments to RM data_prep/run.sh script; changed some filenames in mkgraph.sh
+------------------------------------------------------------------------
+r89 | danielpovey | 2011-06-16 23:31:57 -0400 (Thu, 16 Jun 2011) | 1 line
+
+Added code and scripts for gender-dependent UBM training.
+------------------------------------------------------------------------
+r88 | danielpovey | 2011-06-16 23:06:23 -0400 (Thu, 16 Jun 2011) | 1 line
+
+Added gender-dependent training.
+------------------------------------------------------------------------
+r87 | arnab13 | 2011-06-15 14:11:21 -0400 (Wed, 15 Jun 2011) | 1 line
+
+Added PeekMarker(); old PeekMarker() now called Peek(). Created base/io-funcs-inl.h for inline I/O funcs.
+------------------------------------------------------------------------
+r86 | arnab13 | 2011-06-15 11:31:53 -0400 (Wed, 15 Jun 2011) | 1 line
+
+Changes to copyright notices.
+------------------------------------------------------------------------
+r85 | danielpovey | 2011-06-15 02:31:29 -0400 (Wed, 15 Jun 2011) | 1 line
+
+Fix to run.sh in data_prep RE spk2gender.map
+------------------------------------------------------------------------
+r84 | danielpovey | 2011-06-14 17:50:17 -0400 (Tue, 14 Jun 2011) | 1 line
+
+fMLLR script fixes; and added capability to work with segments [for Martin]
+------------------------------------------------------------------------
+r83 | danielpovey | 2011-06-14 14:44:04 -0400 (Tue, 14 Jun 2011) | 1 line
+
+Change to decoding programs (and added write functionality to wave-reader, not yet tested).
+------------------------------------------------------------------------
+r82 | danielpovey | 2011-06-14 14:40:45 -0400 (Tue, 14 Jun 2011) | 1 line
+
+Modification to decode-faster and decode-faster-mapped
+------------------------------------------------------------------------
+r81 | danielpovey | 2011-06-13 23:10:37 -0400 (Mon, 13 Jun 2011) | 1 line
+
+Fix to SGMM+FMLLR
+------------------------------------------------------------------------
+r80 | arnab13 | 2011-06-13 17:44:33 -0400 (Mon, 13 Jun 2011) | 1 line
+
+added variable fMLLR basis size for SGMMs & MLLR executable
+------------------------------------------------------------------------
+r79 | arnab13 | 2011-06-13 04:05:19 -0400 (Mon, 13 Jun 2011) | 1 line
+
+updates to MLLR & removed TODOs from SGMM code
+------------------------------------------------------------------------
+r78 | danielpovey | 2011-06-12 21:07:54 -0400 (Sun, 12 Jun 2011) | 1 line
+
+Changes to install scripts [fix problems if you are root]
+------------------------------------------------------------------------
+r77 | danielpovey | 2011-06-09 16:27:12 -0400 (Thu, 09 Jun 2011) | 1 line
+
+Added calc-distnaces function for yanmin and thang.
+------------------------------------------------------------------------
+r76 | danielpovey | 2011-06-09 14:31:56 -0400 (Thu, 09 Jun 2011) | 1 line
+
+Checking in SGMM experiments [on a data subset
+------------------------------------------------------------------------
+r75 | mhannemann | 2011-06-09 09:31:25 -0400 (Thu, 09 Jun 2011) | 2 lines
+
+beta version of new decoder (incoming arcs same label)
+
+------------------------------------------------------------------------
+r74 | danielpovey | 2011-06-08 19:07:26 -0400 (Wed, 08 Jun 2011) | 1 line
+
+Fix script bug.
+------------------------------------------------------------------------
+r73 | danielpovey | 2011-06-08 18:52:43 -0400 (Wed, 08 Jun 2011) | 1 line
+
+Minor script changes.
+------------------------------------------------------------------------
+r72 | danielpovey | 2011-06-08 18:52:21 -0400 (Wed, 08 Jun 2011) | 1 line
+
+Changed HTK conversion scripts to reflect current status of the code.
+------------------------------------------------------------------------
+r71 | danielpovey | 2011-06-08 17:36:44 -0400 (Wed, 08 Jun 2011) | 1 line
+
+Some changes to run_basic.sh (not yet finished).
+------------------------------------------------------------------------
+r70 | danielpovey | 2011-06-08 14:44:27 -0400 (Wed, 08 Jun 2011) | 1 line
+
+Updates to SGMM training scripts for WSJ.
+------------------------------------------------------------------------
+r69 | danielpovey | 2011-06-07 20:33:56 -0400 (Tue, 07 Jun 2011) | 1 line
+
+Fix to train_sgmm2b.sh script.
+------------------------------------------------------------------------
+r68 | mhannemann | 2011-06-07 07:18:39 -0400 (Tue, 07 Jun 2011) | 2 lines
+
+beautify kaldi-decoder-test.cc
+
+------------------------------------------------------------------------
+r67 | mhannemann | 2011-06-07 07:11:53 -0400 (Tue, 07 Jun 2011) | 2 lines
+
+bugfix decoder
+
+------------------------------------------------------------------------
+r66 | danielpovey | 2011-06-07 02:47:06 -0400 (Tue, 07 Jun 2011) | 1 line
+
+Added some scripts to WSJ; various script normalizations.
+------------------------------------------------------------------------
+r65 | danielpovey | 2011-06-05 22:56:08 -0400 (Sun, 05 Jun 2011) | 1 line
+
+Some updates to scripts.
+------------------------------------------------------------------------
+r64 | danielpovey | 2011-06-05 01:20:40 -0400 (Sun, 05 Jun 2011) | 1 line
+
+Added comment to run.sh; minor fix to decode_sgmmb.sh (added gselect)
+------------------------------------------------------------------------
+r63 | danielpovey | 2011-06-04 20:23:20 -0400 (Sat, 04 Jun 2011) | 1 line
+
+Improvements to scripts and RESULTS files.
+------------------------------------------------------------------------
+r62 | arnab13 | 2011-06-04 17:57:00 -0400 (Sat, 04 Jun 2011) | 1 line
+
+fixes to mllr code
+------------------------------------------------------------------------
+r61 | danielpovey | 2011-06-01 10:29:20 -0400 (Wed, 01 Jun 2011) | 1 line
+
+Fix to run.sh, creating train.tra
+------------------------------------------------------------------------
+r60 | danielpovey | 2011-05-31 16:30:12 -0400 (Tue, 31 May 2011) | 1 line
+
+Modified slides (updates to results)
+------------------------------------------------------------------------
+r59 | danielpovey | 2011-05-30 19:48:52 -0400 (Mon, 30 May 2011) | 1 line
+
+Removed srand(time(NULL)) as compilation error
+------------------------------------------------------------------------
+r58 | danielpovey | 2011-05-30 08:04:57 -0400 (Mon, 30 May 2011) | 1 line
+
+Fixes to HTK model conversion (and minor script changes).
+------------------------------------------------------------------------
+r57 | danielpovey | 2011-05-28 03:40:50 -0400 (Sat, 28 May 2011) | 1 line
+
+Added logos
+------------------------------------------------------------------------
+r56 | arnab13 | 2011-05-28 00:41:19 -0400 (Sat, 28 May 2011) | 1 line
+
+string::compare bugfix, and other related changes
+------------------------------------------------------------------------
+r55 | danielpovey | 2011-05-27 16:51:03 -0400 (Fri, 27 May 2011) | 1 line
+
+Changes to documentation.
+------------------------------------------------------------------------
+r54 | arnab13 | 2011-05-24 17:43:54 -0400 (Tue, 24 May 2011) | 1 line
+
+isinf -> KALDI_ISINF in nnet-loss.cc
+------------------------------------------------------------------------
+r53 | arnab13 | 2011-05-24 17:28:55 -0400 (Tue, 24 May 2011) | 1 line
+
+Changes to copyright notices in headers.
+------------------------------------------------------------------------
+r52 | danielpovey | 2011-05-22 20:35:10 -0400 (Sun, 22 May 2011) | 1 line
+
+Fixed some style issues in nnet code.
+------------------------------------------------------------------------
+r51 | vesis84 | 2011-05-22 17:17:34 -0400 (Sun, 22 May 2011) | 3 lines
+
+Adding the Neural Networks for phoneme-state classification
+
+
+------------------------------------------------------------------------
+r50 | vesis84 | 2011-05-22 15:08:37 -0400 (Sun, 22 May 2011) | 2 lines
+
+testing write permission
+
+------------------------------------------------------------------------
+r49 | arnab13 | 2011-05-19 18:49:52 -0400 (Thu, 19 May 2011) | 1 line
+
+Scripts for decoding with fMLLR for SGMMs.
+------------------------------------------------------------------------
+r48 | danielpovey | 2011-05-19 14:39:18 -0400 (Thu, 19 May 2011) | 1 line
+
+RM recipe fixes/changes, etc.
+------------------------------------------------------------------------
+r47 | danielpovey | 2011-05-18 20:20:12 -0400 (Wed, 18 May 2011) | 1 line
+
+Fixed how we measure WERs in the decoding scripts.
+------------------------------------------------------------------------
+r46 | danielpovey | 2011-05-18 18:50:13 -0400 (Wed, 18 May 2011) | 1 line
+
+Changes to acknowledgements
+------------------------------------------------------------------------
+r45 | danielpovey | 2011-05-18 18:50:00 -0400 (Wed, 18 May 2011) | 1 line
+
+Script changes and updating RESULTS files.
+------------------------------------------------------------------------
+r44 | danielpovey | 2011-05-17 14:47:32 -0400 (Tue, 17 May 2011) | 1 line
+
+Improvements to install.sh script.
+------------------------------------------------------------------------
+r43 | danielpovey | 2011-05-17 14:39:40 -0400 (Tue, 17 May 2011) | 1 line
+
+Fix to configure script.
+------------------------------------------------------------------------
+r42 | danielpovey | 2011-05-17 14:37:20 -0400 (Tue, 17 May 2011) | 1 line
+
+Fix to install.sh to check status.
+------------------------------------------------------------------------
+r41 | danielpovey | 2011-05-17 14:36:15 -0400 (Tue, 17 May 2011) | 1 line
+
+Fix to install.sh to check status.
+------------------------------------------------------------------------
+r40 | danielpovey | 2011-05-17 14:35:15 -0400 (Tue, 17 May 2011) | 1 line
+
+Improvements to configure setup to hopefull compile ATLAS if needed.
+------------------------------------------------------------------------
+r39 | arnab13 | 2011-05-17 05:32:09 -0400 (Tue, 17 May 2011) | 1 line
+
+SGMM bugfixes
+------------------------------------------------------------------------
+r38 | danielpovey | 2011-05-17 02:57:03 -0400 (Tue, 17 May 2011) | 1 line
+
+Added files that Arnab had added in v1.0
+------------------------------------------------------------------------
+r37 | danielpovey | 2011-05-17 02:45:54 -0400 (Tue, 17 May 2011) | 1 line
+
+Fixes and other changes to scripts.
+------------------------------------------------------------------------
+r36 | danielpovey | 2011-05-17 02:45:38 -0400 (Tue, 17 May 2011) | 1 line
+
+Documentation updates
+------------------------------------------------------------------------
+r35 | danielpovey | 2011-05-16 21:28:05 -0400 (Mon, 16 May 2011) | 1 line
+
+Fix to unit-test (memory leak)
+------------------------------------------------------------------------
+r34 | danielpovey | 2011-05-16 21:04:05 -0400 (Mon, 16 May 2011) | 1 line
+
+CMVN and SVD related fixes.
+------------------------------------------------------------------------
+r33 | danielpovey | 2011-05-16 20:39:38 -0400 (Mon, 16 May 2011) | 1 line
+
+Fix to 64bit makefile comment.
+------------------------------------------------------------------------
+r32 | danielpovey | 2011-05-16 18:00:21 -0400 (Mon, 16 May 2011) | 1 line
+
+SVD fixes.
+------------------------------------------------------------------------
+r31 | danielpovey | 2011-05-16 17:39:55 -0400 (Mon, 16 May 2011) | 1 line
+
+Fix to SVD.
+------------------------------------------------------------------------
+r30 | danielpovey | 2011-05-16 16:35:26 -0400 (Mon, 16 May 2011) | 1 line
+
+Changes to train_tri2c.sh script to harmonize with train_tri2a
+------------------------------------------------------------------------
+r29 | arnab13 | 2011-05-16 08:04:39 -0400 (Mon, 16 May 2011) | 1 line
+
+Syncing changes in SGMM code between repos at BUT and SF.
+------------------------------------------------------------------------
+r28 | danielpovey | 2011-05-16 02:34:24 -0400 (Mon, 16 May 2011) | 1 line
+
+Updates to matrix documentation
+------------------------------------------------------------------------
+r27 | danielpovey | 2011-05-16 02:26:27 -0400 (Mon, 16 May 2011) | 1 line
+
+Updates to matrix documentation
+------------------------------------------------------------------------
+r26 | danielpovey | 2011-05-16 02:16:06 -0400 (Mon, 16 May 2011) | 1 line
+
+Added results for RM.
+------------------------------------------------------------------------
+r25 | danielpovey | 2011-05-16 02:07:21 -0400 (Mon, 16 May 2011) | 1 line
+
+documentation fixes and extensions
+------------------------------------------------------------------------
+r24 | danielpovey | 2011-05-16 01:57:31 -0400 (Mon, 16 May 2011) | 1 line
+
+documentation fixes and extensions
+------------------------------------------------------------------------
+r23 | danielpovey | 2011-05-16 01:01:35 -0400 (Mon, 16 May 2011) | 1 line
+
+Documentation changes and script fixes.
+------------------------------------------------------------------------
+r22 | danielpovey | 2011-05-15 22:03:55 -0400 (Sun, 15 May 2011) | 1 line
+
+History changes.
+------------------------------------------------------------------------
+r21 | danielpovey | 2011-05-15 21:58:37 -0400 (Sun, 15 May 2011) | 1 line
+
+History changes.
+------------------------------------------------------------------------
+r20 | danielpovey | 2011-05-15 21:57:01 -0400 (Sun, 15 May 2011) | 1 line
+
+History changes.
+------------------------------------------------------------------------
+r19 | danielpovey | 2011-05-15 21:55:41 -0400 (Sun, 15 May 2011) | 1 line
+
+History changes.
+------------------------------------------------------------------------
+r18 | danielpovey | 2011-05-15 21:49:03 -0400 (Sun, 15 May 2011) | 1 line
+
+History changes.
+------------------------------------------------------------------------
+r17 | danielpovey | 2011-05-15 21:48:10 -0400 (Sun, 15 May 2011) | 1 line
+
+History changes.
+------------------------------------------------------------------------
+r16 | danielpovey | 2011-05-15 16:23:01 -0400 (Sun, 15 May 2011) | 1 line
+
+Deleted stuff we don't need; minor fixes, some related to Valgrind issues and others cosmetic.
+------------------------------------------------------------------------
+r15 | danielpovey | 2011-05-15 15:35:05 -0400 (Sun, 15 May 2011) | 1 line
+
+Minor changes to install script.
+------------------------------------------------------------------------
+r14 | danielpovey | 2011-05-15 14:37:03 -0400 (Sun, 15 May 2011) | 1 line
+
+Fixes to SGMM training scripts.
+------------------------------------------------------------------------
+r13 | danielpovey | 2011-05-15 14:26:18 -0400 (Sun, 15 May 2011) | 1 line
+
+Fixes to SGMM training scripts.
+------------------------------------------------------------------------
+r12 | danielpovey | 2011-05-15 03:24:47 -0400 (Sun, 15 May 2011) | 1 line
+
+Configuration script and documentation changes.
+------------------------------------------------------------------------
+r11 | danielpovey | 2011-05-15 02:00:40 -0400 (Sun, 15 May 2011) | 1 line
+
+Fixes to SGMM training scripts.
+------------------------------------------------------------------------
+r10 | danielpovey | 2011-05-15 01:18:18 -0400 (Sun, 15 May 2011) | 1 line
+
+Script changes (esp. RE SGMMs).
+------------------------------------------------------------------------
+r9 | danielpovey | 2011-05-14 22:24:39 -0400 (Sat, 14 May 2011) | 1 line
+
+Modified install script.
+------------------------------------------------------------------------
+r8 | danielpovey | 2011-05-14 20:56:09 -0400 (Sat, 14 May 2011) | 1 line
+
+Changes to documentation.
+------------------------------------------------------------------------
+r6 | danielpovey | 2011-05-14 18:54:06 -0400 (Sat, 14 May 2011) | 1 line
+
+Fixed input to Doxygen.
+------------------------------------------------------------------------
+r5 | danielpovey | 2011-05-14 18:32:30 -0400 (Sat, 14 May 2011) | 1 line
+
+Fix to doxyfile.
+------------------------------------------------------------------------
+r4 | danielpovey | 2011-05-14 18:31:05 -0400 (Sat, 14 May 2011) | 1 line
+
+Changed install instructions.
+------------------------------------------------------------------------
+r2 | danielpovey | 2011-05-14 17:48:08 -0400 (Sat, 14 May 2011) | 1 line
+
+Committing initial version of Kaldi
+------------------------------------------------------------------------
