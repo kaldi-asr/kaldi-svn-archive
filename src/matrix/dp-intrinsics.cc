@@ -12,6 +12,18 @@
 #include <pmmintrin.h> //SSE3 intrinscis
 #include <tmmintrin.h>//SSSE3 intrinscis
 #include <smmintrin.h>//SSE4 intrinscis
+#include <stdlib.h>
+//double *foo(void) {
+//    double *var;//create array of size 10
+//    int     ok;
+//    
+//    ok = posix_memalign((void**)&var, 64, 10*sizeof(double));
+//    
+//    if(ok != 0)
+//        return NULL;
+//    
+//    return var;
+//}
 
 #define SIZE 16
 
@@ -29,10 +41,27 @@ short SSE4_dot_product(unsigned char *a, signed char *b);
 
 int main()
 {
+    unsigned char *x;
+    int ok;
+    int i;
+    ok = posix_memalign((void**)&x, 64, 16*sizeof(unsigned char));
+    if(ok == 0){
+        for (i=0; i<16; i++) {
+            x[i]=200+i;
+        }
+    }
+    signed char *y;
+    ok = posix_memalign((void**)&y, 64, 16*sizeof(signed char));
+    if(ok == 0){
+        for (i=0; i<16; i++) {
+            y[i]=1-2*(i%2);
+        }
+    }
+    
     float a[] = {201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216};
     float b[] = {1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1};
-    unsigned char x[] = {201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216};
-    signed char y[] = {1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1};
+    
+//    signed char y[] = {1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1};
 
 
     float product;
@@ -87,12 +116,13 @@ float SSE3_dot_product(float *a, float *b)
 short SSSE3_dot_product(unsigned char *x, signed char *y)
 {
     __m128i a, b;
+    __m128i *e;
     __m128i sum = _mm_setzero_si128();
     short result;
-    
-    a =   _mm_set_epi8(*x,*(x+1),*(x+2),*(x+3),*(x+4),*(x+5),*(x+6),*(x+7),*(x+8),*(x+9),*(x+10),*(x+11),*(x+12),*(x+13),*(x+14),*(x+15)); //load the array x into a in an aligned way
-    
-    b =   _mm_set_epi8(*y,*(y+1),*(y+2),*(y+3),*(y+4),*(y+5),*(y+6),*(y+7),*(y+8),*(y+9),*(y+10),*(y+11),*(y+12),*(y+13),*(y+14),*(y+15)); //load the array y into b in an aligned way
+    e = (__m128i*)x;
+    a = e[0];
+    e = (__m128i*)y;
+    b = e[0];
     
     __m128i c = _mm_maddubs_epi16(a, b); // performs dot-product in 2X2 blocks
     // unpack the 4 lowest 16-bit integers into 32 bits.
@@ -112,12 +142,13 @@ short SSSE3_dot_product(unsigned char *x, signed char *y)
 short SSE4_dot_product(unsigned char *x, signed char *y)
 {
     __m128i a, b;
+    __m128i *e;
     __m128i sum = _mm_setzero_si128();
     short result;
-    
-    a =   _mm_set_epi8(*x,*(x+1),*(x+2),*(x+3),*(x+4),*(x+5),*(x+6),*(x+7),*(x+8),*(x+9),*(x+10),*(x+11),*(x+12),*(x+13),*(x+14),*(x+15)); //load the array x into a in an aligned way
-    
-    b =   _mm_set_epi8(*y,*(y+1),*(y+2),*(y+3),*(y+4),*(y+5),*(y+6),*(y+7),*(y+8),*(y+9),*(y+10),*(y+11),*(y+12),*(y+13),*(y+14),*(y+15)); //load the array y into b in an aligned way
+    e = (__m128i*)x;
+    a = e[0];
+    e = (__m128i*)y;
+    b = e[0];
     
     __m128i c = _mm_maddubs_epi16(a, b); // performs dot-product in 2X2 blocks
     
