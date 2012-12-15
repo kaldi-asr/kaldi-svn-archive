@@ -22,17 +22,17 @@ float dot_product(float *a, float *b);
 float SSE3_dot_product(float *a, float *b);
 
 //Computes dot product using SSSE3 intrinsics
-short SSSE3_dot_product(char *a, char *b);
+short SSSE3_dot_product(unsigned char *a, signed char *b);
 
 //Computes dot product using SSE4 intrinsics
-short SSE4_dot_product(char *a, char *b);
+short SSE4_dot_product(unsigned char *a, signed char *b);
 
 int main()
 {
     float a[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
-    float b[] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
-    char x[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
-    char y[] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1};
+    float b[] = {1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1};
+    unsigned char x[] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+    signed char y[] = {1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1,-1,1};
 
 
     float product;
@@ -84,7 +84,7 @@ float SSE3_dot_product(float *a, float *b)
     return result;
 }
 
-short SSSE3_dot_product(char *x, char *y)
+short SSSE3_dot_product(unsigned char *x, signed char *y)
 {
     __m128i a, b;
     __m128i sum = _mm_setzero_si128();
@@ -109,7 +109,7 @@ short SSSE3_dot_product(char *x, char *y)
     return result;
 }
 
-short SSE4_dot_product(char *x, char *y)
+short SSE4_dot_product(unsigned char *x, signed char *y)
 {
     __m128i a, b;
     __m128i sum = _mm_setzero_si128();
