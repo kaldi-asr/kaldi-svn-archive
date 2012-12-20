@@ -1,0 +1,472 @@
+// doc/idlaktxp.dox
+
+// Copyright 2012 CereProc Ltd.
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//  http://www.apache.org/licenses/LICENSE-2.0
+
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+
+
+/**
+ \page idlaktxp The Idlak text processing system
+
+ @section idlaktxp_intro Introduction
+
+ In order to generate speech synthesis we start with text input. This
+ input is typically unormalised text. For example it may contain
+ tokens such as "£10", "12/10/98", "IBM" which need to be expanded
+ into words that we can look up in a dictionary. Furthermore, there
+ may be further issues with this look up process, the word may not me
+ in the lexicon, it may have several pronunciations depending on
+ context. Finally the system needs to decide how to phrase and
+ structure the sounds it will produce. For example how long a pause
+ should be inserted between sentences, what sort of syllabification
+ and word boundries should be used.
+
+ The Idlak text processing front end (idlaktxp) looks afte this
+ process, normalising tokens into words, assigning part of speech tags
+ to help disambiguate word pronuciations, adding pauses and phrase
+ structure, assigning pronunciation to words and adding syllable
+ structure.
+
+ The system comprises of a set of modules. Each module takes a well
+ formed XML input and outputs a well formed XML output. A set of XML
+ files which contain data that controls the process can be read in by
+ each module and used to control processing. The final output is a
+ marked up XML dcument which can be used as an input to the Idlak
+ feature extraction system, or could formt the basis of a 3rd part
+ feature extraction system.
+
+ @section idlaktxp_archi Architecture
+
+ The system is comprised of a set of modules. Each module takes an XML
+ input, may contain some data objects which are built from XML input
+ data, and outputs an XML marked up version of the input.
+
+ Three 3rd party libraries are used to help with the text
+ processing. PCRE compiled with unicode support, whcih is used to
+ handle regular expression matching controlled through the text
+ normalisation object (nrules). Pujixml which is used to access and
+ iterate across XML input generally using xpath, expat whcih is used
+ to read in XML voice data used by data objects (voice data). Expat is
+ used in addtion to pujixml because voice data files can be large
+ (e.g. 200k lines in an input lexicon), and thus an event driven XML
+ parser is more efficient for loading this data. In addtion the
+ structure of voice data is normally quite simple and an event driven
+ parser is reasonable easy to use. Both pcre and expat are wrapped
+ into a C++ object within idlaktxp.
+
+ A set of utilities are also used across the system (at present a very
+ thinned down set of utf8 functions).
+
+ Currently data objects are load more than once if used by more than
+ one module. This means it is easy to write a command line application
+ which carried out only one modules function, although currently only
+ a single mnolithic system is available (in idlakxpbin). See below for
+ a schematic of the system.
+
+ @image html idlaktxp.png
+ 
+ @section idlaktxp_voice_data Voice Data
+
+ Example XML files are available for English General American
+ accent. These are currently located in idlak-data. More files for
+ more languages and accents can be added in future. Although some data
+ is general across speakers the data is currently held by speaker id
+ <corpus>-<spkid> where spkid is a three letter lower case ascii
+ name. The first test voice will be arctic bdl.
+
+ Some of the voice data is hand created, such as the lexicon, others
+ are automatically created using machine learning algorithms, such as
+ CART based lts based on wagon).
+
+ Scripts to create data for new voices will be released at  afuture point.
+
+ @section idlaktxp_XML_tagset XML tagset
+
+ The modules have expectations for the tags used to markup input
+ text. These tags are kept short for readability but this means they
+ could clash with XML marked up input.
+ 
+ The core tags are as follows:
+
+ - \b utt: This is a series of spurts (see below) and equates to a sentence.  
+
+ - \b spt: This is a spurt of speech.This is speech bounded by silences,
+   and equates to a phrase.  
+
+ - \b ws: Whitespace. Characters which have
+   been processed as whitespace such as spaces, tabs, line breaks.
+
+ - \b tk: Tokens. The input text is split up into tokens. Often a token
+   is a word but it can also be a series of symbols. For langauges
+   such as Mandarin a token can be part of a word.
+
+ - \b break: This tag represents a phrase break an has both a strength
+   and a time associates with it. Often a break will be generated from
+   punctuation.
+
+ Break tags can be manually added to the input text and overide the
+ effect of punctuation. A spurt (spt) has by defitntion a break at its
+ beginning and its end.
+
+ In addition other markup will effect the processing of the text and
+ more imporatnatly be retained to pontentially control synthesis in
+ later modules. Within idlaktxp the tag \b lex can allow the manual
+ overide of word pronunciation.
+
+ Below is an example of some text and the pretty printed resulting XML
+ from idlaktxp.
+
+ \verbatim
+<parent>
+<lex pron='k+'>K</lex> an
+
+a
+http://www.big.site 2=4-2 FULL Power café “okay”
+
+And another sentence.
+
+</parent>
+ \endverbatim
+<?xml version="1.0"?>
+<parent>
+	<utt>
+		<spt>
+			<ws col="0">
+</ws>
+			<lex pron="k+">
+				<break type="4" time="0.011" />
+				<tk norm="k" lc="true" uc="true" pos="NN" pron="k+" spron="">K</tk>
+			</lex>
+			<ws> </ws>
+			<tk norm="an" lc="true" pos="DT" pron="ae1 n" spron="k+ae1+n|">
+				an
+				<ws col="5">
+
+</ws>
+			</tk>
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt>
+		<spt>
+			<break type="4" time="0.2" />
+			<tk norm="a" lc="true" pos="DT" pron="ah0" spron="ah0|">
+				a
+				<ws col="3">
+</ws>
+			</tk>
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt>
+		<spt>
+			<break type="4" time="0.2" />
+			<tk norm="http" pstpunc=":" lc="true" pos="NN" pron="hh t p" spron="hh_t_p|">http:</tk>
+			<break type="3" time="0.15" />
+		</spt>
+		<spt>
+			<break type="3" time="0.15" />
+			<tk norm="/" symbols="true" pos="NN" pron="s l ae1 sh" spron="s_l+ae1+sh|">/</tk>
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt>
+		<spt>
+			<break type="4" time="0.2" />
+			<tk norm="/" symbols="true" pos="NN" pron="s l ae1 sh" spron="s_l+ae1+sh|">/</tk>
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt>
+		<spt>
+			<break type="4" time="0.2" />
+			<tk norm="www" pstpunc="." lc="true" pos="NN" pron="w w w" spron="w_w_w|">
+				www.big.site
+				<ws> </ws>
+			</tk>
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt>
+		<spt>
+			<break type="4" time="0.2" />
+			<tk norm="big" pstpunc="." lc="true" pos="JJ" pron="b ih1 g" spron="b+ih1+g|" />
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt>
+		<spt>
+			<break type="4" time="0.2" />
+			<tk norm="site" lc="true" pos="NN" pron="s ay1 t" spron="s+ay1+t|" />
+			<tk norm="2" symbols="true" pos="NN" pron="t uw1" spron="t+uw1|">2</tk>
+			<tk norm="=" symbols="true" pos="NN" pron="iy1 k w ah0 l z" spron="iy1|k_w+ah0+l_z|">=</tk>
+			<tk norm="4-2" symbols="true" pos="NN" pron="f ao1 r t uw1" spron="f+ao1+r|t+uw1|">
+				4-2
+				<ws> </ws>
+			</tk>
+			<tk norm="full" lc="true" uc="true" pos="JJ" pron="f uh1 l" spron="f+uh1+l|">
+				FULL
+				<ws> </ws>
+			</tk>
+			<tk norm="power" lc="true" uc="true" pos="NN" pron="p aw1 er0" spron="p+aw1+er0|">
+				Power
+				<ws> </ws>
+			</tk>
+			<tk norm="cafe" lc="true" foreign="true" pos="NN" pron="k ah0 f ey1" spron="k+ah0|f+ey1|">
+				café
+				<ws> </ws>
+			</tk>
+			<break type="2" time="0.05" />
+		</spt>
+		<spt>
+			<break type="2" time="0.05" />
+			<tk prepunc="&quot;" norm="okay" pstpunc="&quot;" lc="true" pos="NN" pron="ow2 k ey1" spron="ow2|k+ey1|">
+				“okay”
+				<ws col="54">
+
+</ws>
+			</tk>
+			<break type="2" time="0.05" />
+		</spt>
+		<spt>
+			<break type="2" time="0.05" />
+			<tk norm="and" lc="true" uc="true" pos="CC" pron="ah0 n d" spron="ah0+n_d|">
+				And
+				<ws> </ws>
+			</tk>
+			<tk norm="another" lc="true" pos="DT" pron="ah0 n ah1 dh er0" spron="ah0|n+ah1|dh+er0|">
+				another
+				<ws> </ws>
+			</tk>
+			<tk norm="sentence" pstpunc="." lc="true" pos="NN" pron="s eh1 n t ah0 n s" spron="s+eh1+n|t+ah0+n_s|">
+				sentence.
+				<ws col="23">
+
+</ws>
+			</tk>
+			<break type="4" time="0.4" />
+		</spt>
+	</utt>
+	<utt />
+</parent>
+
+ \verbatim
+ \endverbatim
+  
+  @section idlaktxp_description_modules Description of Modules
+
+  @subsection idlaktxp_token Tokenisation
+
+  Tokenisation is the basis for all following text processing. For
+  English this is carried out by splitting text by whitespace, and by
+  regarding some symbols as individal tokens (such as '\'). The choice
+  of what symbols to split on is optional but once decided it will
+  strongly effect the normalisation rules. Therefore it is strongly
+  recommended to choose a tokenisation that produces the 'best'
+  normalisation without normalisation rules and to avoid changing it.
+
+  Tokenisation also performs some default normalisation, such as
+  replacing foriegn characters with characters valid for the languages
+  lexicon and downcasing characters. The old token is retained as text
+  in the tk tag the normalised version added as an attribute.
+
+  The processing also adds attributes to record the case/symbol
+  charateristics of the token.
+
+  Valid punctuation symbols are stripped from the tokens and added as
+  pre and post (pst) punctuation attributes as appropriate. An attempt
+  is made to disambiguate apostrophes from single quotes.
+
+  White space is also tokenised and the column location of a line
+  break is recorded to deal with issues such as soft hyphenation.
+
+  @subsection idlaktxp_norm Normalisation
+
+  This module is still under construction. It is possible to fully
+  test idlak with pre-normalised text so the details of normalisation
+  have been left until after a full end to end prototype is in
+  place. However the architecture of the normalisation has been
+  designed. We breifly describe this intended design here.
+
+  The first thing this module does its to replace
+  abbreviations. Abbreviations are very greedy catch alls that can be
+  used for elements which have no ambiguity. For example these can't
+  be used to replkace 'Dr' with Doctor as this can be confused with
+  'Dr' as Drive. However it is the eaqsiest user based normalisation
+  to produce and for many users, although an abbreviation may be
+  ambiguous over many texts, may not be for a specific users' text.
+
+  Abbreviations can have a context and can add XML values. The match
+  process is very simple and requires case matching. i.e. IBM -> i b
+  m, :-) -> smiley.
+
+  Normalisation then applies a group of rules in sequential order. Each
+  rule within the group is greedy in that if it fires the group
+  completes. In effect:
+
+  Group1(rule1 | rule2 | rule3 etc) & Group2(rule1 | rule2 | rule3 etc) & etc
+
+  Thus a group will typically represent a series of mutually exclusive
+  actions on a token such as 'date formats'. Furthermore, because a
+  group will change tokens, actions that require the most context, and
+  are best defined, need to be before more general action.
+
+  Rules have a match and a replace section. The matchs need to be true
+  to fire the rule, and will record elements that have been
+  matched. If the match is successful the replace will reformt the
+  token and potentially other tokens around the target token.
+
+  Below is an example of a rules to detect tokens like '7th Flr.' in US addresses.
+
+\verbatim
+  <rule name="american_address_misc_rev" type="postaddress1">
+    <comment>
+      Cover cases the '7th', as in '7th Flr.'.
+    </comment>
+    <match>
+      <com name="R:snumber_er_m" in="t-00"/>
+      <com name="R:american_address_misc" in="t+01"/>
+    </match>
+    <replace>
+      <com name="H:none" in="[00]$00" out="t-00:$XX"/>
+      <com name="H:number" in="[00]$02" out="t-00:$XX" case="ordinal"/>
+      <com name="H:number" in="[00]$03" out="t-00:$XX" case="ordinal"/>
+      <com name="H:number" in="[00]$04" out="t-00:$XX" case="ordinal"/>
+      <com name="H:number" in="[00]$05" out="t-00:$XX" case="ordinal"/>
+      <com name="L:address_abbrev_2nd_unit" in="[01]" out="t+01:$XX" attribute="@break type=0 time=0"/>
+    </replace>
+  </rule>
+\endverbatim
+
+  The match is made of a series of commands (com tags) which apply a
+  regular expression to a token indexed from the current token
+  e.g. 't-00' is the current token, t+01 is the next token, t-01 is the
+  previous token.
+
+  In this rule the token (t-00) is first matched as an ordinal number
+  "R:snumber_er_m", the following token is then matched against a set of
+  US abbreviations "R:american_address_misc". If these both match, the
+  ordinal number regex returns four match groups (although only one is
+  ever filled). If none match it appends nothing, else it will append
+  the matching group converted into words (i.e. seventh), using a hard
+  coded number to words rule "H:number". Finally it will transform the
+  following token into an unabbreviated form (i.e. floor).
+
+  Rules can interact by setting XML values in the token. However care
+  is required to avoid unintended consequences from such
+  interaqctions. Every added rule should have an examploe sentence in
+  a regression test that is processed by the rule.
+
+  @subsection idlaktxp_pause_insertion Pause Insertion
+
+  Once normalisation and part of speech has been determined
+  punctuation can then be used to decide on pause insertion. Each
+  punctuation character is connected with. Breaks override each other
+  in magnitude so a break 4 in the same position as a break 2 will
+  result in a break 4. Pre marked up breaks will overide any break
+  caused by punctuation.
+
+  @subsection idlaktxp_pos Part of Speech Tagging
+
+  Part of speech tagging for synthesis has a different function than
+  from more general language processing. In general part of speech
+  information is only required if it can help determine
+  pronciation. For this reason the POS tagger incorporated into idlak
+  is very simple and by no means as accurate as many state of the art
+  taggers.
+
+  It relies on a four level process:
+
+  -# Give every word the most likely tag name.
+
+  -# Apply a series of regular expressions that can change this tag to
+     another more likely tag name based on prefixes and suffixes.
+
+  -# Look up common words that will alter the tag to the most likely
+     tag for this word.
+
+  -# look up the previous tag and this word that will alter the tag to
+     the most likely tag for this word.
+
+  The system is very fast and easy to train from tagged data. A
+  dynamic programming algorithm would, however, be superior. In
+  addition the current system ignores pre-normalised information,
+  e.g. '12' is clearly a cardinal number, 'Top Gun' is probably a name
+  because of capitilisation.
+
+  In addition the system is not properly taking pauses into
+  consideration as indications of punctuation.
+
+  @subsection idlaktxp_phrase Phrasing
+
+  This module restructures the XML by putting ws and tk tokens in spt
+  tags. This has an effect on markup already present in the
+  text. Currently a tag is copied if it crosses an spt boundary.
+
+  Although not implemented as yet, it is possible to guess breaks in
+  long unpunctuated series of tokens using part of speech.
+
+  @subsection idlaktxp_pron Pronunciation
+
+  idlaktxp is a word based system. By the time we get to the
+  pronunciation module we should have a series of word tokens together
+  with some symbols. The pronunciation system has the following means
+  of converting these words into a series of phones representing the
+  pronunciation of each word or symbol.
+
+  -# The pronunication of a word can be over ridden by specifiying it
+     using a \b lex tag and a \b pron attribute with a space seprated
+     series of valid phone symbols. Syllabic liaison can also be
+     specified here (\sa idlaktxp_syl)
+
+  -# If the word contains non lexical symbols, read them out character
+     by character. Or if the attribute 
+
+  -# Look the word up in a series of lexicons. In the prototype there
+     is only one lexicon, but in a final system we can imagine a
+     cascade of lexicons. A user lexicon for unusual user specific
+     words, a system lexicon for standard lookup, and potentially
+     alternative lexicons for technical terms or alternative languages
+     to support a bilingual system. A word may have more than one
+     pronunciation so the lexicon lookup will also support muliple
+     entries. In a final system the entry type could be chosen based
+     on context and POS. Alternatively it could be overridden using
+     markup in tghe input.
+
+  -# If the word is not in the lexicon apply letter to sound rules to
+     the letters to produce a pronunication. The LTS system is built
+     offline using wagon from University of Edinburgh speech_tools
+     together with the lexicon.
+  
+  In future releases modules to deal with changes in pronuciation
+  caused by phrase structure (such as whether to choose full or
+  reduced forms of a word) can be added. Also an archiphone rule
+  system which allows phones to be elided, inserted and altered based
+  on word context will be required.
+
+
+  @subsection idlaktxp_syll Syllabification
+
+  Maximal onset syllabification is used to syllabify input words. This
+  algorithm works by finding nuclei, potentially muliple phones with
+  specific stress patterns which are the nucleus of syllables. A set
+  of valid onsets are then applied to the phones before the nucleus to
+  deside where the syllable boundary should be. Material from a
+  previous word can be liaised to a subsequent word if the last phone
+  is followed by a '+' symbol.
+
+  In future release syllabification can be over ridden by the lexicon.
+
+*/

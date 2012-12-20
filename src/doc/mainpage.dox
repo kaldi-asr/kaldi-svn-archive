@@ -40,7 +40,7 @@
    - \ref tutorial
    - \ref data_prep
    - \ref build_setup 
-   - \ref style 
+   - \ref style ab    
    - \ref dependencies
    - \ref contact 
    - \ref history 
@@ -65,5 +65,9 @@
    - \ref transform
    - \ref feat
    - \ref tools
+
+   IDLAK
+   - \ref idlak
+   - \ref idlaktxp
 <P>
 */
