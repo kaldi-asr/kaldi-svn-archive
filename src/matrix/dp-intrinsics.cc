@@ -1,5 +1,5 @@
 // This code sample demonstrates how to use C, SSE3, SSSE3 and SSE4 instrinsics to calculate the dot product of two 16X1 vectors, by Xiao-hui Zhang.
-
+// New Version
 // Reference:
 //[1]. Intel® C++ Compiler for Linux* Intrinsics Reference. Document number: 312482-001US
 //[2]. Improving the speed of neural networks on CPUs, Vincent Vanhoucke, Andrew W. Senior, Mark W. Mao.,
