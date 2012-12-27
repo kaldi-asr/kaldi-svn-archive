@@ -5,8 +5,36 @@
 
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 
+// note from Dan: set your indent to 2 characters, not 4.
+// note from Dan: I think you need this matrix class to contain
+// floating-point (e.g. float) data members min_ and max_, which represent
+// the values of the most negative and most positive values of type T.
+// Or perhaps min_ and increment_ would make more sense, where increment_ is
+// the amount we get from increasing the value of the character by one.
+// Then we interpret the elements of the character matrix as integers in this
+// way.  The operator () could possibly return float, then.
+// You'd have to have your CopyFromMat function create these values appropriately.
+// You can compare with the CompressedMatrix code which does something similar
+// [but slightly more complicate.]
+// 
+// You can get the min and max values of your integer range (e.g. 0 and 255, or -128 and +127),
+//  from std::numeric_limits, to make your code generic.
 
-using namespace std;
+// You'll probably have just one matrix-matrix multiplication, which would be
+// a class member of Matrix<Real>: something like:
+// void AddMat(Real alpha, const CharacterMatrix<char> &A, MatrixTransposeType tA,
+//             const CharacterMatrix<unsigned char> &B, MatrixTransposeType tB, Real beta);
+// and maybe one called:
+// void AddMat(Real alpha, const CharacterMatrix<unsigned char> &A, MatrixTransposeType tA,
+//             const CharacterMatrix<char> &B, MatrixTransposeType tB, Real beta);
+// and you don't have to support all values of tA and tB-- you can just support whichever
+// one would be most efficient to implement, and crash if the user gives other values.
+// you could declare that function in kaldi-matrix.h but define it in character-matrix.cc
+// You may have to use "friend declarations" here, to make this work.
+
+using namespace std; // <-- Note from Dan: don't  do this, it's against the Google style.
+// use std:: if you need something from std.
+
 template<typename T>
 class CharacterMatrix{
 public:
@@ -15,16 +43,20 @@ public:
     typedef int32 MatrixIndexT;
 
     //constructors & destructor:
-    CharacterMatrix() {create();}
+  CharacterMatrix() {create();} // note from Dan: this create() function is only
+  // called once so put the code here unless you have other plans-- also, it should
+  // have been called Init() if you had had it.
+  
     // make it explicit to make statement like "vec<int> a = 10;" illegal.
-
+   // no need for "explicit" if it takes >1 argument. [dan]
     explicit CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { Resize(r, c value); }
     
     CharacterMatrix(const CharacterMatrix& m) { CopyFromMat(m); } // copy constructor
     ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
-        free(data_);
+      free(data_); // [dan]: what happens if data_ = NULL?
     }
-    
+
+  
     //operator overloading functions:
     
     CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
@@ -36,7 +68,7 @@ public:
         return *(data_ + r * stride_ + c);
     }
 
-    
+  // [dan]:  I don't think we should have  these iterators.
     //other public member functions:
     iter begin() { return data_; }
     const_iter begin() const { return data_; }
@@ -45,6 +77,7 @@ public:
     inline MatrixIndexT NumCols() const { return num_rows_; }
     inline MatrixIndexT NumRealCols() const { return stride_; }
 
+    // [dan]: delete clear() and empty().  We can use Resize(0, 0).
     void clear() {  free(data_); }
     bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
     void SetZero();
@@ -59,6 +92,9 @@ private:
     MatrixIndexT num_cols_;
     MatrixIndexT num_rows_;
     MatrixIndexT stride_;
+  // from Dan: if you need this function it should be called Sse4DotProduct.
+  // but it probably doesn't belong here, e.g. could be a static inline function
+  // declared and defined in character-matrix.cc.
     short SSE4_dot_product(unsigned char *x, signed char *y, MatrixIndexT length);
 };
 
@@ -107,7 +143,7 @@ void vec<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& value)
     // allocate the memory and set the right dimensions and parameters
     if (posix_memalign((void**)&x, 16, size*sizeof(T)) == 0 ) {
         data_ = static_cast<T *> (data);
-    }
+    } // else what?  KALDI_ERROR? [dan]
     num_rows_ = rows;
     num_cols_ = cols;
     stride_  = real_cols;
