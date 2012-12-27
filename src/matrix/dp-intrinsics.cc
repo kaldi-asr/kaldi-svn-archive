@@ -102,7 +102,7 @@ float SSE3_dot_product(float *a, float *b)
         pb = _mm_loadr_ps(b+i);//loads aligned sub-array b[i]~b[i+3] into pb
         c = _mm_mul_ps(pa, pb); //performs multiplication to get partial dot-products
         c = _mm_hadd_ps(c, c); //performs horizontal addition to sum up the partial dot-products
-        sum = _mm_add_ps(sum, c);  //performs vertical addition
+        sum = _mm_add_ps(c,sum);  //performs vertical addition
     }
     sum = _mm_hadd_ps(sum, sum);
     _mm_store_ss(&result, sum);
