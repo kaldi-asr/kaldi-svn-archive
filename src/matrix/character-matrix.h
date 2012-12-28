@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <smmintrin.h>//SSE4 intrinscis
@@ -43,7 +42,13 @@ public:
     typedef int32_t MatrixIndexT;
 
     //constructors & destructor:
-  CharacterMatrix() {Init();} // note from Dan: this create() function is only
+  CharacterMatrix() {
+    data_ = 0;
+    num_rows_ = 0;
+    num_cols_ = 0;
+    stride_  = 0;
+}
+   // note from Dan: this create() function is only
   // called once so put the code here unless you have other plans-- also, it should
   // have been called Init() if you had had it.
   
@@ -51,7 +56,7 @@ public:
    // no need for "explicit" if it takes >1 argument. [dan]
     CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { Resize(r ,c ,value); }
     
-    CharacterMatrix(const CharacterMatrix& m) { CopyFromMat(m); } // copy constructor
+    CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m); } // copy constructor
     ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
       free(data_); // [dan]: what happens if data_ = NULL?
     }
@@ -84,7 +89,7 @@ public:
     void Set(T value);
     
     void Resize(MatrixIndexT, MatrixIndexT, const T&);
-    void CopyFromMat(const CharacterMatrix<T> & M);
+    void CopyFromCharacterMatrix(const CharacterMatrix<T> & M);
     void Transpose(const CharacterMatrix<T> & M);
     void MatMat(const CharacterMatrix<T> & M1, const CharacterMatrix<T> & M2);
 private:
@@ -95,9 +100,9 @@ private:
   // from Dan: if you need this function it should be called Sse4DotProduct.
   // but it probably doesn't belong here, e.g. could be a static inline function
   // declared and defined in character-matrix.cc.
-    short Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
+    short int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
 };
-
+/*
 template <typename T>
 void CharacterMatrix<T>::Init()
 {
@@ -106,7 +111,7 @@ void CharacterMatrix<T>::Init()
     num_cols_ = 0;
     stride_  = 0;
 }
-
+*/
     
 template<typename T>
 void CharacterMatrix<T>::SetZero() {
@@ -127,7 +132,7 @@ void CharacterMatrix<T>::Set(T value) {
 }
 
 template <typename T>
-void vec<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& value)
+void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& value)
 {
     MatrixIndexT skip;
     MatrixIndexT real_cols;
@@ -138,10 +143,11 @@ void vec<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& value)
     // compute the size of skip and real cols
     skip = ((16 / sizeof(T)) - cols % (16 / sizeof(T))) % (16 / sizeof(T));
     real_cols = cols + skip;
-    size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(Real);
+    // Pegah : sizeof(Real) changed to sizeof(T); I think sizeof is not required here, since it will be multiplied in posix_memolign
+    size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
     // allocate the memory and set the right dimensions and parameters
-    if (posix_memalign((void**)&x, 16, size*sizeof(T)) == 0 ) {
+    if (posix_memalign((void**)data, 16, size*sizeof(T)) == 0 ) {
         data_ = static_cast<T *> (data);
     } // else what?  KALDI_ERROR? [dan]
     num_rows_ = rows;
@@ -180,23 +186,23 @@ void CharacterMatrix<T>::MatMat(const CharacterMatrix<T> & M1, const CharacterMa
     short tmp;
     for (MatrixIndexT row = 0; row < M1.NumRows(); row++) {
         for (MatrixIndexT col = 0; col < M2.NumCols(); col++) {
-            tmp = SSE4_dot_product((unsigned char *)(M1.begin() + row * M1.NumRealCols(),(signed char *)(M2T.begin() + col * M2T.NumRealCols(), M1.NumCols());
+            tmp = Sse4DotProduct((unsigned char *)(M1.begin() + row * M1.NumRealCols(),(signed char *)(M2T.begin() + col * M2T.NumRealCols(), M1.NumCols())));
             (*this)(row, col) = static_cast<T> (tmp);
         }
     }
 }
 
 template <typename T>
-CharacterMatrix<T>& vec<T>::operator = (const CharacterMatrix& rhs) {
+CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) {
     if (CharacterMatrix<T>::NumRows() != rhs.NumRows() || CharacterMatrix<T>::NumCols() != rhs.NumCols()) {
         Resize(rhs.NumRows(), rhs.NumCols());
     }
-    CharacterMatrix<T>::CopyFromMat(rhs);
+    CharacterMatrix<T>::CopyFromCharacterMatrix(rhs);
     return *this;
 }
 
 template<typename T>
-short CharacterMatrix<T>::SseDotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
+short int CharacterMatrix<T>::Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
 {
     int i;
     __m128i a, b, c, lo, hi;
