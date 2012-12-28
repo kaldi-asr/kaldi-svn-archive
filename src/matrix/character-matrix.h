@@ -79,7 +79,7 @@ class CharacterMatrix{
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_rows_; }
   inline MatrixIndexT NumRealCols() const { return stride_; }
-
+  inline MAtrixIndexT getVal(int row, int col) 
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
@@ -132,7 +132,8 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   
   // compute the size of skip and real cols
   skip = ((16 / sizeof(T)) - cols % (16 / sizeof(T))) % (16 / sizeof(T));
-  real_cols = cols + skip;
+  real_cols = cols + skip; 
+  // Pegah : sizeof(Real) changed to sizeof(T); I think it is not reuired to have sizeof(T), since it will be multiplied in posix-memolign
   size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
   // allocate the memory and set the right dimensions and parameters
