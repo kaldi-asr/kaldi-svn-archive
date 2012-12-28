@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <smmintrin.h>//SSE4 intrinscis
-
+#include <stdint.h>
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 
 // note from Dan: set your indent to 2 characters, not 4.
@@ -40,23 +40,23 @@ class CharacterMatrix{
 public:
     typedef T* iter;
     typedef const T* const_iter;
-    typedef int32 MatrixIndexT;
+    typedef int32_t MatrixIndexT;
 
     //constructors & destructor:
-  CharacterMatrix() {create();} // note from Dan: this create() function is only
+  CharacterMatrix() {Init();} // note from Dan: this create() function is only
   // called once so put the code here unless you have other plans-- also, it should
   // have been called Init() if you had had it.
   
     // make it explicit to make statement like "vec<int> a = 10;" illegal.
    // no need for "explicit" if it takes >1 argument. [dan]
-    explicit CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { Resize(r, c value); }
+    CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { Resize(r ,c ,value); }
     
     CharacterMatrix(const CharacterMatrix& m) { CopyFromMat(m); } // copy constructor
     ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
       free(data_); // [dan]: what happens if data_ = NULL?
     }
 
-  
+ 
     //operator overloading functions:
     
     CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
@@ -78,8 +78,8 @@ public:
     inline MatrixIndexT NumRealCols() const { return stride_; }
 
     // [dan]: delete clear() and empty().  We can use Resize(0, 0).
-    void clear() {  free(data_); }
-    bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
+    //void
+    //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
     void SetZero();
     void Set(T value);
     
@@ -95,11 +95,11 @@ private:
   // from Dan: if you need this function it should be called Sse4DotProduct.
   // but it probably doesn't belong here, e.g. could be a static inline function
   // declared and defined in character-matrix.cc.
-    short SSE4_dot_product(unsigned char *x, signed char *y, MatrixIndexT length);
+    short Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
 };
 
 template <typename T>
-void CharacterMatrix<T>::create()
+void CharacterMatrix<T>::Init()
 {
     data_ = 0;
     num_rows_ = 0;
@@ -165,7 +165,7 @@ void CharacterMatrix<T>::Transpose(const CharacterMatrix<T> & M){
     (*this).Resize(M.NumCols(), M.NumRows(), 0);
     for (MatrixIndexT row = 0; row < M.NumCols(); row++) {
         for (MatrixIndexT col = 0; col < M.NumRows(); col++) {
-            (*this)(row, col) = m(col, row);
+            (*this)(row, col) = M(col, row);
         }
     }
 }
@@ -196,7 +196,7 @@ CharacterMatrix<T>& vec<T>::operator = (const CharacterMatrix& rhs) {
 }
 
 template<typename T>
-short CharacterMatrix<T>::SSE4_dot_product(unsigned char *x, signed char *y, MatrixIndexT length)
+short CharacterMatrix<T>::SseDotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
 {
     int i;
     __m128i a, b, c, lo, hi;

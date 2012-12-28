@@ -1,3 +1,4 @@
+// This code is modified to do Matix multiplication using Kaldi Matirx library by Pegah and Ehsan Dec.26.12
 // This code sample demonstrates how to use C, SSE3, SSSE3 and SSE4 instrinsics to calculate the dot product of two 16X1 vectors, by Xiao-hui Zhang.
 // New Version
 // Reference:
@@ -14,6 +15,13 @@
 #include <smmintrin.h>//SSE4 intrinscis
 #include <stdlib.h>
 
+#include "kaldi-vector.h"
+#include "kaldi-vector-inl.h"
+#include "kaldi-matrix.h"
+#include "kaldi-matrix-inl.h"
+#include "matrix-functions.h"
+
+#include <algorithm>
 
 #define SIZE 35
 
@@ -76,7 +84,25 @@ int main()
     
     sse4_product =SSE4_dot_product(x,y);
     printf("Dot Product computed by SSE4 intrinsics:  %d\n", sse4_product);
+    
 
+
+
+    Matrix<float> A(2,2), B(2,2), C(2,2);
+    for(int row = 0; row<2; ++row){
+      for(int col = 0; col<2; ++col){
+	A(row,col) = row+col;
+	B(row,col) = row-col;
+      }
+    }
+    Matrix_product(A, B, C);
+    for(int row = 0; row<2; ++row){
+      for(int col = 0; col<2; ++col){
+	std::cout << C(row,col) << "  ";
+      }
+      std::cout << std::endl;
+    }
+    
     return 0; }
 
 float dot_product(float *a, float *b)
@@ -161,4 +187,6 @@ short SSE4_dot_product(unsigned char *x, signed char *y)
     
     return result;
 }
-
+void Matrix_product(kaldi::Matrix<float> A, kaldi::Matrix<float> B, kaldi::Matrix<float> C) {
+  C.AddMatMat(1.0,A,kNoTrans, B, kNoTrans, 0.0) ;
+}
