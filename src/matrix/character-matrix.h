@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <smmintrin.h>//SSE4 intrinscis
 #include <stdint.h>
+#include <string.h>
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 
 // note from Dan: set your indent to 2 characters, not 4.
@@ -129,6 +130,7 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   MatrixIndexT real_cols;
   size_t size;
   void*   data;       // aligned memory block
+ // Pegah : we do not exploit free_data!
   void*   free_data;  // memory block to be really freed
   
   // compute the size of skip and real cols
