@@ -59,7 +59,8 @@ class CharacterMatrix{
     
   CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m); } // copy constructor
   ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
-    free(data_); // [dan]: what happens if data_ = NULL?
+    //free(data_); // [dan]: what happens if data_ = NULL?
+    data_ = NULL ;
   } 
   //operator overloading functions:
     
