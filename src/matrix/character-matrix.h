@@ -66,7 +66,8 @@ class CharacterMatrix{
   CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
 
   T&  operator() (MatrixIndexT r, MatrixIndexT c) {
-    return *(data_ + r * stride_ + c);
+   assert(r < num_rows_ && c < num_cols_) ;
+   return *(data_ + r * stride_ + c);
   }
   const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
     return *(data_ + r * stride_ + c);
@@ -79,7 +80,6 @@ class CharacterMatrix{
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_rows_; }
   inline MatrixIndexT NumRealCols() const { return stride_; }
-  inline MAtrixIndexT getVal(int row, int col) 
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
