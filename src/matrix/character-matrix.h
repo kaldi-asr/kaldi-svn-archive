@@ -4,6 +4,7 @@
 #include <smmintrin.h>//SSE4 intrinscis
 #include <stdint.h>
 #include <string.h>
+#include <iostream>
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 
 // note from Dan: set your indent to 2 characters, not 4.
@@ -57,10 +58,18 @@ class CharacterMatrix{
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
   CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { Resize(r ,c ,value); }
-    
+  // Pegah : CopyFromCharacterMatrix doesn't work!  
   CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m); } // copy constructor
   ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
     //free(data_); // [dan]: what happens if data_ = NULL?
+    /*
+    if (NULL == data_) {
+      std::cout<<" Data is NULL";
+    } else {
+      free(data_) ;
+    }
+    */
+    //delete(data_);
     data_ = NULL ;
   } 
   //operator overloading functions:
@@ -151,7 +160,9 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
 
 template<typename T>
 void CharacterMatrix<T>::CopyFromCharacterMatrix(const CharacterMatrix<T> & M) {
+  std::cout<<" we are here 1 "<<std::endl ;
   assert(num_rows_ == M.NumRows() && num_cols_ == M.NumCols());
+  std::cout<<" we are here 2 "<<std::endl ;
   for (MatrixIndexT row = 0; row < num_rows_; row++) {
     for (MatrixIndexT col = 0; col < num_cols_; col++) {
       (*this)(row, col) = M(row, col);
@@ -188,8 +199,9 @@ void CharacterMatrix<T>::MatMat(const CharacterMatrix<T> & M1, const CharacterMa
 template <typename T>
 CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) {
   if (CharacterMatrix<T>::NumRows() != rhs.NumRows() || CharacterMatrix<T>::NumCols() != rhs.NumCols()) {
-    Resize(rhs.NumRows(), rhs.NumCols());
+    Resize(rhs.NumRows(), rhs.NumCols(), 0);
   }
+  std::cout<<" we are here in operator= "<<std::endl ;
   CharacterMatrix<T>::CopyFromCharacterMatrix(rhs);
   return *this;
 }
