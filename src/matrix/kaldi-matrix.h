@@ -1,4 +1,4 @@
- matrix/kaldi-matrix.h
+// matrix/kaldi-matrix.h
 
 // Copyright 2009-2011  Ondrej Glembek;  Microsoft Corporation;  Lukas Burget;
 //                      Saarland University;  Petr Schwarz;  Yanmin Qian;

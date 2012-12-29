@@ -61,16 +61,8 @@ class CharacterMatrix{
   // Pegah : CopyFromCharacterMatrix doesn't work!  
   CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m); } // copy constructor
   ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
-    //free(data_); // [dan]: what happens if data_ = NULL?
-    /*
-    if (NULL == data_) {
-      std::cout<<" Data is NULL";
-    } else {
-      free(data_) ;
-    }
-    */
-    //delete(data_);
-    data_ = NULL ;
+    if (data_ != NULL)
+      free(data_);
   } 
   //operator overloading functions:
     

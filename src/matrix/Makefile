@@ -2,13 +2,14 @@
 
 all:
 
+EXTRA_CXXFLAGS = -msse4
 OPENFST_CXXFLAGS = 
 OPENFST_LDLIBS =
 
 include ../kaldi.mk
 
 
-TESTFILES = matrix-lib-test kaldi-gpsr-test
+TESTFILES = matrix-lib-test kaldi-gpsr-test character-matrix-test
 
 OBJFILES = kaldi-matrix.o kaldi-vector.o packed-matrix.o sp-matrix.o tp-matrix.o \
            matrix-functions.o qr.o srfft.o kaldi-gpsr.o compressed-matrix.o \
