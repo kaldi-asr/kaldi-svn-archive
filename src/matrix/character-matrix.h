@@ -57,12 +57,15 @@ class CharacterMatrix{
   
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
-  CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { Resize(r ,c ,value); }
+  CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
+    //cout<<"constructor called"<<endl;
+    Resize(r ,c ,value); 
+  }
   // Pegah : CopyFromCharacterMatrix doesn't work!  
   CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m); } // copy constructor
-  ~CharacterMatrix() { //  cout<<"destructor called"<<endl;
-    if (data_ != NULL)
-      free(data_);
+  ~CharacterMatrix() { 
+    //cout<<"destructor called"<<endl;
+    free(data_);
   } 
   //operator overloading functions:
     
@@ -131,8 +134,6 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   MatrixIndexT real_cols;
   size_t size;
   void*   data;       // aligned memory block
- // Pegah : we do not exploit free_data!
-  void*   free_data;  // memory block to be really freed
   
   // compute the size of skip and real cols
   skip = ((16 / sizeof(T)) - cols % (16 / sizeof(T))) % (16 / sizeof(T));
@@ -141,9 +142,9 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
   // allocate the memory and set the right dimensions and parameters
-  if (posix_memalign((void**)data, 16, size*sizeof(T)) == 0 ) {
-    data_ = static_cast<T *> (data);
-  } // else what?  KALDI_ERROR? [dan]
+  assert(posix_memalign(static_cast<void**>(&data), 16, size*sizeof(T)) == 0 ); 
+  data_ = static_cast<T *> (data);
+  // else what?  KALDI_ERROR? [dan]
   num_rows_ = rows;
   num_cols_ = cols;
   stride_  = real_cols;
