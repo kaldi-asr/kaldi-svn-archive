@@ -34,16 +34,24 @@
 // you could declare that function in kaldi-matrix.h but define it in character-matrix.cc
 // You may have to use "friend declarations" here, to make this work.
 
-using namespace std; // <-- Note from Dan: don't  do this, it's against the Google style.
-// use std:: if you need something from std.
-
 template<typename T>
 class CharacterMatrix{
- public:
+
   typedef T* iter;
   typedef const T* const_iter;
   typedef int32_t MatrixIndexT;
 
+ private:
+  iter  data_;
+  MatrixIndexT num_cols_;
+  MatrixIndexT num_rows_;
+  MatrixIndexT stride_;
+  // from Dan: if you need this function it should be called Sse4DotProduct.
+  // but it probably doesn't belong here, e.g. could be a static inline function
+  // declared and defined in character-matrix.cc.
+  short int  Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
+
+ public:
   //constructors & destructor:
   CharacterMatrix() {
     data_ = 0;
@@ -78,10 +86,6 @@ class CharacterMatrix{
   const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
     return *(data_ + r * stride_ + c);
   }
-  // [dan]:  I don't think we should have  these iterators.
-  //other public member functions:
-  iter begin() { return data_; }
-  const_iter begin() const { return data_; }
     
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_rows_; }
@@ -96,15 +100,6 @@ class CharacterMatrix{
   void CopyFromCharacterMatrix(const CharacterMatrix<T> & M);
   void Transpose(const CharacterMatrix<T> & M);
   void MatMat(const CharacterMatrix<T> & M1, const CharacterMatrix<T> & M2);
- private:
-  iter  data_;
-  MatrixIndexT num_cols_;
-  MatrixIndexT num_rows_;
-  MatrixIndexT stride_;
-  // from Dan: if you need this function it should be called Sse4DotProduct.
-  // but it probably doesn't belong here, e.g. could be a static inline function
-  // declared and defined in character-matrix.cc.
-  short int  Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
 };
  
 template<typename T>
