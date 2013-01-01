@@ -37,9 +37,9 @@
 template<typename T>
 class CharacterMatrix{
 
-  typedef T* iter;
-  typedef const T* const_iter;
-  typedef int32_t MatrixIndexT;
+ typedef T* iter;
+ typedef const T* const_iter;
+ typedef int32_t MatrixIndexT;
 
  private:
   iter  data_;
