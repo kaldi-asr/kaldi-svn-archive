@@ -176,13 +176,17 @@ CharacterMatrix<int> CharacterMatrix<T>::CopyFromCharacterMatrix2(const Characte
   //std::cout<<" we are here 1 "<<num_rows_<<M.NumRows()<<num_cols_<<M.NumCols()<<std::endl ;
   CharacterMatrix<int> Transform(M.NumRows(), M.NumCols(),0) ;
   char cVal[10];
+  // Pegah : Since the type of input and output are different, the output assumed for this method.
+  // Pegah : The range of matrices are assumed to be between -1 and 1
   int min = -1 ;
   int max = 1 ;
+  int minChar = (int)std::numeric_limits<char>::min();
+  int maxChar = (int)std::numeric_limits<char>::max();
  // assert(tmp1.num_rows_ == M.NumRows() &&tmp1. num_cols_ == M.NumCols());
   std::cout<<" we are here 2 "<<std::endl ;
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
-    	Transform(row, col) = (int)floor((M( row, col)-min)*(255-0)/(1-(-1))) ;
+    	Transform(row, col) = (int)floor((M( row, col)-min)*(maxChar-minChar)/(1-(-1))+minChar) ;
  	//std::cout<<" char is :"<< floor((M( row, col)-min)*(255-0)/(1-(-1)))<<std::endl ;
 	//sprintf(cVal, "%3.f",floor((M( row, col)-min)*(255-0)/(1-(-1)))) ;
         //std::cout<<"out"<<std::endl;
