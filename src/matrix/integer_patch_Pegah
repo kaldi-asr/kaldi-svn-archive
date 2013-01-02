@@ -13,7 +13,7 @@ Index: src/matrix/character-matrix.cc
 +  std::cout << "The row number is : " << a.NumRows() << " a(0, 0) = " << a(0,0)<< std::endl ;
 +  CharacterMatrix<float> b(4,3,0.2);
 +  CharacterMatrix<float> c(3,4,0);
-+  CharacterMatrix<char> d(4,3,5) ;
++  CharacterMatrix<int> d(4,3,5) ;
 +  //std::cout<<" d after change :"<<CharacterMatrix<float>::CopyFromCharacterMatrix2(b)<<std::endl;
 +  d = CharacterMatrix<float>::CopyFromCharacterMatrix2(b) ;
 +  std::cout<<" d(1,1) is : "<<d(1,1) << std::endl ;
@@ -95,7 +95,7 @@ Index: src/matrix/character-matrix.h
    void Transpose(const CharacterMatrix<T> & M);
 -  void MatMat(const CharacterMatrix<T> & M1, const CharacterMatrix<T> & M2);
 +  void AddMatMat(T alpha, const CharacterMatrix<unsigned char> & M1, MatrixTransposeType tM1, const CharacterMatrix<char> & M2, MatrixTransposeType tM2, T beta); 
-+  static CharacterMatrix<char> CopyFromCharacterMatrix2(const CharacterMatrix<T> & M);
++  static CharacterMatrix<int> CopyFromCharacterMatrix2(const CharacterMatrix<T> & M);
 + 
  };
   
@@ -130,10 +130,10 @@ Index: src/matrix/character-matrix.h
  }
  
  template<typename T>
-+CharacterMatrix<char> CharacterMatrix<T>::CopyFromCharacterMatrix2(const CharacterMatrix<T> & M) {
++CharacterMatrix<int> CharacterMatrix<T>::CopyFromCharacterMatrix2(const CharacterMatrix<T> & M) {
 +  //std::cout<<" min : "<<std::numeric_limits<T>::min()<<std::endl ;
 +  //std::cout<<" we are here 1 "<<num_rows_<<M.NumRows()<<num_cols_<<M.NumCols()<<std::endl ;
-+  CharacterMatrix<char> Transform(M.NumRows(), M.NumCols(),0) ;
++  CharacterMatrix<int> Transform(M.NumRows(), M.NumCols(),0) ;
 +  char cVal[10];
 +  int min = -1 ;
 +  int max = 1 ;
@@ -141,13 +141,13 @@ Index: src/matrix/character-matrix.h
 +  std::cout<<" we are here 2 "<<std::endl ;
 +  for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
 +    for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
-+    //	Transform(row, col) = (signed char)floor((M( row, col)-min)*(255-0)/(1-(-1))) ;
-+ 	std::cout<<" char is :"<< floor((M( row, col)-min)*(255-0)/(1-(-1)))<<std::endl ;
-+	sprintf(cVal, "%3.f",floor((M( row, col)-min)*(255-0)/(1-(-1)))) ;
++    	Transform(row, col) = (int)floor((M( row, col)-min)*(255-0)/(1-(-1))) ;
++ 	//std::cout<<" char is :"<< floor((M( row, col)-min)*(255-0)/(1-(-1)))<<std::endl ;
++	//sprintf(cVal, "%3.f",floor((M( row, col)-min)*(255-0)/(1-(-1)))) ;
 +        //std::cout<<"out"<<std::endl;
-+        std::cout<<" cVal :"<<cVal<<std::endl ;
-+        strcpy((char *)Transform(row, col),cVal);
-+	std::cout<<" cVal :"<< cVal<<std::endl ;
++        //std::cout<<" cVal :"<<cVal<<std::endl ;
++        //strcpy((char *)Transform(row, col),cVal);
++	//std::cout<<" cVal :"<< cVal<<std::endl ;
 +
 +    }
 +  }
