@@ -102,7 +102,7 @@ class CharacterMatrix{
   void CopyFromCharacterMatrix(const CharacterMatrix<T> & M);
   void Transpose(const CharacterMatrix<T> & M);
   void AddMatMat(T alpha, const CharacterMatrix<unsigned char> & M1, MatrixTransposeType tM1, const CharacterMatrix<char> & M2, MatrixTransposeType tM2, T beta); 
-  static CharacterMatrix<int> CopyFromCharacterMatrix2(const CharacterMatrix<T> & M);
+//  static CharacterMatrix<int> CopyFromCharacterMatrix2(const CharacterMatrix<T> & M);
 // modified by hhx
  template<typename Real>
  void CopyFromMat(const CharacterMatrix<Real> &M) ;
@@ -193,7 +193,7 @@ void CharacterMatrix<T>::CopyFromCharacterMatrix(const CharacterMatrix<T> & M) {
     }
   }
 }
-
+/*
 template<typename T>
 CharacterMatrix<int> CharacterMatrix<T>::CopyFromCharacterMatrix2(const CharacterMatrix<T> & M) {
   //std::cout<<" min : "<<std::numeric_limits<T>::min()<<std::endl ;
@@ -223,6 +223,7 @@ CharacterMatrix<int> CharacterMatrix<T>::CopyFromCharacterMatrix2(const Characte
   std::cout<<" Transform(1,1) : "<<Transform(1,1)<<std::endl ;
   return Transform ;
 }
+*/
 template<typename T>
 template<typename Real>
 void CharacterMatrix<T>::CopyFromMat(const CharacterMatrix<Real> & M) {
