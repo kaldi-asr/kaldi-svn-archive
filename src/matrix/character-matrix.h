@@ -7,19 +7,13 @@
 #include <iostream>
 #include <limits>
 #include <math.h>
+//#include "matrix/kaldi-matrix.h"
+#ifndef KALDI_CHARACTER_MATRIX_H_
+#define KALDI_CHARACTER_MATRIX_H_
+
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 // The code was debugged by Pegah and Ehsan 12.28.12
-// The CopyFromCharacterMatrix2 updated by Pegah and Ehsan 1.1.13 
-// The AddMatMat added by Pegah and Ehsan 1.1.13
-// note from Dan: set your indent to 2 characters, not 4.
-// note from Dan: I think you need this matrix class to contain
-// floating-point (e.g. float) data members min_ and max_, which represent
-// the values of the most negative and most positive values of type T.
-// Or perhaps min_ and increment_ would make more sense, where increment_ is
-// the amount we get from increasing the value of the character by one.
-// Then we interpret the elements of the character matrix as integers in this
-// way.  The operator () could possibly return float, then.
-// You'd have to have your CopyFromMat function create these values appropriately.
+// The CopyFromMat function create these values appropriately.
 // You can compare with the CompressedMatrix code which does something similar
 // [but slightly more complicate.]
 // 
@@ -37,7 +31,7 @@
 // one would be most efficient to implement, and crash if the user gives other values.
 // you could declare that function in kaldi-matrix.h but define it in character-matrix.cc
 // You may have to use "friend declarations" here, to make this work.
-
+namespace kaldi {
 template<typename T>
 class CharacterMatrix{
 
@@ -50,8 +44,8 @@ class CharacterMatrix{
   MatrixIndexT num_cols_;
   MatrixIndexT num_rows_;
   MatrixIndexT stride_;
-  T min_ ;
-  T increment_ ;
+  float  min_ ;
+  float incremental_ ;
   // from Dan: if you need this function it should be called Sse4DotProduct.
   // but it probably doesn't belong here, e.g. could be a static inline function
   // declared and defined in character-matrix.cc.
@@ -96,6 +90,8 @@ class CharacterMatrix{
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_cols_; }
   inline MatrixIndexT NumRealCols() const { return stride_; }
+  T Min() const ;
+  T Max() const ;
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
@@ -107,9 +103,14 @@ class CharacterMatrix{
   void Transpose(const CharacterMatrix<T> & M);
   void AddMatMat(T alpha, const CharacterMatrix<unsigned char> & M1, MatrixTransposeType tM1, const CharacterMatrix<char> & M2, MatrixTransposeType tM2, T beta); 
   static CharacterMatrix<int> CopyFromCharacterMatrix2(const CharacterMatrix<T> & M);
- 
-};
- 
+// modified by hhx
+ template<typename Real>
+ void CopyFromMat(const CharacterMatrix<Real> &M) ;
+// Recover the float matrix
+ template<typename Real>
+ void RecoverMatrix(CharacterMatrix<Real> &M) ; 
+} ;
+
 template<typename T>
 void CharacterMatrix<T>::SetZero() {
   if (num_cols_ == stride_){
@@ -119,6 +120,27 @@ void CharacterMatrix<T>::SetZero() {
       memset(data_ + row*stride_, 0, sizeof(T)*num_cols_);
     }
   }
+}
+template<class T>
+T CharacterMatrix<T>::Max() const {
+  assert(num_rows_ > 0 && num_cols_ > 0);
+  T ans= *data_;
+  for (MatrixIndexT r = 0; r < num_rows_; r++)
+    for (MatrixIndexT c = 0; c < num_cols_; c++)
+      if (data_[c + stride_*r] > ans)
+        ans = data_[c + stride_*r];
+  return ans;
+}
+
+template<class T>
+T CharacterMatrix<T>::Min() const {
+  assert(num_rows_ > 0 && num_cols_ > 0);
+  T ans= *data_;
+  for (MatrixIndexT r = 0; r < num_rows_; r++)
+    for (MatrixIndexT c = 0; c < num_cols_; c++)
+      if (data_[c + stride_*r] < ans)
+        ans = data_[c + stride_*r];
+  return ans;
 }
 
 template<typename T>
@@ -202,6 +224,34 @@ CharacterMatrix<int> CharacterMatrix<T>::CopyFromCharacterMatrix2(const Characte
   return Transform ;
 }
 template<typename T>
+template<typename Real>
+void CharacterMatrix<T>::CopyFromMat(const CharacterMatrix<Real> & M) {
+  Resize(M.NumRows(), M.NumCols(),0) ;
+  Real min = M.Min();
+  Real  max = M.Max();
+  Real  min_ = static_cast<float>(min);
+  MatrixIndexT minChar = std::numeric_limits<T>::min(),maxChar = std::numeric_limits<T>::max();
+  incremental_ = static_cast<float>( static_cast<float>(maxChar - minChar)/(max - min));
+  for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
+    for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
+     (*this)(row, col) = static_cast<T>( (M( row, col) - min_) * incremental_  + minChar );
+    }
+  }
+}
+// Recover floating matrix  from char matrix
+template<typename T>
+template<typename Real>
+void CharacterMatrix<T>::RecoverMatrix(CharacterMatrix<Real> &M) {
+  M.Resize(num_rows_, num_cols_);
+  MatrixIndexT minChar = std::numeric_limits<T>::min();
+  MatrixIndexT maxChar = std::numeric_limits<T>::max(), range = maxChar - minChar;
+  for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
+    for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
+      M(row, col) = static_cast<Real>(min_ + ((*this)(row,col) - minChar) / incremental_);
+    }
+  }
+} 
+template<typename T>
 void CharacterMatrix<T>::Transpose(const CharacterMatrix<T> & M){
   (*this).Resize(M.NumCols(), M.NumRows(), 0);
   for (MatrixIndexT row = 0; row < M.NumCols(); row++) {
@@ -266,3 +316,5 @@ short int CharacterMatrix<T>::Sse4DotProduct(unsigned char *x, signed char *y, M
   
   return result;
 }
+} // namespace kaldi
+#endif  // KALDI_CHARACTER_MATRIX_H_
