@@ -145,6 +145,8 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
   // allocate the memory and set the right dimensions and parameters
+  // WARNING from Dan: you should not put code that you need to run, inside an
+  // assert.  If you compile with -ndebug (no-debug), it will not get executed.
   assert(posix_memalign(static_cast<void**>(&data), 16, size) == 0 ); 
   data_ = static_cast<T *> (data);
   // else what?  KALDI_ERROR? [dan]
