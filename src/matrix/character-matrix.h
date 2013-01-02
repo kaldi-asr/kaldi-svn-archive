@@ -5,8 +5,12 @@
 #include <stdint.h>
 #include <string.h>
 #include <iostream>
+#include <limits>
+#include <math.h>
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
-
+// The code was debugged by Pegah and Ehsan 12.28.12
+// The CopyFromCharacterMatrix2 updated by Pegah and Ehsan 1.1.13 
+// The AddMatMat added by Pegah and Ehsan 1.1.13
 // note from Dan: set your indent to 2 characters, not 4.
 // note from Dan: I think you need this matrix class to contain
 // floating-point (e.g. float) data members min_ and max_, which represent
@@ -40,12 +44,14 @@ class CharacterMatrix{
  typedef T* iter;
  typedef const T* const_iter;
  typedef int32_t MatrixIndexT;
-
+ typedef std::string MatrixTransposeType;
  private:
   iter  data_;
   MatrixIndexT num_cols_;
   MatrixIndexT num_rows_;
   MatrixIndexT stride_;
+  T min_ ;
+  T increment_ ;
   // from Dan: if you need this function it should be called Sse4DotProduct.
   // but it probably doesn't belong here, e.g. could be a static inline function
   // declared and defined in character-matrix.cc.
@@ -86,9 +92,9 @@ class CharacterMatrix{
   const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
     return *(data_ + r * stride_ + c);
   }
-    
+  inline iter begin() const { return data_ ; } 
   inline MatrixIndexT NumRows() const { return num_rows_; }
-  inline MatrixIndexT NumCols() const { return num_rows_; }
+  inline MatrixIndexT NumCols() const { return num_cols_; }
   inline MatrixIndexT NumRealCols() const { return stride_; }
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
@@ -99,7 +105,9 @@ class CharacterMatrix{
   void Resize(MatrixIndexT, MatrixIndexT, const T&);
   void CopyFromCharacterMatrix(const CharacterMatrix<T> & M);
   void Transpose(const CharacterMatrix<T> & M);
-  void MatMat(const CharacterMatrix<T> & M1, const CharacterMatrix<T> & M2);
+  void AddMatMat(T alpha, const CharacterMatrix<unsigned char> & M1, MatrixTransposeType tM1, const CharacterMatrix<char> & M2, MatrixTransposeType tM2, T beta); 
+  static CharacterMatrix<int> CopyFromCharacterMatrix2(const CharacterMatrix<T> & M);
+ 
 };
  
 template<typename T>
@@ -137,7 +145,7 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
   // allocate the memory and set the right dimensions and parameters
-  assert(posix_memalign(static_cast<void**>(&data), 16, size*sizeof(T)) == 0 ); 
+  assert(posix_memalign(static_cast<void**>(&data), 16, size) == 0 ); 
   data_ = static_cast<T *> (data);
   // else what?  KALDI_ERROR? [dan]
   num_rows_ = rows;
@@ -148,16 +156,45 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
 
 template<typename T>
 void CharacterMatrix<T>::CopyFromCharacterMatrix(const CharacterMatrix<T> & M) {
-  std::cout<<" we are here 1 "<<std::endl ;
+  std::cout<<" min : "<<std::numeric_limits<T>::min()<<std::endl ;
+  std::cout<<" we are here 1 "<<num_rows_<<M.NumRows()<<num_cols_<<M.NumCols()<<std::endl ;
+  CharacterMatrix<char> tmp1(M.NumRows(), M.NumCols(),0) ;
   assert(num_rows_ == M.NumRows() && num_cols_ == M.NumCols());
   std::cout<<" we are here 2 "<<std::endl ;
   for (MatrixIndexT row = 0; row < num_rows_; row++) {
     for (MatrixIndexT col = 0; col < num_cols_; col++) {
-      (*this)(row, col) = M(row, col);
+  //     sprintf(tmp1(row, col), "%f",M(row, col));
+	(*this)(row, col) =M(row, col);
+	
     }
   }
 }
 
+template<typename T>
+CharacterMatrix<int> CharacterMatrix<T>::CopyFromCharacterMatrix2(const CharacterMatrix<T> & M) {
+  //std::cout<<" min : "<<std::numeric_limits<T>::min()<<std::endl ;
+  //std::cout<<" we are here 1 "<<num_rows_<<M.NumRows()<<num_cols_<<M.NumCols()<<std::endl ;
+  CharacterMatrix<int> Transform(M.NumRows(), M.NumCols(),0) ;
+  char cVal[10];
+  int min = -1 ;
+  int max = 1 ;
+ // assert(tmp1.num_rows_ == M.NumRows() &&tmp1. num_cols_ == M.NumCols());
+  std::cout<<" we are here 2 "<<std::endl ;
+  for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
+    for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
+    	Transform(row, col) = (int)floor((M( row, col)-min)*(255-0)/(1-(-1))) ;
+ 	//std::cout<<" char is :"<< floor((M( row, col)-min)*(255-0)/(1-(-1)))<<std::endl ;
+	//sprintf(cVal, "%3.f",floor((M( row, col)-min)*(255-0)/(1-(-1)))) ;
+        //std::cout<<"out"<<std::endl;
+        //std::cout<<" cVal :"<<cVal<<std::endl ;
+        //strcpy((char *)Transform(row, col),cVal);
+	//std::cout<<" cVal :"<< cVal<<std::endl ;
+
+    }
+  }
+  std::cout<<" Transform(1,1) : "<<Transform(1,1)<<std::endl ;
+  return Transform ;
+}
 template<typename T>
 void CharacterMatrix<T>::Transpose(const CharacterMatrix<T> & M){
   (*this).Resize(M.NumCols(), M.NumRows(), 0);
@@ -170,8 +207,10 @@ void CharacterMatrix<T>::Transpose(const CharacterMatrix<T> & M){
 
 
 template<typename T>
-void CharacterMatrix<T>::MatMat(const CharacterMatrix<T> & M1, const CharacterMatrix<T> & M2){
-  assert(M1.NumCols == M2.NumRows());
+void CharacterMatrix<T>::AddMatMat(T alpha, const CharacterMatrix<unsigned char> & M1, MatrixTransposeType tM1, const CharacterMatrix<char> & M2, MatrixTransposeType tM2, T beta){
+  if( tM1.compare("kTrans") !=0) M1.Transpose(M1);
+  if( tM2.compare("kTrans") != 0) M2.Transpose(M2);
+  assert(M1.NumCols() == M2.NumRows());
   (*this).Resize(M1.NumRows(), M2.NumCols(), 0);
   CharacterMatrix<T> M2T;
   M2T.Transpose(M2);
@@ -179,7 +218,7 @@ void CharacterMatrix<T>::MatMat(const CharacterMatrix<T> & M1, const CharacterMa
   for (MatrixIndexT row = 0; row < M1.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M2.NumCols(); col++) {
       tmp = Sse4DotProduct((unsigned char *)(M1.begin() + row * M1.NumRealCols(),(signed char *)(M2T.begin() + col * M2T.NumRealCols(), M1.NumCols())));
-      (*this)(row, col) = static_cast<T> (tmp);
+      (*this)(row, col) = alpha * static_cast<T> (tmp)+beta * (*this)(row, col);
     }
   }
 }
