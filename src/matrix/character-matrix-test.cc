@@ -19,8 +19,8 @@
        base += res;
      }  
    }
-   CharacterMatrix<unsigned char> C;
-   C.CopyFromMat(M);
+   CharacterMatrix<signed char> C;
+   C.CopyFromMat(M,"kNoTrans");
    for(MatrixIndexT i = 0; i < M.NumRows() ; i++) {
      for(MatrixIndexT j = 0; j < M.NumCols(); j++) {
         MatrixIndexT x = static_cast<MatrixIndexT>(C(i,j));
@@ -28,6 +28,19 @@
      }
      std::cout << "\n";
    }
+ CharacterMatrix<signed char> d2 ;
+ d2.Transpose(C) ;
+ MatrixIndexT x = static_cast<MatrixIndexT>(d2(9,0)) ;
+ std::cout<<" d2(9,0) : " <<x<<std::endl ;
+ CharacterMatrix<unsigned char> d ;
+ d.Transpose(C) ;
+ x = static_cast<MatrixIndexT>(d(9,0)) ;
+ std::cout<<" d(9,0) : "<<x<<std::endl ;
+ CharacterMatrix<short int> a ;
+ short int alpha = 1 ;
+ short int beta = 0 ;
+// a.AddMatMat(alpha, d, "kNoTrans", C, "kNoTrans", beta) ;
+ //x = static_cast<MatrixIndexT>(a(0,0)) ;
  }
 
 
