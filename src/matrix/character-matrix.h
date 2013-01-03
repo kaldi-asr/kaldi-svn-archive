@@ -212,8 +212,8 @@ template<typename Real>
 void CharacterMatrix<T>::CopyFromMat(const CharacterMatrix<Real> & M, MatrixTransposeType  tM) {
   Resize(M.NumRows(), M.NumCols(),0) ;
   Real min = M.Min();
-  Real  max = M.Max();
-  Real  min_ = static_cast<float>(min);
+  Real max = M.Max();
+  min_ = static_cast<float>(min);
   MatrixIndexT minChar = std::numeric_limits<T>::min(),maxChar = std::numeric_limits<T>::max();
   incremental_ = static_cast<float>( static_cast<float>(maxChar - minChar)/(max - min));
   if ( tM.compare("kNoTrans") == 0 ) {
