@@ -106,7 +106,10 @@ class CharacterMatrix{
   template<typename Real>
   void CopyFromCharacterMatrix(const CharacterMatrix<Real> & M, MatrixTransposeType  tM);
 // modified by hhx
- template<typename Real>
+
+  // Comment from Dan: should copy from MatrixBase<Real>, not CharacterMatrix<Real>.  MatrixTransposeType
+  // should be as in matrix-common.h (include that file).
+  template<typename Real>
  void CopyFromMat(const CharacterMatrix<Real> &M, MatrixTransposeType  tM) ;
 // Recover the float matrix
  template<typename Real>
@@ -200,6 +203,9 @@ void CharacterMatrix<T>::CopyFromCharacterMatrix(const CharacterMatrix<Real> & M
   }
   }
 }
+
+// Comment from Dan: should copy from MatrixBase<Real>, not CharacterMatrix<Real>.  MatrixTransposeType
+// should be as in matrix-common.h (include that).
 
 template<typename T>
 template<typename Real>
