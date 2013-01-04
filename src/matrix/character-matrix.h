@@ -35,24 +35,31 @@
 // You may have to use "friend declarations" here, to make this work.
 namespace  kaldi {
 
-// from Dan: if you need this function it should be called Sse4DotProduct.
-// but it probably doesn't belong here, e.g. could be a static inline function
-// declared and defined in character-matrix.cc.
+// From Dan: you should eventually make this an inline function to avoid the
+// overhead fo function call.
 int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
 
 template<typename T>
 class CharacterMatrix{
 
+ // from Dan: these types are not needed.
  typedef T* iter;
  typedef const T* const_iter;
+  
  template <typename Real>friend class MatrixBase;
+
+  // from Dan: Google style guide demands that the public section be first.
  private:
   iter  data_;
   MatrixIndexT num_cols_;
   MatrixIndexT num_rows_;
   MatrixIndexT stride_;
+  // from Dan: consider changing this to alpha_ and beta_ representation, which
+  // will be simpler in AddMatMat.
   float min_ ;
   float incremental_ ;
+  // From Dan: Google style guide does not allow such un-informative names.
+  // Consider CharToReal and RealToChar.  And they should be inline functions for speed.
    template<typename Real>
   Real T2R(const T t);
   template<typename Real>
@@ -65,18 +72,16 @@ class CharacterMatrix{
     num_cols_ = 0;
     stride_  = 0;  
   } 
-  // note from Dan: this create() function is only
-  // called once so put the code here unless you have other plans-- also, it should
-  // have been called Init() if you had had it.
+
   
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
   CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
-    //cout<<"constructor called"<<endl;
-    Resize(r ,c ,value); 
+    Resize(r, c ,value); 
   }
   
-  // Pegah : CopyFromCharacterMatrix doesn't work!  
+  // Pegah : CopyFromCharacterMatrix doesn't work!
+  // From Dan: what is "kNoTrans" still doing here?
   CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m, "kNoTrans"); } // copy constructor
   ~CharacterMatrix() { 
     //cout<<"destructor called"<<endl;
@@ -86,6 +91,9 @@ class CharacterMatrix{
     
   CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
 
+  // From Dan: It's OK to define this, but you should not call it from any functions you want to be fast.
+  // Also, I would probably rather have it return real, as we want this class to be such that "externally"
+  // it acts like it stores real.
   T&  operator() (MatrixIndexT r, MatrixIndexT c) {
    //std::cout<<" r : "<<r<<" c : "<<c<<" num rows : "<<num_rows_<<" um cols : "<<num_cols_<<std::endl ;
    assert(r < num_rows_ && c < num_cols_) ;
@@ -94,24 +102,36 @@ class CharacterMatrix{
   const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
     return *(data_ + r * stride_ + c);
   }
+  // From Dan: delete this function:
   inline iter begin() const { return data_ ; } 
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_cols_; }
   inline MatrixIndexT Stride() const { return stride_; }
+  // From Dan: the next 2 functions are probably not going to be needed.
   T Min() const ;
   T Max() const ;
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
   void SetZero();
+  // from Dan: the next function will probably not be needed.
   void Set(T value);
     
+  // from Dan: you can remove the last argument to Resize; try to make the
+  // interface like that of Matrix, where Resize takes a typedef (look at it.)
   void Resize(MatrixIndexT, MatrixIndexT, const T&);
-  // hhx
+
+  // From Dan: the following function probably won't be needed, but one day it
+  // might be useful so it's OK to define it.  If you initialize with kTrans from
+  // a real-valued matrix, the initialization code should do the transposing itself,
+  // so it can be efficient.
   void Transpose();
   template<typename Real>
   void  CopyFromMat(const MatrixBase<Real> &M);
+
   // recover real matrix from character matrix
+  // From Dan: Google style guide does not allow non-const references, you should use a pointer.
+  // But this should probably be called CopyToMat instead of RecoverMatrix.
   template<typename Real>
   void RecoverMatrix(Matrix<Real> &M);
 };
