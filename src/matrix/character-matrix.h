@@ -7,12 +7,13 @@
 #include <iostream>
 #include <limits>
 #include <math.h>
-#include "base/kaldi-error.h"
 #include "matrix/kaldi-matrix.h"
+
 #ifndef KALDI_CHARACTER_MATRIX_H_
 #define KALDI_CHARACTER_MATRIX_H_
-#include "matrix-common.h"
-#include "kaldi-blas.h"
+
+
+//a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 // The code was debugged by Pegah and Ehsan 12.28.12
 // The CopyFromMat function create these values appropriately.
 // You can compare with the CompressedMatrix code which does something similar
@@ -32,24 +33,25 @@
 // one would be most efficient to implement, and crash if the user gives other values.
 // you could declare that function in kaldi-matrix.h but define it in character-matrix.cc
 // You may have to use "friend declarations" here, to make this work.
-namespace kaldi {
+namespace  kaldi {
+
 template<typename T>
 class CharacterMatrix{
+
  typedef T* iter;
  typedef const T* const_iter;
-
+ template <typename Real>friend class MatrixBase;
  private:
   iter  data_;
   MatrixIndexT num_cols_;
   MatrixIndexT num_rows_;
   MatrixIndexT stride_;
-  float  min_ ;
-  float increment_ ;
-  // from Dan: if you need this function it should be called Sse4DotProduct.
-  // but it probably doesn't belong here, e.g. could be a static inline function
-  // declared and defined in character-matrix.cc.
-  short int  Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
-
+  float min_ ;
+  float incremental_ ;
+   template<typename Real>
+  Real T2R(const T t);
+  template<typename Real>
+  T R2T(const Real r);
  public:
   //constructors & destructor:
   CharacterMatrix() {
@@ -64,19 +66,21 @@ class CharacterMatrix{
   
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
-  CharacterMatrix(MatrixIndexT r, MatrixIndexT c) { 
+  CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
     //cout<<"constructor called"<<endl;
-    Resize(r ,c); 
+    Resize(r ,c ,value); 
   }
-  // Pegah : CopyFromCharacterMatrix doesn't work! 
-  //MatrixTransposeType tM1 = kNoTrans ; 
-  CharacterMatrix(const CharacterMatrix<T> & m, MatrixTransposeType trans = kNoTrans) ;//{ CopyFrom(m,MatrixTransposeType tM1 = kNoTrans ); } // copy constructor
-  template<typename Real>
-  explicit CharacterMatrix(const CharacterMatrix<Real> & m, MatrixTransposeType trans = kNoTrans) ;
-  ~CharacterMatrix() {
-    free(data_) ; 
+  // from Dan: if you need this function it should be called Sse4DotProduct.
+  // but it probably doesn't belong here, e.g. could be a static inline function
+  // declared and defined in character-matrix.cc.
+  static short Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
+
+  // Pegah : CopyFromCharacterMatrix doesn't work!  
+  CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m, "kNoTrans"); } // copy constructor
+  ~CharacterMatrix() { 
     //cout<<"destructor called"<<endl;
-  }
+    free(data_);
+  } 
   //operator overloading functions:
     
   CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
@@ -99,71 +103,18 @@ class CharacterMatrix{
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
   void SetZero();
-  void Resize(MatrixIndexT, MatrixIndexT);
+  void Set(T value);
+    
+  void Resize(MatrixIndexT, MatrixIndexT, const T&);
   // hhx
   void Transpose();
-  template<typename U>
-  void AddMatMat(float alpha, 
-                 const CharacterMatrix<U> &M1, 
-                 MatrixTransposeType tM1, 
-                 const CharacterMatrix<T> & M2, 
-                 MatrixTransposeType tM2, 
-                 const float beta); 
   template<typename Real>
-  void  CopyFromMat(const CharacterMatrix<Real> &M, MatrixTransposeType tM = kNoTrans);
+  void  CopyFromMat(const MatrixBase<Real> &M);
+  // recover real matrix from character matrix
   template<typename Real>
-  void  CopyFromMatrix(const CharacterMatrix<Real> &M, MatrixTransposeType Trans = kNoTrans) ;  
- // recover real matrix from character matrix
- template<typename Real>
- T R2T(const Real r) ;
- template<typename Real>
- Real T2R(const T t);
-  template<typename Real>
-  void RecoverMatrix(CharacterMatrix<Real> &M);
+  void RecoverMatrix(Matrix<Real> &M);
 };
-template<typename T>
-CharacterMatrix<T>::CharacterMatrix(const CharacterMatrix<T> & m, MatrixTransposeType trans) { 
-  if( trans == kNoTrans) {
-    Resize(m.NumRows(), m.NumCols());
-    this->CopyFromMatrix(m);
-  } else {
-    Resize(m.NumCols(), m.NumRows());
-    this->CopyFromMatrix(m, kTrans) ;
-  }
-}
-template<typename T>
-template<typename Real>
-CharacterMatrix<T>::CharacterMatrix(const CharacterMatrix<Real> & m, MatrixTransposeType trans) {
-  if( trans == kNoTrans) {
-    Resize(m.NumRows(), m.NumCols());
-    this->CopyFromMatrix(m);
-  } else {
-    Resize(m.NumCols(), m.NumRows());
-    this->CopyFromMatrix(m, kTrans) ;
-  }
-}
-
-
-template<typename T>
-template<typename Real>
-void CharacterMatrix<T>::CopyFromMatrix( const CharacterMatrix<Real> & M, MatrixTransposeType Trans) {
- if ( sizeof(T) == sizeof(Real) && (void*) (&M) == (void*)this)
-    return ;
- int32 this_stride = stride_, other_stride = M.Stride();
- T *this_data = data_;
- const Real *other_data = M.begin();
- if ( Trans == kNoTrans) {
-  assert( num_rows_ == M.NumRows() && num_cols_ == M.NumCols()) ;
-  for (MatrixIndexT i = 0; i < num_rows_; i++) 
-    for (MatrixIndexT j = 0; j < num_cols_; j++) 
-      this_data[i * this_stride + j] += other_data[i * other_stride + j];
- } else {
-   assert( num_rows_ == M.NumCols() && num_cols_ == M.NumRows()) ;
-  for (MatrixIndexT i = 0; i < num_rows_; i++) 
-    for (MatrixIndexT j = 0; j < num_cols_; j++) 
-      this_data[i * this_stride + j] += other_data[j * other_stride + i];
- }
-}
+ 
 template<typename T>
 void CharacterMatrix<T>::SetZero() {
   if (num_cols_ == stride_){
@@ -195,8 +146,18 @@ T CharacterMatrix<T>::Min() const {
         ans = data_[c + stride_*r];
   return ans;
 }
+
 template<typename T>
-void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
+void CharacterMatrix<T>::Set(T value) {
+  for (MatrixIndexT row = 0; row < num_rows_; row++) {
+    for (MatrixIndexT col = 0; col < num_cols_; col++) {
+      (*this)(row, col) = value;
+    }
+  }
+}
+
+template<typename T>
+void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& value)
 {
   MatrixIndexT skip;
   MatrixIndexT real_cols;
@@ -214,27 +175,26 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
   // assert.  If you compile with -ndebug (no-debug), it will not get executed.
   int pos_ret = posix_memalign(static_cast<void**>(&data), 16, size);
   if(pos_ret != 0) {
-    //KALDI_ERR << "Failed to do posix memory allot";
-    std::cout << "Failed to do posix memory allot";
+    KALDI_ERR << "Failed to do posix memory allot";
   }
-  //data_ = static_cast<T *> (data);
+  data_ = static_cast<T *> (data);
   // else what?  KALDI_ERROR? [dan]
   num_rows_ = rows;
   num_cols_ = cols;
   stride_  = real_cols;
-  this->SetZero();
+  this->Set(value);
 }
 
 template<typename T>
 template<typename Real>
-void CharacterMatrix<T>::CopyFromMat(const CharacterMatrix<Real> & M, MatrixTransposeType tM /*= kNoTrans*/) {
-  Resize(M.NumRows(),M.NumCols());
+void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
+  Resize(M.NumRows(),M.NumCols(),0);
   Real min = M.Min(), max = M.Max(); 
        min_ = static_cast<float>(min);
 
-  MatrixIndexT minChar = std::numeric_limits<T>::min(),
+  int32 minChar = std::numeric_limits<T>::min(),
         maxChar = std::numeric_limits<T>::max();
-  increment_ = static_cast<float>( static_cast<float>(maxChar - minChar)/(max - min));
+  incremental_ = static_cast<float>( static_cast<float>(maxChar - minChar)/(max - min));
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
       (*this)(row, col) = R2T<Real>(M(row, col));
@@ -245,23 +205,23 @@ void CharacterMatrix<T>::CopyFromMat(const CharacterMatrix<Real> & M, MatrixTran
 template<typename T>
 template<typename Real>
 Real CharacterMatrix<T>::T2R(const T t) {
-  MatrixIndexT lower = std::numeric_limits<T>::min();
-  Real x = static_cast<Real>(min_ + (t - lower) / increment_);
+  int32 lower = std::numeric_limits<T>::min();
+  Real x = static_cast<Real>(min_ + (t - lower) / incremental_);
   return x;
 }
 
 template<typename T>
 template<typename Real>
 T CharacterMatrix<T>::R2T(const Real r) {
-  MatrixIndexT lower = std::numeric_limits<T>::min();
-  T t = static_cast<T>((r - min_) * increment_ + lower );
+  int32 lower = std::numeric_limits<T>::min();
+  T t = static_cast<T>((r - min_) * incremental_ + lower );
   return t; 
 }
 
 // Recover floating matrix  from char matrix
 template<typename T>
 template<typename Real>
-void CharacterMatrix<T>::RecoverMatrix(CharacterMatrix<Real> &M) {
+void CharacterMatrix<T>::RecoverMatrix(Matrix<Real> &M) {
   M.Resize(num_rows_, num_cols_);
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
@@ -273,91 +233,22 @@ void CharacterMatrix<T>::RecoverMatrix(CharacterMatrix<Real> &M) {
 template<typename T>
 void CharacterMatrix<T>::Transpose() {
   if(num_rows_ != num_cols_) {
-    CharacterMatrix<T> tmp(*this, kTrans) ;
-    Resize(this->num_cols_, this->num_rows_);
-    this->CopyFromMatrix(tmp) ;
+
   } else {
-    MatrixIndexT M = num_rows_;
-    for (MatrixIndexT i = 0;i < M;i++)
-      for (MatrixIndexT j = 0;j < i;j++) {
-        T &a = (*this)(i, j), &b = (*this)(j, i);
-        std::swap(a, b);
-      }
-    }
-}
 
-
-template<typename T>
-template<typename U>
-void CharacterMatrix<T>::AddMatMat(float alpha, 
-                 const CharacterMatrix<U> &M1, 
-                 MatrixTransposeType tM1, 
-                 const CharacterMatrix<T> & M2, 
-                 MatrixTransposeType tM2, 
-                 const float beta) {
-  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
-               || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
-  KALDI_ASSERT(&M1 !=  this && &M2 != this);
-  float y =  0.0 ;
-  if(tM1 == kTrans)
-    M1.Transpose();
-  if(tM2 == kTrans)
-    M2.Transpose();
-  for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
-    for(MatrixIndexT col = 0; col <M2.NumCols(); ++col) {
-      short x = Sse4DotProduct(M1.data_ + row * M1.stride_,
-                               M2.data_ + col * M2.stride_, M1.num_cols_);
-      float y = alpha * x;
-      if(beta==0) {
-        (*this)(row, col) = R2T<float>(y);
-      } else {
-        float this_x = static_cast<float>(T2R((*this)(row, col)));
-         y +=  beta * this_x;
-        (*this)(row, col) = R2T<float>(y);
-      }
-    }
   }
 }
 
 template <typename T>
 CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) {
   if (CharacterMatrix<T>::NumRows() != rhs.NumRows() || CharacterMatrix<T>::NumCols() != rhs.NumCols()) {
-    Resize(rhs.NumRows(), rhs.NumCols());
+    Resize(rhs.NumRows(), rhs.NumCols(), 0);
   }
   std::cout<<" we are here in operator= "<<std::endl ;
-  CharacterMatrix<T>::CopyFromMat(rhs);
+  CharacterMatrix<T>::CopyFromCharacterMatrix(rhs,"kNoTrans");
   return *this;
 }
 
-template<typename T>
-short int CharacterMatrix<T>::Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
-{
-  int i;
-  __m128i a, b, c, lo, hi;
-  __m128i *e, *f;
-  __m128i sum = _mm_setzero_si128();
-  short result;
-  
-  for (i=0; i<length; i+=16) {
-    e = (__m128i*)(x+i);
-    f = (__m128i*)(y+i);
-    c = _mm_maddubs_epi16(e[0], f[0]); // performs dot-product in 2X2 blocks
-    
-    // unpack the 4 lowest 16-bit integers into 32 bits.
-    lo = _mm_cvtepi16_epi32(c);
-    // unpack the 4 highest 16-bit integers into 32 bits.
-    hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
-    sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
-  }
-  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-  
-  result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
-  
-  return result;
-}
 
 } //  mamespace kaldi
 

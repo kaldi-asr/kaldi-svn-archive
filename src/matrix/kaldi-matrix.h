@@ -21,7 +21,7 @@
 #define KALDI_MATRIX_KALDI_MATRIX_H_ 1
 
 #include "matrix-common.h"
-
+#include "character-matrix.h"
 namespace kaldi {
 
 /// @{ \addtogroup matrix_funcs_scalar
@@ -384,6 +384,14 @@ class MatrixBase {
                  const MatrixBase<Real>& A, MatrixTransposeType transA,
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
+  
+  template<class U, class T>
+  void AddMatMat(Real alpha, 
+                 const CharacterMatrix<U> &M1, 
+                 MatrixTransposeType tM1, 
+                 const CharacterMatrix<T> & M2, 
+                 MatrixTransposeType tM2, 
+                 const Real beta); 
 
   /// this <-- beta*this + alpha*A*B*C.
   void AddMatMatMat(const Real alpha,
