@@ -13,7 +13,6 @@
 #define KALDI_CHARACTER_MATRIX_H_
 #include "matrix-common.h"
 #include "kaldi-blas.h"
-
 // The code was debugged by Pegah and Ehsan 12.28.12
 // The CopyFromMat function create these values appropriately.
 // You can compare with the CompressedMatrix code which does something similar
@@ -65,13 +64,15 @@ class CharacterMatrix{
   
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
-  CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
+  CharacterMatrix(MatrixIndexT r, MatrixIndexT c) { 
     //cout<<"constructor called"<<endl;
     Resize(r ,c); 
   }
   // Pegah : CopyFromCharacterMatrix doesn't work! 
   //MatrixTransposeType tM1 = kNoTrans ; 
   CharacterMatrix(const CharacterMatrix<T> & m, MatrixTransposeType trans = kNoTrans) ;//{ CopyFrom(m,MatrixTransposeType tM1 = kNoTrans ); } // copy constructor
+  template<typename Real>
+  explicit CharacterMatrix(const CharacterMatrix<Real> & m, MatrixTransposeType trans = kNoTrans) ;
   ~CharacterMatrix() {
     free(data_) ; 
     //cout<<"destructor called"<<endl;
@@ -111,7 +112,7 @@ class CharacterMatrix{
   template<typename Real>
   void  CopyFromMat(const CharacterMatrix<Real> &M, MatrixTransposeType tM = kNoTrans);
   template<typename Real>
-  void  CopyFromMatrix(const CharacterMatrix<Real> & M, MatrixTransposeType Trans = kNoTrans) ;  
+  void  CopyFromMatrix(const CharacterMatrix<Real> &M, MatrixTransposeType Trans = kNoTrans) ;  
  // recover real matrix from character matrix
  template<typename Real>
  T R2T(const Real r) ;
@@ -123,20 +124,33 @@ class CharacterMatrix{
 template<typename T>
 CharacterMatrix<T>::CharacterMatrix(const CharacterMatrix<T> & m, MatrixTransposeType trans) { 
   if( trans == kNoTrans) {
-    Resize(m.num_rows_, m.num_cols_);
+    Resize(m.NumRows(), m.NumCols());
     this->CopyFromMatrix(m);
   } else {
-    Resize(m.num_cols_, m.num_rows_);
+    Resize(m.NumCols(), m.NumRows());
     this->CopyFromMatrix(m, kTrans) ;
   }
 }
+template<typename T>
+template<typename Real>
+CharacterMatrix<T>::CharacterMatrix(const CharacterMatrix<Real> & m, MatrixTransposeType trans) {
+  if( trans == kNoTrans) {
+    Resize(m.NumRows(), m.NumCols());
+    this->CopyFromMatrix(m);
+  } else {
+    Resize(m.NumCols(), m.NumRows());
+    this->CopyFromMatrix(m, kTrans) ;
+  }
+}
+
+
 template<typename T>
 template<typename Real>
 void CharacterMatrix<T>::CopyFromMatrix( const CharacterMatrix<Real> & M, MatrixTransposeType Trans) {
  if ( sizeof(T) == sizeof(Real) && (void*) (&M) == (void*)this)
     return ;
  int32 this_stride = stride_, other_stride = M.Stride();
- Real *this_data = data_;
+ T *this_data = data_;
  const Real *other_data = M.begin();
  if ( Trans == kNoTrans) {
   assert( num_rows_ == M.NumRows() && num_cols_ == M.NumCols()) ;
@@ -240,7 +254,8 @@ template<typename T>
 template<typename Real>
 T CharacterMatrix<T>::R2T(const Real r) {
   MatrixIndexT lower = std::numeric_limits<T>::min();
-  T t = static_cast<T>((r - min_) * increment_ + lower ); 
+  T t = static_cast<T>((r - min_) * increment_ + lower );
+  return t; 
 }
 
 // Recover floating matrix  from char matrix
