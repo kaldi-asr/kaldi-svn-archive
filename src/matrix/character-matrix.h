@@ -13,6 +13,7 @@
 #define KALDI_CHARACTER_MATRIX_H_
 #include "matrix-common.h"
 #include "kaldi-blas.h"
+
 // The code was debugged by Pegah and Ehsan 12.28.12
 // The CopyFromMat function create these values appropriately.
 // You can compare with the CompressedMatrix code which does something similar
