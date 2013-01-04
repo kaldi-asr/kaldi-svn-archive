@@ -384,7 +384,15 @@ class MatrixBase {
                  const MatrixBase<Real>& A, MatrixTransposeType transA,
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
-  
+ 
+  template<typename U, typename T>
+  void AddMatMat(Real alpha, 
+                 const CharacterMatrix<U> &M1, 
+                 MatrixTransposeType tM1, 
+                 const CharacterMatrix<T> & M2, 
+                 MatrixTransposeType tM2, 
+                 const Real beta);  
+ 
   void AddMatMat(Real alpha, 
                  CharacterMatrix<unsigned char> &M1, 
                  MatrixTransposeType tM1, 
