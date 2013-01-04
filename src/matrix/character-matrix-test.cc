@@ -1,6 +1,6 @@
 #include "character-matrix.h"
 #include <iostream>
-
+#include "kaldi-matrix.h"
 // hhx
 
 namespace kaldi {
@@ -20,7 +20,7 @@ static void  GenerateMatrix4U (Matrix<Real> &M) {
   int32 num_rows = M.NumRows(), 
         num_cols = M.NumCols();
   srand ( time(NULL) );
-  Real min = static_cast<Real>(rand() % 10);
+  Real min = static_cast<Real>(0);
   KALDI_ASSERT(num_rows > 0 && num_cols > 0);
   std::vector<Real> v(256);
   for(size_t i = 0; i < v.size(); i++) {
@@ -39,7 +39,7 @@ static void  GenerateMatrix4S (Matrix<Real> &M) {
          num_cols = M.NumCols();
    KALDI_ASSERT(num_rows > 0 && num_cols > 0);
    srand(time(NULL));
-   Real base = static_cast<Real>(rand()%20);
+   Real base = static_cast<Real>(0);
    std::vector<Real> v(256);
    for(int32 i = -128, j=0; i < 128; i++, j++) {
      Real x;
@@ -129,15 +129,26 @@ static void TestAddMatMat () {
   int32  col = 15 + rand() % 7;
   Matrix<Real> M1(row, col);
   GenerateMatrix4U(M1);
-  
+  ShowMatrix(M1);
+
   int32 row2 = 15 + rand() % 4;
   Matrix<Real> M2(row2,col);
   GenerateMatrix4S(M2);
-  
+  ShowMatrix(M2);
+
   Matrix<Real> M(row,row2);
   M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
-  M.ShowMatrix(M);
-  // I am writing it up
+  ShowMatrix(M);
+
+  CharacterMatrix<unsigned char> Mc1;
+  Mc1.CopyFromMat(M1);
+  CharacterMatrix<signed char> Mc2;
+  Mc2.CopyFromMat(M2);
+
+  Matrix<Real> Mc(row,row2);
+  Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);  
+  ShowMatrix(Mc);
+  // TODO: we should  add an AssertEqual function here 
 }
 
 
@@ -147,7 +158,7 @@ int main() {
   kaldi::TestCopyMat01<float>();
   kaldi::TestCopyMat01<double>();
   kaldi::TestAddMatMat<float>();
-  kaldi::TestAddMatMat<double>();
+  // kaldi::TestAddMatMat<double>();
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }

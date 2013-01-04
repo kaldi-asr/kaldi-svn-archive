@@ -81,7 +81,6 @@ void MatrixBase<double>::Scale(double alpha);
 template<>
 void MatrixBase<float>::Scale(float alpha);
 
-
 #ifndef HAVE_ATLAS
 template<>
 void

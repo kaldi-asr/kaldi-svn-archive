@@ -385,11 +385,10 @@ class MatrixBase {
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
   
-  template<class U, class T>
   void AddMatMat(Real alpha, 
-                 const CharacterMatrix<U> &M1, 
+                 CharacterMatrix<unsigned char> &M1, 
                  MatrixTransposeType tM1, 
-                 const CharacterMatrix<T> & M2, 
+                 CharacterMatrix<signed char> & M2, 
                  MatrixTransposeType tM2, 
                  const Real beta); 
 

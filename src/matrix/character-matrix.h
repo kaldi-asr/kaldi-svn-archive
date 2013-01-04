@@ -35,6 +35,11 @@
 // You may have to use "friend declarations" here, to make this work.
 namespace  kaldi {
 
+// from Dan: if you need this function it should be called Sse4DotProduct.
+// but it probably doesn't belong here, e.g. could be a static inline function
+// declared and defined in character-matrix.cc.
+int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
+
 template<typename T>
 class CharacterMatrix{
 
@@ -70,11 +75,7 @@ class CharacterMatrix{
     //cout<<"constructor called"<<endl;
     Resize(r ,c ,value); 
   }
-  // from Dan: if you need this function it should be called Sse4DotProduct.
-  // but it probably doesn't belong here, e.g. could be a static inline function
-  // declared and defined in character-matrix.cc.
-  static short Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
-
+  
   // Pegah : CopyFromCharacterMatrix doesn't work!  
   CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m, "kNoTrans"); } // copy constructor
   ~CharacterMatrix() { 
@@ -195,6 +196,7 @@ void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
   int32 minChar = std::numeric_limits<T>::min(),
         maxChar = std::numeric_limits<T>::max();
   incremental_ = static_cast<float>( static_cast<float>(maxChar - minChar)/(max - min));
+
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
       (*this)(row, col) = R2T<Real>(M(row, col));
@@ -214,7 +216,7 @@ template<typename T>
 template<typename Real>
 T CharacterMatrix<T>::R2T(const Real r) {
   int32 lower = std::numeric_limits<T>::min();
-  T t = static_cast<T>((r - min_) * incremental_ + lower );
+  T t = static_cast<T>((r - min_) * incremental_ + lower);
   return t; 
 }
 

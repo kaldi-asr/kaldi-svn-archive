@@ -2,14 +2,12 @@
 #include <iostream>
 namespace kaldi {
 
-template<typename T>
-short CharacterMatrix<T>::Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
-{
+int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
   int i;
-  __m128i a, b, c, lo, hi;
+  __m128i c, lo, hi;
   __m128i *e, *f;
   __m128i sum = _mm_setzero_si128();
-  short result;
+  int result;
   
   for (i=0; i<length; i+=16) {
     e = (__m128i*)(x+i);
