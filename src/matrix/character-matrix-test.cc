@@ -1,6 +1,9 @@
 #include "character-matrix.h"
 #include <iostream>
 #include "kaldi-matrix.h"
+#include <cstdio>
+#include <ctime>
+#include <time.h>
 // hhx
 
 namespace kaldi {
@@ -152,29 +155,53 @@ static void TestCopyMat02() {
 
 template<typename Real>
 static void TestAddMatMat () {
-  int32  row = 7 + rand() % 5;
-  int32  col = 15 + rand() % 7;
+  clock_t start1;
+  clock_t start2;
+  double time1;
+  double time2;
+  double diff;
+  int i;  
+  //diff = ( std::clock() - start ) / (double)CLOCKS_PER_SEC;
+  //std::cout<<"time is"<<diff<<std::endl;
+  
+  //int32  row = 7 + rand() % 5;
+  //int32  col = 15 + rand() % 7;
+  int32 row = 2000;
+  int32 col = 2000;
+
   Matrix<Real> M1(row, col);
-  GenerateMatrixI(M1);
+  GenerateMatrix4U(M1);
   //ShowMatrix(M1);
 
   int32 row2 = 15 + rand() % 4;
   Matrix<Real> M2(row2,col);
-  GenerateMatrixI(M2);
+  GenerateMatrix4S(M2);
   //ShowMatrix(M2);
   std::cout <<" A column is : "<<col<<std::endl ;
   Matrix<Real> M(row,row2);
-  M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
-  ShowMatrix(M);
+
+  start1 = std::clock();  
+  for (i = 1 ; i<10; i++){M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);}
+  time1 = ( std::clock() - start1 ) / (double)CLOCKS_PER_SEC; 
+ 
+  //ShowMatrix(M);
 
   CharacterMatrix<unsigned char> Mc1;
   Mc1.CopyFromMat(M1);
   CharacterMatrix<signed char> Mc2;
   Mc2.CopyFromMat(M2);
 
+  
   Matrix<Real> Mc(row,row2);
-  Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);  
-  ShowMatrix(Mc);
+
+  start2 = std::clock();  
+  for (i = 1 ; i<10; i++){ Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0); }
+  time2 = ( std::clock() - start2 ) / (double)CLOCKS_PER_SEC; 
+
+  //ShowMatrix(Mc);
+
+  std::cout<<"The time cost by 100 normal matrix multiplication is"<<time1<<std::endl;
+  std::cout<<"The time cost by 100 fast matrix multiplication is"<<time2<<std::endl;
   // TODO: we should  add an AssertEqual function here 
 }
 
