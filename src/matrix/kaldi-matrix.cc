@@ -322,11 +322,11 @@ void MatrixBase<float>::AddMatMat(float alpha,
     for(MatrixIndexT col = 0; col < M2.NumRows(); ++ col) {
       int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
                                M2.data_ + col * M2.stride_, M1.num_cols_);
-      int x2 = Sse4DotProduct(M1.data_ + row * M1.stride_,
-                                                    Mt.data_, M1.num_cols_);
-      int x3 = Sse4DotProduct(reinterpret_cast<unsigned char *>(Mt.data_), 
-                                                    M2.data_ + col * M2.stride_,
+      int x2 = M1.CharacterMatrix::Sse4SumArray(M1.data_ + row * M1.stride_,
+                                  M1.num_cols_);
+      int x3 = M2.CharacterMatrix::Sse4SumArray(M2.data_ + col * M2.stride_,
                                                     M1.num_cols_);
+
       (*this)(row, col) = static_cast<float>( beta * (*this)(row, col) +
                                              alpha * (static_cast<float>(x1) / mul_inc +
   					     coef1 * x2 + coef2 * x3 + gconst * M1.num_cols_ ));
