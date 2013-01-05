@@ -214,7 +214,7 @@ void MatrixBase<float>::AddMatMat(const float alpha,
                || (transA == kNoTrans && transB == kTrans && A.num_cols_ == B.num_cols_ && A.num_rows_ == num_rows_ && B.num_rows_ == num_cols_)
                || (transA == kTrans && transB == kTrans && A.num_rows_ == B.num_cols_ && A.num_cols_ == num_rows_ && B.num_rows_ == num_cols_));
   KALDI_ASSERT(&A !=  this && &B != this);
-
+  std::cout<<" We are here!"<<std::endl ;
   cblas_sgemm(CblasRowMajor, static_cast<CBLAS_TRANSPOSE>(transA), static_cast<CBLAS_TRANSPOSE>(transB),
               num_rows_, num_cols_, transA == kNoTrans ? A.num_cols_ : A.num_rows_,
               alpha, A.data_, A.stride_, B.data_, B.stride_,
@@ -257,13 +257,17 @@ void MatrixBase<Real>::AddMatMat(Real alpha,
   if(tM2 == kNoTrans) // since we need transpose it
     M2.Transpose();
   
-  // pre-calculate some constant
+  // pre-calculate some constant/
   float mul_inc = M1.incremental_ * M2. incremental_,
   low_t2 = static_cast<float>(std::numeric_limits<T>::min()),
-  coef1 = M2.min_ / M1.incremental_ - low_t2 /mul_inc,
-  coef2 = M1.min_ / M2.incremental_ ,
-  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.min_;
+  //coef1 = M2.min_ / M1.incremental_ - low_t2 /mul_inc,
+  //coef2 = M1.min_ / M2.incremental_ ,
+  //gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.min_;
   // define a 'unit' vector to compute vector component sumary
+  coef1 = -M1.min_ / M1.incremental_ ,
+  coef2 = -M2.min_ / M2.incremental_+low_t2 ,
+  gconst = coef1*coef2 ;//M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
+  std::cout<<"M1 increment :"<<M1.incremental_<<" M1 coef1 : "<<coef1<<" gconst : "<<gconst<<std::endl ;
   CharacterMatrix<T> Mt;
   Mt.Resize(1, M1.num_cols_, 1);
   for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
@@ -277,7 +281,8 @@ void MatrixBase<Real>::AddMatMat(Real alpha,
                                                     M1.num_cols_);
       (*this)(row, col) = static_cast<Real>( beta * (*this)(row, col) +
                                              static_cast<float>(x1) / mul_inc +
-                                             coef1 * x2 + coef2 * x3 + gconst * M1.num_cols_ );
+                                             /*coef1 * x2 + coef2 * x3 + gconst * M1.num_cols_ );*/
+					     coef1 * x3 + coef2 * x2 + gconst * M1.num_cols_ );
     }
   }
 }
@@ -309,10 +314,12 @@ void MatrixBase<float>::AddMatMat(float alpha,
   // pre-calculate some constant
   float mul_inc = M1.incremental_ * M2. incremental_,
   low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
-  coef1 = M2.min_ / M1.incremental_ - low_t2 /mul_inc,
-  coef2 = M1.min_ / M2.incremental_ ,
-  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
-  // define a 'unit' vector to compute vector component summary
+  coef1 = M1.min_ ,
+  coef2 = (-low_t2 / M2.incremental_+M2.min_) ,
+  gconst = coef1*coef2 ;//M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
+  std::cout<<" M1 min : "<<M1.min_<<"M1 increment :"<<M1.incremental_<<" M1 coef1 : "<<coef1<<" gconst : "<<gconst<<std::endl ;
+  std::cout<<" M2 min : "<<M2.min_<<"M2 increment :"<<M2.incremental_<<" M2 coef2 : "<<coef2<<" gconst : "<<gconst<<std::endl ;
+ // define a 'unit' vector to compute vector component summary
   CharacterMatrix<signed char> Mt;
   Mt.Resize(1, M1.num_cols_, 1);
   for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
@@ -324,9 +331,10 @@ void MatrixBase<float>::AddMatMat(float alpha,
       int x3 = Sse4DotProduct(reinterpret_cast<unsigned char *>(Mt.data_), 
                                                     M2.data_ + col * M2.stride_,
                                                     M1.num_cols_);
-      (*this)(row, col) = static_cast<float>( beta * (*this)(row, col) +
+      if( row==0 && col==0) std::cout<<" x1 : "<<x1<<" x2 : "<<x2<<" x3 : "<<x3<<std::endl ;
+      (*this)(row, col) = /*static_cast<float>*/( beta * (*this)(row, col) +
                                              alpha * (static_cast<float>(x1) / mul_inc +
-                                             coef1 * x2 + coef2 * x3 + gconst * M1.num_cols_ ));
+                                             coef1/M2.incremental_ * static_cast<float>(x3) + coef2/M1.incremental_ * static_cast<float>(x2)+ gconst * static_cast<float>(M1.num_cols_) ));
     }
   }
 }
