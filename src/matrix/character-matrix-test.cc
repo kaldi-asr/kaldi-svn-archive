@@ -199,6 +199,9 @@ static void TestAddMatMatError(int32 MatNum ) {
      << error_avg << " Standard Deviation : "
      << error_std << std::endl; 
   ko.Close();
+  std::cout << " Average Error is : " 
+     << error_avg << " Standard Deviation : "
+     << error_std << std::endl; 
 }
 //
 template<typename Real>
@@ -243,6 +246,7 @@ static void TestAddMatMatTime (int32 numTest) {
   ko.Stream() << "\nfloat_AddMatMat=" << tot_ft1 
             << ", char_AddMatMat=" << tot_ft2 
             << ",rate=" << tot_ft2/tot_ft1 << "\n";
+  std::cout << "Time consumed: float_AddMatMat=" << tot_ft1 << ", char_AddMatMat=" << tot_ft2 << ",rate=" << tot_ft2/tot_ft1 << std::endl;
   ko.Close();
 }
 
@@ -250,8 +254,8 @@ static void TestAddMatMatTime (int32 numTest) {
 } // kaldi namespace
 
 int main() {
-  kaldi::TestAddMatMatError<float>(100);
-  kaldi::TestAddMatMatTime<float>(10); 
+  kaldi::TestAddMatMatError<float>(5);
+  kaldi::TestAddMatMatTime<float>(3); 
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }
