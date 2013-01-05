@@ -56,6 +56,24 @@ static void  GenerateMatrix4S (Matrix<Real> &M) {
       M(row, col) = base + v[k];
     }
 }
+template <typename Real>
+static void  GenerateMatrixI (Matrix<Real> &M) {
+   int32 num_rows = M.NumRows(),
+         num_cols = M.NumCols();
+   KALDI_ASSERT(num_rows > 0 && num_cols > 0);
+   srand(time(NULL));
+   Real base = static_cast<Real>(0);
+   std::vector<Real> v(256);
+   for(int32 row = 0; row < num_rows; ++row) {
+    for(int32 col = 0; col < num_cols; ++col) {
+      if( row == col ) {
+         M(row, col) = static_cast<Real>(1) ;
+       } else {
+    	 M(row, col) = base;
+    }
+ }
+ }
+}
 // use gdb to display these
 template<typename Real>
 static void ShowMatrix(const Matrix<Real> &M) {
@@ -79,10 +97,19 @@ static void TestCopyMat01() {
   GenerateMatrix4S(M);
   CharacterMatrix<signed char> C;
   C.CopyFromMat(M);
+  //ShowMatrix(M);
+  /*std::cout << " C : "<< std::endl ;
+  for(int32 row = 0; row < M.NumRows(); ++row) {
+    for(int32 col = 0; col < M.NumCols(); ++col) {
+      std::cout<<static_cast<Real>(C(row,col))<<" " ;
+    }
+  }
+  std::cout << "\n" ;
+  */
   Matrix<Real> M1;
   C.RecoverMatrix(M1);
-  ShowMatrix(M);
-  ShowMatrix(M1);
+  //ShowMatrix(M);
+  //ShowMatrix(M1);
   AssertEqual(M,M1,0.0079);
   // for unsigned char
   Matrix<Real> M2(row, col);
@@ -128,14 +155,14 @@ static void TestAddMatMat () {
   int32  row = 7 + rand() % 5;
   int32  col = 15 + rand() % 7;
   Matrix<Real> M1(row, col);
-  GenerateMatrix4U(M1);
-  ShowMatrix(M1);
+  GenerateMatrixI(M1);
+  //ShowMatrix(M1);
 
   int32 row2 = 15 + rand() % 4;
   Matrix<Real> M2(row2,col);
-  GenerateMatrix4S(M2);
-  ShowMatrix(M2);
-
+  GenerateMatrixI(M2);
+  //ShowMatrix(M2);
+  std::cout <<" A column is : "<<col<<std::endl ;
   Matrix<Real> M(row,row2);
   M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
   ShowMatrix(M);
@@ -155,10 +182,12 @@ static void TestAddMatMat () {
 } 
 
 int main() {
-  kaldi::TestCopyMat01<float>();
-  kaldi::TestCopyMat01<double>();
-  kaldi::TestAddMatMat<float>();
-  // kaldi::TestAddMatMat<double>();
+  std::cout<<" float test : "<<std::endl ;
+ //  kaldi::TestCopyMat01<float>();
+ // kaldi::TestCopyMat01<double>();
+  kaldi::TestAddMatMat<float>(); 
+  std::cout<<" double test : "<<std::endl ;
+//  kaldi::TestAddMatMat<double>();
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }
