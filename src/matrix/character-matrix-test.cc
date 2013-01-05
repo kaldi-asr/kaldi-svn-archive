@@ -1,12 +1,10 @@
 #include "character-matrix.h"
 #include <iostream>
 #include "kaldi-matrix.h"
-#include <math.h>
 #include <cstdio>
 #include <ctime>
 #include <time.h>
-
-// hhx
+#include "util/kaldi-io.h"
 
 namespace kaldi {
 
@@ -39,11 +37,12 @@ static void Norm(Matrix<Real> &M, Real * NormI, Real* NormII) {
    *NormII = pow(*NormII, 0.5);
    *NormI = NormMax;
 }
+
+//
 template <typename Real>
 static void  GenerateMatrix4U (Matrix<Real> &M) {
   int32 num_rows = M.NumRows(), 
         num_cols = M.NumCols();
-  srand ( time(NULL)*100000 );
   Real min = static_cast<Real>(0);
   KALDI_ASSERT(num_rows > 0 && num_cols > 0);
   std::vector<Real> v(256);
@@ -62,7 +61,6 @@ static void  GenerateMatrix4S (Matrix<Real> &M) {
    int32 num_rows = M.NumRows(), 
          num_cols = M.NumCols();
    KALDI_ASSERT(num_rows > 0 && num_cols > 0);
-   srand(time(NULL) * 100000);
    Real base = static_cast<Real>(0);
    std::vector<Real> v(256);
    for(int32 i = -128, j=0; i < 128; i++, j++) {
@@ -85,13 +83,13 @@ static void  GenerateMatrixI (Matrix<Real> &M) {
    int32 num_rows = M.NumRows(),
          num_cols = M.NumCols();
    KALDI_ASSERT(num_rows > 0 && num_cols > 0);
-   srand(time(NULL) * 100000);
+   srand(time(NULL));
    Real base = static_cast<Real>(0);
    std::vector<Real> v(256);
    for(int32 row = 0; row < num_rows; ++row) {
     for(int32 col = 0; col < num_cols; ++col) {
       if( row == col ) {
-         M(row, col) = static_cast<Real>(1.0) ;
+         M(row, col) = static_cast<Real>(1) ;
        } else {
     	 M(row, col) = base;
     }
@@ -113,39 +111,6 @@ static void ShowMatrix(const Matrix<Real> &M) {
   }
 }
 //
-template<typename Real>
-static void TestCopyMat01() {
-  int32  row = 7 + rand() % 5;
-  int32  col = 15 + rand() % 7;
-  Matrix<Real> M(row, col);
-  GenerateMatrix4S(M);
-  CharacterMatrix<signed char> C;
-  C.CopyFromMat(M);
-  //ShowMatrix(M);
-  /*std::cout << " C : "<< std::endl ;
-  for(int32 row = 0; row < M.NumRows(); ++row) {
-    for(int32 col = 0; col < M.NumCols(); ++col) {
-      std::cout<<static_cast<Real>(C(row,col))<<" " ;
-    }
-  }
-  std::cout << "\n" ;
-  */
-  Matrix<Real> M1;
-  C.RecoverMatrix(M1);
-  //ShowMatrix(M);
-  //ShowMatrix(M1);
-  AssertEqual(M,M1,0.0079);
-  // for unsigned char
-  Matrix<Real> M2(row, col);
-  GenerateMatrix4U(M2);
-  CharacterMatrix<unsigned char> C2;
-  C2.CopyFromMat(M2);
-  Matrix<Real> M3;
-  C2.RecoverMatrix(M3);
-  AssertEqual(M2,M3,0.004); 
-
-}
-// 
 template<typename Real> 
 static void TestCopyMat02() {
   int32 num_rows = 2;
@@ -175,160 +140,118 @@ static void TestCopyMat02() {
 }
 
 template<typename Real>
-static void TestAddMatMat () {
-  int32  row = 100 + rand() % 50;
-  int32  col = 100 + rand() % 50;
-  Matrix<Real> M1(row, col);
-  GenerateMatrix4U(M1);
-  //ShowMatrix(M1);
-
-  int32 row2 = 100 + rand() % 50;
-  Matrix<Real> M2(row2,col);
-  GenerateMatrix4S(M2);
-  //ShowMatrix(M2);
-  std::cout <<" A column is : "<<col<<std::endl ;
-  Matrix<Real> M(row,row2);
-  M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
-  Real base = static_cast<Real>(0);
-  Real NormI_Dan;
-  Real NormII_Dan;
-  Norm(M, &NormI_Dan, &NormII_Dan);
-  //ShowMatrix(M);
-  CharacterMatrix<unsigned char> Mc1;
-  Mc1.CopyFromMat(M1);
-  CharacterMatrix<signed char> Mc2;
-  Mc2.CopyFromMat(M2);
-  Matrix<Real> Mc(row,row2);
-  Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0); 
-  Matrix<Real> diff(M); 
-  Matrix<Real> Identity(row2,row2);
-  GenerateMatrixI(Identity);
-  diff.AddMatMat(1.0, Mc, kNoTrans, Identity, kNoTrans, -1.0);
-  Real NormI_diff;
-  Real NormII_diff;
-  Norm( diff, &NormI_diff, &NormII_diff);
-  //ShowMatrix(Mc);
-  std::cout<<" Initial Matrix: NormI: "<<NormI_Dan<<" Norm II : "<<NormII_Dan<<std::endl;
-  std::cout<<" The error Matrix: NormI: "<<NormI_diff<<" Norm II : "<<NormII_diff<<std::endl;
-  std::cout<<" The relative error NormI :"<<NormI_diff/NormI_Dan/row/row2<<" Norm II : "<<NormII_diff/NormII_Dan/row/row2<<std::endl;
-  // TODO: we should  add an AssertEqual function here 
-}
-
-template<typename Real>
-static void TestTime () {
-  clock_t start1;
-  clock_t start2;
-  double time1;
-  double time2;
-  double diff;
-  int i;
-  //diff = ( std::clock() - start ) / (double)CLOCKS_PER_SEC;                                                                                                                                 
-  //std::cout<<"time is"<<diff<<std::endl;                                                                                                                                                    
-
-  //int32  row = 7 + rand() % 5;                                                                                                                                                              
-  //int32  col = 15 + rand() % 7;                                                                                                                                                             
-  int32 row = 2000;
-  int32 col = 2000;
-
-  Matrix<Real> M1(row, col);
-  GenerateMatrix4U(M1);
-  //ShowMatrix(M1);                                                                                                                                                                           
-
-  int32 row2 = 15 + rand() % 4;
-  Matrix<Real> M2(row2,col);
-  GenerateMatrix4S(M2);
-  //ShowMatrix(M2);                                                                                                                                                                           
-  std::cout <<" A column is : "<<col<<std::endl ;
-  Matrix<Real> M(row,row2);
-
-  start1 = std::clock();
-  for (i = 1 ; i<10; i++){M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);}
-  time1 = ( std::clock() - start1 ) / (double)CLOCKS_PER_SEC;
-
-  //ShowMatrix(M);                                                                                                                                                                            
-
-  CharacterMatrix<unsigned char> Mc1;
-  Mc1.CopyFromMat(M1);
-  CharacterMatrix<signed char> Mc2;
-  Mc2.CopyFromMat(M2);
-
-
-  Matrix<Real> Mc(row,row2);
-
-  start2 = std::clock();
-  for (i = 1 ; i<10; i++){ Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0); }
-  time2 = ( std::clock() - start2 ) / (double)CLOCKS_PER_SEC;
-
-  //ShowMatrix(Mc);                                                                                                                                                                           
-
-  std::cout<<"The time cost by 100 normal matrix multiplication is :"<<time1<<std::endl;
-  std::cout<<" The time cost by 100 fast matrix multiplication is : "<<time2<<std::endl;
-  // TODO: we should  add an AssertEqual function here                                                                                                                                        
-}
-
-
-template<typename Real>
-static void TestError (int32 MatNum) {
- Real error_avg = static_cast<Real> (0);
- Real error_std = static_cast<Real> (0);
- std::cout<<" Number Of Matrices : "<<MatNum<<std::endl;
- std::vector<Real> v(MatNum);
- srand(time(NULL));
- for(int32 i = 0; i< MatNum; ++i) {
-  // srand(time(NULL));
-   int32  row = 100 + rand() % 10;
-   int32  col = 100 + rand() % 10;
-   Matrix<Real> M1(row, col);
-   GenerateMatrix4U(M1);
+static void TestAddMatMatError(int32 MatNum ) {
+  Real error_avg = static_cast<Real> (0);
+  Real error_std = static_cast<Real> (0);
+  std::ostringstream os;
+  os << "temp_err_sum_" << MatNum;
+  Output ko(os.str(), false, false);
+ 
+  srand(time(NULL));
+  ko.Stream() << " Number Of Matrices : " << MatNum << "\n";
+  std::vector<Real> v(MatNum);
+  for(int32 i = 0; i< MatNum; ++i) {
+    // srand(time(NULL));
+    int32  row = 100 + rand() % 10;
+    int32  col = 100 + rand() % 10;
+    Matrix<Real> M1(row, col);
+    GenerateMatrix4U(M1);
    
-   int32 row2 = 100 + rand() % 10;
-   Matrix<Real> M2(row2,col);
-   GenerateMatrix4S(M2);
+    int32 row2 = 100 + rand() % 10;
+    Matrix<Real> M2(row2,col);
+    GenerateMatrix4S(M2);
 
-   Matrix<Real> M(row,row2);
-   M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
+    Matrix<Real> M(row,row2);
+    M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
    
-   CharacterMatrix<unsigned char> Mc1;
-   Mc1.CopyFromMat(M1);
-   CharacterMatrix<signed char> Mc2;
-   Mc2.CopyFromMat(M2);
-   Matrix<Real> Mc(row,row2);
-   Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
-   Matrix<Real> diff(M);
-   Matrix<Real> Identity(row2,row2);
-   GenerateMatrixI(Identity);
-   diff.AddMatMat(1.0, Mc, kNoTrans, Identity, kNoTrans, -1.0);
+    CharacterMatrix<unsigned char> Mc1;
+    Mc1.CopyFromMat(M1);
+    CharacterMatrix<signed char> Mc2;
+    Mc2.CopyFromMat(M2);
+    Matrix<Real> Mc(row,row2);
+    Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    Matrix<Real> diff(M);
+    Matrix<Real> Identity(row2,row2);
+    GenerateMatrixI(Identity);
+    diff.AddMatMat(1.0, Mc, kNoTrans, Identity, kNoTrans, -1.0);
 
-   Real NormI_Dan;
-   Real NormII_Dan;
-   Norm(M, &NormI_Dan, &NormII_Dan); 
-   Real NormI_diff;
-   Real NormII_diff;
-   Norm( diff, &NormI_diff, &NormII_diff);
-   //std::cout<<" Initial Matrix: NormI: "<<NormI_Dan<<" Norm II : "<<NormII_Dan<<std::endl;
-   //std::cout<<" The error Matrix: NormI: "<<NormI_diff<<" Norm II : "<<NormII_diff<<std::endl;
-   std::cout<<" The relative error NormI :"<<NormI_diff/NormI_Dan/row/row2<<" Norm II : "<<NormII_diff/NormII_Dan/row/row2<<std::endl;
-   v[i] = NormII_diff/NormII_Dan/row/row2 ;
-   error_avg += v[i];
-   sleep(1);
-}
-   //sleep(1);
-   error_avg = error_avg/MatNum;
-   for(int32 i = 0; i< MatNum; ++i) {
+    Real NormI_Dan;
+    Real NormII_Dan;
+    Norm(M, &NormI_Dan, &NormII_Dan); 
+    Real NormI_diff;
+    Real NormII_diff;
+    Norm( diff, &NormI_diff, &NormII_diff);
+    //std::cout<<" Initial Matrix: NormI: "<<NormI_Dan<<" Norm II : "<<NormII_Dan<<std::endl;
+    //std::cout<<" The error Matrix: NormI: "<<NormI_diff<<" Norm II : "<<NormII_diff<<std::endl;
+    ko.Stream() << " The relative error NormI :"
+       << NormI_diff/NormI_Dan/row/row2 
+       << " Norm II : " << NormII_diff/NormII_Dan/row/row2<<std::endl;
+    v[i] = NormII_diff/NormII_Dan/row/row2 ;
+    error_avg += v[i];
+    sleep(1);
+  }
+  error_avg = error_avg/MatNum;
+  for(int32 i = 0; i< MatNum; ++i) {
      error_std += pow((v[i]-error_avg), 2);
-   }
-   error_std = pow( error_std/MatNum, 0.5);
-   std::cout<<" Average Error is : "<<error_avg<<" Standard Deviation : "<<error_std<<std::endl; 
-} 
+  }
+  error_std = pow( error_std/MatNum, 0.5);
+  ko.Stream() << " Average Error is : " 
+     << error_avg << " Standard Deviation : "
+     << error_std << std::endl; 
+  ko.Close();
 }
+//
+template<typename Real>
+static void TestAddMatMatTime (int32 numTest) {
+  std::ostringstream os;
+  os << "temp_time_sum_" << numTest;
+  Output ko(os.str(), false,false);
+
+  double tot_ft1 = 0, 
+         tot_ft2 = 0;
+  for(int32 i =0; i < numTest; i++) {
+    ko.Stream() << "\nround " << i+1 << "\n";
+    int32  row = 2000 + rand() % 5;
+    int32  col = 2000 + rand() % 7;
+
+    Matrix<Real> M1(row, col);
+    GenerateMatrix4U(M1);
+    int32 row2 = 400 + rand() % 4;
+    Matrix<Real> M2(row2,col);
+    GenerateMatrix4S(M2);
+    Matrix<Real> M(row,row2);
+    clock_t start = std::clock();
+    M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
+    tot_ft1 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+
+    ko.Stream() << "\nMax=" << M.Max()
+              << ", Min=" << M.Min() << "\n";
+
+    CharacterMatrix<unsigned char> Mc1;
+    Mc1.CopyFromMat(M1);
+    CharacterMatrix<signed char> Mc2;
+    Mc2.CopyFromMat(M2);
+    Matrix<Real> Mc(row,row2);
+    start = std::clock();   
+    Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    ko.Stream() << "\ncMax=" << Mc.Max()
+              << ", cMin=" << Mc.Min() << "\n";
+
+    sleep(1);
+  }
+  ko.Stream() << "\nfloat_AddMatMat=" << tot_ft1 
+            << ", char_AddMatMat=" << tot_ft2 
+            << ",rate=" << tot_ft2/tot_ft1 << "\n";
+  ko.Close();
+}
+
+
+} // kaldi namespace
+
 int main() {
-  std::cout<<" float test : "<<std::endl ;
- //  kaldi::TestCopyMat01<float>();
- // kaldi::TestCopyMat01<double>();
-  //kaldi::TestAddMatMat<float>(); 
- // std::cout<<" double test : "<<std::endl ;
-  kaldi::TestError<float>(100);
-  kaldi::TestTime<float>();
+  kaldi::TestAddMatMatError<float>(100);
+  kaldi::TestAddMatMatTime<float>(10); 
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }

@@ -238,49 +238,7 @@ void MatrixBase<double>::AddMatMat(const double alpha,
               alpha, A.data_, A.stride_, B.data_, B.stride_,
               beta, data_, stride_);
 }
-template<typename Real>
-template<typename U, typename T>
-void MatrixBase<Real>::AddMatMat(Real alpha, 
-                 const CharacterMatrix<U> &M1, 
-                 MatrixTransposeType tM1, 
-                 const CharacterMatrix<T> & M2, 
-                 MatrixTransposeType tM2, 
-                 const Real beta) {
-  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
-               || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
-  KALDI_ASSERT(&M1 !=  this && &M2 != this);
-  if(tM1 == kTrans)
-    M1.Transpose();
-  if(tM2 == kNoTrans) // since we need transpose it
-    M2.Transpose();
-  
-  // pre-calculate some constant/
-  float mul_inc = M1.incremental_ * M2. incremental_,
-  low_t2 = static_cast<float>(std::numeric_limits<T>::min()),
-  coef1 = M2.min_ / M1.incremental_ - low_t2 /mul_inc,
-  coef2 = M1.min_ / M2.incremental_ ,
-  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
-  // define a 'unit' vector to compute vector component sumary
-  CharacterMatrix<T> Mt;
-  Mt.Resize(1, M1.num_cols_, 1);
-  for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
-    for(MatrixIndexT col = 0; col < M2.NumRows(); ++ col) {
-      short x1 = CharacterMatrix<T>::Sse4DotProduct(M1.data_ + row * M1.stride_,
-                               M2.data_ + col * M2.stride_, M1.num_cols_);
-      short x2 = CharacterMatrix<T>::Sse4DotProduct(M1.data_ + row * M1.stride_,
-                                                    Mt.data_, M1.num_cols_);
-      short x3 = CharacterMatrix<T>::Sse4DotProduct(Mt.data_, 
-                                                    M2.data_ + col * M2.stride_,
-                                                    M1.num_cols_);
-      (*this)(row, col) = static_cast<Real>( beta * (*this)(row, col) +
-                                             alpha * (static_cast<float>(x1) / mul_inc +
-                                             coef1 * x2 + coef2 * x3 + gconst * M1.num_cols_ ));
-					     /*coef1 * x3 + coef2 * x2 + gconst * M1.num_cols_ );*/
-    }
-  }
-}
+
 template <>
 template <>
 void MatrixBase<float>:: AddMatMat(float alpha,
@@ -301,33 +259,30 @@ void MatrixBase<float>::AddMatMat(float alpha,
                || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
                || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
   
-  if(tM1 == kTrans)
-    M1.Transpose();
-  if(tM2 == kNoTrans) // since we need transpose it
-    M2.Transpose();
-  
+  if(tM2 != kTrans) // since we need transpose it
+    KALDI_ERR << "Pre-transposed M2 expected";
+
   // pre-calculate some constant
   float mul_inc = M1.incremental_ * M2. incremental_,
   low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
   coef1 = M2.min_ / M1.incremental_ - low_t2 /mul_inc,
   coef2 = M1.min_ / M2.incremental_ ,
   gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
-  // coef1 = M1.min_ ,
-  //coef2 = (-low_t2 / M2.incremental_+M2.min_) ,
-  //gconst = coef1*coef2 ;//M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
- // define a 'unit' vector to compute vector component summary
   CharacterMatrix<signed char> Mt;
   Mt.Resize(1, M1.num_cols_, 1);
+
   for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
     for(MatrixIndexT col = 0; col < M2.NumRows(); ++ col) {
       int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
                                M2.data_ + col * M2.stride_, M1.num_cols_);
-      int x2 = M1.CharacterMatrix::Sse4SumArray(M1.data_ + row * M1.stride_,
-                                  M1.num_cols_);
-      int x3 = M2.CharacterMatrix::Sse4SumArray(M2.data_ + col * M2.stride_,
-                                                    M1.num_cols_);
+      // int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+      int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
+      // int x3 = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
+      int x3 = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
 
-      (*this)(row, col) = static_cast<float>( beta * (*this)(row, col) +
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  /* (*this)(row, col) */
+
+       *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1) / mul_inc +
   					     coef1 * x2 + coef2 * x3 + gconst * M1.num_cols_ ));
     }

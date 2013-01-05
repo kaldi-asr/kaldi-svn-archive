@@ -24,7 +24,7 @@ $(LIBFILE): $(OBJFILES)
 	$(RANLIB) $(LIBFILE)
 
 
-$(TESTFILES): $(LIBFILE) ../base/kaldi-base.a
+$(TESTFILES): $(LIBFILE) ../base/kaldi-base.a ../util/kaldi-util.a
 
 
 # Rule below would expand to, e.g.:

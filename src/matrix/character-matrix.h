@@ -37,8 +37,107 @@ namespace  kaldi {
 
 // From Dan: you should eventually make this an inline function to avoid the
 // overhead fo function call.
-int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length);
+inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
+  int i;
+  __m128i c, lo, hi;
+  __m128i *e, *f;
+  __m128i sum = _mm_setzero_si128();
+  int result;
+  
+  for (i = 0; i < length; i += 16) {
+    e = (__m128i*)(x+i);
+    f = (__m128i*)(y+i);
+    c = _mm_maddubs_epi16(e[0], f[0]); // performs dot-product in 2X2 blocks
+    
+    // unpack the 4 lowest 16-bit integers into 32 bits.
+    lo = _mm_cvtepi16_epi32(c);
+    // unpack the 4 highest 16-bit integers into 32 bits.
+    hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+    sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
+  }
+  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+  
+  result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
+  
+  return result;
+}
 
+inline int Sse4SumArray(unsigned char *x, MatrixIndexT length) {
+  int i;
+  __m128i lo, hi;
+  __m128i *e;
+  __m128i c = _mm_setzero_si128();
+  //__m128i tmpsum = _mm_setzero_si128();
+  __m128i sum = _mm_setzero_si128();
+
+  // const __m128i vk0 = _mm_set1_epi8(0);       // constant vector of all 0s for use with _mm_unpacklo_epi8/_mm_unpackhi_epi8
+  int result;
+
+  for (i=0; i<length; i+=16) {
+    e = (__m128i*)(x+i);
+
+    // unpack the 8 lowest 8-bit integers into 16 bits.
+    // lo = _mm_unpacklo_epi8(e[0],vk0);
+    lo = _mm_cvtepi8_epi16(e[0]);
+    // unpack the 8 highest 8-bit integers into 16 bits.
+    //   hi = _mm_unpackhi_epi8(e[0],vk0);
+    hi = _mm_cvtepi8_epi16(_mm_shuffle_epi32(e[0], 0x4e));
+
+    c = _mm_hadd_epi16(lo, hi);
+
+    // unpack the 4 lowest 16-bit integers into 32 bits.
+    lo = _mm_cvtepi16_epi32(c);
+    // unpack the 4 highest 16-bit integers into 32 bits.
+    hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+
+    sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
+  }
+  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+
+  result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
+
+  return result;
+}
+
+inline int Sse4SumArray(signed char *x, MatrixIndexT length) {
+  int i;
+  __m128i lo, hi;
+  __m128i *e;
+  __m128i c = _mm_setzero_si128();
+  //__m128i tmpsum = _mm_setzero_si128();
+  __m128i sum = _mm_setzero_si128();
+
+  // const __m128i vk0 = _mm_set1_epi8(0);       // constant vector of all 0s for use with _mm_unpacklo_epi8/_mm_unpackhi_epi8
+  int result;
+
+  for (i=0; i<length; i+=16) {
+    e = (__m128i*)(x+i);
+
+    // unpack the 8 lowest 8-bit integers into 16 bits.
+    // lo = _mm_unpacklo_epi8(e[0],vk0);
+    lo = _mm_cvtepi8_epi16(e[0]);
+    // unpack the 8 highest 8-bit integers into 16 bits.
+    //   hi = _mm_unpackhi_epi8(e[0],vk0);
+    hi = _mm_cvtepi8_epi16(_mm_shuffle_epi32(e[0], 0x4e));
+
+    c = _mm_hadd_epi16(lo, hi);
+
+    // unpack the 4 lowest 16-bit integers into 32 bits.
+    lo = _mm_cvtepi16_epi32(c);
+    // unpack the 4 highest 16-bit integers into 32 bits.
+    hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+
+    sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
+  }
+  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+
+  result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
+
+  return result;
+}
 
 template<typename T>
 class CharacterMatrix{
@@ -136,7 +235,6 @@ class CharacterMatrix{
   template<typename Real>
   void RecoverMatrix(Matrix<Real> &M);
  
-  int Sse4SumArray(T *x, MatrixIndexT length);
 };
  
 template<typename T>
@@ -254,57 +352,6 @@ void CharacterMatrix<T>::RecoverMatrix(Matrix<Real> &M) {
     }
   }
 }
-
-template<typename T>
-void CharacterMatrix<T>::Transpose() {
-  if(num_rows_ != num_cols_) {
-
-  } else {
-
-  }
-}
-
-
-template<typename T>
-int CharacterMatrix<T>::Sse4SumArray(T *x, MatrixIndexT length) {
-    int i;
-    __m128i lo, hi;
-    __m128i *e;
-    __m128i c = _mm_setzero_si128();
-    __m128i tmpsum = _mm_setzero_si128();
-    __m128i sum = _mm_setzero_si128();
-
-    const __m128i vk0 = _mm_set1_epi8(0);       // constant vector of all 0s for use with _mm_unpacklo_epi8/_mm_unpackhi_epi8
-    int result;
-
-    for (i=0; i<length; i+=16) {
-        e = (__m128i*)(x+i);
-
-        // unpack the 8 lowest 8-bit integers into 16 bits.
-        //lo = _mm_unpacklo_epi8(e[0],vk0);
-        lo = _mm_cvtepi8_epi16(e[0]);
-        // unpack the 8 highest 8-bit integers into 16 bits.
-//        hi = _mm_unpackhi_epi8(e[0],vk0);
-        hi = _mm_cvtepi8_epi16(_mm_shuffle_epi32(e[0], 0x4e));
-
-        c = _mm_hadd_epi16(lo, hi);
-
-        // unpack the 4 lowest 16-bit integers into 32 bits.
-        lo = _mm_cvtepi16_epi32(c);
-        // unpack the 4 highest 16-bit integers into 32 bits.
-        hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
-
-        sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
-    }
-    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-
-    result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
-
-    return result;
-}
-
-
 
 template <typename T>
 CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) {
