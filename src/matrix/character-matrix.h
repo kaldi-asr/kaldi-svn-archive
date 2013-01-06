@@ -178,7 +178,7 @@ class CharacterMatrix{
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
   CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
-    Resize(r, c ,value); 
+    Resize(r, c); 
   }
   
   // Pegah : CopyFromCharacterMatrix doesn't work!
@@ -197,7 +197,7 @@ class CharacterMatrix{
   // it acts like it stores real.
   T&  operator() (MatrixIndexT r, MatrixIndexT c) {
    //std::cout<<" r : "<<r<<" c : "<<c<<" num rows : "<<num_rows_<<" um cols : "<<num_cols_<<std::endl ;
-   assert(r < num_rows_ && c < num_cols_) ;
+   //assert(r < num_rows_ && c < num_cols_) ;
    return *(data_ + r * stride_ + c);
   }
   const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
@@ -215,12 +215,10 @@ class CharacterMatrix{
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
   void SetZero();
-  // from Dan: the next function will probably not be needed.
-  void Set(T value);
     
   // from Dan: you can remove the last argument to Resize; try to make the
   // interface like that of Matrix, where Resize takes a typedef (look at it.)
-  void Resize(MatrixIndexT, MatrixIndexT, const T&);
+  void Resize(MatrixIndexT, MatrixIndexT);
 
   // From Dan: the following function probably won't be needed, but one day it
   // might be useful so it's OK to define it.  If you initialize with kTrans from
@@ -240,14 +238,9 @@ class CharacterMatrix{
  
 template<typename T>
 void CharacterMatrix<T>::SetZero() {
-  if (num_cols_ == stride_){
-    memset(data_, 0, sizeof(T)*num_rows_*num_cols_);
-  } else {
-    for (MatrixIndexT row = 0; row < num_rows_; row++) {
-      memset(data_ + row*stride_, 0, sizeof(T)*num_cols_);
-    }
-  }
+  memset(data_, 0, sizeof(T)*num_rows_*stride_);
 }
+
 template<class T>
 T CharacterMatrix<T>::Max() const {
   assert(num_rows_ > 0 && num_cols_ > 0);
@@ -271,16 +264,7 @@ T CharacterMatrix<T>::Min() const {
 }
 
 template<typename T>
-void CharacterMatrix<T>::Set(T value) {
-  for (MatrixIndexT row = 0; row < num_rows_; row++) {
-    for (MatrixIndexT col = 0; col < num_cols_; col++) {
-      (*this)(row, col) = value;
-    }
-  }
-}
-
-template<typename T>
-void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& value)
+void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
 {
   MatrixIndexT skip;
   MatrixIndexT real_cols;
@@ -305,13 +289,13 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols, const T& v
   num_rows_ = rows;
   num_cols_ = cols;
   stride_  = real_cols;
-  this->Set(value);
+  this->SetZero();
 }
 
 template<typename T>
 template<typename Real>
 void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
-  Resize(M.NumRows(),M.NumCols(),0);
+  Resize(M.NumRows(),M.NumCols());
   Real min = M.Min(), max = M.Max(); 
        min_ = static_cast<float>(min);
 
@@ -357,7 +341,7 @@ void CharacterMatrix<T>::RecoverMatrix(Matrix<Real> &M) {
 template <typename T>
 CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) {
   if (CharacterMatrix<T>::NumRows() != rhs.NumRows() || CharacterMatrix<T>::NumCols() != rhs.NumCols()) {
-    Resize(rhs.NumRows(), rhs.NumCols(), 0);
+    Resize(rhs.NumRows(), rhs.NumCols());
   }
   std::cout<<" we are here in operator= "<<std::endl ;
   CharacterMatrix<T>::CopyFromCharacterMatrix(rhs,"kNoTrans");
