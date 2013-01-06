@@ -36,7 +36,7 @@
 namespace  kaldi {
 
 inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
-    int i;
+ /*   int i;
     __m128i c, lo, hi;
     __m128i *e, *f;
     __m128i sum = _mm_setzero_si128();
@@ -58,9 +58,8 @@ inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
     
     result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
     
-    return result;
+    return result;   */
 
-/*
 
     int i;
     __m128i c1, lo1, hi1, c2, lo2, hi2, c3, lo3, hi3, c4, lo4, hi4;
@@ -127,7 +126,7 @@ inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
     
     result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
     
-    return result;  */
+    return result;  
  
 }
 
@@ -229,9 +228,10 @@ class CharacterMatrix{
   // From Dan: Google style guide does not allow such un-informative names.
   // Consider CharToReal and RealToChar.  And they should be inline functions for speed.
    template<typename Real>
-  Real T2R(const T t);
+  inline Real CharToReal(const T t);
+  
   template<typename Real>
-  T R2T(const Real r);
+  inline T RealToChar(const Real r);
  public:
   //constructors & destructor:
   CharacterMatrix() {
@@ -250,7 +250,7 @@ class CharacterMatrix{
   
   // Pegah : CopyFromCharacterMatrix doesn't work!
   // From Dan: what is "kNoTrans" still doing here?
-  CharacterMatrix(const CharacterMatrix& m) { CopyFromCharacterMatrix(m, "kNoTrans"); } // copy constructor
+  CharacterMatrix(const CharacterMatrix& m) { } // copy constructor
   ~CharacterMatrix() { 
     //cout<<"destructor called"<<endl;
     free(data_);
@@ -270,14 +270,11 @@ class CharacterMatrix{
   const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
     return *(data_ + r * stride_ + c);
   }
-  // From Dan: delete this function:
-  inline iter begin() const { return data_ ; } 
+  
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_cols_; }
   inline MatrixIndexT Stride() const { return stride_; }
-  // From Dan: the next 2 functions are probably not going to be needed.
-  T Min() const ;
-  T Max() const ;
+  
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
@@ -299,35 +296,14 @@ class CharacterMatrix{
   // From Dan: Google style guide does not allow non-const references, you should use a pointer.
   // But this should probably be called CopyToMat instead of RecoverMatrix.
   template<typename Real>
-  void RecoverMatrix(Matrix<Real> &M);
- 
+  void CopyToMat(Matrix<Real> *M);
+  // test, to be removed
+  float T2R(const T &t);
 };
  
 template<typename T>
 void CharacterMatrix<T>::SetZero() {
   memset(data_, 0, sizeof(T)*num_rows_*stride_);
-}
-
-template<class T>
-T CharacterMatrix<T>::Max() const {
-  assert(num_rows_ > 0 && num_cols_ > 0);
-  T ans= *data_;
-  for (MatrixIndexT r = 0; r < num_rows_; r++)
-    for (MatrixIndexT c = 0; c < num_cols_; c++)
-      if (data_[c + stride_*r] > ans)
-        ans = data_[c + stride_*r];
-  return ans;
-}
-
-template<class T>
-T CharacterMatrix<T>::Min() const {
-  assert(num_rows_ > 0 && num_cols_ > 0);
-  T ans= *data_;
-  for (MatrixIndexT r = 0; r < num_rows_; r++)
-    for (MatrixIndexT c = 0; c < num_cols_; c++)
-      if (data_[c + stride_*r] < ans)
-        ans = data_[c + stride_*r];
-  return ans;
 }
 
 template<typename T>
@@ -361,6 +337,29 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
 
 template<typename T>
 template<typename Real>
+inline Real CharacterMatrix<T>::CharToReal(const T t) {
+  int32 lower = std::numeric_limits<T>::min();
+  Real x = static_cast<Real>(min_ + (t - lower) / incremental_);
+  return x;
+}
+
+template<typename T>
+template<typename Real>
+T CharacterMatrix<T>::RealToChar(const Real r) {
+  int32 lower = std::numeric_limits<T>::min();
+  T t = static_cast<T>((r - min_) * incremental_ + lower);
+  return t; 
+}
+// test function, to be removed
+template<typename T>
+float CharacterMatrix<T>::T2R(const T &t) {
+  int32 lower = std::numeric_limits<T>::min();
+  float x = static_cast<float>(min_ + (t - lower) / incremental_);
+  return x;
+}
+
+template<typename T>
+template<typename Real>
 void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
   Resize(M.NumRows(),M.NumCols());
   Real min = M.Min(), max = M.Max(); 
@@ -372,35 +371,19 @@ void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
 
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
-      (*this)(row, col) = R2T<Real>(M(row, col));
+      (*this)(row, col) = RealToChar<Real>(M(row, col));
     }
   }
-}
-
-template<typename T>
-template<typename Real>
-Real CharacterMatrix<T>::T2R(const T t) {
-  int32 lower = std::numeric_limits<T>::min();
-  Real x = static_cast<Real>(min_ + (t - lower) / incremental_);
-  return x;
-}
-
-template<typename T>
-template<typename Real>
-T CharacterMatrix<T>::R2T(const Real r) {
-  int32 lower = std::numeric_limits<T>::min();
-  T t = static_cast<T>((r - min_) * incremental_ + lower);
-  return t; 
 }
 
 // Recover floating matrix  from char matrix
 template<typename T>
 template<typename Real>
-void CharacterMatrix<T>::RecoverMatrix(Matrix<Real> &M) {
-  M.Resize(num_rows_, num_cols_);
-  for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
-    for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
-      M(row, col) = T2R<Real>((*this)(row, col));
+void CharacterMatrix<T>::CopyToMat(Matrix<Real> *M) {
+  M->Resize(num_rows_, num_cols_);
+  for (MatrixIndexT row = 0; row < M->NumRows(); row++) {
+    for (MatrixIndexT col = 0; col < M->NumCols(); col++) {
+      (*M)(row, col) = CharToReal<Real>((*this)(row, col));
     }
   }
 }

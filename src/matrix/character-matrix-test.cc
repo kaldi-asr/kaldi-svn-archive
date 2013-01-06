@@ -110,6 +110,32 @@ static void ShowMatrix(const Matrix<Real> &M) {
     std::cout << "\n";
   }
 }
+template<typename Real>
+static void ShowMatrix2(std::ostream &os, const Matrix<Real> &M, std::string &note) {
+  os << note;
+  os << "row=" << M.NumRows()
+            << ", col=" << M.NumCols()
+            << "\nmax=" << M.Max() 
+            <<", min=" <<M.Min() 
+            <<", incremental="  << 255.0 / (M.Max() - M.Min()) << "\n";
+  for(int32 row = 0; row < M.NumRows(); ++row) {
+    for(int32 col = 0; col < M.NumCols(); ++col) {
+      // os << M(row,col) << " ";
+    }
+    // os << "\n";
+  }
+}
+template<typename Real>
+static Real NormDiff(std::ostream &os, const Matrix<Real> &M1, 
+                     const Matrix<Real> &M2, const std::string  &note) {
+  os << note;
+  Matrix<Real> diff(M1);
+  diff.AddMat(-1.0, M2);
+
+  Real rel_error = diff.FrobeniusNorm() / M1.FrobeniusNorm();
+  os << " The relative error is " << rel_error << "\n";
+  return rel_error;
+}
 //
 template<typename Real> 
 static void TestCopyMat02() {
@@ -128,7 +154,7 @@ static void TestCopyMat02() {
   CharacterMatrix<unsigned char> C;
   C.CopyFromMat(M);
   Matrix<Real> M1;
-  C.RecoverMatrix(M1);
+  C.CopyToMat(&M1);
   for(int32 i = 0; i < M1.NumRows() ; i++) {
     for(int32 j = 0; j < M1.NumCols(); j++) {
       Real x = M1(i,j);
@@ -156,28 +182,53 @@ static void TestAddMatMatError(int32 MatNum ) {
     int32  col = 100 + rand() % 10;
     Matrix<Real> M1(row, col);
     M1.SetRandn();
-    //GenerateMatrix4U(M1);
-   
+    // GenerateMatrix4U(M1);
+    ko.Stream() << "\n=================" << "round " << i+1 << "==========================\n";
+    std::string note("---------M1----------\n");
+    ShowMatrix2<Real>(ko.Stream(), M1, note); 
+
     int32 row2 = 100 + rand() % 10;
     Matrix<Real> M2(row2,col);
     M2.SetRandn();
-    //GenerateMatrix4S(M2);
-
-    Matrix<Real> M(row,row2);
+    // GenerateMatrix4S(M2);
+    std::string note1("--------M2-------------\n");
+    ShowMatrix2<Real>(ko.Stream(), M2, note1);
+    Matrix<Real> M(row, row2);
     M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
    
     CharacterMatrix<unsigned char> Mc1;
     Mc1.CopyFromMat(M1);
+    // let us take a look what has happened 
+    // when we copy back from char to float matrix
+    Matrix<Real> Mc2r1;
+    Mc1.CopyToMat(&Mc2r1);
+    std::string note3("---------Mc2r1 (from Mc1)----------\n");
+    ShowMatrix2<Real>(ko.Stream(), Mc2r1, note3);
+    std::string note4("--------M1 vs Mc2r1 -------------\n");
+    NormDiff<Real>(ko.Stream(), M1, Mc2r1, note4);
+
     CharacterMatrix<signed char> Mc2;
     Mc2.CopyFromMat(M2);
+   
+    Matrix<Real>Mc2r2;
+    Mc2.CopyToMat(&Mc2r2);
+    std::string note5("---------Mc2r2 (from Mc2)-----------\n");
+    ShowMatrix2<Real>(ko.Stream(), Mc2r2, note5);
+    std::string note7("--------M2 vs Mc2r2 -------------\n");
+    NormDiff<Real>(ko.Stream(), M2, Mc2r2, note7);
+
     Matrix<Real> Mc(row,row2);
     Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
-    Matrix<Real> diff(M);
-    diff.AddMat(-1.0, Mc);
-
-    Real rel_error = diff.FrobeniusNorm() / M.FrobeniusNorm();
-    ko.Stream() << " The relative error is " << rel_error;
+    std::string note6("-----------M vs Mc --------\n");
+    Real rel_error = NormDiff<Real>(ko.Stream(), M, Mc, note6);
     error_avg += rel_error;
+ 
+    // test  Sse4DotProduct function, this should be separately tested
+    Matrix<Real> Mc_naked2(row,row2);
+    Mc_naked2.AddMatMat2(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    std::string note8("---------Mc vs Mc_naked(for Sse4DotProduct)----\n");
+    NormDiff<Real>(ko.Stream(), Mc, Mc_naked2, note8);
+
     sleep(1);
   }
   error_avg = error_avg/MatNum;

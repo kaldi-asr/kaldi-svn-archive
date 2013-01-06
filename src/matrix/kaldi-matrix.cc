@@ -295,6 +295,38 @@ void MatrixBase<float>::AddMatMat(float alpha,
   }
 }
 
+template <>
+void MatrixBase<float>:: AddMatMat2(float alpha,
+                                   CharacterMatrix<unsigned char> &M1,
+                                   MatrixTransposeType tM1, 
+                                   CharacterMatrix<signed char> &M2,
+                                   MatrixTransposeType tM2,
+                                   float beta) {
+  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
+               || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
+  
+  if(tM2 != kTrans) // since we need transpose it
+    KALDI_ERR << "Pre-transposed M2 expected";
+
+  for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
+    for(MatrixIndexT col = 0; col < M2.NumRows(); ++ col) {
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  /* (*this)(row, col) */
+      *this_data = 0;
+      for(MatrixIndexT j = 0; j < M2.NumCols(); ++j) {
+        unsigned char  u =  *(M1.data_ + row * M1.stride_ + j);
+        signed char s = *(M2.data_ + col * M2.stride_ + j);
+        float fu = M1.T2R(u);
+        float fs = M2.T2R(s);
+       *this_data += fu*fs; 
+      }
+    }
+  }
+}
+
+
+
 template<>
 void MatrixBase<float>::AddSpSp(const float alpha, const SpMatrix<float> &A_in,
                                 const SpMatrix<float> &B_in, const float beta) {

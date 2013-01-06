@@ -384,7 +384,7 @@ class MatrixBase {
                  const MatrixBase<Real>& A, MatrixTransposeType transA,
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
- 
+ // [hhx] the following function should use template  
   template<typename U, typename T>
   void AddMatMat(Real alpha, 
                  const CharacterMatrix<U> &M1, 
@@ -399,6 +399,13 @@ class MatrixBase {
                  CharacterMatrix<signed char> & M2, 
                  MatrixTransposeType tM2, 
                  const Real beta); 
+// [hhx] for test to be removed
+  void AddMatMat2(Real alpha, 
+                 CharacterMatrix<unsigned char> &M1, 
+                 MatrixTransposeType tM1, 
+                 CharacterMatrix<signed char> & M2, 
+                 MatrixTransposeType tM2, 
+                 const Real beta);
 
   /// this <-- beta*this + alpha*A*B*C.
   void AddMatMatMat(const Real alpha,
