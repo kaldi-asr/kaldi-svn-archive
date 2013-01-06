@@ -36,32 +36,99 @@
 namespace  kaldi {
 
 inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
-  int i;
-  __m128i c, d, lo, hi;
-  __m128i *e, *f;
-  __m128i sum = _mm_setzero_si128();
-  int result;
-  
-  for (i = 0; i < length; i += 16) {
-    e = (__m128i*)(x+i);
-    f = (__m128i*)(y+i);
-    c = _mm_maddubs_epi16(e[0], f[0]); // performs dot-product in 2X2 blocks
+/*    int i;
+    __m128i a, b, c, lo, hi;
+    __m128i *e, *f;
+    __m128i sum = _mm_setzero_si128();
+    short result;
+    
+    for (i=0; i<length; i+=16) {
+        e = (__m128i*)(x+i);
+        f = (__m128i*)(y+i);
+        c = _mm_maddubs_epi16(e[0], f[0]); // performs dot-product in 2X2 blocks
+        
+        // unpack the 4 lowest 16-bit integers into 32 bits.
+        lo = _mm_cvtepi16_epi32(c);
+        // unpack the 4 highest 16-bit integers into 32 bits.
+        hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
+    }
+    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+    
+    result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
+    
+    return result;
+*/
 
-    // unpack the 4 lowest 16-bit integers into 32 bits.
-    lo = _mm_cvtepi16_epi32(c);
 
+    int i;
+    __m128i c1, lo1, hi1, c2, lo2, hi2, c3, lo3, hi3, c4, lo4, hi4;
+    __m128i *e1, *f1, *e2, *f2, *e3, *f3, *e4, *f4;
+    __m128i sum1 = _mm_setzero_si128();
+    __m128i sum2 = _mm_setzero_si128();
+    __m128i sum3 = _mm_setzero_si128();
+    __m128i sum4 = _mm_setzero_si128();
 
-    // unpack the 4 highest 16-bit integers into 32 bits.
-    hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
-    d = _mm_add_epi32(lo, sum);    
-    sum = _mm_add_epi32(d, hi);  // pass the result to sum
-  }
-  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-  sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-  
-  result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
-  
-  return result;
+    __m128i sum = _mm_setzero_si128();
+    
+    short result;
+    
+    for (i=0; i+63 < length; i+=64) {
+        e1 = (__m128i*)(x+i);
+        f1 = (__m128i*)(y+i);
+        e2 = (__m128i*)(x+i+16);
+        f2 = (__m128i*)(y+i+16);
+        e3 = (__m128i*)(x+i+32);
+        f3 = (__m128i*)(y+i+32);
+        e4 = (__m128i*)(x+i+48);
+        f4 = (__m128i*)(y+i+48);
+        
+        c1 = _mm_maddubs_epi16(e1[0], f1[0]); // performs dot-product in 2X2 blocks
+        c2 = _mm_maddubs_epi16(e2[0], f2[0]); // performs dot-product in 2X2 blocks
+        c3 = _mm_maddubs_epi16(e3[0], f3[0]); // performs dot-product in 2X2 blocks
+        c4 = _mm_maddubs_epi16(e4[0], f4[0]); // performs dot-product in 2X2 blocks
+        
+        // unpack the 4 lowest 16-bit integers into 32 bits.
+        lo1 = _mm_cvtepi16_epi32(c1);
+        lo2 = _mm_cvtepi16_epi32(c2);
+        lo3 = _mm_cvtepi16_epi32(c3);
+        lo4 = _mm_cvtepi16_epi32(c4);
+
+        // unpack the 4 highest 16-bit integers into 32 bits.
+        hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum1);  // pass the result to sum
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum2);  // pass the result to sum
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum3);  // pass the result to sum
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum4);  // pass the result to sum
+
+    }
+    for (; i<length; i+=16) {
+        e1 = (__m128i*)(x+i);
+        f1 = (__m128i*)(y+i);
+        c1 = _mm_maddubs_epi16(e1[0], f1[0]); // performs dot-product in 2X2 blocks
+        
+        // unpack the 4 lowest 16-bit integers into 32 bits.
+        lo1 = _mm_cvtepi16_epi32(c1);
+        // unpack the 4 highest 16-bit integers into 32 bits.
+        hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum1);  // pass the result to sum
+    }
+    
+    
+    
+    sum = _mm_add_epi32(_mm_add_epi32(sum1, sum2), _mm_add_epi32(sum3, sum4));
+    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+    
+    result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
+    
+    return result;
+ 
 }
 
 inline int Sse4SumArray(unsigned char *x, MatrixIndexT length) {
