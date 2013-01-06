@@ -1,4 +1,3 @@
-#include "character-matrix.h"
 #include <iostream>
 #include "kaldi-matrix.h"
 #include <cstdio>
@@ -110,6 +109,7 @@ static void ShowMatrix(const Matrix<Real> &M) {
     std::cout << "\n";
   }
 }
+
 template<typename Real>
 static void ShowMatrix2(std::ostream &os, const Matrix<Real> &M, std::string &note) {
   os << note;
@@ -120,11 +120,24 @@ static void ShowMatrix2(std::ostream &os, const Matrix<Real> &M, std::string &no
             <<", incremental="  << 255.0 / (M.Max() - M.Min()) << "\n";
   for(int32 row = 0; row < M.NumRows(); ++row) {
     for(int32 col = 0; col < M.NumCols(); ++col) {
-      // os << M(row,col) << " ";
+      os << M(row,col) << " ";
     }
-    // os << "\n";
+      os << "\n";
   }
 }
+template<typename OtherReal>
+static void ShowMatrixChar(std::ostream &os, const CharacterMatrix<OtherReal> &M, std::string &note) {
+  os << note;
+  os << "row=" << M.NumRows()
+            << ", col=" << M.NumCols() << "\n";
+  for(int32 row = 0; row < M.NumRows(); ++row) {
+    for(int32 col = 0; col < M.NumCols(); ++col) {
+      os << static_cast<int>(M(row,col)) << " ";
+    }
+      os << "\n";
+  }
+}
+
 template<typename Real>
 static Real NormDiff(std::ostream &os, const Matrix<Real> &M1, 
                      const Matrix<Real> &M2, const std::string  &note) {
@@ -291,12 +304,83 @@ static void TestAddMatMatTime (int32 numTest) {
   ko.Close();
 }
 
+template<typename Real>
+static void TestError2(int32 MatNum ) {
+  Real error_avg = static_cast<Real> (0);
+  Real error_std = static_cast<Real> (0);
+  std::ostringstream os;
+  os << "temp_err_sum_" << MatNum;
+  Output ko(os.str(), false, false);
+
+  srand(time(NULL));
+  ko.Stream() << " Number Of Matrices : " << MatNum << "\n";
+  std::vector<Real> v(MatNum);
+  for(int32 i = 0; i< MatNum; ++i) {
+  ko.Stream() << " Matrix number = "<<i<<"\n";
+  int32 row = 1;
+  int32 col = 100;
+  int32 row2 = 1;
+  Matrix<Real> M1(row, col);
+  M1.SetRandn();
+  std::string note1("---------M1----------\n");
+  ShowMatrix2<Real>(ko.Stream(), M1, note1);
+  Matrix<Real> M2(row2, col);
+  M2.SetRandn();
+  std::string note2("---------M2----------\n");
+  ShowMatrix2<Real>(ko.Stream(), M2, note2);
+  Matrix<Real> M(row, row2);
+  M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
+  std::string note3("---------M----------\n");
+  ShowMatrix2<Real>(ko.Stream(), M, note3);
+  CharacterMatrix<unsigned char> Mc1;
+  Mc1.CopyFromMat(M1);
+  std::string note4("---------Mc1----------\n");
+  ShowMatrixChar<unsigned char>(ko.Stream(), Mc1, note4);
+  CharacterMatrix<signed char> Mc2;
+  Mc2.CopyFromMat(M2);
+  std::string note5("---------Mc2----------\n");
+  ShowMatrixChar<signed char>(ko.Stream(), Mc2, note5);
+  Matrix<Real> Mc(row, row2);
+  Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+  std::string note6("---------Mc2----------\n");
+  ShowMatrix2<Real>(ko.Stream(), Mc, note6);
+  //ko.Stream()  << " Mc : " << ShowMatrix2(Mc) <<"\n" ;
+  std::cout<<"float_AddMatMat = "<<M(0,0)<<"char_AddMatMat = "<<Mc(0,0)<<std::endl;
+  
+  }
+ }
+ template<typename Real>
+ static void TestSse4DotProduct(int MatNum) {
+ int32 row  = 1;
+ int32 col = 100;
+ int32 row2 = 1;
+ for (int32 i = 0; i < MatNum; ++i) {
+ std::cout << " Matrix Number = " << i <<std::endl ;
+ Matrix<Real> M1(row, col);
+ M1.SetRandn();
+ CharacterMatrix<unsigned char> Mc1;
+ Mc1.CopyFromMat(M1);
+ 
+ Matrix<Real> M2(row, col);
+ M2.SetRandn();
+ CharacterMatrix<unsigned char> Mc2;
+ Mc2.CopyFromMat(M2);
+ Matrix<Real> Mc(row, row2);
+ int x1 ;
+ x1 = Sse4DotProduct(Mc1.begin()  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
+ std::cout << " Sse4DotProduct test, x1 = "<< x1 << std::endl ;
+ x1 = DotProduct(Mc1.begin()  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
+ std::cout << " DotProduct test, x1 = "<< x1 << std::endl ;
+ }
+ }
 
 } // kaldi namespace
 
 int main() {
-  kaldi::TestAddMatMatError<float>(5);
-  kaldi::TestAddMatMatTime<float>(3); 
+  //kaldi::TestAddMatMatError<float>(5);
+  //kaldi::TestAddMatMatTime<float>(3);
+  kaldi::TestSse4DotProduct<float>(20); 
+  //kaldi::TestError2<float>(10);
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }

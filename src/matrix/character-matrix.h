@@ -35,6 +35,14 @@
 // You may have to use "friend declarations" here, to make this work.
 namespace  kaldi {
 
+inline int DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
+ int i;
+ int sum=0;
+    for(i=0; i< length; i++) {
+        sum += x[i] * y[i];
+    }
+    return sum; 
+}
 inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
  /*   int i;
     __m128i c, lo, hi;
@@ -274,12 +282,11 @@ class CharacterMatrix{
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_cols_; }
   inline MatrixIndexT Stride() const { return stride_; }
-  
+  inline iter begin() const { return data_; }
   // [dan]: delete clear() and empty().  We can use Resize(0, 0).
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
-  void SetZero();
-    
+  void SetZero();  
   // from Dan: you can remove the last argument to Resize; try to make the
   // interface like that of Matrix, where Resize takes a typedef (look at it.)
   void Resize(MatrixIndexT, MatrixIndexT);
@@ -348,6 +355,17 @@ template<typename Real>
 T CharacterMatrix<T>::RealToChar(const Real r) {
   int32 lower = std::numeric_limits<T>::min();
   T t = static_cast<T>((r - min_) * incremental_ + lower);
+  //if((r - min_) * incremental_ + lower - t - 0.5)
+// std::cout << " t before = "<<static_cast<int>(t)<<std::endl ;
+// std::cout << " (r - min_) * incremental_ + lower = " << (r - min_) * incremental_ + lower << std::endl ; 
+ if(std::abs((r - min_) * incremental_ + lower - static_cast<Real>(t)) > 0.5)  {
+  if( (r - min_) * incremental_ + lower < static_cast<Real>(0)) {
+    t = t - static_cast<T>(1) ;
+  } else {
+    t = t + static_cast<T>(1) ;
+  }
+ }
+ //std::cout << " t after = "<<static_cast<int>(t)<<std::endl ;
   return t; 
 }
 // test function, to be removed
