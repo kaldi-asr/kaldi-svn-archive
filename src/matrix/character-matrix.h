@@ -35,11 +35,9 @@
 // You may have to use "friend declarations" here, to make this work.
 namespace  kaldi {
 
-// From Dan: you should eventually make this an inline function to avoid the
-// overhead fo function call.
 inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
   int i;
-  __m128i c, lo, hi;
+  __m128i c, d, lo, hi;
   __m128i *e, *f;
   __m128i sum = _mm_setzero_si128();
   int result;
@@ -48,12 +46,15 @@ inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
     e = (__m128i*)(x+i);
     f = (__m128i*)(y+i);
     c = _mm_maddubs_epi16(e[0], f[0]); // performs dot-product in 2X2 blocks
-    
+
     // unpack the 4 lowest 16-bit integers into 32 bits.
     lo = _mm_cvtepi16_epi32(c);
+
+
     // unpack the 4 highest 16-bit integers into 32 bits.
     hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
-    sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
+    d = _mm_add_epi32(lo, sum);    
+    sum = _mm_add_epi32(d, hi);  // pass the result to sum
   }
   sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
   sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products

@@ -155,11 +155,13 @@ static void TestAddMatMatError(int32 MatNum ) {
     int32  row = 100 + rand() % 10;
     int32  col = 100 + rand() % 10;
     Matrix<Real> M1(row, col);
-    GenerateMatrix4U(M1);
+    M1.SetRandn();
+    //GenerateMatrix4U(M1);
    
     int32 row2 = 100 + rand() % 10;
     Matrix<Real> M2(row2,col);
-    GenerateMatrix4S(M2);
+    M2.SetRandn();
+    //GenerateMatrix4S(M2);
 
     Matrix<Real> M(row,row2);
     M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
@@ -171,23 +173,11 @@ static void TestAddMatMatError(int32 MatNum ) {
     Matrix<Real> Mc(row,row2);
     Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
     Matrix<Real> diff(M);
-    Matrix<Real> Identity(row2,row2);
-    GenerateMatrixI(Identity);
-    diff.AddMatMat(1.0, Mc, kNoTrans, Identity, kNoTrans, -1.0);
+    diff.AddMat(-1.0, Mc);
 
-    Real NormI_Dan;
-    Real NormII_Dan;
-    Norm(M, &NormI_Dan, &NormII_Dan); 
-    Real NormI_diff;
-    Real NormII_diff;
-    Norm( diff, &NormI_diff, &NormII_diff);
-    //std::cout<<" Initial Matrix: NormI: "<<NormI_Dan<<" Norm II : "<<NormII_Dan<<std::endl;
-    //std::cout<<" The error Matrix: NormI: "<<NormI_diff<<" Norm II : "<<NormII_diff<<std::endl;
-    ko.Stream() << " The relative error NormI :"
-       << NormI_diff/NormI_Dan/row/row2 
-       << " Norm II : " << NormII_diff/NormII_Dan/row/row2<<std::endl;
-    v[i] = NormII_diff/NormII_Dan/row/row2 ;
-    error_avg += v[i];
+    Real rel_error = diff.FrobeniusNorm() / M.FrobeniusNorm();
+    ko.Stream() << " The relative error is " << rel_error;
+    error_avg += rel_error;
     sleep(1);
   }
   error_avg = error_avg/MatNum;
