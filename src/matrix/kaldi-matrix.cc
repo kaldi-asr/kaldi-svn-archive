@@ -269,17 +269,20 @@ void MatrixBase<float>::AddMatMat(float alpha,
   coef2 = M1.min_ / M2.incremental_ ,
   gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
   CharacterMatrix<signed char> Mt;
-  Mt.Resize(1, M1.num_cols_, 1);
+  Mt.Resize(1, M1.num_cols_);
+  for(int32 col = 0; col < M1.num_cols_; ++col) {
+    *(Mt.data_ + col) = 1;
+  }
   
   int x3[M2.NumRows()];
   for (MatrixIndexT col = 0; col < M2.NumRows(); ++col){
-    // x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
-    x3[col] = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
+    x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
+    // x3[col] = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
   }
 
   for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
-      // int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
-      int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
+    int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+    // int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
     for(MatrixIndexT col = 0; col < M2.NumRows(); ++ col) {
       int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
                                M2.data_ + col * M2.stride_, M1.num_cols_);

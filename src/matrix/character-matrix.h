@@ -36,8 +36,8 @@
 namespace  kaldi {
 
 inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
-/*    int i;
-    __m128i a, b, c, lo, hi;
+    int i;
+    __m128i c, lo, hi;
     __m128i *e, *f;
     __m128i sum = _mm_setzero_si128();
     short result;
@@ -59,8 +59,8 @@ inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
     result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
     
     return result;
-*/
 
+/*
 
     int i;
     __m128i c1, lo1, hi1, c2, lo2, hi2, c3, lo3, hi3, c4, lo4, hi4;
@@ -127,7 +127,7 @@ inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
     
     result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
     
-    return result;
+    return result;  */
  
 }
 
@@ -245,7 +245,7 @@ class CharacterMatrix{
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
   // no need for "explicit" if it takes >1 argument. [dan]
   CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
-    Resize(r, c); 
+    Resize(r, c);
   }
   
   // Pegah : CopyFromCharacterMatrix doesn't work!
