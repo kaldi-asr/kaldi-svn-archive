@@ -298,13 +298,13 @@ void MatrixBase<float>::AddMatMat(float alpha,
       *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1[0]) / mul_inc +
   					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
-      *(this_data + 1) = static_cast<float>( beta * (*this_data) +
+      *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
                                              alpha * (static_cast<float>(x1[1]) / mul_inc +
   					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
-      *(this_data + 2) = static_cast<float>( beta * (*this_data) +
+      *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
                                              alpha * (static_cast<float>(x1[2]) / mul_inc +
   					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
-      *(this_data + 3) = static_cast<float>( beta * (*this_data) +
+      *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
                                              alpha * (static_cast<float>(x1[3]) / mul_inc +
   					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
     }

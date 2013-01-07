@@ -198,14 +198,14 @@ static void TestAddMatMatError(int32 MatNum ) {
     // GenerateMatrix4U(M1);
     ko.Stream() << "\n=================" << "round " << i+1 << "==========================\n";
     std::string note("---------M1----------\n");
-    ShowMatrix2<Real>(ko.Stream(), M1, note); 
+    //ShowMatrix2<Real>(ko.Stream(), M1, note); 
 
     int32 row2 = 100 + rand() % 10;
     Matrix<Real> M2(row2,col);
     M2.SetRandn();
     // GenerateMatrix4S(M2);
     std::string note1("--------M2-------------\n");
-    ShowMatrix2<Real>(ko.Stream(), M2, note1);
+    //ShowMatrix2<Real>(ko.Stream(), M2, note1);
     Matrix<Real> M(row, row2);
     M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
    
@@ -216,7 +216,7 @@ static void TestAddMatMatError(int32 MatNum ) {
     Matrix<Real> Mc2r1;
     Mc1.CopyToMat(&Mc2r1);
     std::string note3("---------Mc2r1 (from Mc1)----------\n");
-    ShowMatrix2<Real>(ko.Stream(), Mc2r1, note3);
+    //ShowMatrix2<Real>(ko.Stream(), Mc2r1, note3);
     std::string note4("--------M1 vs Mc2r1 -------------\n");
     NormDiff<Real>(ko.Stream(), M1, Mc2r1, note4);
 
@@ -226,7 +226,7 @@ static void TestAddMatMatError(int32 MatNum ) {
     Matrix<Real>Mc2r2;
     Mc2.CopyToMat(&Mc2r2);
     std::string note5("---------Mc2r2 (from Mc2)-----------\n");
-    ShowMatrix2<Real>(ko.Stream(), Mc2r2, note5);
+    //ShowMatrix2<Real>(ko.Stream(), Mc2r2, note5);
     std::string note7("--------M2 vs Mc2r2 -------------\n");
     NormDiff<Real>(ko.Stream(), M2, Mc2r2, note7);
 
@@ -235,7 +235,7 @@ static void TestAddMatMatError(int32 MatNum ) {
     std::string note6("-----------M vs Mc --------\n");
     Real rel_error = NormDiff<Real>(ko.Stream(), M, Mc, note6);
     error_avg += rel_error;
- 
+     
     // test  Sse4DotProduct function, this should be separately tested
     Matrix<Real> Mc_naked2(row,row2);
     Mc_naked2.AddMatMat2(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
@@ -352,7 +352,7 @@ static void TestError2(int32 MatNum ) {
  template<typename Real>
  static void TestSse4DotProduct(int MatNum) {
  int32 row  = 1;
- int32 col = 10;
+ int32 col = 100;
  int32 row2 = 1;
  std::ostringstream os;
   os << "Sse4DotProduct_test_" << MatNum;
@@ -364,13 +364,13 @@ static void TestError2(int32 MatNum ) {
  CharacterMatrix<unsigned char> Mc1;
  Mc1.CopyFromMat(M1);
  std::string note4("---------Mc1----------\n");
- ShowMatrixChar<unsigned char>(ko.Stream(), Mc1, note4);
+ //ShowMatrixChar<unsigned char>(ko.Stream(), Mc1, note4);
  Matrix<Real> M2(row, col);
  M2.SetRandn();
  CharacterMatrix<signed char> Mc2;
  Mc2.CopyFromMat(M2);
  std::string note5("---------Mc2----------\n");
- ShowMatrixChar<signed char>(ko.Stream(), Mc2, note5);
+ //ShowMatrixChar<signed char>(ko.Stream(), Mc2, note5);
  Matrix<Real> Mc(row, row2);
  int x1 ;
  x1 = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mc1.begin())  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
@@ -383,9 +383,9 @@ static void TestError2(int32 MatNum ) {
 } // kaldi namespace
 
 int main() {
-  //kaldi::TestAddMatMatError<float>(5);
+  kaldi::TestAddMatMatError<float>(20);
   //kaldi::TestAddMatMatTime<float>(3);
-  kaldi::TestSse4DotProduct<float>(20); 
+// kaldi::TestSse4DotProduct<float>(30); 
   //kaldi::TestError2<float>(10);
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;

@@ -475,12 +475,15 @@ template<typename T>
 template<typename Real>
 void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
   Resize(M.NumRows(),M.NumCols());
-  Real min = M.Min(), max = M.Max(); 
-       min_ = static_cast<float>(min);
+  //Real min = M.Min(), max = M.Max(); 
+  Real Diff = static_cast<float>(0.05) * (M.Max() - M.Min());
+  Real min = M.Min() - Diff, max = M.Max() + Diff;
 
+  min_ = static_cast<float>(min);
+  //std::cout << " min before = " << static_cast<float>(M.Min()) << " min after = " << static_cast<float> (min_) << std::endl ;
   int32 minChar = std::numeric_limits<T>::min(),
         maxChar = std::numeric_limits<T>::max();
-  incremental_ = static_cast<float>( static_cast<float>(maxChar - minChar)/(max - min));
+  incremental_ = static_cast<float>(static_cast<float>(maxChar - minChar)/(max - min));
 
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
