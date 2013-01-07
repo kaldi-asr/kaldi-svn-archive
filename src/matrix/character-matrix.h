@@ -43,12 +43,12 @@ inline int DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
     }
     return sum; 
 }
-inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
+inline  int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
  /*   int i;
     __m128i c, lo, hi;
     __m128i *e, *f;
     __m128i sum = _mm_setzero_si128();
-    short result;
+    int result;
     
     for (i=0; i<length; i+=16) {
         e = (__m128i*)(x+i);
@@ -79,7 +79,7 @@ inline int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length)
 
     __m128i sum = _mm_setzero_si128();
     
-    short result;
+     int result;
     
     for (i=0; i+63 < length; i+=64) {
         e1 = (__m128i*)(x+i);

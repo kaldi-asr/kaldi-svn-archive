@@ -352,25 +352,31 @@ static void TestError2(int32 MatNum ) {
  template<typename Real>
  static void TestSse4DotProduct(int MatNum) {
  int32 row  = 1;
- int32 col = 100;
+ int32 col = 10;
  int32 row2 = 1;
+ std::ostringstream os;
+  os << "Sse4DotProduct_test_" << MatNum;
+  Output ko(os.str(), false, false);
  for (int32 i = 0; i < MatNum; ++i) {
- std::cout << " Matrix Number = " << i <<std::endl ;
+ ko.Stream() << " Matrix Number = " << i <<"\n" ;
  Matrix<Real> M1(row, col);
  M1.SetRandn();
  CharacterMatrix<unsigned char> Mc1;
  Mc1.CopyFromMat(M1);
- 
+ std::string note4("---------Mc1----------\n");
+ ShowMatrixChar<unsigned char>(ko.Stream(), Mc1, note4);
  Matrix<Real> M2(row, col);
  M2.SetRandn();
- CharacterMatrix<unsigned char> Mc2;
+ CharacterMatrix<signed char> Mc2;
  Mc2.CopyFromMat(M2);
+ std::string note5("---------Mc2----------\n");
+ ShowMatrixChar<signed char>(ko.Stream(), Mc2, note5);
  Matrix<Real> Mc(row, row2);
  int x1 ;
- x1 = Sse4DotProduct(Mc1.begin()  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
- std::cout << " Sse4DotProduct test, x1 = "<< x1 << std::endl ;
- x1 = DotProduct(Mc1.begin()  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
- std::cout << " DotProduct test, x1 = "<< x1 << std::endl ;
+ x1 = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mc1.begin())  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
+ ko.Stream() << " Sse4DotProduct test, x1 = "<< x1 << "\n" ;
+ x1 = DotProduct(reinterpret_cast<unsigned char*>(Mc1.begin())  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
+ ko.Stream() << " DotProduct test, x1 = "<< x1 << "\n" ;
  }
  }
 
