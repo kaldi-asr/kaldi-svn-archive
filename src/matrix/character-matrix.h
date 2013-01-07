@@ -44,31 +44,6 @@ inline int DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
     return sum; 
 }
 inline  int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
- /*   int i;
-    __m128i c, lo, hi;
-    __m128i *e, *f;
-    __m128i sum = _mm_setzero_si128();
-    int result;
-    
-    for (i=0; i<length; i+=16) {
-        e = (__m128i*)(x+i);
-        f = (__m128i*)(y+i);
-        c = _mm_maddubs_epi16(e[0], f[0]); // performs dot-product in 2X2 blocks
-        
-        // unpack the 4 lowest 16-bit integers into 32 bits.
-        lo = _mm_cvtepi16_epi32(c);
-        // unpack the 4 highest 16-bit integers into 32 bits.
-        hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
-        sum = _mm_add_epi32(_mm_add_epi32(lo, hi), sum);  // pass the result to sum
-    }
-    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
-    
-    result = _mm_cvtsi128_si32(sum); // extract dot-product result by moving the least significant 32 bits of the 128-bit "sum" to a 32-bit integer result
-    
-    return result;   */
-
-
     int i;
     __m128i c1, lo1, hi1, c2, lo2, hi2, c3, lo3, hi3, c4, lo4, hi4;
     __m128i *e1, *f1, *e2, *f2, *e3, *f3, *e4, *f4;
@@ -137,6 +112,126 @@ inline  int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length
     return result;  
  
 }
+
+inline void Sse4DotProduct1X4(unsigned char *x, signed char *y1, signed char *y2, signed char *y3, signed char *y4, int *result, MatrixIndexT length){
+  int i;
+  __m128i c11, c21, c31, c41, c12, c22, c32, c42, c13, c23, c33, c43, c14, c24, c34, c44;
+  __m128i lo11, lo21, lo31, lo41, lo12, lo22, lo32, lo42, lo13, lo23, lo33, lo43, lo14, lo24, lo34, lo44;
+  __m128i hi11, hi21, hi31, hi41, hi12, hi22, hi32, hi42, hi13, hi23, hi33, hi43, hi14, hi24, hi34, hi44;
+  __m128i *f11, *f21, *f31, *f41, *f12, *f22, *f32, *f42, *f13, *f23, *f33, *f43, *f14, *f24, *f34, *f44;
+  __m128i *e1, *e2, *e3, *e4;
+  __m128i sum11 = _mm_setzero_si128(); __m128i sum21 = _mm_setzero_si128(); __m128i sum31 = _mm_setzero_si128(); __m128i sum41 = _mm_setzero_si128();
+  __m128i sum12 = _mm_setzero_si128(); __m128i sum22 = _mm_setzero_si128(); __m128i sum32 = _mm_setzero_si128(); __m128i sum42 = _mm_setzero_si128();
+  __m128i sum13 = _mm_setzero_si128(); __m128i sum23 = _mm_setzero_si128(); __m128i sum33 = _mm_setzero_si128(); __m128i sum43 = _mm_setzero_si128();
+  __m128i sum14 = _mm_setzero_si128(); __m128i sum24 = _mm_setzero_si128(); __m128i sum34 = _mm_setzero_si128(); __m128i sum44 = _mm_setzero_si128();
+    
+  __m128i sum1 = _mm_setzero_si128();
+  __m128i sum2 = _mm_setzero_si128();
+  __m128i sum3 = _mm_setzero_si128();
+  __m128i sum4 = _mm_setzero_si128();
+  __m128 s1,s2,s3,s4;
+
+  __m128i sum = _mm_setzero_si128();
+
+
+  for (i=0; i+63 < length; i+=64) {
+    e1 = (__m128i*)(x+i); e2 = (__m128i*)(x+i+16); e3 = (__m128i*)(x+i+32); e4 = (__m128i*)(x+i+48);
+
+    f11 = (__m128i*)(y1+i); f12 = (__m128i*)(y1+i+16); f13 = (__m128i*)(y1+i+32); f14 = (__m128i*)(y1+i+48);
+    f21 = (__m128i*)(y2+i); f22 = (__m128i*)(y2+i+16); f23 = (__m128i*)(y2+i+32); f24 = (__m128i*)(y2+i+48);
+    f31 = (__m128i*)(y3+i); f32 = (__m128i*)(y3+i+16); f33 = (__m128i*)(y3+i+32); f34 = (__m128i*)(y3+i+48);
+    f41 = (__m128i*)(y4+i); f42 = (__m128i*)(y4+i+16); f43 = (__m128i*)(y4+i+32); f44 = (__m128i*)(y4+i+48);
+
+    c11 = _mm_maddubs_epi16(e1[0], f11[0]); c12 = _mm_maddubs_epi16(e2[0], f12[0]); c13 = _mm_maddubs_epi16(e3[0], f13[0]); c14 = _mm_maddubs_epi16(e4[0], f14[0]);
+    c21 = _mm_maddubs_epi16(e1[0], f21[0]); c22 = _mm_maddubs_epi16(e2[0], f22[0]); c23 = _mm_maddubs_epi16(e3[0], f23[0]); c24 = _mm_maddubs_epi16(e4[0], f24[0]);
+    c31 = _mm_maddubs_epi16(e1[0], f31[0]); c32 = _mm_maddubs_epi16(e2[0], f32[0]); c33 = _mm_maddubs_epi16(e3[0], f33[0]); c34 = _mm_maddubs_epi16(e4[0], f34[0]);
+    c41 = _mm_maddubs_epi16(e1[0], f41[0]); c42 = _mm_maddubs_epi16(e2[0], f42[0]); c43 = _mm_maddubs_epi16(e3[0], f43[0]); c44 = _mm_maddubs_epi16(e4[0], f44[0]);
+
+    // unpack the 4 lowest 16-bit integers into 32 bits.
+    lo11 = _mm_cvtepi16_epi32(c11); lo12 = _mm_cvtepi16_epi32(c12); lo13 = _mm_cvtepi16_epi32(c13); lo14 = _mm_cvtepi16_epi32(c14);
+    lo21 = _mm_cvtepi16_epi32(c21); lo22 = _mm_cvtepi16_epi32(c22); lo23 = _mm_cvtepi16_epi32(c23); lo24 = _mm_cvtepi16_epi32(c24);
+    lo31 = _mm_cvtepi16_epi32(c31); lo32 = _mm_cvtepi16_epi32(c32); lo33 = _mm_cvtepi16_epi32(c33); lo34 = _mm_cvtepi16_epi32(c34);
+    lo41 = _mm_cvtepi16_epi32(c41); lo42 = _mm_cvtepi16_epi32(c42); lo43 = _mm_cvtepi16_epi32(c43); lo44 = _mm_cvtepi16_epi32(c44);
+
+    // unpack the 4 highest 16-bit integers into 32 bits.
+    hi11 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c11, 0x4e)); hi12 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c12, 0x4e)); hi13 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c13, 0x4e)); hi14 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c14, 0x4e));
+    hi21 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c21, 0x4e)); hi22 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c22, 0x4e)); hi23 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c23, 0x4e)); hi24 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c24, 0x4e));
+    hi31 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c31, 0x4e)); hi32 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c32, 0x4e)); hi33 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c33, 0x4e)); hi34 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c34, 0x4e));
+    hi41 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c41, 0x4e)); hi42 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c42, 0x4e)); hi43 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c43, 0x4e)); hi44 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c44, 0x4e));
+
+    // pass the result to sum
+    sum11 = _mm_add_epi32(_mm_add_epi32(lo11, hi11), sum11);  sum12 = _mm_add_epi32(_mm_add_epi32(lo12, hi12), sum12);  sum13 = _mm_add_epi32(_mm_add_epi32(lo13, hi13), sum13);  sum14 = _mm_add_epi32(_mm_add_epi32(lo14, hi14), sum14);
+    sum21 = _mm_add_epi32(_mm_add_epi32(lo21, hi21), sum21);  sum22 = _mm_add_epi32(_mm_add_epi32(lo22, hi22), sum22);  sum23 = _mm_add_epi32(_mm_add_epi32(lo23, hi23), sum23);  sum24 = _mm_add_epi32(_mm_add_epi32(lo24, hi24), sum24);
+    sum31 = _mm_add_epi32(_mm_add_epi32(lo31, hi31), sum31);  sum32 = _mm_add_epi32(_mm_add_epi32(lo32, hi32), sum32);  sum33 = _mm_add_epi32(_mm_add_epi32(lo33, hi33), sum33);  sum34 = _mm_add_epi32(_mm_add_epi32(lo34, hi34), sum34);
+    sum41 = _mm_add_epi32(_mm_add_epi32(lo41, hi41), sum41);  sum42 = _mm_add_epi32(_mm_add_epi32(lo42, hi42), sum42);  sum43 = _mm_add_epi32(_mm_add_epi32(lo43, hi43), sum43);  sum44 = _mm_add_epi32(_mm_add_epi32(lo44, hi44), sum44);
+
+  }
+    
+  for (; i < length; i+=16) {
+    e1 = (__m128i*)(x+i);
+    f11 = (__m128i*)(y1+i);
+    f21 = (__m128i*)(y2+i);
+    f31 = (__m128i*)(y3+i);
+    f41 = (__m128i*)(y4+i); 
+    
+    c11 = _mm_maddubs_epi16(e1[0], f11[0]);
+    c21 = _mm_maddubs_epi16(e1[0], f21[0]);
+    c31 = _mm_maddubs_epi16(e1[0], f31[0]);
+    c41 = _mm_maddubs_epi16(e1[0], f41[0]);
+    
+    // unpack the 4 lowest 16-bit integers into 32 bits.
+    lo11 = _mm_cvtepi16_epi32(c11);
+    lo21 = _mm_cvtepi16_epi32(c21); 
+    lo31 = _mm_cvtepi16_epi32(c31);
+    lo41 = _mm_cvtepi16_epi32(c41);
+    
+    // unpack the 4 highest 16-bit integers into 32 bits.
+    hi11 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c11, 0x4e));
+    hi21 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c21, 0x4e));
+    hi31 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c31, 0x4e));
+    hi41 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c41, 0x4e));
+    
+    // pass the result to sum
+    sum11 = _mm_add_epi32(_mm_add_epi32(lo11, hi11), sum11);
+    sum21 = _mm_add_epi32(_mm_add_epi32(lo21, hi21), sum21);
+    sum31 = _mm_add_epi32(_mm_add_epi32(lo31, hi31), sum31);
+    sum41 = _mm_add_epi32(_mm_add_epi32(lo41, hi41), sum41);
+  }
+    
+  sum1 = _mm_add_epi32(_mm_add_epi32(sum11, sum12), _mm_add_epi32(sum13, sum14));
+  sum2 = _mm_add_epi32(_mm_add_epi32(sum21, sum22), _mm_add_epi32(sum23, sum24));
+  sum3 = _mm_add_epi32(_mm_add_epi32(sum31, sum32), _mm_add_epi32(sum33, sum34));
+  sum4 = _mm_add_epi32(_mm_add_epi32(sum41, sum42), _mm_add_epi32(sum43, sum44));
+
+//    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+//    sum = _mm_hadd_epi32(sum,sum); // perform horizontal addition to sum up the partial dot-products
+  
+//    sum1 = _mm_hadd_epi32(sum1,sum1);
+//    sum1 = _mm_hadd_epi32(sum1,sum1);
+//    sum2 = _mm_hadd_epi32(sum2,sum2);
+//    sum2 = _mm_hadd_epi32(sum2,sum2);
+//    sum3 = _mm_hadd_epi32(sum3,sum3);
+//    sum3 = _mm_hadd_epi32(sum3,sum3);
+//    sum4 = _mm_hadd_epi32(sum4,sum4);
+//    sum4 = _mm_hadd_epi32(sum4,sum4);
+//    result[0] = _mm_cvtsi128_si32(sum1);
+//    result[1] = _mm_cvtsi128_si32(sum2);
+//    result[2] = _mm_cvtsi128_si32(sum3);
+//    result[3] = _mm_cvtsi128_si32(sum4);
+
+    
+  s1 = _mm_castsi128_ps(sum1); s2 = _mm_castsi128_ps(sum2); s3 = _mm_castsi128_ps(sum3); s4 = _mm_castsi128_ps(sum4);
+  _MM_TRANSPOSE4_PS(s1, s2, s3, s4);
+  sum1 = _mm_castps_si128(s1); sum2 = _mm_castps_si128(s2); sum3 = _mm_castps_si128(s3); sum4 = _mm_castps_si128(s4);
+  sum = _mm_add_epi32(_mm_add_epi32(sum1, sum2), _mm_add_epi32(sum3, sum4));
+    
+    
+  result[0] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,2,1,0)));
+  result[1] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,2,0,1)));
+  result[2] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,0,1,2)));
+  result[3] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(0,2,1,3)));
+}
+
 
 inline int Sse4SumArray(unsigned char *x, MatrixIndexT length) {
   int i;
