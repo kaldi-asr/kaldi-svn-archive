@@ -263,11 +263,11 @@ void MatrixBase<float>::AddMatMat(float alpha,
     KALDI_ERR << "Pre-transposed M2 expected";
 
   // pre-calculate some constant
-  float mul_inc = M1.incremental_ * M2. incremental_,
+  float mul_inc = M1.increment_ * M2.increment_,
   low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
-  coef1 = M2.min_ / M1.incremental_ - low_t2 /mul_inc,
-  coef2 = M1.min_ / M2.incremental_ ,
-  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.incremental_;
+  coef1 = M2.min_ / M1.increment_ - low_t2 /mul_inc,
+  coef2 = M1.min_ / M2.increment_ ,
+  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.increment_;
   CharacterMatrix<signed char> Mt;
   Mt.Resize(1, M1.num_cols_);
   for(int32 col = 0; col < M1.num_cols_; ++col) {
@@ -285,29 +285,35 @@ void MatrixBase<float>::AddMatMat(float alpha,
     int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
     //int x2 = DotProduct (M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
     //int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
-    MatrixIndexT col;
+    MatrixIndexT col = 0;
+     
     for( col = 0; col+3 < M2.NumRows(); col += 4) {
       int x1[4];
-      Sse4DotProduct1X4(M1.data_ + row * M1.stride_,
+      x1[0] = 0;
+      x1[1] = 0;
+      x1[2] = 0;
+      x1[3] = 0;
+      Sse4DotProduct4fold1X4(M1.data_ + row * M1.stride_,
                                  M2.data_ + col * M2.stride_, M2.data_ + (col + 1) * M2.stride_, 
-				 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
+  				 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
       
-
-      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  /* (*this)(row, col) */
+  
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  
       
       *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1[0]) / mul_inc +
   					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
       *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
                                              alpha * (static_cast<float>(x1[1]) / mul_inc +
-  					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+  					     coef1 * x2 + coef2 * x3[col + 1] + gconst * M1.num_cols_ ));
       *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
                                              alpha * (static_cast<float>(x1[2]) / mul_inc +
-  					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+ 					     coef1 * x2 + coef2 * x3[col + 2] + gconst * M1.num_cols_ ));
       *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
                                              alpha * (static_cast<float>(x1[3]) / mul_inc +
-  					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+  					     coef1 * x2 + coef2 * x3[col + 3] + gconst * M1.num_cols_ ));
     }
+    
     for(col = col; col < M2.NumRows(); ++col) {
       int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
                                M2.data_ + col * M2.stride_, M1.num_cols_);
