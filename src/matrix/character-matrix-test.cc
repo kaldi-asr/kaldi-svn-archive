@@ -317,15 +317,28 @@ static void TestError2(int32 MatNum ) {
   std::vector<Real> v(MatNum);
   for(int32 i = 0; i< MatNum; ++i) {
   ko.Stream() << " Matrix number = "<<i<<"\n";
-  int32 row = 1;
-  int32 col = 100;
-  int32 row2 = 1;
+  int32 row = 4;
+  int32 col = 8;
+  int32 row2 = 16;
   Matrix<Real> M1(row, col);
-  M1.SetRandn();
+  //M1.SetRandn();
+  
+  M1(0,0) = 1;M1(0,1) = 2;M1(1,1) = 1;M1(1,0) = 2; 
+  M1(2,2) = 1;
+  //M1(2,3) = 2;M1(3,3) = 1;
+  M1(3,2) = 2; 
+
   std::string note1("---------M1----------\n");
   ShowMatrix2<Real>(ko.Stream(), M1, note1);
   Matrix<Real> M2(row2, col);
-  M2.SetRandn();
+  //M2.SetRandn();
+
+  M2(0,0) = 1;
+  M2(1,1) = 1;
+  M2(2,2) = 1;
+  M2(3,3) = 1;
+  M2(3,4) = 1;
+   
   std::string note2("---------M2----------\n");
   ShowMatrix2<Real>(ko.Stream(), M2, note2);
   Matrix<Real> M(row, row2);
@@ -351,42 +364,155 @@ static void TestError2(int32 MatNum ) {
  }
  template<typename Real>
  static void TestSse4DotProduct(int MatNum) {
- int32 row  = 1;
- int32 col = 100;
- int32 row2 = 1;
+ int32 row  = 4;
+ int32 col = 8;
+ int32 row2 = 15;
  std::ostringstream os;
   os << "Sse4DotProduct_test_" << MatNum;
   Output ko(os.str(), false, false);
  for (int32 i = 0; i < MatNum; ++i) {
  ko.Stream() << " Matrix Number = " << i <<"\n" ;
- Matrix<Real> M1(row, col);
- M1.SetRandn();
- CharacterMatrix<unsigned char> Mc1;
- Mc1.CopyFromMat(M1);
+ Matrix<Real> Mr1(row, col);
+ Mr1.SetRandn();
+ CharacterMatrix<unsigned char> M1;
+ M1.CopyFromMat(Mr1);
  std::string note4("---------Mc1----------\n");
  //ShowMatrixChar<unsigned char>(ko.Stream(), Mc1, note4);
- Matrix<Real> M2(row, col);
- M2.SetRandn();
- CharacterMatrix<signed char> Mc2;
- Mc2.CopyFromMat(M2);
+ Matrix<Real> Mr2(row2, col);
+ Mr2.SetRandn();
+ CharacterMatrix<signed char> M2;
+ M2.CopyFromMat(Mr2);
  std::string note5("---------Mc2----------\n");
  //ShowMatrixChar<signed char>(ko.Stream(), Mc2, note5);
- Matrix<Real> Mc(row, row2);
+ Matrix<Real> M4(row, row2);
+ Matrix<Real> M3(row, row2);
+ Matrix<Real> Md(row, row2);
+ Matrix<Real> Md1(row, row2);
+ 
+ /*
  int x1 ;
- x1 = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mc1.begin())  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
+ x1 = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mc1.Data())  ,reinterpret_cast<signed char*>(Mc2.Data()) , col);
  ko.Stream() << " Sse4DotProduct test, x1 = "<< x1 << "\n" ;
- x1 = DotProduct(reinterpret_cast<unsigned char*>(Mc1.begin())  ,reinterpret_cast<signed char*>(Mc2.begin()) , col);
+ x1 = DotProduct(reinterpret_cast<unsigned char*>(Mc1.Data())  ,reinterpret_cast<signed char*>(Mc2.Data()) , col);
  ko.Stream() << " DotProduct test, x1 = "<< x1 << "\n" ;
- }
- }
+ */
+  float beta = 0; float alpha = 1;
+
+  // pre-calculate some constant
+  float mul_inc = M1.Increment() * M2.Increment(),
+  low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
+  coef1 = M2.Min() / M1.Increment() - low_t2 /mul_inc,
+  coef2 = M1.Min() / M2.Increment() ,
+  gconst = M1.Min() * M2.Min()  - M1.Min() * low_t2 / M2.Increment();
+  CharacterMatrix<signed char> Mt;
+  Mt.Resize(1, M1.NumCols());
+  for(int32 col = 0; col < M1.NumCols(); ++col) {
+    *(Mt.Data() + col) = static_cast<signed char>(1);
+  }
+
+  int x3[M2.NumRows()];
+  for (MatrixIndexT col = 0; col < M2.NumRows(); ++col){
+    x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.Data()), M2.Data() + col * M2.Stride(), M1.NumCols());
+    //x3[col] = DotProduct(reinterpret_cast<unsigned char*>(Mt.Data()), M2.Data() + col * M2.Stride(), M1.NumCols());
+    //x3[col] = Sse4SumArray(M2.Data() + col * M2.Stride(), M1.NumCols());
+  }
+
+  for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
+    int x2 = Sse4DotProduct(M1.Data() + row *M1.Stride(), Mt.Data(), M1.NumCols());
+    //int x2 = DotProduct (M1.Data() + row *M1.Stride(), Mt.Data(), M1.NumCols());
+    //int x2 = Sse4SumArray(M1.Data() + row *M1.Stride(), M1.NumCols());
+    MatrixIndexT col = 0;
+    
+    for( col = 0; col+3 < M2.NumRows(); col += 4) {
+        int x1[4];
+        x1[0] = 0;
+        x1[1] = 0;
+        x1[2] = 0;
+        x1[3] = 0;
+        Sse4DotProduct4fold1X4(M1.Data() + row * M1.Stride(),
+                          M2.Data() + col * M2.Stride(), M2.Data() + (col + 1) * M2.Stride(),
+                          M2.Data() + (col + 2) * M2.Stride(), M2.Data() + (col + 3) * M2.Stride(), x1,  M1.NumCols());
+        
+        
+        float *this_data  = (M3.Data() + row * M3.Stride() + col);
+        
+        *this_data = static_cast<float>( beta * (*this_data) +
+                                        alpha * (static_cast<float>(x1[0]) / mul_inc +
+                                                 coef1 * x2 + coef2 * x3[col] + gconst * M1.NumCols() ));
+        *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
+                                              alpha * (static_cast<float>(x1[1]) / mul_inc +
+                                                       coef1 * x2 + coef2 * x3[col+1] + gconst * M1.NumCols() ));
+        *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
+                                              alpha * (static_cast<float>(x1[2]) / mul_inc +
+                                                       coef1 * x2 + coef2 * x3[col+2] + gconst * M1.NumCols() ));
+        *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
+                                              alpha * (static_cast<float>(x1[3]) / mul_inc +
+                                                       coef1 * x2 + coef2 * x3[col+3] + gconst * M1.NumCols() ));
+    }
+    
+    
+      for(col = col; col < M2.NumRows(); ++col) {
+        int x1 = Sse4DotProduct(M1.Data() + row * M1.Stride(),
+                                M2.Data() + col * M2.Stride(), M1.NumCols());
+        //int x1 = DotProduct(M1.Data() + row * M1.Stride(),
+        //                         M2.Data() + col * M2.Stride(), M1.NumCols());
+        
+        
+        float *this_data  = (M3.Data() + row * M3.Stride() + col);
+        *this_data = static_cast<float>( beta * (*this_data) +
+                                        alpha * (static_cast<float>(x1) / mul_inc +
+                                                 coef1 * x2 + coef2 * x3[col] + gconst * M1.NumCols() ));
+      }
+    }
+
+    for(MatrixIndexT row = 0; row < M1.NumRows(); ++ row) {
+      int x2 = Sse4DotProduct(M1.Data() + row *M1.Stride(), Mt.Data(), M1.NumCols());
+      //int x2 = DotProduct (M1.Data() + row *M1.Stride(), Mt.Data(), M1.NumCols());
+      //int x2 = Sse4SumArray(M1.Data() + row *M1.Stride(), M1.NumCols());
+      MatrixIndexT col = 0;
+
+      for(col = col; col < M2.NumRows(); ++col) {
+        int x1 = Sse4DotProduct(M1.Data() + row * M1.Stride(),
+                                  M2.Data() + col * M2.Stride(), M1.NumCols());
+        //int x1 = DotProduct(M1.Data() + row * M1.Stride(),
+        //                         M2.Data() + col * M2.Stride(), M1.NumCols());
+
+        float *this_data  = (M4.Data() + row * M4.Stride() + col);
+        *this_data = static_cast<float>( beta * (*this_data) +
+                                        alpha * (static_cast<float>(x1) / mul_inc +
+                                                 coef1 * x2 + coef2 * x3[col] + gconst * M1.NumCols() ));
+      }
+    } 
+    Matrix<Real> Mc_naked2(row,row2);
+    Mc_naked2.AddMatMat2(1.0, M1, kNoTrans, M2, kTrans, 0);
+    
+    for(MatrixIndexT row = 0; row < M3.NumRows(); ++row){
+      for(MatrixIndexT col = 0; col < M3.NumCols(); ++col){
+        Md(row,col) = M3(row,col)-M4(row,col);
+        Md1(row,col) = M4(row,col)-Mc_naked2(row,col);
+      }
+    }
+    
+  std::string note1("---------M3----------\n");
+  ShowMatrix2<Real>(ko.Stream(), M3, note1);
+  std::string note2("---------M4----------\n");
+  ShowMatrix2<Real>(ko.Stream(), M4, note2);
+  std::string note3("---------Md----------\n");
+  ShowMatrix2<Real>(ko.Stream(), Md, note3);
+  std::string note8("---------Md1----\n");
+  ShowMatrix2<Real>(ko.Stream(), Md1, note8);
+  //std::string note6("---------Mc2----------\n");
+  //ShowMatrix2<Real>(ko.Stream(), M4, note4);
+  }
+  }
 
 } // kaldi namespace
 
 int main() {
-  kaldi::TestAddMatMatError<float>(20);
-  //kaldi::TestAddMatMatTime<float>(3);
-// kaldi::TestSse4DotProduct<float>(30); 
-  //kaldi::TestError2<float>(10);
+  //kaldi::TestAddMatMatError<float>(20);
+  kaldi::TestAddMatMatTime<float>(3);
+  //kaldi::TestSse4DotProduct<float>(1); 
+  //kaldi::TestError2<float>(3);
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }
