@@ -233,6 +233,237 @@ inline void Sse4DotProduct4fold1X4(unsigned char *x, signed char *y1, signed cha
   result[3] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(0,2,1,3)));
 }
 
+
+inline void Sse4DotProduct8fold1X4V3(unsigned char *x, signed char *y1, signed char *y2, signed char *y3, signed char *y4, int *result, MatrixIndexT length){
+    int i;
+//    __m128i c, lo, hi;
+//    __m128i *e, *f;
+    __m128i c1, lo1, hi1;
+    __m128i *e1, *f1;
+    __m128i c2, lo2, hi2;
+    __m128i *e2, *f2;
+    __m128i c3, lo3, hi3;
+    __m128i *e3, *f3;
+    __m128i c4, lo4, hi4;
+    __m128i *e4, *f4;
+    __m128i sum = _mm_setzero_si128();
+    
+    __m128i sum11 = _mm_setzero_si128(); __m128i sum21 = _mm_setzero_si128(); __m128i sum31 = _mm_setzero_si128(); __m128i sum41 = _mm_setzero_si128();
+    __m128i sum12 = _mm_setzero_si128(); __m128i sum22 = _mm_setzero_si128(); __m128i sum32 = _mm_setzero_si128(); __m128i sum42 = _mm_setzero_si128();
+    __m128i sum13 = _mm_setzero_si128(); __m128i sum23 = _mm_setzero_si128(); __m128i sum33 = _mm_setzero_si128(); __m128i sum43 = _mm_setzero_si128();
+    __m128i sum14 = _mm_setzero_si128(); __m128i sum24 = _mm_setzero_si128(); __m128i sum34 = _mm_setzero_si128(); __m128i sum44 = _mm_setzero_si128();
+    
+    __m128i sum1 = _mm_setzero_si128();
+    __m128i sum2 = _mm_setzero_si128();
+    __m128i sum3 = _mm_setzero_si128();
+    __m128i sum4 = _mm_setzero_si128();
+    __m128 s1,s2,s3,s4;
+        
+    for (i=0; i + 127< length; i+=128) {
+        e1 = (__m128i*)(x+i);f1 = (__m128i*)(y1+i);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum11 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum11);
+        e2 = (__m128i*)(x+i+16);f2 = (__m128i*)(y1+i+16);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum12 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum12);
+        e3 = (__m128i*)(x+i+32);f3 = (__m128i*)(y1+i+32);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum13 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum13);
+        e4 = (__m128i*)(x+i+48);f4 = (__m128i*)(y1+i+48);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum14 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum14);
+        
+        e1 = (__m128i*)(x+i+64);f1 = (__m128i*)(y1+i+64);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum11 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum11);
+        e2 = (__m128i*)(x+i+80);f2 = (__m128i*)(y1+i+80);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum12 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum12);
+        e3 = (__m128i*)(x+i+96);f3 = (__m128i*)(y1+i+96);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum13 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum13);
+        e4 = (__m128i*)(x+i+112);f4 = (__m128i*)(y1+i+112);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum14 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum14);
+
+        
+        e1 = (__m128i*)(x+i);f1 = (__m128i*)(y2+i);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum21 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum21);
+        e2 = (__m128i*)(x+i+16);f2 = (__m128i*)(y2+i+16);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum22 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum22);
+        e3 = (__m128i*)(x+i+32);f3 = (__m128i*)(y2+i+32);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum23 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum23);
+        e4 = (__m128i*)(x+i+48);f4 = (__m128i*)(y2+i+48);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum24 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum24);
+        
+        e1 = (__m128i*)(x+i+64);f1 = (__m128i*)(y2+i+64);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum21 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum21);
+        e2 = (__m128i*)(x+i+80);f2 = (__m128i*)(y2+i+80);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum22 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum22);
+        e3 = (__m128i*)(x+i+96);f3 = (__m128i*)(y2+i+96);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum23 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum23);
+        e4 = (__m128i*)(x+i+112);f4 = (__m128i*)(y2+i+112);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum24 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum24);
+        
+        e1 = (__m128i*)(x+i);f1 = (__m128i*)(y3+i);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum31 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum31);
+        e2 = (__m128i*)(x+i+16);f2 = (__m128i*)(y3+i+16);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum32 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum32);
+        e3 = (__m128i*)(x+i+32);f3 = (__m128i*)(y3+i+32);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum33 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum33);
+        e4 = (__m128i*)(x+i+48);f4 = (__m128i*)(y3+i+48);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum34 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum34);
+        
+        e1 = (__m128i*)(x+i+64);f1 = (__m128i*)(y3+i+64);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum31 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum31);
+        e2 = (__m128i*)(x+i+80);f2 = (__m128i*)(y3+i+80);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum32 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum32);
+        e3 = (__m128i*)(x+i+96);f3 = (__m128i*)(y3+i+96);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum33 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum33);
+        e4 = (__m128i*)(x+i+112);f4 = (__m128i*)(y3+i+112);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum34 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum34);
+        
+        e1 = (__m128i*)(x+i);f1 = (__m128i*)(y4+i);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum41 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum41);
+        e2 = (__m128i*)(x+i+16);f2 = (__m128i*)(y4+i+16);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum42 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum42);
+        e3 = (__m128i*)(x+i+32);f3 = (__m128i*)(y4+i+32);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum43 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum43);
+        e4 = (__m128i*)(x+i+48);f4 = (__m128i*)(y4+i+48);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum44 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum44);
+        
+        e1 = (__m128i*)(x+i+64);f1 = (__m128i*)(y4+i+64);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum41 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum41);
+        e2 = (__m128i*)(x+i+80);f2 = (__m128i*)(y4+i+80);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum42 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum42);
+        e3 = (__m128i*)(x+i+96);f3 = (__m128i*)(y4+i+96);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum43 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum43);
+        e4 = (__m128i*)(x+i+112);f4 = (__m128i*)(y4+i+112);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum44 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum44);
+    
+    }
+    
+    sum1 = _mm_add_epi32(_mm_add_epi32(sum11, sum12), _mm_add_epi32(sum13, sum14));
+    sum2 = _mm_add_epi32(_mm_add_epi32(sum21, sum22), _mm_add_epi32(sum23, sum24));
+    sum3 = _mm_add_epi32(_mm_add_epi32(sum31, sum32), _mm_add_epi32(sum33, sum34));
+    sum4 = _mm_add_epi32(_mm_add_epi32(sum41, sum42), _mm_add_epi32(sum43, sum44));
+    
+    
+    for (; i<length; i+=16) {
+        e1 = (__m128i*)(x+i);f1 = (__m128i*)(y1+i);c1 = _mm_maddubs_epi16(e1[0], f1[0]);lo1 = _mm_cvtepi16_epi32(c1);hi1 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c1, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo1, hi1), sum1);
+        e2 = (__m128i*)(x+i);f2 = (__m128i*)(y2+i);c2 = _mm_maddubs_epi16(e2[0], f2[0]);lo2 = _mm_cvtepi16_epi32(c2);hi2 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c2, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo2, hi2), sum2);
+        e3 = (__m128i*)(x+i);f3 = (__m128i*)(y3+i);c3 = _mm_maddubs_epi16(e3[0], f3[0]);lo3 = _mm_cvtepi16_epi32(c3);hi3 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c3, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo3, hi3), sum3);
+        e4 = (__m128i*)(x+i);f4 = (__m128i*)(y4+i);c4 = _mm_maddubs_epi16(e4[0], f4[0]);lo4 = _mm_cvtepi16_epi32(c4);hi4 = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c4, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo4, hi4), sum4);
+    }
+    
+    s1 = _mm_castsi128_ps(sum1); s2 = _mm_castsi128_ps(sum2); s3 = _mm_castsi128_ps(sum3); s4 = _mm_castsi128_ps(sum4);
+    _MM_TRANSPOSE4_PS(s1, s2, s3, s4);
+    sum1 = _mm_castps_si128(s1); sum2 = _mm_castps_si128(s2); sum3 = _mm_castps_si128(s3); sum4 = _mm_castps_si128(s4);
+    sum = _mm_add_epi32(_mm_add_epi32(sum1, sum2), _mm_add_epi32(sum3, sum4));
+
+    result[0] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,2,1,0)));
+    result[1] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,2,0,1)));
+    result[2] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,0,1,2)));
+    result[3] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(0,2,1,3)));
+
+}
+inline void Sse4DotProduct8fold1X4V2(unsigned char *x, signed char *y1, signed char *y2, signed char *y3, signed char *y4, int *result, MatrixIndexT length){
+    int i;
+    __m128i c, lo, hi;
+    __m128i *e, *f;
+    __m128i sum = _mm_setzero_si128();
+    __m128i sum1 = _mm_setzero_si128();
+    __m128i sum2 = _mm_setzero_si128();
+    __m128i sum3 = _mm_setzero_si128();
+    __m128i sum4 = _mm_setzero_si128();
+    __m128 s1,s2,s3,s4;
+        
+    for (i=0; i + 127< length; i+=128) {
+        e = (__m128i*)(x+i);f = (__m128i*)(y1+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+16);f = (__m128i*)(y1+i+16);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+32);f = (__m128i*)(y1+i+32);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+48);f = (__m128i*)(y1+i+48);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+64);f = (__m128i*)(y1+i+64);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+80);f = (__m128i*)(y1+i+80);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+96);f = (__m128i*)(y1+i+96);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i+112);f = (__m128i*)(y1+i+112);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);        
+        e = (__m128i*)(x+i);f = (__m128i*)(y2+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+16);f = (__m128i*)(y2+i+16);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+32);f = (__m128i*)(y2+i+32);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+48);f = (__m128i*)(y2+i+48);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+64);f = (__m128i*)(y2+i+64);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+80);f = (__m128i*)(y2+i+80);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+96);f = (__m128i*)(y2+i+96);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i+112);f = (__m128i*)(y2+i+112);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i);f = (__m128i*)(y3+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+16);f = (__m128i*)(y3+i+16);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+32);f = (__m128i*)(y3+i+32);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+48);f = (__m128i*)(y3+i+48);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+64);f = (__m128i*)(y3+i+64);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+80);f = (__m128i*)(y3+i+80);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+96);f = (__m128i*)(y3+i+96);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i+112);f = (__m128i*)(y3+i+112);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i);f = (__m128i*)(y4+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+16);f = (__m128i*)(y4+i+16);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+32);f = (__m128i*)(y4+i+32);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+48);f = (__m128i*)(y4+i+48);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+64);f = (__m128i*)(y4+i+64);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+80);f = (__m128i*)(y4+i+80);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+96);f = (__m128i*)(y4+i+96);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+        e = (__m128i*)(x+i+112);f = (__m128i*)(y4+i+112);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+
+    
+    }
+    for (; i< length; i+=16) {
+        e = (__m128i*)(x+i);f = (__m128i*)(y1+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum1 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum1);
+        e = (__m128i*)(x+i);f = (__m128i*)(y2+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum2 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum2);
+        e = (__m128i*)(x+i);f = (__m128i*)(y3+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum3 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum3);
+        e = (__m128i*)(x+i);f = (__m128i*)(y4+i);c = _mm_maddubs_epi16(e[0], f[0]);lo = _mm_cvtepi16_epi32(c);hi = _mm_cvtepi16_epi32(_mm_shuffle_epi32(c, 0x4e));
+        sum4 = _mm_add_epi32(_mm_add_epi32(lo, hi), sum4);
+    }
+    
+    s1 = _mm_castsi128_ps(sum1); s2 = _mm_castsi128_ps(sum2); s3 = _mm_castsi128_ps(sum3); s4 = _mm_castsi128_ps(sum4);
+    _MM_TRANSPOSE4_PS(s1, s2, s3, s4);
+    sum1 = _mm_castps_si128(s1); sum2 = _mm_castps_si128(s2); sum3 = _mm_castps_si128(s3); sum4 = _mm_castps_si128(s4);
+    sum = _mm_add_epi32(_mm_add_epi32(sum1, sum2), _mm_add_epi32(sum3, sum4));
+
+    result[0] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,2,1,0)));
+    result[1] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,2,0,1)));
+    result[2] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(3,0,1,2)));
+    result[3] = _mm_cvtsi128_si32(_mm_shuffle_epi32(sum, _MM_SHUFFLE(0,2,1,3)));
+
+}
 inline void Sse4DotProduct8fold1X4(unsigned char *x, signed char *y1, signed char *y2, signed char *y3, signed char *y4, int *result, MatrixIndexT length){
   int i;
   __m128i c11, c21, c31, c41, c12, c22, c32, c42, c13, c23, c33, c43, c14, c24, c34, c44;

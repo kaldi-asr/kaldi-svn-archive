@@ -293,7 +293,7 @@ void MatrixBase<float>::AddMatMat(float alpha,
       x1[1] = 0;
       x1[2] = 0;
       x1[3] = 0;
-      Sse4DotProduct4fold1X4(M1.data_ + row * M1.stride_,
+      Sse4DotProduct8fold1X4V3(M1.data_ + row * M1.stride_,
                                  M2.data_ + col * M2.stride_, M2.data_ + (col + 1) * M2.stride_, 
   				 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
       
