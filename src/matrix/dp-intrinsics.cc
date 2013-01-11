@@ -85,9 +85,6 @@ int main()
     sse4_product =SSE4_dot_product(x,y);
     printf("Dot Product computed by SSE4 intrinsics:  %d\n", sse4_product);
     
-
-
-
     Matrix<float> A(2,2), B(2,2), C(2,2);
     for(int row = 0; row<2; ++row){
       for(int col = 0; col<2; ++col){

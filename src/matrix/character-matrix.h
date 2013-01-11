@@ -52,13 +52,12 @@ inline  int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length
     __m128i sum2 = _mm_setzero_si128();
     __m128i sum3 = _mm_setzero_si128();
     __m128i sum4 = _mm_setzero_si128();
-
     __m128i sum = _mm_setzero_si128();
     
      int result;
     
     for (i=0; i+63 < length; i+=64) {
-        e1 = (__m128i*)(x+i);
+      e1 = (__m128i*)(x+i);
         f1 = (__m128i*)(y+i);
         e2 = (__m128i*)(x+i+16);
         f2 = (__m128i*)(y+i+16);
@@ -807,18 +806,14 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
   // compute the size of skip and real cols
   skip = ((16 / sizeof(T)) - cols % (16 / sizeof(T))) % (16 / sizeof(T));
   real_cols = cols + skip; 
-  // Pegah : sizeof(Real) changed to sizeof(T); I think it is not reuired to have sizeof(T), since it will be multiplied in posix-memolign
   size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
   // allocate the memory and set the right dimensions and parameters
-  // WARNING from Dan: you should not put code that you need to run, inside an
-  // assert.  If you compile with -ndebug (no-debug), it will not get executed.
   int pos_ret = posix_memalign(static_cast<void**>(&data), 16, size);
   if(pos_ret != 0) {
     KALDI_ERR << "Failed to do posix memory allot";
   }
   data_ = static_cast<T *> (data);
-  // else what?  KALDI_ERROR? [dan]
   num_rows_ = rows;
   num_cols_ = cols;
   stride_  = real_cols;
