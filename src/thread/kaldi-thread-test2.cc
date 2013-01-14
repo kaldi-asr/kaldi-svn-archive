@@ -22,6 +22,7 @@
 #include "matrix/kaldi-matrix.h"
 namespace kaldi {
 
+/*
 class MyThreadClass {  // Sums up integers from 0 to max_to_count-1.
  public:
   MyThreadClass(int32 max_to_count, int32 *i): max_to_count_(max_to_count),
@@ -55,6 +56,7 @@ class MyThreadClass {  // Sums up integers from 0 to max_to_count-1.
   int32 *iptr_;
   int32 private_counter_;
 };
+
 template<typename Real>
 template<class Mat>
 class MyThreadClass2 {  // Doing Matrix multiplication.
@@ -90,6 +92,7 @@ class MyThreadClass2 {  // Doing Matrix multiplication.
   Mat<Real> *iptr_;
   Mat<Real> private_counter_;
 };
+  
 void TestThreads() {
   g_num_threads = 8;
   // run method with temporary threads on 8 threads
@@ -129,16 +132,42 @@ void TestThreads2(int32 num_threads) {
  CharacterMatrix<Real> tot(row_num, col);
  MyThreadClass2<CharacterMatrix> c(M1,M2,row_num, &tot);
  RunMultiThreaded(c);
- 
- 
+  
+ } */
+
+
+struct thread_test_struct { // start + end of integers to sum up.
+  int32 start;
+  int32 end;
+};
+
+void* sum_ints(void* input) {
+  thread_test_struct *ptr = static_cast<thread_test_struct*>(input);
+  size_t ans = 0;
+  for (int32 i = ptr->start; i < ptr->end; i++)
+    ans += i;
+  return (void*) ans;
 }
 
 
+
+void TestThreadsSimple() {
+  // test code here that creates an array of the structs,
+  // then, multiple times, spawns threads, then joins them
+  // and sums up the resulting integers (cast back from void* to size_t).
+pthread_attr_t
+    pthread_create
+    pthread_t
+     pthread_join
+
+}
+  
 }  // end namespace kaldi.
 
 int main() {
   using namespace kaldi;
   //TestThreads();
+  TestThreadsSimple();
   TestThreads<float>(num_threads);
 }
 

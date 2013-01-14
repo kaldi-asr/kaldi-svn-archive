@@ -1,9 +1,11 @@
 
+EXTRA_CXXFLAGS=-msse4
+
 all:
 
 include ../kaldi.mk
 
-TESTFILES = kaldi-thread-test
+TESTFILES = kaldi-thread-test kaldi-thread-test2
 
 OBJFILES =  kaldi-thread.o kaldi-mutex.o kaldi-semaphore.o kaldi-barrier.o
 
