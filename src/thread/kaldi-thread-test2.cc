@@ -150,17 +150,49 @@ void* sum_ints(void* input) {
 }
 
 
-
 void TestThreadsSimple() {
   // test code here that creates an array of the structs,
   // then, multiple times, spawns threads, then joins them
   // and sums up the resulting integers (cast back from void* to size_t).
-pthread_attr_t
+  /*
+  pthread_attr_t 
     pthread_create
     pthread_t
      pthread_join
-
+  */
+  int32 num_thread = 10;
+  int32 max_to_count = 100;
+  int32 tot = 0 ;
+  void *iptr_;
+  
+  int32 block_size = (max_to_count + (num_thread - 1))/ num_thread;
+  //std::vector<thread_test_struct> c;
+  thread_test_struct *c = new thread_test_struct[num_thread];
+  pthread_attr_t pthread_attr;
+  pthread_attr_init(&pthread_attr);
+  pthread_t *threads_ = new pthread_t[num_thread];
+  //threads_(new pthread_t[g_num_threads]);
+  //std::vector<pthread_t> threads_;
+  for( int32 thread = 0; thread < num_thread; thread++) {
+     int32 ret;
+     c[thread].start = block_size * thread;
+     c[thread].end = std::min(max_to_count, c[thread].start + block_size);
+     std::cout << " start and end on thread " << thread <<" = " << c[thread].start << " " << c[thread].end << std::endl ;
+     if ((ret = pthread_create(&(threads_[thread]), 
+                               &pthread_attr, sum_ints ,&(c[thread])))) {
+       perror("error:");
+       KALDI_ERR << "Could not creare a new thread";      
+      }
+   }
+  for( int32 thread = 0; thread < num_thread; thread++) {
+    if ( pthread_join(threads_[thread],&iptr_ ))
+      KALDI_ERR << "Error rejoining thread.";
+      tot += reinterpret_cast<size_t>(iptr_);
+  }
+  KALDI_LOG << " total is " << tot;
+  delete [] threads_;
 }
+
   
 }  // end namespace kaldi.
 
@@ -168,6 +200,6 @@ int main() {
   using namespace kaldi;
   //TestThreads();
   TestThreadsSimple();
-  TestThreads<float>(num_threads);
+  //TestThreads<float>(num_threads);
 }
 
