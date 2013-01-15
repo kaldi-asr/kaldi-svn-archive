@@ -197,10 +197,10 @@ void TestThreadsSimple() {
 }
 
 struct sem_test_struct{
-  int count;              /* the number of products*/
-  Semaphore full;     	  /* keep track of the number of full spots */
-  Semaphore empty;    	  /* keep track of the number of empty spots */
-  Semaphore mutex;    	  /* enforce mutual exclusion to shared data */
+  int count;              // the number of products
+  Semaphore full;     	  // keep track of the number of full spots 
+  Semaphore empty;    	  // keep track of the number of empty spots 
+  Semaphore mutex;    	  // enforce mutual exclusion to shared data 
   sem_test_struct():count(0),full(0),empty(BUFF_SIZE),mutex(1){}   
 };
 
@@ -212,17 +212,19 @@ void *Producer(void *arg)
     int *index = static_cast<int *>(arg);
 
     for (i=0; i < PMAX; i++) {
-      /* If there are no empty slots, wait */
+      // If there are no empty slots, wait 
       (shared.empty).Wait();
-      /* If another thread uses the buffer, wait */
+      // If another thread uses the buffer, wait 
       (shared.mutex).Wait();
       shared.count++;
-      /* Release the buffer */
+      // Release the buffer 
       (shared.mutex).Signal();
-      printf("[P%d] Producing one product, the tot of products is now %d ...\n", *index, shared.count ); fflush(stdout);
-      /* Increment the number of full slots */
+      std::cout<<" P"<<(*index)<<" Producing one product, the tot of products is now" <<shared.count<<std::endl;
+      fflush(stdout);
+      sleep(0.1);
+       // Increment the number of full slots 
       (shared.full).Signal();
-      /* Interleave  producer and consumer execution */
+      // Interleave  producer and consumer execution 
       //if (i % 2 == 1) sleep(1);
     }
     return NULL;
@@ -233,17 +235,19 @@ void *Consumer(void *arg)
   int i;
   int *index = static_cast<int *>(arg);
     for (i=0; i < CMAX; i++) {
-      /* If there are no empty slots, wait */
+      //If there are no empty slots, wait 
       (shared.full).Wait();
-      /* If another thread uses the buffer, wait */
+      // If another thread uses the buffer, wait 
       (shared.mutex).Wait();
       shared.count--;
-      /* Release the buffer */
+      // Release the buffer 
       (shared.mutex).Signal();
-      printf("[C%d] Consuming one product, the tot of products is now %d ...\n", *index, shared.count); fflush(stdout);
-      /* Increment the number of empty slots */
+      std::cout<<" C"<<(*index)<<" Consuming one product, the tot of products is now" <<shared.count<<std::endl;
+      fflush(stdout);
+      sleep(0.1);
+      // Increment the number of empty slots 
       (shared.empty).Signal();
-      /* Interleave  producer and consumer execution */
+      // Interleave  producer and consumer execution 
       //if (i % 2 == 1) sleep(1);
     }
     return NULL;
