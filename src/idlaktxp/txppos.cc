@@ -97,5 +97,31 @@ void TxpPos::StartElement(const char * name, const char ** atts) {
   }
 }
 
+bool TxpPosSet::Parse(const std::string &tpdb) {
+  bool r;
+  r = TxpXmlData::Parse(tpdb);
+  if (!r)
+    KALDI_WARN << "Error reading part of speech set file: " << tpdb;
+  return r;
+}
+
+void TxpPosSet::StartElement(const char * name, const char ** atts) {
+  std::string tagname;
+  std::string set;
+  if (!strcmp(name, "tag")) {
+    SetAtt("name", atts, &tagname);
+    SetAtt("set", atts, &set);
+    posset_.insert(LookupItem(tagname, set));
+  }
+}
+
+const char * TxpPosSet::GetPosSet(const char * pos) {
+  LookupMap::iterator lkp;
+  lkp = posset_.find(std::string(pos));
+  if (lkp != posset_.end()) {
+    return (lkp->second).c_str();
+  }
+  return NULL;
+}
 
 }  // namespace kaldi

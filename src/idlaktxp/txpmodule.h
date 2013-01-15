@@ -127,6 +127,8 @@ class TxpPosTag : public TxpModule {
  private:
   /// Greedy regex and bigram tagger
   TxpPos tagger_;
+  /// Tagger set
+  TxpPosSet posset_;
 };
 
 /// Using pauses contruct a phrase structure in the XML

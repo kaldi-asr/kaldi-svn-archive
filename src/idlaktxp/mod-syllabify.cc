@@ -20,6 +20,10 @@
 
 namespace kaldi {
 
+const char * txpsyllabletype[] = {"onset", "nucleus", "coda"};
+
+static void _add_sylxml(const char * spron, pugi::xml_node * node);
+
 TxpSyllabify::TxpSyllabify(const std::string &tpdb, const std::string &configf)
     : TxpModule("syllabify", tpdb, configf), sylmax_("sylmax", "default") {
   sylmax_.Parse(tpdb.c_str());
@@ -51,15 +55,144 @@ bool TxpSyllabify::Process(pugi::xml_document * input) {
       if (it2 != tks.begin()) {
         sylmax_.Writespron(&pvector, &sylpron);
         pre_node.append_attribute("spron").set_value(sylpron.c_str());
+	//add syllabic xml structure
+	_add_sylxml(sylpron.c_str(), &pre_node);
       }
       pre_node = node;
     }
     if (!pre_node.empty()) {
       sylmax_.Writespron(&pvector, &sylpron);
       pre_node.append_attribute("spron").set_value(sylpron.c_str());
+      //add syllabic xml structure
+      _add_sylxml(sylpron.c_str(), &pre_node);
     }
   }
   return true;
 }
+
+static void _add_sylxml(const char * spron, pugi::xml_node * node){
+    // p is an interative  pointer to the syllabified string
+    // phone points to the next phone, plen its string length
+    // syl points to the syllable, slen its string length
+    // stress points to the nucleus type (in English 0 - no stress
+    // 2 - secondary stress, 1 - stressed)
+    // type keeps track of syllable subtype 0 - onset, 1 - nucleus
+    // 2 - coda
+    const char * p, *phone = NULL, *syl = NULL, *stress = "";
+    int32 plen = 0, slen = 0, type = 0, sylid = 1, phonid = 1;
+    // buffers used to create null terminated strings 
+    std::string s;
+    std::string s2;
+    // used to add xml structure
+    pugi::xml_node sylnode, phonenode;
+    sylnode = node->append_child("syl");
+    for(p = spron; *p; p++) {
+	// Syllable marker
+	if (*p == '|' || *p == '_' || *p == '+') {
+	    // output phone and phone syllable type
+	    if (phone) {
+		s = std::string(phone, plen);
+		phonenode = sylnode.append_child("phon");
+		phonenode.append_attribute("val").set_value(s.c_str());
+		phonenode.append_attribute("type").set_value(txpsyllabletype[type]);
+		phonenode.append_attribute("phonid").set_value(phonid);
+		phonid++;
+	    }
+	    if (phone) std::cout << s.c_str() << ' ' << type << '\n';
+	    // reset phone
+	    phone = NULL;
+	    plen = 0;
+	    // update type
+	    if (*p == '+') {
+		type++;
+		slen++;
+		// std::cout << *p << " s" << slen << "\n";
+	    }
+	    // end of syllable
+	    else if (*p == '|') {
+		// output syllable
+		if (syl) {
+		    s = std::string(syl, slen);
+		    s2 = std::string(stress, 1);
+		    sylnode.append_attribute("val").set_value(s.c_str());
+		    sylnode.append_attribute("stress").set_value(s2.c_str());
+		    sylnode.append_attribute("sylid").set_value(sylid);
+		    sylnode.append_attribute("nophons").set_value(phonid - 1);
+		}
+		if (syl) std::cout << "H" << s.c_str() << ' ' << *stress << '\n';
+		// reset syllable, stress and type
+		if (*(p + 1)) sylnode = node->append_child("syl");
+		syl = NULL;
+		slen = 0;
+		sylid++;
+		stress = "";
+		type = 0;
+		phonid = 1;
+	    }
+	    // between phone marker '_'
+	    else {
+		slen++;
+		// std::cout << *p << " s" << slen << "\n";
+	    }
+	}
+	// phone type (stress) marker
+	else if (*p >= '0' && *p <= '9') {
+	    // set to nucleus type
+	    type = 1;
+	    // output phone without stress marker
+	    if (phone) {
+		s = std::string(phone, plen);
+		phonenode = sylnode.append_child("phon");
+		phonenode.append_attribute("val").set_value(s.c_str());
+		phonenode.append_attribute("type").set_value(txpsyllabletype[type]);
+		phonenode.append_attribute("phonid").set_value(phonid);
+		phonid++;
+	    }
+	    if (phone) std::cout << s.c_str() << ' ' << type << '\n';
+	    // reset phone
+	    phone = NULL;
+	    plen = 0;
+	    // update stress value
+	    stress = p;
+	    slen++;
+	    // std::cout << *p << " n" << slen << "\n";
+	}
+	// other i.e. phone symbol - increment
+	else {
+	    if (!phone) phone = p;
+	    plen++;
+	    if (!syl) syl = p;
+	    slen++;
+	    // std::cout << *p << " e" << slen << "\n";
+	}
+    }
+    // output any phone/syllable left over (in case syllable
+    // not properly terminated
+    if (phone) {
+	s = std::string(phone, plen);
+	phonenode = sylnode.append_child("phon");
+	phonenode.append_attribute("val").set_value(s.c_str());
+	phonenode.append_attribute("type").set_value(txpsyllabletype[type]);
+	phonenode.append_attribute("phonid").set_value(phonid);
+	phonid++;
+    }
+    if (phone) std::cout << s.c_str() << ' ' << type << '\n';
+    if (syl) {
+	s = std::string(syl, slen);		    
+	s2 = std::string(stress, 1);
+    }	
+    if (syl) std::cout << s.c_str() << ' ' << *stress << '\n';  
+    if (syl) {
+	sylnode = node->append_child("syl");
+	sylnode.append_attribute("val").set_value(s.c_str());
+	sylnode.append_attribute("stress").set_value(s2.c_str());
+	sylnode.append_attribute("sylid").set_value(sylid);
+	sylnode.append_attribute("nophons").set_value(phonid - 1);
+	sylid++;
+    }
+    sylnode.parent().append_attribute("nosyl").set_value(sylid - 1);
+}
+
+
 
 }  // namespace kaldi

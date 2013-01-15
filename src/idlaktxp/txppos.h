@@ -19,8 +19,9 @@
 #ifndef SRC_IDLAKTXP_TXPPOS_H_
 #define SRC_IDLAKTXP_TXPPOS_H_
 
-// This file defines the normaliser rules class which holds linguistic
-// data used to convert tokens to normalised tokens
+// This file defines greedy part of speech tagger class which
+// determines pos tags for each normalised word and the tag set 
+// class which hold definitions of tag types
 
 #include <map>
 #include <utility>
@@ -82,6 +83,24 @@ struct TxpPosRgx {
   std::string pattern;
   /// The resulting tag
   std::string tag;
+};
+
+/// Part of speech sets
+/// see /ref idlaktxp_pos
+class TxpPosSet: public TxpXmlData {
+ public:
+  explicit TxpPosSet(const char * type, const char * name)
+      : TxpXmlData(type, name) {}
+  ~TxpPosSet() {}
+  bool Parse(const std::string &tpdb);
+  /// Return the part of speech for word current with previous
+  /// context POS prev
+  const char * GetPosSet(const char * pos);
+
+ private:
+  void StartElement(const char * name, const char ** atts);
+  /// unigram and POS_word bigram patterns.
+  LookupMap posset_;
 };
 
 }  // namespace kaldi

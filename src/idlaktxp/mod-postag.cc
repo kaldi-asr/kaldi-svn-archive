@@ -21,15 +21,16 @@
 namespace kaldi {
 
 TxpPosTag::TxpPosTag(const std::string &tpdb, const std::string &configf)
-    : TxpModule("postag", tpdb, configf), tagger_("postags", "default") {
+    : TxpModule("postag", tpdb, configf), tagger_("postags", "default"), posset_("posset", "default") {
   tagger_.Parse(tpdb.c_str());
+  posset_.Parse(tpdb.c_str());
 }
 
 TxpPosTag::~TxpPosTag() {
 }
 
 bool TxpPosTag::Process(pugi::xml_document * input) {
-  const char * ptag = "", * tag;
+    const char * ptag = "", * tag, *set;
   pugi::xpath_node_set tks = input->document_element().select_nodes("//tk");
   tks.sort();
   for (pugi::xpath_node_set::const_iterator it = tks.begin();
@@ -45,6 +46,11 @@ bool TxpPosTag::Process(pugi::xml_document * input) {
     tag = tagger_.GetPos(ptag, node.attribute("norm").value());
     if (!node.attribute("pos")) node.append_attribute("pos");
     node.attribute("pos").set_value(tag);
+    set = posset_.GetPosSet(tag);
+    if (set) {
+	if (!node.attribute("posset")) node.append_attribute("posset");
+	node.attribute("posset").set_value(set);
+    }
   }
   return true;
 }

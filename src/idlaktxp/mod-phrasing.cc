@@ -23,7 +23,8 @@ namespace kaldi {
 static bool _copy_until_break(pugi::xml_node *parent,
                               pugi::xml_node *phrasenode,
                               pugi::xml_node *firstbreak,
-                              pugi::xml_node *lastbreak);
+                              pugi::xml_node *lastbreak,
+			      int32 * wordid);
 
 static bool _is_utt_final(const pugi::xml_node &spt);
 
@@ -37,20 +38,33 @@ TxpPhrasing::~TxpPhrasing() {
 bool TxpPhrasing::Process(pugi::xml_document * input) {
   bool final = false;
   pugi::xml_node uttnode, phrasenode, rootnode, lastbreak, firstbreak;
+  int32 phraseid = 1;
+  int32 uttid = 1;
+  int32 wordid = 1;
   rootnode = input->document_element();
   uttnode = rootnode.append_child("utt");
+  uttnode.append_attribute("uttid").set_value(uttid);
   lastbreak = rootnode.select_nodes("//break[last()]").first().node();
   firstbreak = rootnode.select_nodes("//break[1]").first().node();
   // firstbreak.print(std::cout);
   // lastbreak.print(std::cout);
   while (!final) {
     phrasenode = uttnode.append_child("spt");
-    final = _copy_until_break(&rootnode, &phrasenode, &firstbreak, &lastbreak);
+    phrasenode.append_attribute("phraseid").set_value(phraseid);
+    wordid = 1;
+    final = _copy_until_break(&rootnode, &phrasenode, &firstbreak, &lastbreak, &wordid);
     // phrasenode.print(std::cout);
     lastbreak = rootnode.select_nodes("//break[last()]").first().node();
     firstbreak = rootnode.select_nodes("//break[1]").first().node();
-    if (_is_utt_final(phrasenode))
-       uttnode = rootnode.append_child("utt");
+    phrasenode.append_attribute("no_wrds").set_value(wordid - 1);
+    if (_is_utt_final(phrasenode)) {
+	uttnode.append_attribute("no_phrases").set_value(phraseid);
+	uttnode = rootnode.append_child("utt");
+	uttid++;
+	uttnode.append_attribute("uttid").set_value(uttid);
+	phraseid = 1;
+    }
+    phraseid++;
   }
   return true;
 }
@@ -58,9 +72,9 @@ bool TxpPhrasing::Process(pugi::xml_document * input) {
 static bool _copy_until_break(pugi::xml_node *parent,
                               pugi::xml_node *phrasenode,
                               pugi::xml_node *firstbreak,
-                              pugi::xml_node *lastbreak) {
+                              pugi::xml_node *lastbreak,
+			      int32 * wordid) {
   pugi::xml_node child, nextchild, childcopy;
-
   for (child = parent->first_child(); child; child = nextchild) {
     // get next child before current child is deleted
     nextchild = child.next_sibling();
@@ -88,7 +102,10 @@ static bool _copy_until_break(pugi::xml_node *parent,
           }
         }
       } else if (!strcmp(child.name(), "tk") || !strcmp(child.name(), "ws")) {
-        // if (!child.attribute("norm").empty())
+	  if (!strcmp(child.name(), "tk")) {
+	      child.append_attribute("wordid").set_value(*wordid);
+	      *wordid = *wordid + 1;
+	  }
         //  std::cout << child.attribute("norm").value() << "\n";
         childcopy = phrasenode->append_copy(child);
         parent->remove_child(child);
@@ -99,7 +116,7 @@ static bool _copy_until_break(pugi::xml_node *parent,
             a = a.next_attribute()) {
           childcopy.append_attribute(a.name()).set_value(a.value());
         }
-        if (_copy_until_break(&child, &childcopy, firstbreak, lastbreak)) {
+        if (_copy_until_break(&child, &childcopy, firstbreak, lastbreak, wordid)) {
           parent->remove_child(child);
         } else {
           return false;
