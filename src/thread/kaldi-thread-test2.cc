@@ -21,9 +21,7 @@
 #include "thread/kaldi-thread.h"
 #include "thread/kaldi-semaphore.h"
 #include "matrix/kaldi-matrix.h"
-#define BUFF_SIZE   10		/* total number of slots */
-#define PMAX  20
-#define CMAX  20       /* maxima of products produced/consumed by each producer/consumer */
+#include <iostream>
 namespace kaldi {
 
 /*
@@ -181,7 +179,7 @@ void TestThreadsSimple() {
      c[thread].start = block_size * thread;
      c[thread].end = std::min(max_to_count, c[thread].start + block_size);
      std::cout << " start and end on thread " << thread <<" = " << c[thread].start << " " << c[thread].end << std::endl ;
-     if ((ret = pthread_create(&(threads_[thread]), 
+    if ((ret = pthread_create(&(threads_[thread]), 
                                &pthread_attr, sum_ints ,&(c[thread])))) {
        perror("error:");
        KALDI_ERR << "Could not creare a new thread";      
@@ -196,12 +194,19 @@ void TestThreadsSimple() {
   delete [] threads_;
 }
 
+const int kSize = 50;
+const int kPMax = 20;
+const int kCMax = 20;
+const int kSizeP = 3;
+const int kSizeC = 3;
+pthread_mutex_t coutmutex = PTHREAD_MUTEX_INITIALIZER;
+
 struct sem_test_struct{
   int count;              // the number of products
   Semaphore full;     	  // keep track of the number of full spots 
   Semaphore empty;    	  // keep track of the number of empty spots 
   Semaphore mutex;    	  // enforce mutual exclusion to shared data 
-  sem_test_struct():count(0),full(0),empty(BUFF_SIZE),mutex(1){}   
+  sem_test_struct():count(0),full(0),empty(kSize),mutex(1){}   
 };
 
 sem_test_struct shared;
@@ -211,21 +216,22 @@ void *Producer(void *arg)
     int i;
     int *index = static_cast<int *>(arg);
 
-    for (i=0; i < PMAX; i++) {
+    for (i=0; i < kPMax; i++) {
       // If there are no empty slots, wait 
-      (shared.empty).Wait();
+      shared.empty.Wait();
       // If another thread uses the buffer, wait 
-      (shared.mutex).Wait();
+      shared.mutex.Wait();
       shared.count++;
       // Release the buffer 
-      (shared.mutex).Signal();
-      std::cout<<" P"<<(*index)<<" Producing one product, the tot of products is now" <<shared.count<<std::endl;
+      shared.mutex.Signal();
+      pthread_mutex_lock(&coutmutex);  
+      std::cout<<" P"<<*index<<" Producing one product, the tot of products is now" <<shared.count<<"\n"<<std::endl;
+      pthread_mutex_unlock(&coutmutex);  
+      //printf("P%d Producing one product, the tot of products is now %d\n", *index, shared.count);
       fflush(stdout);
       sleep(0.1);
        // Increment the number of full slots 
-      (shared.full).Signal();
-      // Interleave  producer and consumer execution 
-      //if (i % 2 == 1) sleep(1);
+      shared.full.Signal();
     }
     return NULL;
 }
@@ -234,40 +240,39 @@ void *Consumer(void *arg)
 {
   int i;
   int *index = static_cast<int *>(arg);
-    for (i=0; i < CMAX; i++) {
+    for (i=0; i < kCMax; i++) {
       //If there are no empty slots, wait 
-      (shared.full).Wait();
+      shared.full.Wait();
       // If another thread uses the buffer, wait 
-      (shared.mutex).Wait();
+      shared.mutex.Wait();
       shared.count--;
       // Release the buffer 
-      (shared.mutex).Signal();
-      std::cout<<" C"<<(*index)<<" Consuming one product, the tot of products is now" <<shared.count<<std::endl;
+      shared.mutex.Signal();
+      pthread_mutex_lock(&coutmutex);  
+      std::cout<<" C"<<*index<<" Consuming one product, the tot of products is now" <<shared.count<<"\n"<<std::endl;
+      pthread_mutex_unlock(&coutmutex);  
+      //printf("C%d Consuming one product, the tot of products is now %d\n", *index, shared.count);
       fflush(stdout);
       sleep(0.1);
       // Increment the number of empty slots 
-      (shared.empty).Signal();
-      // Interleave  producer and consumer execution 
-      //if (i % 2 == 1) sleep(1);
+      shared.empty.Signal();
     }
     return NULL;
 }
 
 void TestSemaphore(){
-  int sizeP = 3;
-  int sizeC = 3;
-  pthread_t idP[sizeP], idC[sizeC];
-  int indexP[sizeP];
-  int indexC[sizeC];
+  pthread_t idP[kSizeP], idC[kSizeC];
+  int indexP[kSizeP];
+  int indexC[kSizeC];
 
-  for (int i = 0; i < sizeP; i++)
+  for (int i = 0; i < kSizeP; i++)
   {  
     indexP[i] = i;
     // Create a new producer 
     pthread_create(&idP[i], NULL, Producer, (void*)(&indexP[i]));
   }
 
-  for (int i = 0; i < sizeC; i++)
+  for (int i = 0; i < kSizeC; i++)
   {  
     indexC[i] = i;      
     // Create a new producer 
@@ -275,12 +280,12 @@ void TestSemaphore(){
   }
 
 
-  for (int i = 0; i < sizeP; i++){
+  for (int i = 0; i < kSizeP; i++){
     if ( pthread_join(idP[i],NULL ))
       KALDI_ERR << "Error rejoining thread.";
   }
 
-  for (int i = 0; i < sizeC; i++){
+  for (int i = 0; i < kSizeC; i++){
     if ( pthread_join(idC[i],NULL ))
       KALDI_ERR << "Error rejoining thread.";
   }
