@@ -98,7 +98,7 @@ static void _add_sylxml(const char * spron, pugi::xml_node * node){
 		phonenode.append_attribute("phonid").set_value(phonid);
 		phonid++;
 	    }
-	    if (phone) std::cout << s.c_str() << ' ' << type << '\n';
+	    // if (phone) std::cout << s.c_str() << ' ' << type << '\n';
 	    // reset phone
 	    phone = NULL;
 	    plen = 0;
@@ -119,7 +119,7 @@ static void _add_sylxml(const char * spron, pugi::xml_node * node){
 		    sylnode.append_attribute("sylid").set_value(sylid);
 		    sylnode.append_attribute("nophons").set_value(phonid - 1);
 		}
-		if (syl) std::cout << "H" << s.c_str() << ' ' << *stress << '\n';
+		// if (syl) std::cout << "H" << s.c_str() << ' ' << *stress << '\n';
 		// reset syllable, stress and type
 		if (*(p + 1)) sylnode = node->append_child("syl");
 		syl = NULL;
@@ -148,7 +148,7 @@ static void _add_sylxml(const char * spron, pugi::xml_node * node){
 		phonenode.append_attribute("phonid").set_value(phonid);
 		phonid++;
 	    }
-	    if (phone) std::cout << s.c_str() << ' ' << type << '\n';
+	    // if (phone) std::cout << s.c_str() << ' ' << type << '\n';
 	    // reset phone
 	    phone = NULL;
 	    plen = 0;
@@ -176,12 +176,12 @@ static void _add_sylxml(const char * spron, pugi::xml_node * node){
 	phonenode.append_attribute("phonid").set_value(phonid);
 	phonid++;
     }
-    if (phone) std::cout << s.c_str() << ' ' << type << '\n';
+    // if (phone) std::cout << s.c_str() << ' ' << type << '\n';
     if (syl) {
 	s = std::string(syl, slen);		    
 	s2 = std::string(stress, 1);
     }	
-    if (syl) std::cout << s.c_str() << ' ' << *stress << '\n';  
+    // if (syl) std::cout << s.c_str() << ' ' << *stress << '\n';  
     if (syl) {
 	sylnode = node->append_child("syl");
 	sylnode.append_attribute("val").set_value(s.c_str());
