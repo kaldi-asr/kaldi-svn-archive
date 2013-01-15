@@ -19,7 +19,11 @@
 
 #include "base/kaldi-common.h"
 #include "thread/kaldi-thread.h"
+#include "thread/kaldi-semaphore.h"
 #include "matrix/kaldi-matrix.h"
+#define BUFF_SIZE   10		/* total number of slots */
+#define PMAX  20
+#define CMAX  20       /* maxima of products produced/consumed by each producer/consumer */
 namespace kaldi {
 
 /*
@@ -135,7 +139,6 @@ void TestThreads2(int32 num_threads) {
   
  } */
 
-
 struct thread_test_struct { // start + end of integers to sum up.
   int32 start;
   int32 end;
@@ -193,13 +196,104 @@ void TestThreadsSimple() {
   delete [] threads_;
 }
 
+struct sem_test_struct{
+  int count;              /* the number of products*/
+  Semaphore full;     	  /* keep track of the number of full spots */
+  Semaphore empty;    	  /* keep track of the number of empty spots */
+  Semaphore mutex;    	  /* enforce mutual exclusion to shared data */
+  sem_test_struct():count(0),full(0),empty(BUFF_SIZE),mutex(1){}   
+};
+
+sem_test_struct shared;
+
+void *Producer(void *arg)
+{
+    int i;
+    int *index = static_cast<int *>(arg);
+
+    for (i=0; i < PMAX; i++) {
+      /* If there are no empty slots, wait */
+      (shared.empty).Wait();
+      /* If another thread uses the buffer, wait */
+      (shared.mutex).Wait();
+      shared.count++;
+      /* Release the buffer */
+      (shared.mutex).Signal();
+      printf("[P%d] Producing one product, the tot of products is now %d ...\n", *index, shared.count ); fflush(stdout);
+      /* Increment the number of full slots */
+      (shared.full).Signal();
+      /* Interleave  producer and consumer execution */
+      //if (i % 2 == 1) sleep(1);
+    }
+    return NULL;
+}
+
+void *Consumer(void *arg)
+{
+  int i;
+  int *index = static_cast<int *>(arg);
+    for (i=0; i < CMAX; i++) {
+      /* If there are no empty slots, wait */
+      (shared.full).Wait();
+      /* If another thread uses the buffer, wait */
+      (shared.mutex).Wait();
+      shared.count--;
+      /* Release the buffer */
+      (shared.mutex).Signal();
+      printf("[C%d] Consuming one product, the tot of products is now %d ...\n", *index, shared.count); fflush(stdout);
+      /* Increment the number of empty slots */
+      (shared.empty).Signal();
+      /* Interleave  producer and consumer execution */
+      //if (i % 2 == 1) sleep(1);
+    }
+    return NULL;
+}
+
+void TestSemaphore(){
+  int sizeP = 3;
+  int sizeC = 3;
+  pthread_t idP[sizeP], idC[sizeC];
+  int indexP[sizeP];
+  int indexC[sizeC];
+
+  for (int i = 0; i < sizeP; i++)
+  {  
+    indexP[i] = i;
+    // Create a new producer 
+    pthread_create(&idP[i], NULL, Producer, (void*)(&indexP[i]));
+  }
+
+  for (int i = 0; i < sizeC; i++)
+  {  
+    indexC[i] = i;      
+    // Create a new producer 
+    pthread_create(&idC[i], NULL, Consumer, (void*)(&indexC[i]));
+  }
+
+
+  for (int i = 0; i < sizeP; i++){
+    if ( pthread_join(idP[i],NULL ))
+      KALDI_ERR << "Error rejoining thread.";
+  }
+
+  for (int i = 0; i < sizeC; i++){
+    if ( pthread_join(idC[i],NULL ))
+      KALDI_ERR << "Error rejoining thread.";
+  }
+
+  pthread_exit(NULL);
+}
+
+
+
   
 }  // end namespace kaldi.
 
 int main() {
   using namespace kaldi;
   //TestThreads();
-  TestThreadsSimple();
+  //TestThreadsSimple();
+  TestSemaphore();
   //TestThreads<float>(num_threads);
 }
 
