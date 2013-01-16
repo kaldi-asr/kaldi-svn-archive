@@ -51,6 +51,10 @@ class Interval {
 bool CompareInterval(const Interval &i1, 
                      const Interval &i2); 
 
+// This function perform a disambiguation operation instead of clustering thus,
+// each arc has it own cluster.
+bool FakeClusterLattice(CompactLattice *clat);
+
 // This function clusters the arcs with same word id and overlapping time-spans.
 // Examples of clusters:
 // 0 1 a a (0.1s ~ 0.5s) and 2 3 a a (0.2s ~ 0.4s) are within the same cluster; 

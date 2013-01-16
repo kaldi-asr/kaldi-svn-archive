@@ -43,8 +43,10 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
 
     int32 max_silence_frames = 50;
+    bool clustering = true;
+    
     po.Register("max-silence-frames", &max_silence_frames, "Maximum #frames for silence arc.");
-
+    po.Register("clustering", &clustering, "Enable/Disable arc clustering during preprocessing step");
     po.Read(argc, argv);
 
     if (po.NumArgs() < 3 || po.NumArgs() > 4) {
@@ -100,7 +102,10 @@ int main(int argc, char *argv[]) {
       // of preprocessing (the weight pushing step) later when generating the
       // factor transducer.
       bool success = false;
-      success = ClusterLattice(&clat, state_times);
+      if (!clustering)
+      	success = FakeClusterLattice(&clat);
+      else
+      	success = ClusterLattice(&clat, state_times);
       if (!success) {
         KALDI_WARN << "State id's and alignments do not match for lattice " << key;
         n_fail++;

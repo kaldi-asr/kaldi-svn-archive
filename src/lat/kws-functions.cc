@@ -38,6 +38,30 @@ bool CompareInterval(const Interval &i1,
 
 }
 
+bool FakeClusterLattice(CompactLattice *clat) {
+  using namespace fst;
+  using std::tr1::unordered_map;
+  
+	int32 cluster_id = 0;
+	
+  // We consider that each arc is one cluster and one cluster is one arc,
+  // actually this is just a disambiguation operation.
+  for (StateIterator<CompactLattice> siter(*clat); !siter.Done(); siter.Next()) {
+    CompactLatticeArc::StateId state_id = siter.Value();
+    for (MutableArcIterator<CompactLattice> aiter(clat, state_id); !aiter.Done(); aiter.Next()) {
+      CompactLatticeArc arc = aiter.Value();
+      // We don't cluster the epsilon arcs
+      if (arc.ilabel == 0)
+        continue;
+      // We cluster the non-epsilon arcs
+      arc.olabel = ++cluster_id;
+      aiter.SetValue(arc);
+    }
+  }
+
+  return true;
+}
+
 bool ClusterLattice(CompactLattice *clat, 
                     const vector<int32> &state_times) {
   using namespace fst;
