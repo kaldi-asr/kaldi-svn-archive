@@ -21,65 +21,34 @@
 #include "thread/kaldi-thread.h"
 #include "thread/kaldi-semaphore.h"
 #include "matrix/kaldi-matrix.h"
-#include <iostream>
 namespace kaldi {
 
-/*
-class MyThreadClass {  // Sums up integers from 0 to max_to_count-1.
- public:
-  MyThreadClass(int32 max_to_count, int32 *i): max_to_count_(max_to_count),
-                                               iptr_(i),
-                                               private_counter_(0) { }
-  // Use default copy constructor and assignment operators.
-  void operator() () {
-    int32 block_size = (max_to_count_+ (num_threads_-1) ) / num_threads_;
-    int32 start = block_size * thread_id_,
-        end = std::min(max_to_count_, start + block_size);
-    for (int32 j = start; j < end; j++)
-      private_counter_ += j;
-  }
-  ~MyThreadClass() {
-    *iptr_ += private_counter_;
-  }
-
-  static void *run(void *c_in) {
-    MyThreadClass *c = static_cast<MyThreadClass*>(c_in);
-    (*c)();  // call operator () on it.
-    return NULL;
-  }
-
- public:
-  int32 thread_id_;  // 0 <= thread_number < num_threads
-  int32 num_threads_;
-
- private:
-  MyThreadClass() { }  // Disallow empty constructor.
-  int32 max_to_count_;
-  int32 *iptr_;
-  int32 private_counter_;
-};
-
 template<typename Real>
-template<class Mat>
 class MyThreadClass2 {  // Doing Matrix multiplication.
  public:
-  MyThreadClass2(Mat<Real> &M1, Mat<Real> &M2, int32 row_num, Mat<Real> *i): row_num_(row_num),
-                                               iptr_(i),
-                                               private_counter_(Mat<Real> c1(M1.row, M2.col)) { }
+  MyThreadClass2(CharacterMatrix<unsigned char> &M1, CharacterMatrix<signed char> &M2, 
+                         int32 row_num,int32 col_num, Matrix<Real> *i): row_num_(row_num),
+                                               col_num_(col_num),iptr_(i)
+                                               {private_counter_.Resize(row_num_, col_num_);
+                                                M1_.CopyFromMatrix(M1);
+                                                M2_.CopyFromMatrix(M2);
+                                               }
   // Use default copy constructor and assignment operators.
   void operator() () {
     int32 block_size = (row_num_+ (num_threads_-1) ) / num_threads_;
     int32 start = block_size * thread_id_,
         end = std::min(row_num_, start + block_size);
   //  for (int32 row = start; row < end; row++)
-    private_counter_.AddVecMat(1,M1,kNoTrans, M2,kTrans, 0 , start, end);
+    private_counter_.AddVecMat(1,M1_,kNoTrans, M2_,kTrans, 0 , start, end);
  // }
-  ~MyThreadClass() {
-    *iptr_ += private_counter_;
+   }
+  ~MyThreadClass2() {
+    
+   (*iptr_).AddMat(1,private_counter_,kNoTrans);
   }
 
   static void *run(void *c_in) {
-    MyThreadClass *c = static_cast<MyThreadClass*>(c_in);
+    MyThreadClass2 *c = static_cast<MyThreadClass2*>(c_in);
     (*c)();  // call operator () on it.
     return NULL;
   }
@@ -89,57 +58,29 @@ class MyThreadClass2 {  // Doing Matrix multiplication.
   int32 num_threads_;
 
  private:
-  MyThreadClass() { }  // Disallow empty constructor.
+  MyThreadClass2() { }  // Disallow empty constructor.
   int32 row_num_;
-  Mat<Real> *iptr_;
-  Mat<Real> private_counter_;
+  int32 col_num_;
+  Matrix<Real> *iptr_;
+  Matrix<Real> private_counter_;
+  CharacterMatrix<unsigned char> M1_;
+  CharacterMatrix<signed char> M2_;
 };
-  
-void TestThreads() {
-  g_num_threads = 8;
-  // run method with temporary threads on 8 threads
-  // Note: uncomment following line for the possibility of simple benchmarking
-  // for(int i=0; i<100000; i++)
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClass c(max_to_count, &tot);
-    RunMultiThreaded(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-  g_num_threads = 1;
-  // let's try the same, but with only one thread
-  {
-    int32 max_to_count = 10000, tot = 0;
-    MyThreadClass c(max_to_count, &tot);
-    RunMultiThreaded(c);
-    KALDI_ASSERT(tot == (10000*(10000-1))/2);
-  }
-}
-template<Real>
-void TestThreads2(int32 num_threads) {
- g_num_threads = num_threads ;
- int32 row_num = 64;
- int32 col = 10 ;
- int32 row2 = 100;
- Matrix<Real> Mr1(row_num, col);
- Mr1.SetRandn();
- CharacterMatrix<unsigned char> M1;
- M1.CopyFromMat(Mr1);
-
- Matrix<Real> Mr2(row2, col);
- Mr2.SetRandn();
- CharacterMatrix<signed char> M2;
- M2.CopyFromMat(Mr2);
-
- CharacterMatrix<Real> tot(row_num, col);
- MyThreadClass2<CharacterMatrix> c(M1,M2,row_num, &tot);
- RunMultiThreaded(c);
-  
- } */
 
 struct thread_test_struct { // start + end of integers to sum up.
   int32 start;
   int32 end;
+  Semaphore empty_semaphore_;
+  Semaphore full_semaphore_;
+  bool done_;
+  thread_test_struct()
+  {
+    start = 0;
+    end = 0;
+    empty_semaphore_ = 1;
+    full_semaphore_ = 1;
+    done_ = false;
+  }
 };
 
 void* sum_ints(void* input) {
@@ -149,8 +90,12 @@ void* sum_ints(void* input) {
     ans += i;
   return (void*) ans;
 }
+void ExampleDone(pthread_t  thread_, void** iptr) {
+     if( pthread_join(thread_, iptr))
+            perror("error: Error rejoining thread.");
+}
 
-
+// Example Test :
 void TestThreadsSimple() {
   // test code here that creates an array of the structs,
   // then, multiple times, spawns threads, then joins them
@@ -165,7 +110,6 @@ void TestThreadsSimple() {
   int32 max_to_count = 100;
   int32 tot = 0 ;
   void *iptr_;
-  
   int32 block_size = (max_to_count + (num_thread - 1))/ num_thread;
   //std::vector<thread_test_struct> c;
   thread_test_struct *c = new thread_test_struct[num_thread];
@@ -178,131 +122,59 @@ void TestThreadsSimple() {
      int32 ret;
      c[thread].start = block_size * thread;
      c[thread].end = std::min(max_to_count, c[thread].start + block_size);
-     std::cout << " start and end on thread " << thread <<" = " << c[thread].start << " " << c[thread].end << std::endl ;
-    if ((ret = pthread_create(&(threads_[thread]), 
+     //std::cout << " start and end on thread " << thread <<" = " << c[thread].start << " " << c[thread].end << std::endl ;
+     if ((ret = pthread_create(&(threads_[thread]), 
                                &pthread_attr, sum_ints ,&(c[thread])))) {
        perror("error:");
        KALDI_ERR << "Could not creare a new thread";      
       }
+      c[thread].empty_semaphore_.Wait();
+      c[thread].full_semaphore_.Signal();
    }
+  //std::cout <<" empty val = " << c[thread].empty_semaphore_.GetValue() << std::endl; 
   for( int32 thread = 0; thread < num_thread; thread++) {
-    if ( pthread_join(threads_[thread],&iptr_ ))
-      KALDI_ERR << "Error rejoining thread.";
+  //  if ( pthread_join(threads_[thread],&iptr_ ))
+  //    KALDI_ERR << "Error rejoining thread.";
+      ExampleDone((threads_[thread]), &iptr_);
+      c[thread].empty_semaphore_.Signal();
+      c[thread].full_semaphore_.Wait();
+      c[thread].done_ = true;
       tot += reinterpret_cast<size_t>(iptr_);
   }
+  //std::cout <<" empty val = " << empty_semaphore_.GetValue() << std::endl;
   KALDI_LOG << " total is " << tot;
   delete [] threads_;
 }
-
-const int kSize = 50;
-const int kPMax = 20;
-const int kCMax = 20;
-const int kSizeP = 3;
-const int kSizeC = 3;
-pthread_mutex_t coutmutex = PTHREAD_MUTEX_INITIALIZER;
-
-struct sem_test_struct{
-  int count;              // the number of products
-  Semaphore full;     	  // keep track of the number of full spots 
-  Semaphore empty;    	  // keep track of the number of empty spots 
-  Semaphore mutex;    	  // enforce mutual exclusion to shared data 
-  sem_test_struct():count(0),full(0),empty(kSize),mutex(1){}   
-};
-
-sem_test_struct shared;
-
-void *Producer(void *arg)
-{
-    int i;
-    int *index = static_cast<int *>(arg);
-
-    for (i=0; i < kPMax; i++) {
-      // If there are no empty slots, wait 
-      shared.empty.Wait();
-      // If another thread uses the buffer, wait 
-      shared.mutex.Wait();
-      shared.count++;
-      // Release the buffer 
-      shared.mutex.Signal();
-      pthread_mutex_lock(&coutmutex);  
-      std::cout<<" P"<<*index<<" Producing one product, the tot of products is now" <<shared.count<<"\n"<<std::endl;
-      pthread_mutex_unlock(&coutmutex);  
-      //printf("P%d Producing one product, the tot of products is now %d\n", *index, shared.count);
-      fflush(stdout);
-      sleep(0.1);
-       // Increment the number of full slots 
-      shared.full.Signal();
-    }
-    return NULL;
-}
-
-void *Consumer(void *arg)
-{
-  int i;
-  int *index = static_cast<int *>(arg);
-    for (i=0; i < kCMax; i++) {
-      //If there are no empty slots, wait 
-      shared.full.Wait();
-      // If another thread uses the buffer, wait 
-      shared.mutex.Wait();
-      shared.count--;
-      // Release the buffer 
-      shared.mutex.Signal();
-      pthread_mutex_lock(&coutmutex);  
-      std::cout<<" C"<<*index<<" Consuming one product, the tot of products is now" <<shared.count<<"\n"<<std::endl;
-      pthread_mutex_unlock(&coutmutex);  
-      //printf("C%d Consuming one product, the tot of products is now %d\n", *index, shared.count);
-      fflush(stdout);
-      sleep(0.1);
-      // Increment the number of empty slots 
-      shared.empty.Signal();
-    }
-    return NULL;
-}
-
-void TestSemaphore(){
-  pthread_t idP[kSizeP], idC[kSizeC];
-  int indexP[kSizeP];
-  int indexC[kSizeC];
-
-  for (int i = 0; i < kSizeP; i++)
-  {  
-    indexP[i] = i;
-    // Create a new producer 
-    pthread_create(&idP[i], NULL, Producer, (void*)(&indexP[i]));
-  }
-
-  for (int i = 0; i < kSizeC; i++)
-  {  
-    indexC[i] = i;      
-    // Create a new producer 
-    pthread_create(&idC[i], NULL, Consumer, (void*)(&indexC[i]));
-  }
-
-
-  for (int i = 0; i < kSizeP; i++){
-    if ( pthread_join(idP[i],NULL ))
-      KALDI_ERR << "Error rejoining thread.";
-  }
-
-  for (int i = 0; i < kSizeC; i++){
-    if ( pthread_join(idC[i],NULL ))
-      KALDI_ERR << "Error rejoining thread.";
-  }
-
-  pthread_exit(NULL);
-}
-
-
-
   
+template<typename Real>
+void TestThreads2(int32 num_threads) {
+ g_num_threads = num_threads ;
+ int32 row_num = 10;
+ int32 col = 10 ;
+ int32 row2 = 10;
+ Matrix<Real> Mr1(row_num, col);
+ Mr1.SetRandn();
+ CharacterMatrix<unsigned char> M1;
+ M1.CopyFromMat(Mr1);
+
+ Matrix<Real> Mr2(row2, col);
+ Mr2.SetRandn();
+ CharacterMatrix<signed char> M2;
+ M2.CopyFromMat(Mr2);
+
+ Matrix<Real> tot(row_num, row2);
+ MyThreadClass2<Real> c(M1,M2,row_num,row2, &tot);
+ RunMultiThreaded(c);
+ 
+ } 
+
+
+// End of Test;
 }  // end namespace kaldi.
 
 int main() {
   using namespace kaldi;
-  //TestThreads();
   //TestThreadsSimple();
-  TestSemaphore();
-  //TestThreads<float>(num_threads);
+   TestThreads2<float>(10);
 }
 
