@@ -398,7 +398,13 @@ class MatrixBase {
                  MatrixTransposeType tM1, 
                  CharacterMatrix<signed char> & M2, 
                  MatrixTransposeType tM2, 
-                 const Real beta); 
+                 const Real beta);
+  void AddMatMatPthread(Real alpha,
+                 CharacterMatrix<unsigned char> &M1,
+                 MatrixTransposeType tM1,
+                 CharacterMatrix<signed char> & M2,
+                 MatrixTransposeType tM2,
+                 const Real beta, const int kNumThreads); 
 // [hhx] for test to be removed
   void AddMatMat2(Real alpha, 
                  CharacterMatrix<unsigned char> &M1, 
