@@ -780,7 +780,8 @@ class CharacterMatrix{
   void Transpose();
   template<typename Real>
   void  CopyFromMat(const MatrixBase<Real> &M);
-
+  template<typename OtherReal>
+  void CopyFromMatrix(const CharacterMatrix<OtherReal> &M);
   // recover real matrix from character matrix
   // From Dan: Google style guide does not allow non-const references, you should use a pointer.
   // But this should probably be called CopyToMat instead of RecoverMatrix.
@@ -874,7 +875,21 @@ void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
     }
   }
 }
-
+template<typename Real>
+template<typename OtherReal>
+void CharacterMatrix<Real>::CopyFromMatrix(const CharacterMatrix<OtherReal> &M) {
+  if ( sizeof(Real) == sizeof(OtherReal) && (void*)(&M) == (void*)this)
+    return;
+  (*this).Resize(M.NumRows(),M.NumCols());
+  //KALDI_ASSERT(num_rows_ == M.NumRows() && num_cols_ == M.NumCols());
+  int32 this_stride = stride_, other_stride = M.Stride();
+  Real *this_data = data_;
+  const OtherReal *other_data = M.Data();
+  for (MatrixIndexT i = 0; i < num_rows_; i++) 
+    for(MatrixIndexT j = 0; j < num_cols_; j++)
+      this_data[i*this_stride + j] += other_data[i * other_stride + j];
+  }
+                                      
 // Recover floating matrix  from char matrix
 template<typename T>
 template<typename Real>

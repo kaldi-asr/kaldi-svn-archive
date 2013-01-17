@@ -295,7 +295,7 @@ void MatrixBase<float>::AddMatMat(float alpha,
       x1[1] = 0;
       x1[2] = 0;
       x1[3] = 0;
-      Sse4DotProduct4fold1X4(M1.data_ + row * M1.stride_,
+      Sse4DotProduct8fold1X4V3(M1.data_ + row * M1.stride_,
                                  M2.data_ + col * M2.stride_, M2.data_ + (col + 1) * M2.stride_, 
   				 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
       
@@ -330,74 +330,173 @@ void MatrixBase<float>::AddMatMat(float alpha,
     }
   }
 }
+// start
+template <>
+template <>
+void MatrixBase<float>::AddVecMat(float alpha,
+                 const CharacterMatrix<unsigned char> &M1,
+                 MatrixTransposeType tM1,
+                 const CharacterMatrix<signed char> & M2,
+                 MatrixTransposeType tM2,
+                 const float beta, int32 row_start, int32 row_end) ;
 
-typedef struct{ 
-  int id; MatrixIndexT begin, end;
-  float alpha;
-  CharacterMatrix<unsigned char> *M1; CharacterMatrix<signed char> *M2, *Mt; 
-  MatrixIndexT stride;float *data, beta, mul_inc, coef1, coef2, gconst;
-  int *x3;
-} parm;
+template<>
+void MatrixBase<float>::AddVecMat(float alpha, 
+                 CharacterMatrix<unsigned char> &M1, 
+                 MatrixTransposeType tM1, 
+                 CharacterMatrix<signed char> & M2, 
+                 MatrixTransposeType tM2, 
+                 const float beta, int32 row_start, int32 row_end) {
+  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
+               || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
+  
+  if(tM2 != kTrans) // since we need transpose it
+    KALDI_ERR << "Pre-transposed M2 expected";
 
-void mm(int id, MatrixIndexT begin, MatrixIndexT end, float alpha, CharacterMatrix<unsigned char> *M1, CharacterMatrix<signed char> *M2, 
-        CharacterMatrix<signed char> *Mt, float *data, MatrixIndexT stride, float beta, float mul_inc, 
-        float coef1, float coef2, float gconst, int *x3){
- KALDI_LOG<<"Thread "<<id<<" opened, multiplying row "<<begin<<" to row "<<end<<" of M1("<<(*M1).NumRows()<<"X"<<(*M1).NumCols()<<") with M2."; 
- for(MatrixIndexT row = begin; row < end; ++ row) {
-    int x2 = Sse4DotProduct((*M1).Data() + row * (*M1).Stride(), (*Mt).Data(), (*M1).NumCols());
+  // pre-calculate some constant
+  float mul_inc = M1.increment_ * M2.increment_,
+  low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
+  coef1 = M2.min_ / M1.increment_ - low_t2 /mul_inc,
+  coef2 = M1.min_ / M2.increment_ ,
+  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.increment_;
+  CharacterMatrix<signed char> Mt;
+  Mt.Resize(1, M1.num_cols_);
+  for(int32 col = 0; col < M1.num_cols_; ++col) {
+    *(Mt.data_ + col) = static_cast<signed char>(1);
+  }
+  
+  int x3[M2.NumRows()];
+  for (MatrixIndexT col = row_start; col < row_end+1; ++col){
+    x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
+    //x3[col] = DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_); 
+    //x3[col] = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
+  }
+
+  for(MatrixIndexT row = row_start; row < row_end+1; ++ row) {
+    int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+    //int x2 = DotProduct (M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+    //int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
     MatrixIndexT col = 0;
-    for( col = 0; col+3 < (*M2).NumRows(); col += 4) {
+     
+    for( col = 0; col+3 < M2.NumRows(); col += 4) {
       int x1[4];
       x1[0] = 0;
       x1[1] = 0;
       x1[2] = 0;
       x1[3] = 0;
-      Sse4DotProduct8fold1X4V3((*M1).Data() + row * (*M1).Stride(),
-                                 (*M2).Data() + col * (*M2).Stride(), (*M2).Data() + (col + 1) * (*M2).Stride(),
-                                 (*M2).Data() + (col + 2) * (*M2).Stride(), (*M2).Data() + (col + 3) * (*M2).Stride(), x1,  (*M1).NumCols());
+      Sse4DotProduct4fold1X4(M1.data_ + row * M1.stride_,
+                                 M2.data_ + col * M2.stride_, M2.data_ + (col + 1) * M2.stride_, 
+  				 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
+ 
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  
+      
+      *this_data = static_cast<float>( beta * (*this_data) +
+                                             alpha * (static_cast<float>(x1[0]) / mul_inc +
+  					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+      *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
+                                             alpha * (static_cast<float>(x1[1]) / mul_inc +
+  					     coef1 * x2 + coef2 * x3[col + 1] + gconst * M1.num_cols_ ));
+      *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
+                                             alpha * (static_cast<float>(x1[2]) / mul_inc +
+ 					     coef1 * x2 + coef2 * x3[col + 2] + gconst * M1.num_cols_ ));
+      *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
+                                             alpha * (static_cast<float>(x1[3]) / mul_inc +
+  					     coef1 * x2 + coef2 * x3[col + 3] + gconst * M1.num_cols_ ));
+    }
+    
+    for(col = col; col < M2.NumRows(); ++col) {
+      int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
+                               M2.data_ + col * M2.stride_, M1.num_cols_);
+      //int x1 = DotProduct(M1.data_ + row * M1.stride_,
+      //                         M2.data_ + col * M2.stride_, M1.num_cols_);
+    
+
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  // (*this)(row, col) 
+       *this_data = static_cast<float>( beta * (*this_data) +
+                                             alpha * (static_cast<float>(x1) / mul_inc +
+  					     coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+    }
+  }
+}
+
+// End
 
 
-      float *this_data  = (data + row * stride + col);
+typedef struct {
+  int id;
+  float alpha;
+  unsigned char *M1data; signed char *M2data, *Mtdata; 
+  MatrixIndexT M1num_cols, M1num_rows, M1stride, M2num_rows, M2stride, stride;
+  float *data, beta, mul_inc, coef1, coef2, gconst;
+  int *x3;
+} parm;
+
+void mm(int id, float alpha, unsigned char *M1data, signed char *M2data, signed char *Mtdata, float *data, 
+        MatrixIndexT M1num_cols, MatrixIndexT M1num_rows, MatrixIndexT M1stride, 
+        MatrixIndexT M2num_rows, MatrixIndexT M2stride, MatrixIndexT stride,
+        float beta, float mul_inc, float coef1, float coef2, float gconst, int *x3){
+  /*
+ for(MatrixIndexT row = (id - 1) ; row < M1.NumRows(); ++ row) {
+    int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+    //int x2 = DotProduct (M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+    //int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
+    MatrixIndexT col = 0;
+
+    for( col = 0; col+3 < M2.NumRows(); col += 4) {
+      int x1[4];
+      x1[0] = 0;
+      x1[1] = 0;
+      x1[2] = 0;
+      x1[3] = 0;
+      Sse4DotProduct8fold1X4V3(M1.data_ + row * M1.stride_,
+                                 M2.data_ + col * M2.stride_, M2.data_ + (col + 1) * M2.stride_,
+                                 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
+
+
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);
 
       *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1[0]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col] + gconst * (*M1).NumCols()));
+                                             coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
       *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
                                              alpha * (static_cast<float>(x1[1]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 1] + gconst * (*M1).NumCols()));
+                                             coef1 * x2 + coef2 * x3[col + 1] + gconst * M1.num_cols_ ));
       *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
                                              alpha * (static_cast<float>(x1[2]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 2] + gconst * (*M1).NumCols()));
+                                             coef1 * x2 + coef2 * x3[col + 2] + gconst * M1.num_cols_ ));
       *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
                                              alpha * (static_cast<float>(x1[3]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 3] + gconst * (*M1).NumCols()));
+                                             coef1 * x2 + coef2 * x3[col + 3] + gconst * M1.num_cols_ ));
     }
 
-    for(col = col; col < (*M2).NumRows(); ++col) {
-      int x1 = Sse4DotProduct((*M1).Data() + row * (*M1).Stride(),
-                               (*M2).Data() + col * (*M2).Stride(), (*M1).NumCols());
+    for(col = col; col < M2.NumRows(); ++col) {
+      int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
+                               M2.data_ + col * M2.stride_, M1.num_cols_);
       //int x1 = DotProduct(M1.data_ + row * M1.stride_,
       //                         M2.data_ + col * M2.stride_, M1.num_cols_);
 
 
-      float *this_data  = (data + row * stride + col);  
-      *this_data = static_cast<float>( beta * (*this_data) +
+      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  // (*this)(row, col) 
+       *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col] + gconst * (*M1).NumCols() ));
+                                             coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
     }
   }
-
+*/
 	
 }
 void * worker(void *arg)
 {
-  parm *p = (parm *) arg;
-  mm(p->id, p->begin, p->end, p->alpha, p->M1, p->M2, p->Mt, p->data, p->stride, p->beta, p->mul_inc, p->coef1, p->coef2, p->gconst, p->x3);
-  return NULL;
+	parm *p = (parm *) arg;
+	mm(p->id, p->alpha, p->M1data, p->M2data, p->Mtdata, p->data, p->M1num_cols,  p->M1num_rows, p->M1stride, p->M2num_rows,
+        p->M2stride, p->stride, p->beta, p->mul_inc, p->coef1, p->coef2, p->gconst, p->x3);
+	return NULL;
 }
 
 template<>
-void MatrixBase<float>::AddMatMatPthread(float alpha,
+void MatrixBase<float>::AddMatMatPthreads(float alpha,
                  CharacterMatrix<unsigned char> &M1,
                  MatrixTransposeType tM1,
                  CharacterMatrix<signed char> & M2,
@@ -426,15 +525,17 @@ void MatrixBase<float>::AddMatMatPthread(float alpha,
   int x3[M2.NumRows()];
   for (MatrixIndexT col = 0; col < M2.NumRows(); ++col){
     x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
+    //x3[col] = DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_); 
+    //x3[col] = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
   }
   pthread_t *threads = new pthread_t[kNumThreads];
   int *index = new int[kNumThreads];
   parm *arg = new parm[kNumThreads];
-  int blocksize = M1.NumRows()/kNumThreads;
   for(int i = 0; i < kNumThreads; i++) {
-    arg[i].id = i; arg[i].begin = i * blocksize; arg[i].end = ((i + 2) * blocksize > M1.NumRows()? M1.NumRows():(i + 1) * blocksize);
-    arg[i].alpha = alpha; arg[i].beta = beta;
-    arg[i].M1 = &M1; arg[i].M2 = &M2; arg[i].Mt = &Mt; arg[i].data = (*this).Data(); arg[i].stride = (*this).Stride(); 
+    arg[i].id = i; arg[i].alpha = alpha; arg[i].beta = beta;
+    arg[i].M1data = M1.Data(); arg[i].M1num_rows = M1.NumRows(); arg[i].M1num_cols = M1.NumCols(); arg[i].M1stride = M1.Stride();
+    arg[i].M2data = M2.Data(); arg[i].M2num_rows = M2.NumRows(); arg[i].M2stride = M2.Stride(); 
+    arg[i].Mtdata = Mt.Data(); arg[i].data = (*this).Data(); arg[i].stride = (*this).Stride(); 
     arg[i].mul_inc = mul_inc; arg[i].coef1 = coef1; arg[i].coef2 = coef2; arg[i].gconst = gconst; arg[i].x3 = x3;
     if (pthread_create(&threads[i], NULL, worker, (void*)(arg+i))) {
        KALDI_ERR << "Could not creare a new thread";
