@@ -342,7 +342,7 @@ typedef struct{
 void mm(int id, MatrixIndexT begin, MatrixIndexT end, float alpha, CharacterMatrix<unsigned char> *M1, CharacterMatrix<signed char> *M2, 
         CharacterMatrix<signed char> *Mt, float *data, MatrixIndexT stride, float beta, float mul_inc, 
         float coef1, float coef2, float gconst, int *x3){
- KALDI_LOG<<"Thread "<<id<<" opened"; 
+ KALDI_LOG<<"Thread "<<id<<" opened, multiplying row "<<begin<<" to row "<<end<<" of M1("<<(*M1).NumRows()<<"X"<<(*M1).NumCols()<<") with M2."; 
  for(MatrixIndexT row = begin; row < end; ++ row) {
     int x2 = Sse4DotProduct((*M1).Data() + row * (*M1).Stride(), (*Mt).Data(), (*M1).NumCols());
     MatrixIndexT col = 0;
