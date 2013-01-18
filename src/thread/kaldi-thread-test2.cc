@@ -1,20 +1,6 @@
-// util/kaldi-thread-test.cc
+// util/kaldi-thread-test3.cc
 
-// Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
-//                 Frantisek Skala
-
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
-// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
-// MERCHANTABLITY OR NON-INFRINGEMENT.
-// See the Apache 2 License for the specific language governing permissions and
-// limitations under the License.
+// Copyright 2012  Johns Hopkins University (Author: Pegah Ghahremani)
 
 
 #include "base/kaldi-common.h"
@@ -26,25 +12,41 @@ namespace kaldi {
 template<typename Real>
 class MyThreadClass2 {  // Doing Matrix multiplication.
  public:
-  MyThreadClass2(CharacterMatrix<unsigned char> &M1, CharacterMatrix<signed char> &M2, 
-                         int32 row_num,int32 col_num, Matrix<Real> *i): row_num_(row_num),
-                                               col_num_(col_num),iptr_(i)
-                                               {private_counter_.Resize(row_num_, col_num_);
-                                                M1_.CopyFromMatrix(M1);
-                                                M2_.CopyFromMatrix(M2);
+  MyThreadClass2(CharacterMatrix<unsigned char> &M1, CharacterMatrix<signed char> &M2,
+                                          Matrix<Real> &M3,  
+                                          Matrix<Real> *i): row_num_(M1.NumRows()),
+                                          col_num_(M2.NumRows()),iptr_(i)
+                                               { 
+                                                // Matrix<Real> Mc(row_num_,col_num_);
+                                                // Mc.SetRandn();
+                                                // private_counter_ = &Mc;
+                                                 private_counter_.Resize(row_num_, col_num_);
+                                                 M1_ = &M1;
+                                                (*M1_).CopyFromMatrix(M1);
+                                                 M2_ = &M2;
+                                                (*M2_).CopyFromMatrix(M2);
+                                              // (*test1).Resize(10,10);
+                                               // (*M2_).Resize(10,10);
+                                               std::cout << " M1_(1,1) = " << static_cast<float>((*M1_)(1,1))
+                                               << " M1(1,1) = " << static_cast<float>((M1)(1,1))<< std::endl;
+                                              // M1_.NumCols() <<M2_.NumRows() << M2_.NumCols() << std::endl;
                                                }
   // Use default copy constructor and assignment operators.
   void operator() () {
-    int32 block_size = (row_num_+ (num_threads_-1) ) / num_threads_;
+    int32 block_size = (row_num_ ) / num_threads_;
     int32 start = block_size * thread_id_,
         end = std::min(row_num_, start + block_size);
-  //  for (int32 row = start; row < end; row++)
-    private_counter_.AddVecMat(1,M1_,kNoTrans, M2_,kTrans, 0 , start, end);
- // }
+    std::cout << " M1 Outside = " << (*M1_).NumRows() << 
+    " " << (*M1_).NumCols() << " M1_(1,1) = " << static_cast<float>((*M1_)(1,1)) << std::endl;
+    std::cout << "start and end = " << start <<" , " << end << std::endl;
+    private_counter_.AddVecMat(1, M1_, kNoTrans, M2_, kTrans, 0 , start, end);
+   //  private_counter_.AddMatMat(1,(*M1_),kNoTrans,(*M2_),kTrans, 0);
+    std::cout << " private_counter_ = " << (private_counter_).NumRows() << std::endl;
    }
   ~MyThreadClass2() {
     
-   (*iptr_).AddMat(1,private_counter_,kNoTrans);
+   (*iptr_).AddMat(1,(private_counter_),kNoTrans);
+  // std::cout << "iptr_ = " << (*iptr_).NumRows() << ", " << (*iptr_).NumCols() << std::endl;
   }
 
   static void *run(void *c_in) {
@@ -63,8 +65,9 @@ class MyThreadClass2 {  // Doing Matrix multiplication.
   int32 col_num_;
   Matrix<Real> *iptr_;
   Matrix<Real> private_counter_;
-  CharacterMatrix<unsigned char> M1_;
-  CharacterMatrix<signed char> M2_;
+  Matrix<Real> *test1;// = new  Matrix<Real>[1];
+  CharacterMatrix<unsigned char> *M1_;// = new CharacterMatrix<unsigned char>;
+  CharacterMatrix<signed char> *M2_ ;//= new CharacterMatrix<signed char>;
 };
 
 struct thread_test_struct { // start + end of integers to sum up.
@@ -149,9 +152,9 @@ void TestThreadsSimple() {
 template<typename Real>
 void TestThreads2(int32 num_threads) {
  g_num_threads = num_threads ;
- int32 row_num = 10;
- int32 col = 10 ;
- int32 row2 = 10;
+ int32 row_num = 1000;
+ int32 col = 1000 ;
+ int32 row2 = 1000;
  Matrix<Real> Mr1(row_num, col);
  Mr1.SetRandn();
  CharacterMatrix<unsigned char> M1;
@@ -161,11 +164,34 @@ void TestThreads2(int32 num_threads) {
  Mr2.SetRandn();
  CharacterMatrix<signed char> M2;
  M2.CopyFromMat(Mr2);
-
+// Matrix<Real> tot_true(row_num, row2);
+// Matrix<Real> tot_2(row_num, row2);
+// tot_2.AddMatMat(1.0,M1,kNoTrans,M2,kTrans,0);
+// tot_true.AddMatMat(1.0,Mr1,kNoTrans,Mr2,kTrans,0);
  Matrix<Real> tot(row_num, row2);
- MyThreadClass2<Real> c(M1,M2,row_num,row2, &tot);
- RunMultiThreaded(c);
- 
+ MyThreadClass2<Real> c(M1,M2,Mr2, &tot);
+/*
+pthread_attr_t pthread_attr;
+ pthread_attr_init(&pthread_attr);
+ pthread_t *threads1 = new pthread_t[num_threads];
+ MyThreadClass2<Real> *m ; //new MyThreadClass2<Real>[num_threads];
+ for(int32 thread = 0; thread < 1; thread++) {
+ c.thread_id_ = thread;
+ c.num_threads_ = num_threads;
+ int32 ret;
+
+ if((ret=pthread_create(&(threads1[thread]),&pthread_attr,MyThreadClass2<Real>::run,&c))) {
+   const char *c = strerror(ret);
+   if (c == NULL) { c = "[NULL]"; }
+   KALDI_ERR << "Error creating thread, errno was: " << c;
+ }
+ if(pthread_join(threads1[thread],NULL))
+   KALDI_ERR << "Error rejoining thread.";
+ }
+ delete [] threads1;
+*/ 
+ RunMultiThreaded (c);
+ //std::cout << "tot(0,8) = " << tot(0,8) << "true value = " << tot_true(0,8) << std::endl;
  } 
 
 
@@ -175,6 +201,6 @@ void TestThreads2(int32 num_threads) {
 int main() {
   using namespace kaldi;
   //TestThreadsSimple();
-   TestThreads2<float>(10);
+   TestThreads2<float>(100);
 }
 
