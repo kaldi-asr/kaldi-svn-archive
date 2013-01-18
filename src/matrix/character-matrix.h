@@ -723,10 +723,10 @@ class CharacterMatrix{
  public:
   //constructors & destructor:
   CharacterMatrix() {
-    data_ = 0;
+    data_ = NULL;
     num_rows_ = 0;
     num_cols_ = 0;
-    stride_  = 0;  
+    stride_  = 0; 
   } 
 
   
@@ -735,13 +735,14 @@ class CharacterMatrix{
   CharacterMatrix(MatrixIndexT r, MatrixIndexT c, const T& value = T()) { 
     Resize(r, c);
   }
-  
+ // template<typename Real>
+ // CharacterMatrix(const CharacterMatrix<Real> &M) { CopyFromMatrix(M);} 
   // Pegah : CopyFromCharacterMatrix doesn't work!
   // From Dan: what is "kNoTrans" still doing here?
   CharacterMatrix(const CharacterMatrix& m) { } // copy constructor
   ~CharacterMatrix() { 
     //cout<<"destructor called"<<endl;
-    free(data_);
+   // free(data_);
   } 
   //operator overloading functions:
     
@@ -811,6 +812,7 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
     
   // allocate the memory and set the right dimensions and parameters
   int pos_ret = posix_memalign(static_cast<void**>(&data), 16, size);
+  //int pos_ret = posix_memalign(static_cast<void**>(data_), 16, size);
   if(pos_ret != 0) {
     KALDI_ERR << "Failed to do posix memory allot";
   }
@@ -880,14 +882,15 @@ template<typename OtherReal>
 void CharacterMatrix<Real>::CopyFromMatrix(const CharacterMatrix<OtherReal> &M) {
   if ( sizeof(Real) == sizeof(OtherReal) && (void*)(&M) == (void*)this)
     return;
-  (*this).Resize(M.NumRows(),M.NumCols());
+  Resize(M.NumRows(),M.NumCols());
   //KALDI_ASSERT(num_rows_ == M.NumRows() && num_cols_ == M.NumCols());
   int32 this_stride = stride_, other_stride = M.Stride();
   Real *this_data = data_;
   const OtherReal *other_data = M.Data();
   for (MatrixIndexT i = 0; i < num_rows_; i++) 
     for(MatrixIndexT j = 0; j < num_cols_; j++)
-      this_data[i*this_stride + j] += other_data[i * other_stride + j];
+     // (*this_data)[i*this_stride + j] += (*other_data)[i * other_stride + j];
+     (*this)(i,j) = M(i,j);
   }
                                       
 // Recover floating matrix  from char matrix
