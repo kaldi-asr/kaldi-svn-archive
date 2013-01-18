@@ -408,18 +408,34 @@ class MatrixBase {
 // [Pegah] The following added for Multithreaded Multiplication
  template<typename U, typename T>
  void AddVecMat(float alpha,
-                const CharacterMatrix<U> &M1,
+                const CharacterMatrix<U> *M1,
                 MatrixTransposeType tM1,
-                const CharacterMatrix<T> & M2,
+                const CharacterMatrix<T> * M2,
                 MatrixTransposeType tM2,
                 const float beta, int32 row_start, int32 row_end);
 
   void AddVecMat(float alpha,
+                 CharacterMatrix<unsigned char> *M1,
+                 MatrixTransposeType tM1,
+                 CharacterMatrix<signed char> * M2,
+                 MatrixTransposeType tM2,
+                 const float beta, int32 row_start, int32 row_end); 
+
+template<typename U, typename T>
+ void AddMatMatParallel(float alpha,
+                const CharacterMatrix<U> &M1,
+                MatrixTransposeType tM1,
+                const CharacterMatrix<T> & M2,
+                MatrixTransposeType tM2,
+                const float beta, int32 num_threads);
+
+  void AddMatMatParallel(float alpha,
                  CharacterMatrix<unsigned char> &M1,
                  MatrixTransposeType tM1,
                  CharacterMatrix<signed char> & M2,
                  MatrixTransposeType tM2,
-                 const float beta, int32 row_start, int32 row_end); 
+                 const float beta, int32 num_threads); 
+
 
 // [hhx] for test to be removed
   void AddMatMat2(Real alpha, 
