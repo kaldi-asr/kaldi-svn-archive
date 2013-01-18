@@ -148,7 +148,109 @@ void TestThreadsSimple() {
   KALDI_LOG << " total is " << tot;
   delete [] threads_;
 }
-  
+ 
+const int kSize = 50;
+const int kPMax = 20;
+const int kCMax = 20;
+const int kSizeP = 3;
+const int kSizeC = 3;
+pthread_mutex_t coutmutex = PTHREAD_MUTEX_INITIALIZER;
+
+struct sem_test_struct{
+  int count;              // the number of products
+  Semaphore full;         // keep track of the number of full spots 
+  Semaphore empty;        // keep track of the number of empty spots 
+  Semaphore mutex;        // enforce mutual exclusion to shared data 
+  sem_test_struct():count(0),full(0),empty(kSize),mutex(1){}
+};
+
+sem_test_struct shared;
+
+void *Producer(void *arg)
+{
+    int i;
+    int *index = static_cast<int *>(arg);
+
+    for (i=0; i < kPMax; i++) {
+      // If there are no empty slots, wait 
+      shared.empty.Wait();
+      // If another thread uses the buffer, wait 
+      shared.mutex.Wait();
+      shared.count++;
+      // Release the buffer 
+      shared.mutex.Signal();
+     // pthread_mutex_lock(&coutmutex);  
+      //std::cout<<" P"<<*index<<" Producing one product, the tot of products is now" <<shared.count<<"\n"<<std::endl;
+      KALDI_LOG<<" P"<<*index<<" Producing one product, the tot of products is now" <<shared.count;
+      //pthread_mutex_unlock(&coutmutex);  
+      //printf("P%d Producing one product, the tot of products is now %d\n", *index, shared.count);
+      fflush(stdout);
+      sleep(0.1);
+       // Increment the number of full slots 
+      shared.full.Signal();
+    }
+    return NULL;
+}
+
+void *Consumer(void *arg)
+{
+  int i;
+  int *index = static_cast<int *>(arg);
+  for (i=0; i < kCMax; i++) {
+      //If there are no empty slots, wait 
+      shared.full.Wait();
+      // If another thread uses the buffer, wait 
+      shared.mutex.Wait();
+      shared.count--;
+      // Release the buffer 
+      shared.mutex.Signal();
+      //pthread_mutex_lock(&coutmutex);  
+      //std::cout<<" C"<<*index<<" Consuming one product, the tot of products is now" <<shared.count<<"\n"<<std::endl;
+      KALDI_LOG<<" C"<<*index<<" Consuming one product, the tot of products is now" <<shared.count;
+      //pthread_mutex_unlock(&coutmutex);  
+      //printf("C%d Consuming one product, the tot of products is now %d\n", *index, shared.count);
+      fflush(stdout);
+      sleep(0.1);
+      // Increment the number of empty slots 
+      shared.empty.Signal();
+    }
+    return NULL;
+}
+
+void TestSemaphore(){
+  pthread_t idP[kSizeP], idC[kSizeC];
+  int indexP[kSizeP];
+  int indexC[kSizeC];
+
+  for (int i = 0; i < kSizeP; i++)
+  {  
+    indexP[i] = i;
+    // Create a new producer 
+    pthread_create(&idP[i], NULL, Producer, (void*)(&indexP[i]));
+  }
+
+  for (int i = 0; i < kSizeC; i++)
+  {  
+    indexC[i] = i;      
+    // Create a new producer 
+    pthread_create(&idC[i], NULL, Consumer, (void*)(&indexC[i]));
+  }
+
+
+  for (int i = 0; i < kSizeP; i++){
+    if ( pthread_join(idP[i],NULL ))
+      KALDI_ERR << "Error rejoining thread.";
+  }
+
+  for (int i = 0; i < kSizeC; i++){
+    if ( pthread_join(idC[i],NULL ))
+      KALDI_ERR << "Error rejoining thread.";
+  }
+
+  pthread_exit(NULL);
+}
+
+ 
 template<typename Real>
 void TestThreads2(int32 num_threads) {
  g_num_threads = num_threads ;
@@ -202,5 +304,6 @@ int main() {
   using namespace kaldi;
   //TestThreadsSimple();
    TestThreads2<float>(100);
+  //TestSemaphore();
 }
 
