@@ -399,12 +399,12 @@ class MatrixBase {
                  CharacterMatrix<signed char> & M2, 
                  MatrixTransposeType tM2, 
                  const Real beta);
-  void AddMatMatPthreads(Real alpha,
+  void AddMatMatPthread(Real alpha,
                  CharacterMatrix<unsigned char> &M1,
                  MatrixTransposeType tM1,
                  CharacterMatrix<signed char> & M2,
                  MatrixTransposeType tM2,
-                 const Real beta, const int kNumThreads); 
+                 const Real beta, const int num_threads); 
 // [Pegah] The following added for Multithreaded Multiplication
  template<typename U, typename T>
  void AddVecMat(float alpha,

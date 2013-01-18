@@ -231,7 +231,8 @@ static void TestAddMatMatError(int32 MatNum ) {
     NormDiff<Real>(ko.Stream(), M2, Mc2r2, note7);
 
     Matrix<Real> Mc(row,row2);
-    Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    //Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 5);
     std::string note6("-----------M vs Mc --------\n");
     Real rel_error = NormDiff<Real>(ko.Stream(), M, Mc, note6);
     error_avg += rel_error;
@@ -290,7 +291,8 @@ static void TestAddMatMatTime (int32 numTest) {
     Mc2.CopyFromMat(M2);
     Matrix<Real> Mc(row,row2);
     start = std::clock();   
-    Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 8);
+    //Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
     tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
     ko.Stream() << "\ncMax=" << Mc.Max()
               << ", cMin=" << Mc.Min() << "\n";
@@ -505,6 +507,7 @@ static void TestError2(int32 MatNum ) {
   //ShowMatrix2<Real>(ko.Stream(), M4, note4);
   }
   }
+
 template<typename Real>
 void TestAddVecMat() {
     int32 row = 10;
@@ -514,7 +517,7 @@ void TestAddVecMat() {
     test1.Resize(1,1);
     Matrix<Real> M1(row, col);
     M1.SetRandn();
- 
+
     Matrix<Real> M2(row2,col);
     M2.SetRandn();
 
@@ -533,13 +536,12 @@ void TestAddVecMat() {
 }
 
 } // kaldi namespace
-
 int main() {
-  //kaldi::TestAddMatMatError<float>(20);
-  //kaldi::TestAddMatMatTime<float>(3);
+  kaldi::TestAddMatMatError<float>(1);
+  kaldi::TestAddMatMatTime<float>(1);
   //kaldi::TestSse4DotProduct<float>(1); 
   //kaldi::TestError2<float>(3);
-  kaldi::TestAddVecMat<float>();
+  kaldi::TestAddVecMat<float>(); 
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }
