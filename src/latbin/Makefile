@@ -2,6 +2,7 @@
 all:
 
 EXTRA_CXXFLAGS = -Wno-sign-compare
+EXTRA_CXXFLAGS = -msse4
 include ../kaldi.mk
 
 BINFILES = lattice-best-path lattice-prune lattice-equivalent lattice-to-nbest \
@@ -13,7 +14,7 @@ BINFILES = lattice-best-path lattice-prune lattice-equivalent lattice-to-nbest \
            nbest-to-linear nbest-to-lattice lattice-1best linear-to-nbest \
            lattice-mbr-decode lattice-align-words lattice-to-mpe-post \
            lattice-copy-backoff nbest-to-ctm lattice-determinize-pruned \
-           lattice-to-ctm-conf lattice-arcgraph lattice-combine lattice-reverse
+           lattice-to-ctm-conf lattice-arcgraph lattice-combine lattice-reverse character-matrix-test
 
 
 OBJFILES =
