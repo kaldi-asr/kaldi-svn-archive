@@ -231,8 +231,7 @@ static void TestAddMatMatError(int32 MatNum ) {
     NormDiff<Real>(ko.Stream(), M2, Mc2r2, note7);
 
     Matrix<Real> Mc(row,row2);
-    //Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
-    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 5);
+    Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
     std::string note6("-----------M vs Mc --------\n");
     Real rel_error = NormDiff<Real>(ko.Stream(), M, Mc, note6);
     error_avg += rel_error;
@@ -291,8 +290,7 @@ static void TestAddMatMatTime (int32 numTest) {
     Mc2.CopyFromMat(M2);
     Matrix<Real> Mc(row,row2);
     start = std::clock();   
-    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 8);
-    //Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
     tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
     ko.Stream() << "\ncMax=" << Mc.Max()
               << ", cMin=" << Mc.Min() << "\n";
@@ -507,7 +505,6 @@ static void TestError2(int32 MatNum ) {
   //ShowMatrix2<Real>(ko.Stream(), M4, note4);
   }
   }
-
 template<typename Real>
 void TestAddVecMat() {
     int32 row = 10;
@@ -517,7 +514,7 @@ void TestAddVecMat() {
     test1.Resize(1,1);
     Matrix<Real> M1(row, col);
     M1.SetRandn();
-
+ 
     Matrix<Real> M2(row2,col);
     M2.SetRandn();
 
@@ -526,22 +523,78 @@ void TestAddVecMat() {
     CharacterMatrix<unsigned char> test;
     test.CopyFromMatrix(Mc1);
     CharacterMatrix<signed char> Mc2;
-    Mc2.CopyFromMat(M2);
+    (Mc2).CopyFromMat(M2);
+
+
+    CharacterMatrix<unsigned char> *Md1;
+    Md1 = &Mc1;
+    (*Md1).CopyFromMatrix(Mc1);
+
+    CharacterMatrix<signed char> *Md2;
+    Md2 = &Mc2;
+    (*Md2).CopyFromMatrix(Mc2);
     std::cout << "Before =" <<static_cast<float>( Mc1(1,1)) << "After = " << static_cast<float>(test(1,1)) << std::endl;
     Matrix<Real> Mc(row, row2);
+    Matrix<Real> Mc_test(row,row2);
     int32 a = 1 ;
     int32 b = 2;
-    Mc.AddVecMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0,a,b);
-    //Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    for( int32 i =0; i < row-1; i++) {
+    Mc_test.AddVecMat(1.0, Md1, kNoTrans, Md2, kTrans, 0,i,i+1);
+    }  
+    Mc.AddMatMat(1.0, *Md1, kNoTrans, *Md2, kTrans, 0);
+    std::cout << " Mc_test(1,1) = " << Mc_test(1,1) << " Mc(1,1) = " << Mc(1,1) 
+    << " Hi " << Mc_test(9,1) << " Bye"  << std::endl;
 }
 
+template<typename Real>
+void TestAddMatMatParallel() {
+    int32 row = 10000;
+    int32 row2 = 1000;
+    int32 col = 1000;
+    Matrix<Real> M1(row, col);
+    M1.SetRandn();
+ 
+    Matrix<Real> M2(row2,col);
+    M2.SetRandn();
+
+    CharacterMatrix<unsigned char> Mc1;
+    Mc1.CopyFromMat(M1);
+    
+    CharacterMatrix<signed char> Mc2;
+    (Mc2).CopyFromMat(M2);
+    double tot_ft1 = 0;
+    double tot_ft2 = 0;         
+    double tot_ft3 = 0; 
+    Matrix<Real> Mc(row, row2);
+    Matrix<Real> Mc_test(row,row2);
+    Matrix<Real> Mc_test2(row,row2);
+
+    for(int32 i =0; i < 1; i++) { 
+    clock_t start = std::clock();
+    Mc.AddMatMatParallel(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 10);
+    tot_ft1 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    start = std::clock();
+    Mc_test.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    start = std::clock();
+    Mc_test2.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
+    tot_ft3 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    
+    }
+    std::cout << " Mc_test(1,1) = " << Mc_test(1,1) << " Mc(1,1) = " << Mc(1,1) << std::endl;
+    std::cout << " MultiTreaded AddMatMat = " << tot_ft1 <<
+                 " Single Threaded AddMatMat  = " << tot_ft2 <<
+                 " ATLAS = " << tot_ft3 << std::endl;
+    }
 } // kaldi namespace
+
 int main() {
-  kaldi::TestAddMatMatError<float>(1);
-  kaldi::TestAddMatMatTime<float>(1);
+  //kaldi::TestAddMatMatError<float>(20);
+  //kaldi::TestAddMatMatTime<float>(3);
   //kaldi::TestSse4DotProduct<float>(1); 
   //kaldi::TestError2<float>(3);
-  kaldi::TestAddVecMat<float>(); 
+  //kaldi::TestAddVecMat<float>();
+  kaldi::TestAddMatMatParallel<float>();
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 }
