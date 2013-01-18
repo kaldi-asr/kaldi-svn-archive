@@ -24,7 +24,7 @@
 #include "matrix/jama-eig.h"
 #include "thread/kaldi-thread.h"
 #include "thread/kaldi-semaphore.h"
-
+#include "thread/multiplication-parallel.h"
 namespace kaldi {
 template<>
 void MatrixBase<float>::Invert(float *LogDet, float *DetSign,
@@ -333,81 +333,81 @@ void MatrixBase<float>::AddMatMat(float alpha,
 template <>
 template <>
 void MatrixBase<float>::AddVecMat(float alpha,
-                 const CharacterMatrix<unsigned char> &M1,
+                 const CharacterMatrix<unsigned char> *M1,
                  MatrixTransposeType tM1,
-                 const CharacterMatrix<signed char> & M2,
+                 const CharacterMatrix<signed char> * M2,
                  MatrixTransposeType tM2,
                  const float beta, int32 row_start, int32 row_end) ;
 
 template<>
 void MatrixBase<float>::AddVecMat(float alpha,
-                 CharacterMatrix<unsigned char> &M1,
+                 CharacterMatrix<unsigned char> *M1,
                  MatrixTransposeType tM1,
-                 CharacterMatrix<signed char> & M2,
+                 CharacterMatrix<signed char> *M2,
                  MatrixTransposeType tM2,
                  const float beta, int32 row_start, int32 row_end) {
-  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
-               || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
-
+  
+  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && (*M1).num_cols_ == (*M2).num_rows_ && (*M1).num_rows_ == num_rows_ && (*M2).num_cols_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kNoTrans && (*M1).num_rows_ == (*M2).num_rows_ && (*M1).num_cols_ == num_rows_ && (*M2).num_cols_ == num_cols_)
+               || (tM1 == kNoTrans && tM2 == kTrans && (*M1).num_cols_ == (*M2).num_cols_ && (*M1).num_rows_ == num_rows_ && (*M2).num_rows_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kTrans && (*M1).num_rows_ == (*M2).num_cols_ && (*M1).num_cols_ == num_rows_ && (*M2).num_rows_ == num_cols_));
   if(tM2 != kTrans) // since we need transpose it
     KALDI_ERR << "Pre-transposed M2 expected";
 
   // pre-calculate some constant
-  float mul_inc = M1.increment_ * M2.increment_,
+  float mul_inc = (*M1).increment_ * (*M2).increment_,
   low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
-  coef1 = M2.min_ / M1.increment_ - low_t2 /mul_inc,
-  coef2 = M1.min_ / M2.increment_ ,
-  gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.increment_;
+  coef1 = (*M2).min_ / (*M1).increment_ - low_t2 /mul_inc,
+  coef2 = (*M1).min_ / (*M2).increment_ ,
+  gconst = (*M1).min_ * (*M2).min_  - (*M1).min_ * low_t2 / (*M2).increment_;
   CharacterMatrix<signed char> Mt;
-  Mt.Resize(1, M1.num_cols_);
-  for(int32 col = 0; col < M1.num_cols_; ++col) {
-    *(Mt.data_ + col) = static_cast<signed char>(1);
+  (Mt).Resize(1, (*M1).num_cols_);
+  for(int32 col = 0; col < (*M1).num_cols_; ++col) {
+    *((Mt).data_ + col) = static_cast<signed char>(1);
   }
 
-  int x3[M2.NumRows()];
-  for (MatrixIndexT col = row_start; col < row_end+1; ++col){
-    x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
+  int x3[(*M2).NumRows()];
+  for (MatrixIndexT col = 0; col < (*M2).NumRows() ; ++col){
+    x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>((Mt).data_), (*M2).data_ + col * (*M2).stride_, (*M1).num_cols_);
     //x3[col] = DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_); 
     //x3[col] = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
   }
 
-  for(MatrixIndexT row = row_start; row < row_end+1; ++ row) {
-    int x2 = Sse4DotProduct(M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
+  for(MatrixIndexT row = row_start; row < row_end; ++ row) {
+    int x2 = Sse4DotProduct((*M1).data_ + row *(*M1).stride_, (Mt).data_, (*M1).num_cols_);
     //int x2 = DotProduct (M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
     //int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
     MatrixIndexT col = 0;
 
-    for( col = 0; col+3 < M2.NumRows(); col += 4) {
+    for( col = 0; col+3 < (*M2).NumRows(); col += 4) {
       int x1[4];
       x1[0] = 0;
       x1[1] = 0;
       x1[2] = 0;
-x1[3] = 0;
-      Sse4DotProduct4fold1X4(M1.data_ + row * M1.stride_,
-                                 M2.data_ + col * M2.stride_, M2.data_ + (col + 1) * M2.stride_,
-                                 M2.data_ + (col + 2) * M2.stride_, M2.data_ + (col + 3) * M2.stride_, x1,  M1.num_cols_);
+      x1[3] = 0;
+      Sse4DotProduct4fold1X4((*M1).data_ + row * (*M1).stride_,
+                                 (*M2).data_ + col * (*M2).stride_, (*M2).data_ + (col + 1) * (*M2).stride_,
+                                 (*M2).data_ + (col + 2) * (*M2).stride_, (*M2).data_ + (col + 3) * (*M2).stride_, x1,  (*M1).num_cols_);
 
       float *this_data  = ((*this).data_ + row * (*this).stride_ + col);
 
       *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1[0]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+                                             coef1 * x2 + coef2 * x3[col] + gconst * (*M1).num_cols_ ));
       *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
                                              alpha * (static_cast<float>(x1[1]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 1] + gconst * M1.num_cols_ ));
+                                             coef1 * x2 + coef2 * x3[col + 1] + gconst * (*M1).num_cols_ ));
       *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
                                              alpha * (static_cast<float>(x1[2]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 2] + gconst * M1.num_cols_ ));
+                                             coef1 * x2 + coef2 * x3[col + 2] + gconst * (*M1).num_cols_ ));
       *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
                                              alpha * (static_cast<float>(x1[3]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 3] + gconst * M1.num_cols_ ));
+                                             coef1 * x2 + coef2 * x3[col + 3] + gconst * (*M1).num_cols_ ));
     }
 
-    for(col = col; col < M2.NumRows(); ++col) {
-      int x1 = Sse4DotProduct(M1.data_ + row * M1.stride_,
-                               M2.data_ + col * M2.stride_, M1.num_cols_);
+    for(col = col; col < (*M2).NumRows(); ++col) {
+      int x1 = Sse4DotProduct((*M1).data_ + row * (*M1).stride_,
+                               (*M2).data_ + col * (*M2).stride_, (*M1).num_cols_);
       //int x1 = DotProduct(M1.data_ + row * M1.stride_,
       //                         M2.data_ + col * M2.stride_, M1.num_cols_);
 
@@ -415,10 +415,31 @@ x1[3] = 0;
       float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  // (*this)(row, col) 
        *this_data = static_cast<float>( beta * (*this_data) +
                                              alpha * (static_cast<float>(x1) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col] + gconst * M1.num_cols_ ));
+                                             coef1 * x2 + coef2 * x3[col] + gconst * (*M1).num_cols_ ));
     }
   }
 }
+template<>
+template<>
+void MatrixBase<float>::AddMatMatParallel(float alpha,
+                const CharacterMatrix<unsigned char> &M1,
+                MatrixTransposeType tM1,
+                const CharacterMatrix<signed char> & M2,
+                MatrixTransposeType tM2,
+                const float beta, int32 num_threads);
+ template<> 
+ void MatrixBase<float>::AddMatMatParallel(float alpha,
+                 CharacterMatrix<unsigned char> &M1,
+                 MatrixTransposeType tM1,
+                 CharacterMatrix<signed char> & M2,
+                 MatrixTransposeType tM2,
+                 const float beta, int32 num_threads) {
+   //po.Register(num-threads, &g_num_threads, "Number of threads to use.");
+   MultiplicationParallel<float> m(M1,M2,this);
+   RunMultiThreaded (m);
+ 
+ }
+
 
 typedef struct{ 
   int id; MatrixIndexT begin, end;
