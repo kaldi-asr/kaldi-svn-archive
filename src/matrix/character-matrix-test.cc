@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <ctime>
 #include <time.h>
+#include <sys/timeb.h>
 #include "util/kaldi-io.h"
 
 namespace kaldi {
@@ -263,23 +264,35 @@ static void TestAddMatMatTime (int32 numTest) {
   std::ostringstream os;
   os << "temp_time_sum_" << numTest;
   Output ko(os.str(), false,false);
-
+  int num_threads = 8;
+  struct timeb tstruct;
+  int tstart = 0, tend = 0;
   double tot_ft1 = 0, 
-         tot_ft2 = 0;
+         tot_ft2 = 0,
+ 	 tot_ft3 = 0;
   for(int32 i =0; i < numTest; i++) {
     ko.Stream() << "\nround " << i+1 << "\n";
-    int32  row = 2000 + rand() % 5;
-    int32  col = 2000 + rand() % 7;
+    int32  row = 2000;// + rand() % 5;
+    int32  col = 2000;// + rand() % 7;
 
     Matrix<Real> M1(row, col);
     GenerateMatrix4U(M1);
-    int32 row2 = 400 + rand() % 4;
+    int32 row2 = 2000;// + rand() % 4;
     Matrix<Real> M2(row2,col);
     GenerateMatrix4S(M2);
     Matrix<Real> M(row,row2);
-    clock_t start = std::clock();
+    //clock_t start = std::clock();
+    //time_t start1, end1;
+    //time(&start1);
+    ftime( &tstruct );
+    tstart = tstruct.time * 1000 + tstruct.millitm;
     M.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
-    tot_ft1 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    ftime( &tstruct );
+    tend = tstruct.time * 1000 + tstruct.millitm; 
+    //time(&end1);
+    tot_ft1 = tend - tstart;
+    //tot_ft1 += difftime (end1,start1);
+    //tot_ft1 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
 
     ko.Stream() << "\nMax=" << M.Max()
               << ", Min=" << M.Min() << "\n";
@@ -289,9 +302,25 @@ static void TestAddMatMatTime (int32 numTest) {
     CharacterMatrix<signed char> Mc2;
     Mc2.CopyFromMat(M2);
     Matrix<Real> Mc(row,row2);
-    start = std::clock();   
+    //start = std::clock();   
+    //time_t start2, end2;
+    //time(&start2);
+    ftime( &tstruct );
+    tstart = tstruct.time * 1000 + tstruct.millitm;
     Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
-    tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    ftime( &tstruct );
+    tend = tstruct.time * 1000 + tstruct.millitm; 
+    //time(&end2);
+    tot_ft2 = tend - tstart;
+    //tot_ft2 += difftime (end2,start2);
+    //tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    ftime( &tstruct );
+    tstart = tstruct.time * 1000 + tstruct.millitm;
+    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, num_threads);
+    ftime( &tstruct );
+    tend = tstruct.time * 1000 + tstruct.millitm; 
+    tot_ft3 = tend - tstart;
+
     ko.Stream() << "\ncMax=" << Mc.Max()
               << ", cMin=" << Mc.Min() << "\n";
 
@@ -300,7 +329,9 @@ static void TestAddMatMatTime (int32 numTest) {
   ko.Stream() << "\nfloat_AddMatMat=" << tot_ft1 
             << ", char_AddMatMat=" << tot_ft2 
             << ",rate=" << tot_ft2/tot_ft1 << "\n";
-  std::cout << "Time consumed: float_AddMatMat=" << tot_ft1 << ", char_AddMatMat=" << tot_ft2 << ",rate=" << tot_ft2/tot_ft1 << std::endl;
+  std::cout << "Time consumed in milliseconds: float_AddMatMat = " << tot_ft1 << 
+  ", char_AddMatMat (single threaded) = " << tot_ft2 << ", char_AddMatMat with " <<
+   num_threads << " threads = " << tot_ft3 << ", rate = " << tot_ft3/tot_ft1 << std::endl;
   ko.Close();
 }
 
@@ -548,9 +579,10 @@ void TestAddVecMat() {
 
 template<typename Real>
 void TestAddMatMatParallel() {
-    int32 row = 5000;
-    int32 row2 = 5000;
-    int32 col = 5000;
+    struct timeb tstruct;
+    int32 row = 2000;
+    int32 row2 = 2000;
+    int32 col = 2000;
     Matrix<Real> M1(row, col);
     M1.SetRandn();
  
@@ -566,22 +598,38 @@ void TestAddMatMatParallel() {
     Matrix<Real> Mc_test(row,row2);
     Matrix<Real> Mc_test2(row,row2);
     time_t start1,end1;
+    int tstart1, tend1;
     double diff1 = 0;
     double diff2 = 0;
     double diff3 = 0;
     for(int32 i =0; i < 1; i++) { 
-    time (&start1);
-    Mc.AddMatMatParallel(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 10);
-    time (&end1);
-    diff1 += difftime (end1,start1);
-    time (&start1);
+    //time (&start1);
+    ftime( &tstruct );
+    tstart1 = tstruct.time * 1000 - tstruct.millitm;
+    Mc.AddMatMatParallel(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 8); 
+    ftime( &tstruct );
+    tend1 = tstruct.time * 1000 - tstruct.millitm;
+    //time (&end1);
+    //diff1 += difftime (end1,start1);
+    diff1 += tend1 - tstart1;
+    //time (&start1);
+    ftime( &tstruct );
+    tstart1 = tstruct.time * 1000 - tstruct.millitm;
     Mc_test.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
-    time (&end1);
-    diff2 += difftime (end1,start1);
-    time(&start1);
+    ftime( &tstruct );
+    tend1 = tstruct.time * 1000 - tstruct.millitm;
+    //time (&end1);
+    diff2 += tend1 - tstart1;
+    //diff2 += difftime (end1,start1);
+    //time(&start1);
+    ftime( &tstruct );
+    tstart1 = tstruct.time * 1000 - tstruct.millitm;
     Mc_test2.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
-    time(&end1);
-    diff3 += difftime (end1,start1);
+    ftime( &tstruct );
+    tend1 = tstruct.time * 1000 - tstruct.millitm;
+    //time(&end1);
+    diff3 += tend1 - tstart1;
+    //diff3 += difftime (end1,start1);
     
     }
     std::cout << " MultiTreaded AddMatMat = " << diff1 <<
@@ -594,7 +642,7 @@ void TestAddMatMatParallel() {
 
 int main() {
   //kaldi::TestAddMatMatError<float>(20);
-  //kaldi::TestAddMatMatTime<float>(3);
+  kaldi::TestAddMatMatTime<float>(1);
   //kaldi::TestSse4DotProduct<float>(1); 
   //kaldi::TestError2<float>(3);
   //kaldi::TestAddVecMat<float>();
