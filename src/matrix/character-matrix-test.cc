@@ -548,9 +548,9 @@ void TestAddVecMat() {
 
 template<typename Real>
 void TestAddMatMatParallel() {
-    int32 row = 10000;
-    int32 row2 = 1000;
-    int32 col = 1000;
+    int32 row = 5000;
+    int32 row2 = 5000;
+    int32 col = 5000;
     Matrix<Real> M1(row, col);
     M1.SetRandn();
  
@@ -562,29 +562,33 @@ void TestAddMatMatParallel() {
     
     CharacterMatrix<signed char> Mc2;
     (Mc2).CopyFromMat(M2);
-    double tot_ft1 = 0;
-    double tot_ft2 = 0;         
-    double tot_ft3 = 0; 
     Matrix<Real> Mc(row, row2);
     Matrix<Real> Mc_test(row,row2);
     Matrix<Real> Mc_test2(row,row2);
-
+    time_t start1,end1;
+    double diff1 = 0;
+    double diff2 = 0;
+    double diff3 = 0;
     for(int32 i =0; i < 1; i++) { 
-    clock_t start = std::clock();
+    time (&start1);
     Mc.AddMatMatParallel(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 10);
-    tot_ft1 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
-    start = std::clock();
+    time (&end1);
+    diff1 += difftime (end1,start1);
+    time (&start1);
     Mc_test.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
-    tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
-    start = std::clock();
+    time (&end1);
+    diff2 += difftime (end1,start1);
+    time(&start1);
     Mc_test2.AddMatMat(1.0, M1, kNoTrans, M2, kTrans, 0);
-    tot_ft3 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    time(&end1);
+    diff3 += difftime (end1,start1);
     
     }
-    std::cout << " Mc_test(1,1) = " << Mc_test(1,1) << " Mc(1,1) = " << Mc(1,1) << std::endl;
-    std::cout << " MultiTreaded AddMatMat = " << tot_ft1 <<
-                 " Single Threaded AddMatMat  = " << tot_ft2 <<
-                 " ATLAS = " << tot_ft3 << std::endl;
+    std::cout << " MultiTreaded AddMatMat = " << diff1 <<
+                 " Single Threaded AddMatMat  = " << diff2 <<
+                 " ATLAS = " << diff3 << std::endl;
+  
+  
     }
 } // kaldi namespace
 
