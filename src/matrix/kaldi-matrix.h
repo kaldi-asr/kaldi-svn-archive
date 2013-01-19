@@ -444,6 +444,13 @@ template<typename U, typename T>
                  CharacterMatrix<signed char> & M2, 
                  MatrixTransposeType tM2, 
                  const Real beta);
+void AddMatMat2(Real alpha, 
+                 CharacterMatrix<unsigned char> &M1, 
+                 MatrixTransposeType tM1, 
+                 CharacterMatrix<signed char> & M2, 
+                 MatrixTransposeType tM2, 
+                 const Real beta,
+                 bool doTest = false);
 
   /// this <-- beta*this + alpha*A*B*C.
   void AddMatMatMat(const Real alpha,

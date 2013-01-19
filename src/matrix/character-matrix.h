@@ -36,12 +36,11 @@
 namespace  kaldi {
 
 inline int DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
- int i;
- int sum=0;
-    for(i=0; i< length; i++) {
-        sum += x[i] * y[i];
-    }
-    return sum; 
+  int32 sum=0;
+  for(int32 i=0; i< length; i++) {
+    sum += x[i] * y[i];
+  }
+  return sum; 
 }
 
 inline  int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
@@ -705,14 +704,27 @@ class CharacterMatrix{
 
   // from Dan: Google style guide demands that the public section be first.
  private:
-  iter  data_;
-  MatrixIndexT num_cols_;
+
+  // for matrix blocking
+  int32 blk_num_rows_;  // rows of the blocking matrix 
+  int32 blk_num_cols_;  // columns of the blocking matrix
+  int32 row_blks_;      //  ( num_rows_ + padding row number ) / blk_num_rows_
+  int32 col_blks_;      //  (num_cols_ + padding column number) / blk_num_cols_ 
+  // remember we always pad column, then pad row, if any.
+  // I think this is concerned with that we favor row-major matrix base
+  // matrix-product, and we don't want to separately deal with
+  // corner case [hhx]
+  
+
+  T*  data_;
   MatrixIndexT num_rows_;
+  MatrixIndexT num_cols_;
   MatrixIndexT stride_;
   // from Dan: consider changing this to alpha_ and beta_ representation, which
   // will be simpler in AddMatMat.
   float min_ ;
   float increment_ ;
+ 
   // From Dan: Google style guide does not allow such un-informative names.
   // Consider CharToReal and RealToChar.  And they should be inline functions for speed.
    template<typename Real>
@@ -722,12 +734,10 @@ class CharacterMatrix{
   inline T RealToChar(const Real r);
  public:
   //constructors & destructor:
-  CharacterMatrix() {
-    data_ = NULL;
-    num_rows_ = 0;
-    num_cols_ = 0;
-    stride_  = 0; 
-  } 
+  CharacterMatrix():blk_num_rows_(0), blk_num_cols_(0),
+                    row_blks_(0), col_blks_(0),
+                    data_(NULL), num_rows_(0),num_cols_(0),
+                    stride_(0){} 
 
   
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
@@ -745,7 +755,7 @@ class CharacterMatrix{
    // free(data_);
   } 
   //operator overloading functions:
-    
+  
   CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
 
   // From Dan: It's OK to define this, but you should not call it from any functions you want to be fast.
@@ -770,10 +780,11 @@ class CharacterMatrix{
   //void
   //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
   void SetZero();  
+  void SetValue(const T t); 
   // from Dan: you can remove the last argument to Resize; try to make the
   // interface like that of Matrix, where Resize takes a typedef (look at it.)
   void Resize(MatrixIndexT, MatrixIndexT);
-
+  void CheckMatrix();
   // From Dan: the following function probably won't be needed, but one day it
   // might be useful so it's OK to define it.  If you initialize with kTrans from
   // a real-valued matrix, the initialization code should do the transposing itself,
@@ -788,13 +799,36 @@ class CharacterMatrix{
   // But this should probably be called CopyToMat instead of RecoverMatrix.
   template<typename Real>
   void CopyToMat(Matrix<Real> *M);
+ // it tells 
+  void BlockResize(const int32 blk_num_rows, const int32 blk_num_cols) {
+    if (blk_num_rows <= 0 || blk_num_cols <= 0) {
+      KALDI_ERR << "blocking size error";
+    }
+    blk_num_rows_ = blk_num_rows;
+    blk_num_cols_ = blk_num_cols;
+  }
   // test, to be removed
   float T2R(const T &t);
 };
  
 template<typename T>
 void CharacterMatrix<T>::SetZero() {
-  memset(data_, 0, sizeof(T)*num_rows_*stride_);
+  if(blk_num_rows_ == 0) {
+    memset(data_, 0, sizeof(T)*num_rows_*stride_);
+  } else {
+    int32 mem_rows = blk_num_rows_ * row_blks_;
+    memset(data_, 0, sizeof(T) * mem_rows * stride_);
+  }
+}
+template<typename T>
+void CharacterMatrix<T>::SetValue(const T t) {
+  int  x = static_cast<int>(t);
+  if(blk_num_rows_ == 0) {
+    memset(data_, x, sizeof(T)*num_rows_*stride_);
+  } else {
+    int32 mem_rows = blk_num_rows_ * row_blks_;
+    memset(data_, x, sizeof(T) * mem_rows * stride_);
+  }
 }
 
 template<typename T>
@@ -804,11 +838,24 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
   MatrixIndexT real_cols;
   size_t size;
   void*   data;       // aligned memory block
-  
+  int32 mem_rows = rows;
+  int32 mem_cols = cols;
+  if (blk_num_rows_ > 0) {
+    int32 x = cols % blk_num_cols_; // pad column first
+    if (x > 0) {
+      mem_cols += blk_num_cols_ - x;
+      col_blks_ = mem_cols / blk_num_cols_; 
+    }
+    x = rows % blk_num_rows_ ; // then we pad row
+    if (x > 0) {
+      mem_rows += blk_num_rows_ -x;
+      row_blks_ = mem_rows / blk_num_rows_;
+    }   
+  }
   // compute the size of skip and real cols
-  skip = ((16 / sizeof(T)) - cols % (16 / sizeof(T))) % (16 / sizeof(T));
-  real_cols = cols + skip; 
-  size = static_cast<size_t>(rows) * static_cast<size_t>(real_cols) * sizeof(T);
+  skip = ((16 / sizeof(T)) - mem_cols % (16 / sizeof(T))) % (16 / sizeof(T));
+  real_cols = mem_cols + skip; 
+  size = static_cast<size_t>(mem_rows) * static_cast<size_t>(real_cols) * sizeof(T);
     
   // allocate the memory and set the right dimensions and parameters
   int pos_ret = posix_memalign(static_cast<void**>(&data), 16, size);
@@ -914,7 +961,27 @@ CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) 
   CharacterMatrix<T>::CopyFromCharacterMatrix(rhs,"kNoTrans");
   return *this;
 }
-
+template <typename T>
+void CharacterMatrix<T>::CheckMatrix() {
+  if(blk_num_rows_ != 0) {
+    int32 row_num = row_blks_ * blk_num_rows_;
+    int32 col_num = col_blks_ * blk_num_cols_;
+    KALDI_ASSERT(row_num >= num_rows_);
+    KALDI_ASSERT(col_num >= num_cols_);
+    for(int32 row = 0; row < row_num; ++ row) {
+      for(int32 col = num_cols_; col < col_num; ++ col ) {
+        int32 x = static_cast<int32>( *(data_ + row * stride_ + col));
+        KALDI_ASSERT (x == 0 ); 
+      }
+    }
+    for (int32 row = num_rows_ ; row < row_num; ++ row ) {
+      for (int32 col = 0; col < col_num; ++ col) {
+        int32 x = static_cast<int32> (*(data_ +row * stride_ + col));
+        KALDI_ASSERT(x == 0);
+      }
+    }
+  }
+}
 
 } //  namespace kaldi
 

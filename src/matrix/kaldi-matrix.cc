@@ -24,7 +24,7 @@
 #include "matrix/jama-eig.h"
 #include "thread/kaldi-thread.h"
 #include "thread/kaldi-semaphore.h"
-#include "thread/multiplication-parallel.h"
+// #include "thread/multiplication-parallel.h"
 namespace kaldi {
 template<>
 void MatrixBase<float>::Invert(float *LogDet, float *DetSign,
@@ -261,7 +261,7 @@ void MatrixBase<float>::AddMatMat(float alpha,
                || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
                || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
   
-  if(tM2 != kTrans) // since we need transpose it
+  if(tM2 != kTrans) // we need a row_majored matrix 
     KALDI_ERR << "Pre-transposed M2 expected";
 
   // pre-calculate some constant
@@ -330,117 +330,86 @@ void MatrixBase<float>::AddMatMat(float alpha,
     }
   }
 }
-template <>
-template <>
-void MatrixBase<float>::AddVecMat(float alpha,
-                 const CharacterMatrix<unsigned char> *M1,
-                 MatrixTransposeType tM1,
-                 const CharacterMatrix<signed char> * M2,
-                 MatrixTransposeType tM2,
-                 const float beta, int32 row_start, int32 row_end) ;
-
+// matrix blocking based matrix product
 template<>
-void MatrixBase<float>::AddVecMat(float alpha,
-                 CharacterMatrix<unsigned char> *M1,
-                 MatrixTransposeType tM1,
-                 CharacterMatrix<signed char> *M2,
-                 MatrixTransposeType tM2,
-                 const float beta, int32 row_start, int32 row_end) {
+void MatrixBase<float>::AddMatMat2(float alpha, 
+                 CharacterMatrix<unsigned char> &M1, 
+                 MatrixTransposeType tM1, 
+                 CharacterMatrix<signed char> & M2, 
+                 MatrixTransposeType tM2, 
+                 const float beta, 
+                 bool doTest) {
+  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
+               || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
+               || (tM1 == kTrans && tM2 == kTrans && M1.num_rows_ == M2.num_cols_ && M1.num_cols_ == num_rows_ && M2.num_rows_ == num_cols_));
   
-  KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && (*M1).num_cols_ == (*M2).num_rows_ && (*M1).num_rows_ == num_rows_ && (*M2).num_cols_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kNoTrans && (*M1).num_rows_ == (*M2).num_rows_ && (*M1).num_cols_ == num_rows_ && (*M2).num_cols_ == num_cols_)
-               || (tM1 == kNoTrans && tM2 == kTrans && (*M1).num_cols_ == (*M2).num_cols_ && (*M1).num_rows_ == num_rows_ && (*M2).num_rows_ == num_cols_)
-               || (tM1 == kTrans && tM2 == kTrans && (*M1).num_rows_ == (*M2).num_cols_ && (*M1).num_cols_ == num_rows_ && (*M2).num_rows_ == num_cols_));
-  if(tM2 != kTrans) // since we need transpose it
-    KALDI_ERR << "Pre-transposed M2 expected";
+  if(tM2 != kTrans)
+    KALDI_ERR << "Transposed M2 expected";
 
-  // pre-calculate some constant
-  float mul_inc = (*M1).increment_ * (*M2).increment_,
-  low_t2 = static_cast<float>(std::numeric_limits<signed char>::min()),
-  coef1 = (*M2).min_ / (*M1).increment_ - low_t2 /mul_inc,
-  coef2 = (*M1).min_ / (*M2).increment_ ,
-  gconst = (*M1).min_ * (*M2).min_  - (*M1).min_ * low_t2 / (*M2).increment_;
-  CharacterMatrix<signed char> Mt;
-  (Mt).Resize(1, (*M1).num_cols_);
-  for(int32 col = 0; col < (*M1).num_cols_; ++col) {
-    *((Mt).data_ + col) = static_cast<signed char>(1);
-  }
+  
+  if (M1.blk_num_cols_ != M2.blk_num_cols_)
+    KALDI_ERR << "hey, M1 and M2 col blocking factors inconsistent";
+  
+  for(int32 m1 = 0; m1 < M1.row_blks_; ++ m1) {
+    unsigned char *m1_data_begin1 = M1.data_ + m1 * M1.blk_num_rows_ * M1.stride_;
+    for(int32 m2 = 0; m2 < M2.row_blks_; ++ m2) {
+      signed char *m2_data_begin1  = M2.data_ + m2 * M2.blk_num_rows_ * M2.stride_;
+      float *data_begin1  = data_ + m1 * M1.blk_num_rows_ * stride_ + m2 * M2.blk_num_rows_;
+      for(int32 k1 = 0; k1 < M1.col_blks_; ++ k1) { // begin for each block
 
-  int x3[(*M2).NumRows()];
-  for (MatrixIndexT col = 0; col < (*M2).NumRows() ; ++col){
-    x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>((Mt).data_), (*M2).data_ + col * (*M2).stride_, (*M1).num_cols_);
-    //x3[col] = DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_); 
-    //x3[col] = Sse4SumArray(M2.data_ + col * M2.stride_, M1.num_cols_);
-  }
-
-  for(MatrixIndexT row = row_start; row < row_end; ++ row) {
-    int x2 = Sse4DotProduct((*M1).data_ + row *(*M1).stride_, (Mt).data_, (*M1).num_cols_);
-    //int x2 = DotProduct (M1.data_ + row *M1.stride_, Mt.data_, M1.num_cols_);
-    //int x2 = Sse4SumArray(M1.data_ + row *M1.stride_, M1.num_cols_);
-    MatrixIndexT col = 0;
-
-    for( col = 0; col+3 < (*M2).NumRows(); col += 4) {
-      int x1[4];
-      x1[0] = 0;
-      x1[1] = 0;
-      x1[2] = 0;
-      x1[3] = 0;
-      Sse4DotProduct4fold1X4((*M1).data_ + row * (*M1).stride_,
-                                 (*M2).data_ + col * (*M2).stride_, (*M2).data_ + (col + 1) * (*M2).stride_,
-                                 (*M2).data_ + (col + 2) * (*M2).stride_, (*M2).data_ + (col + 3) * (*M2).stride_, x1,  (*M1).num_cols_);
-
-      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);
-
-      *this_data = static_cast<float>( beta * (*this_data) +
-                                             alpha * (static_cast<float>(x1[0]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col] + gconst * (*M1).num_cols_ ));
-      *(this_data + 1) = static_cast<float>( beta * (*(this_data + 1)) +
-                                             alpha * (static_cast<float>(x1[1]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 1] + gconst * (*M1).num_cols_ ));
-      *(this_data + 2) = static_cast<float>( beta * (*(this_data + 2)) +
-                                             alpha * (static_cast<float>(x1[2]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 2] + gconst * (*M1).num_cols_ ));
-      *(this_data + 3) = static_cast<float>( beta * (*(this_data + 3)) +
-                                             alpha * (static_cast<float>(x1[3]) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col + 3] + gconst * (*M1).num_cols_ ));
-    }
-
-    for(col = col; col < (*M2).NumRows(); ++col) {
-      int x1 = Sse4DotProduct((*M1).data_ + row * (*M1).stride_,
-                               (*M2).data_ + col * (*M2).stride_, (*M1).num_cols_);
-      //int x1 = DotProduct(M1.data_ + row * M1.stride_,
-      //                         M2.data_ + col * M2.stride_, M1.num_cols_);
-
-
-      float *this_data  = ((*this).data_ + row * (*this).stride_ + col);  // (*this)(row, col) 
-       *this_data = static_cast<float>( beta * (*this_data) +
-                                             alpha * (static_cast<float>(x1) / mul_inc +
-                                             coef1 * x2 + coef2 * x3[col] + gconst * (*M1).num_cols_ ));
+        if (!doTest) {
+          for(int32 r = 0; r < M1.blk_num_rows_; ++ r) {
+            float *m_data1 = data_begin1 + r * stride_;
+            unsigned char *m1_data1 = m1_data_begin1 + k1 * M1.blk_num_cols_ + r * M1.stride_;
+            for(int32 c = 0; c < M2.blk_num_rows_; ++ c) {
+              signed char *m2_data1 = m2_data_begin1 + k1 * M2.blk_num_cols_ + c * M2.stride_;
+              float *m_data = m_data1 + c;
+              for(int32 k = 0; k < M1.blk_num_cols_; ++ k) {
+                float x = static_cast<float>(*(m1_data1 + k));
+                float y = static_cast<float>(*(m2_data1 + k));
+                *m_data += x * y;   
+              }  
+            }
+          } // end for each block              
+        } else {
+          for(int32 r = 0 ; r < M1.blk_num_rows_; ++ r) {
+            unsigned char *m1_data1 = m1_data_begin1 + r * M1.stride_ + k1 * M1.blk_num_cols_;
+            float *m_data1 = data_begin1 + r * stride_;
+            // KALDI_ASSERT ( m1_data1 == M1.data_ + (m1 * M1.blk_num_rows_ + r) * M1.stride_ + k1 * M1.blk_num_cols_);
+            for(int32 c = 0; c < M2.blk_num_rows_; ++ c) {
+              signed char *m2_data1 = m2_data_begin1 + c * M2.stride_ + k1 * M2.blk_num_cols_;
+              // KALDI_ASSERT (m2_data1 == M2.data_ + (m2 * M2.blk_num_rows_ + c) * M2.stride_ + k1 * M2.blk_num_cols_ );
+              float *m_data = m_data1 + c;
+              // KALDI_ASSERT ( m_data == data_ + (m1 * M1.blk_num_rows_ + r) *stride_ + m2 * M2.blk_num_rows_ + c );
+              int32 sum = 0, k = 0;
+              int a =  *(m1_data1 + k) * (*(m2_data1 + k));
+              int b =  *(m1_data1 + k + 1) * (*(m2_data1 + k + 1));
+              int c =  *(m1_data1 + k + 2) * (*(m2_data1 + k + 2));
+              int d =  *(m1_data1 + k + 3) * (*(m2_data1 + k + 3));
+              int e =  *(m1_data1 + k + 4) * (*(m2_data1 + k + 4));
+              for(k = 5; k + 4 < M1.blk_num_cols_; k += 5) {
+                sum +=  a + b + c + d + e;
+                a =  *(m1_data1 + k) * (*(m2_data1 + k));
+                b =  *(m1_data1 + k + 1) * (*(m2_data1 + k + 1));
+                c =  *(m1_data1 + k + 2) * (*(m2_data1 + k + 2));
+                d =  *(m1_data1 + k + 3) * (*(m2_data1 + k + 3));
+                e =  *(m1_data1 + k + 4) * (*(m2_data1 + k + 4));
+              }
+              sum += a + b + c + d + e;
+              for(; k < M1.blk_num_cols_; ++ k) {
+                sum += *(m1_data1 + k) * (*(m2_data1 + k));
+              }  
+              *m_data += static_cast<float>(sum);   
+            }
+          } // end for each block 
+        } // do test
+      }    
     }
   }
 }
-template<>
-template<>
-void MatrixBase<float>::AddMatMatParallel(float alpha,
-                const CharacterMatrix<unsigned char> &M1,
-                MatrixTransposeType tM1,
-                const CharacterMatrix<signed char> & M2,
-                MatrixTransposeType tM2,
-                const float beta, int32 num_threads);
- template<> 
- void MatrixBase<float>::AddMatMatParallel(float alpha,
-                 CharacterMatrix<unsigned char> &M1,
-                 MatrixTransposeType tM1,
-                 CharacterMatrix<signed char> & M2,
-                 MatrixTransposeType tM2,
-                 const float beta, int32 num_threads) {
-   //po.Register(num-threads, &g_num_threads, "Number of threads to use.");
-   MultiplicationParallel<float> m(M1,M2,this);
-   RunMultiThreaded (m);
- 
- }
-
-
+// 
+//
 typedef struct{ 
   int id; MatrixIndexT begin, end;
   float alpha;
@@ -529,9 +498,10 @@ void MatrixBase<float>::AddMatMatPthread(float alpha,
   gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.increment_;
   CharacterMatrix<signed char> Mt;
   Mt.Resize(1, M1.num_cols_);
-  for(int32 col = 0; col < M1.num_cols_; ++col) {
-    *(Mt.data_ + col) = static_cast<signed char>(1);
-  }
+  memset(M1.data_,1,sizeof(unsigned char) * M1.stride_);
+  // for(int32 col = 0; col < M1.num_cols_; ++col) {
+  //  *(Mt.data_ + col) = static_cast<signed char>(1);
+  // }
 
   int x3[M2.NumRows()];
   for (MatrixIndexT col = 0; col < M2.NumRows(); ++col){
