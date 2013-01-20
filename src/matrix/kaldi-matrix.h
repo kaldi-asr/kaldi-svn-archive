@@ -851,3 +851,6 @@ bool SameDim(const MatrixBase<Real> &M, const MatrixBase<Real> &N) {
 
 
 #endif  // KALDI_MATRIX_KALDI_MATRIX_H_
+
+
+

@@ -12,7 +12,6 @@
 #ifndef KALDI_CHARACTER_MATRIX_H_
 #define KALDI_CHARACTER_MATRIX_H_
 
-
 //a trial of Matrix class with SSE multiplication. By Xiao-hui Zhang 2012/12
 // The code was debugged by Pegah and Ehsan 12.28.12
 // The CopyFromMat function create these values appropriately.
@@ -21,6 +20,7 @@
 // 
 // You can get the min and max values of your integer range (e.g. 0 and 255, or -128 and +127),
 //  from std::numeric_limits, to make your code generic.
+
 
 // You'll probably have just one matrix-matrix multiplication, which would be
 // a class member of Matrix<Real>: something like:

@@ -622,4 +622,7 @@ int main() {
   // kaldi::TestAddMatMatParallel<float>();
   KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
+
 }
+
+
