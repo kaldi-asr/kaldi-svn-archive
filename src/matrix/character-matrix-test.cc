@@ -577,7 +577,7 @@ static void MatMatBlockingTest(const int32 numTest) {
     GenerateMatrix4S(mf2);
 
     CharacterMatrix<unsigned char> mc1, mc11;
-    int32 blk_num_rows = 48;
+    int32 blk_num_rows = 80;
     int32 blk_num_cols = 192; 
     mc1.BlockResize(blk_num_rows, blk_num_cols);
     mc1.CopyFromMat(mf1);
@@ -587,7 +587,7 @@ static void MatMatBlockingTest(const int32 numTest) {
     // AssertEqual(mc1,mc11); 
 
     CharacterMatrix<signed char> mc2, mc21;
-    blk_num_rows = 48;    
+    blk_num_rows = 80;    
     mc2.BlockResize(blk_num_rows, blk_num_cols);
     mc2.CopyFromMat(mf2);
     mc2.CheckMatrix();

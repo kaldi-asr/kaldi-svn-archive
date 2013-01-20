@@ -42,6 +42,20 @@ inline int DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
   }
   return sum; 
 }
+inline int DotProduct2(unsigned char *x, signed char *y, MatrixIndexT length) {
+  int32 i, sum=0, a, b, c, d, e;
+  for(i=0; i + 4 < length; i += 5) {
+    a = x[i] * y[i];
+    b = x[i+1] * y[i+1];
+    c = x[i+2] * y[i+2];
+    d = x[i+3] * y[i+3];
+    e = x[i+4] * y[i+4];
+    sum += a + b + c + d + e;
+  }
+  for(; i < length;  ++i)
+   sum += x[i] * y[i];
+  return sum; 
+}
 
 inline  int Sse4DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
     int i;
@@ -843,13 +857,13 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols) {
     int32 x = cols % blk_num_cols_; // pad column first
     if (x > 0) {
       mem_cols += blk_num_cols_ - x;
-      col_blks_ = mem_cols / blk_num_cols_; 
     }
     x = rows % blk_num_rows_ ; // then we pad row
     if (x > 0) {
       mem_rows += blk_num_rows_ -x;
-      row_blks_ = mem_rows / blk_num_rows_;
     }   
+    col_blks_ = mem_cols / blk_num_cols_; 
+    row_blks_ = mem_rows / blk_num_rows_;
   }
   // compute the size of skip and real cols
   skip = ((16 / sizeof(T)) - mem_cols % (16 / sizeof(T))) % (16 / sizeof(T));

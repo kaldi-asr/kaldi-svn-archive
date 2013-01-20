@@ -352,11 +352,14 @@ void MatrixBase<float>::AddMatMat2(float alpha,
     KALDI_ERR << "hey, M1 and M2 col blocking factors inconsistent";
   
   for(int32 m1 = 0; m1 < M1.row_blks_; ++ m1) {
-    unsigned char *m1_data_begin1 = M1.data_ + m1 * M1.blk_num_rows_ * M1.stride_;
+    int32 row_idx = m1 * M1.blk_num_rows_;
+    unsigned char *m1_data_begin1 = M1.data_ + row_idx * M1.stride_;
     for(int32 m2 = 0; m2 < M2.row_blks_; ++ m2) {
-      signed char *m2_data_begin1  = M2.data_ + m2 * M2.blk_num_rows_ * M2.stride_;
-      float *data_begin1  = data_ + m1 * M1.blk_num_rows_ * stride_ + m2 * M2.blk_num_rows_;
+      int32 col_idx = m2 * M2.blk_num_rows_;
+      signed char *m2_data_begin1  = M2.data_ + col_idx * M2.stride_;
+      float *data_begin1  = data_ + row_idx * stride_ + col_idx;
       for(int32 k1 = 0; k1 < M1.col_blks_; ++ k1) { // begin for each block
+        int32 k_col_idx = k1 * M1.blk_num_cols_;
 
         if (!doTest) {
           for(int32 r = 0; r < M1.blk_num_rows_; ++ r) {
@@ -374,28 +377,34 @@ void MatrixBase<float>::AddMatMat2(float alpha,
           } // end for each block              
         } else {
           for(int32 r = 0 ; r < M1.blk_num_rows_; ++ r) {
-            unsigned char *m1_data1 = m1_data_begin1 + r * M1.stride_ + k1 * M1.blk_num_cols_;
-            if( m1 * M1.blk_num_rows_ + r >= num_rows_) // be careful of memory cross
+            if( row_idx + r >= num_rows_) // be careful of memory cross
               continue;
+            unsigned char *m1_data1 = m1_data_begin1 + r * M1.stride_ + k_col_idx;
             float *m_data1 = data_begin1 + r * stride_;
-            for(int32 c = 0; c < M2.blk_num_rows_; ++ c) {
-              signed char *m2_data1 = m2_data_begin1 + c * M2.stride_ + k1 * M2.blk_num_cols_;
-              if (m2 * M2.blk_num_rows_ + c >= num_cols_)  // be careful of memory cross
-                continue;
-              float *m_data = m_data1 + c;
-              int32 sum = 0, k = 0; int32 a, b, c, d, e;
-              for(; k + 4 < M1.blk_num_cols_; k += 5) {
-                a = *(m1_data1 + k) * (*(m2_data1 + k)); 
-                b = *(m1_data1 + k + 1) * (*(m2_data1 + k + 1)); 
-                c = *(m1_data1 + k + 2) * (*(m2_data1 + k + 2)); 
-                d = *(m1_data1 + k + 3) * (*(m2_data1 + k + 3)); 
-                e = *(m1_data1 + k + 4) * (*(m2_data1 + k + 4)); 
-                sum += a + b + d + c + e;
+            for(int32 c = 0,x1 = 0, x2 = 0, x3 =0, x4 = 0, x5 =0; 
+                c < M2.blk_num_rows_; c += 5) {
+              signed char *m2_data =  m2_data_begin1 + c * M2.stride_ + k_col_idx;
+              if (col_idx + c < num_cols_) {  // be careful of memory cross
+                *(m_data1 + c) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data = m2_data + M2.stride_;
               }
-              for(; k < M1.blk_num_cols_ ; ++ k) {
-                sum += *(m1_data1 + k) * (*(m2_data1 + k)); 
+
+              if (col_idx + c +1 < num_cols_) {  
+                *(m_data1 + c + 1) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data = m2_data + M2.stride_;
               }
-              *m_data += static_cast<float>(sum);
+              if (col_idx + c + 2 < num_cols_) {  
+                *(m_data1 + c + 2) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data = m2_data + M2.stride_;
+              }
+              if (col_idx + c + 3 < num_cols_) {  
+                *(m_data1 + c + 3) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data = m2_data + M2.stride_;
+              }
+              if (col_idx + c + 4 < num_cols_) {  
+                *(m_data1 + c + 4)+= static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data = m2_data + M2.stride_;
+              } 
             }
           } // end for each block
         } // do test
