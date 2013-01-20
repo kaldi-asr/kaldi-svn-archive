@@ -832,8 +832,7 @@ void CharacterMatrix<T>::SetValue(const T t) {
 }
 
 template<typename T>
-void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols)
-{
+void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols) {
   MatrixIndexT skip;
   MatrixIndexT real_cols;
   size_t size;

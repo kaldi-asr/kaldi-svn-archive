@@ -436,7 +436,6 @@ template<typename U, typename T>
                  MatrixTransposeType tM2,
                  const float beta, int32 num_threads); 
 
-
 // [hhx] for test to be removed
   void AddMatMat2(Real alpha, 
                  CharacterMatrix<unsigned char> &M1, 
