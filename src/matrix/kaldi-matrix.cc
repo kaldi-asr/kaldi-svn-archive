@@ -381,29 +381,32 @@ void MatrixBase<float>::AddMatMat2(float alpha,
               continue;
             unsigned char *m1_data1 = m1_data_begin1 + r * M1.stride_ + k_col_idx;
             float *m_data1 = data_begin1 + r * stride_;
-            for(int32 c = 0,x1 = 0, x2 = 0, x3 =0, x4 = 0, x5 =0; 
-                c < M2.blk_num_rows_; c += 5) {
+            for(int32 c = 0; c < M2.blk_num_rows_; c += 5) {
               signed char *m2_data =  m2_data_begin1 + c * M2.stride_ + k_col_idx;
+              float *mdata = m_data1 + c;
               if (col_idx + c < num_cols_) {  // be careful of memory cross
-                *(m_data1 + c) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
-                m2_data = m2_data + M2.stride_;
+                *mdata += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data += M2.stride_;
+                mdata ++;
               }
 
               if (col_idx + c +1 < num_cols_) {  
-                *(m_data1 + c + 1) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                *mdata += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
                 m2_data = m2_data + M2.stride_;
+                mdata ++;
               }
               if (col_idx + c + 2 < num_cols_) {  
-                *(m_data1 + c + 2) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
-                m2_data = m2_data + M2.stride_;
+                *mdata += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data += M2.stride_;
+                mdata ++ ;
               }
               if (col_idx + c + 3 < num_cols_) {  
-                *(m_data1 + c + 3) += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
-                m2_data = m2_data + M2.stride_;
+                *mdata += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
+                m2_data += M2.stride_;
+                mdata ++;
               }
               if (col_idx + c + 4 < num_cols_) {  
-                *(m_data1 + c + 4)+= static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
-                m2_data = m2_data + M2.stride_;
+                *mdata += static_cast<float>(DotProduct2(m1_data1, m2_data, M1.blk_num_cols_));
               } 
             }
           } // end for each block
