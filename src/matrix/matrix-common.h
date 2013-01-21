@@ -46,7 +46,9 @@ template<typename Real> class Matrix;
 template<typename Real> class SpMatrix;
 template<typename Real> class TpMatrix;
 template<typename Real> class PackedMatrix;
-
+//template<typename Real> class CharacterMatrixBase;
+//template<typename Real> class CharacterSubMatrix;
+//template<typename Real> class CharacterMatrix;
 /// This class provides a way for switching between double and float types.
 template<typename T> class OtherReal { };  // useful in reading+writing routines
                                            // to switch double and float.
