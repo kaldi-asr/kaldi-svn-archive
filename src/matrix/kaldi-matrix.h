@@ -429,6 +429,7 @@ template<typename U, typename T>
                 MatrixTransposeType tM2,
                 const float beta, int32 num_threads);
 
+
   void AddMatMatParallel(float alpha,
                  CharacterMatrix<unsigned char> &M1,
                  MatrixTransposeType tM1,
