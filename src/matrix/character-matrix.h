@@ -709,7 +709,7 @@ inline int Sse4SumArray(signed char *x, MatrixIndexT length) {
   return result;
 }
 template<typename T>
-class CharacterMatrixBase{
+class CharacterMatrixBase {
  public:
   friend class MatrixBase<T>;
   friend class CharacterSubMatrix<T>;
@@ -743,7 +743,7 @@ class CharacterMatrixBase{
   // recover real matrix from character matrix
   // From Dan: Google style guide does not allow non-const references, you should use a pointer.
   // But this should probably be called CopyToMat instead of RecoverMatrix.
-  
+
   template<typename Real>
   void CopyToMat(Matrix<Real> *M);
  
@@ -766,8 +766,9 @@ class CharacterMatrixBase{
  void CheckMatrix(); 
  
  CharacterSubMatrix<T> Range(const MatrixIndexT ro, const MatrixIndexT r, 
-                                 const MatrixIndexT col,const MatrixIndexT c);
+                             const MatrixIndexT col,const MatrixIndexT c);
  protected:
+  CharacterMatrixBase() { }
   ~CharacterMatrixBase() { }
   inline T* Data_workaround() const {
     return data_;
@@ -795,7 +796,7 @@ class CharacterMatrixBase{
  
 
  private:
- 
+  KALDI_DISALLOW_COPY_AND_ASSIGN(CharacterMatrixBase);  
 
 };
 
@@ -827,10 +828,8 @@ class CharacterMatrix : public CharacterMatrixBase<T>{
   // Pegah : CopyFromCharacterMatrix doesn't work!
   // From Dan: what is "kNoTrans" still doing here?
   explicit CharacterMatrix(const CharacterMatrixBase<T>& M,
-                            MatrixTransposeType trans = kNoTrans); // copy constructor
+                           MatrixTransposeType trans = kNoTrans); // copy constructor
 
-  
-  CharacterMatrix(const CharacterMatrix & m);
   
   ~CharacterMatrix() { 
     //cout<<"destructor called"<<endl;
@@ -840,14 +839,6 @@ class CharacterMatrix : public CharacterMatrixBase<T>{
   // operator overloading
 
   CharacterMatrix<T> &operator = (const CharacterMatrixBase<T> &other) {
-    if ( CharacterMatrixBase<T>::NumRows() != other.NumRows() ||
-         CharacterMatrixBase<T>::NumCols() != other.NumCols()) {
-      Resize(other.NumRows(), other.NumCols());
-    }
-    CharacterMatrixBase<T>::CopyFromMatrix(other);
-    return *this;
-  }
- CharacterMatrix<T> &operator = (const CharacterMatrix<T> &other) {
     if ( CharacterMatrixBase<T>::NumRows() != other.NumRows() ||
          CharacterMatrixBase<T>::NumCols() != other.NumCols()) {
       Resize(other.NumRows(), other.NumCols());
@@ -1068,8 +1059,10 @@ class CharacterSubMatrix : public CharacterMatrixBase<Real> {
 };
 
 template<typename Real>
-CharacterSubMatrix<Real>::CharacterSubMatrix(const CharacterMatrixBase<Real> &M,
-   const MatrixIndexT ro,const MatrixIndexT r, const MatrixIndexT col, const MatrixIndexT c) {
+CharacterSubMatrix<Real>::CharacterSubMatrix(
+    const CharacterMatrixBase<Real> &M,
+    const MatrixIndexT ro,const MatrixIndexT r,
+    const MatrixIndexT col, const MatrixIndexT c) {
   //KALDI_ASSERT();
   CharacterMatrixBase<Real>::num_rows_ = r;
   CharacterMatrixBase<Real>::num_cols_ = c;
@@ -1077,8 +1070,9 @@ CharacterSubMatrix<Real>::CharacterSubMatrix(const CharacterMatrixBase<Real> &M,
   CharacterMatrixBase<Real>::data_ = M.Data_workaround()+ ro * M.Stride() + col;
 }
 template<typename Real>
-CharacterSubMatrix<Real> CharacterMatrixBase<Real>::Range(const MatrixIndexT ro, const MatrixIndexT r, const MatrixIndexT col, MatrixIndexT c) {
-  
+CharacterSubMatrix<Real> CharacterMatrixBase<Real>::Range(
+    const MatrixIndexT ro,const MatrixIndexT r, const MatrixIndexT col,
+    MatrixIndexT c) {
   return CharacterSubMatrix<Real>(*this, ro, r, col, c);
 }
                       

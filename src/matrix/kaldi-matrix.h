@@ -172,8 +172,8 @@ class MatrixBase {
   /// @param r [in] num-rows in result.
   /// @param co [in] column offset.
   /// @param c [in] num-columns in result.
-  SubMatrix<Real> Range(const MatrixIndexT ro, const MatrixIndexT r, const MatrixIndexT co,
-                        const MatrixIndexT c) const {
+  SubMatrix<Real> Range(const MatrixIndexT ro, const MatrixIndexT r,
+                        const MatrixIndexT co, const MatrixIndexT c) const {
     return SubMatrix<Real>(*this, ro, r, co, c);
   }
 
