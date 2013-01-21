@@ -651,7 +651,7 @@ void TestAddVecMat() {
 }
 
 template<typename Real>
-void TestAddMatMatParallel() {
+void TestAddMatMatParallel(int32 num_threads) {
     struct timeb tstruct;
     int32 row = 2000;
     int32 row2 = 2000;
@@ -679,7 +679,7 @@ void TestAddMatMatParallel() {
     //time (&start1);
     ftime( &tstruct );
     tstart1 = tstruct.time * 1000 - tstruct.millitm;
-    Mc.AddMatMatParallel(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, 8); 
+    Mc.AddMatMatParallel(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, num_threads); 
     ftime( &tstruct );
     tend1 = tstruct.time * 1000 - tstruct.millitm;
     //time (&end1);
@@ -711,6 +711,14 @@ void TestAddMatMatParallel() {
   
   
     }
+template<typename Real>    
+void HierarchyTest() {
+ Matrix<Real> M(10,10);
+ M.SetRandn();
+ CharacterMatrix<unsigned char> a(10,10); 
+// a.CopyFromMat(M);
+// a.Range(0,1,0,1);
+}
 
 
 } // kaldi namespace
@@ -720,10 +728,11 @@ int main() {
   // kaldi::TestAddMatMatTime<float>(1);
   // kaldi::TestSse4DotProduct<float>(1); 
   // kaldi::TestError2<float>(3);
-  kaldi::TestAddVecMat<float>();
-  kaldi::MatMatBlockingTest(1);
-  kaldi::TestAddMatMatParallel<float>();
-  KALDI_LOG << "character-matrix-test succeeded.\n";
+ // kaldi::TestAddVecMat<float>();
+ kaldi::MatMatBlockingTest(1);
+ kaldi::TestAddMatMatParallel<float>(10);
+// kaldi::HierarchyTest<float>();
+ KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 
 }
