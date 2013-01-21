@@ -706,18 +706,70 @@ inline int Sse4SumArray(signed char *x, MatrixIndexT length) {
 
   return result;
 }
-
 template<typename T>
-class CharacterMatrix{
-
- // from Dan: these types are not needed.
- typedef T* iter;
- typedef const T* const_iter;
+class CharacterMatrixBase{
+ public:
+  friend class MatrixBase<T>;
+  friend class CharacterSubMatrix<T>;
+  friend class CharacterMatrix<T>;
+ 
+  inline MatrixIndexT NumRows() const { return num_rows_; }
+  inline MatrixIndexT NumCols() const { return num_cols_; }
+  inline MatrixIndexT Stride() const { return stride_; }
+  inline  T* Data() const { return data_; }
+  inline float Min() const { return min_; }
+  inline float Increment() const { return increment_; }
+  void SetZero();  
+  void SetValue(const T t); 
+ 
+ //operator overloading functions:
   
- template <typename Real>friend class MatrixBase;
-
-  // from Dan: Google style guide demands that the public section be first.
- private:
+  inline T&  operator() (MatrixIndexT r, MatrixIndexT c) {
+   //assert(r < num_rows_ && c < num_cols_) ;
+   return *(data_ + r * stride_ + c);
+  }
+  inline const  T  operator() (MatrixIndexT r, MatrixIndexT c) const {
+    return *(data_ + r * stride_ + c);
+  }
+ /* 
+  template<typename Real>
+  void  CopyFromMat(const MatrixBase<Real> &M);
+  
+  template<typename OtherReal>
+  void CopyFromMatrix(const CharacterMatrixBase<OtherReal> &M);
+  */
+  // recover real matrix from character matrix
+  // From Dan: Google style guide does not allow non-const references, you should use a pointer.
+  // But this should probably be called CopyToMat instead of RecoverMatrix.
+  
+  template<typename Real>
+  void CopyToMat(Matrix<Real> *M);
+ 
+ // it tells 
+  void BlockResize(const int32 blk_num_rows, const int32 blk_num_cols) {
+    if (blk_num_rows <= 0 || blk_num_cols <= 0) {
+      KALDI_ERR << "blocking size error";
+    }
+    blk_num_rows_ = blk_num_rows;
+    blk_num_cols_ = blk_num_cols;
+  }
+  // test, to be removed
+  float T2R(const T &t);
+  template<typename Real>
+  inline Real CharToReal(const T t);
+  
+  template<typename Real>
+  inline T RealToChar(const Real r);
+  
+ void CheckMatrix(); 
+ 
+ CharacterSubMatrix<T> Range(const MatrixIndexT ro, const MatrixIndexT r, 
+                                 const MatrixIndexT col,const MatrixIndexT c);
+ protected:
+  ~CharacterMatrixBase() { }
+  inline T* Data_workaround() const {
+    return data_;
+  }
 
   // for matrix blocking
   int32 blk_num_rows_;  // rows of the blocking matrix 
@@ -739,19 +791,28 @@ class CharacterMatrix{
   float min_ ;
   float increment_ ;
  
-  // From Dan: Google style guide does not allow such un-informative names.
-  // Consider CharToReal and RealToChar.  And they should be inline functions for speed.
-   template<typename Real>
-  inline Real CharToReal(const T t);
+
+ private:
+ 
+
+};
+
+template<typename T>
+class CharacterMatrix : public CharacterMatrixBase<T>{
+
   
-  template<typename Real>
-  inline T RealToChar(const Real r);
+ template <typename Real>friend class MatrixBase;
+
  public:
   //constructors & destructor:
-  CharacterMatrix():blk_num_rows_(0), blk_num_cols_(0),
-                    row_blks_(0), col_blks_(0),
-                    data_(NULL), num_rows_(0),num_cols_(0),
-                    stride_(0){} 
+  CharacterMatrix() {CharacterMatrixBase<T>::blk_num_cols_ = 0;
+                    CharacterMatrixBase<T>::row_blks_ = 0;
+                    CharacterMatrixBase<T>::col_blks_ = 0;
+                    CharacterMatrixBase<T>::data_ = NULL;
+                    CharacterMatrixBase<T>::num_rows_ = 0;
+                    CharacterMatrixBase<T>::num_cols_ = 0;
+                    CharacterMatrixBase<T>::stride_ = 0;
+                    CharacterMatrixBase<T>::blk_num_rows_ = 0;} 
 
   
   // make it explicit to make statement like "vec<int> a = 10;" illegal.
@@ -763,70 +824,60 @@ class CharacterMatrix{
  // CharacterMatrix(const CharacterMatrix<Real> &M) { CopyFromMatrix(M);} 
   // Pegah : CopyFromCharacterMatrix doesn't work!
   // From Dan: what is "kNoTrans" still doing here?
-  CharacterMatrix(const CharacterMatrix& m) { } // copy constructor
+  explicit CharacterMatrix(const CharacterMatrixBase<T>& M,
+                            MatrixTransposeType trans = kNoTrans); // copy constructor
+
+  
+  CharacterMatrix(const CharacterMatrix & m);
+  
   ~CharacterMatrix() { 
     //cout<<"destructor called"<<endl;
-   // free(data_);
+    free(CharacterMatrixBase<T>::data_);
   } 
-  //operator overloading functions:
   
-  CharacterMatrix& operator = (const CharacterMatrix&); // assignment operator
+  // operator overloading
 
-  // From Dan: It's OK to define this, but you should not call it from any functions you want to be fast.
-  // Also, I would probably rather have it return real, as we want this class to be such that "externally"
-  // it acts like it stores real.
-  T&  operator() (MatrixIndexT r, MatrixIndexT c) {
-   //std::cout<<" r : "<<r<<" c : "<<c<<" num rows : "<<num_rows_<<" um cols : "<<num_cols_<<std::endl ;
-   //assert(r < num_rows_ && c < num_cols_) ;
-   return *(data_ + r * stride_ + c);
+  CharacterMatrix<T> &operator = (const CharacterMatrixBase<T> &other) {
+    if ( CharacterMatrixBase<T>::NumRows() != other.NumRows() ||
+         CharacterMatrixBase<T>::NumCols() != other.NumCols()) {
+      Resize(other.NumRows(), other.NumCols());
+    }
+    CharacterMatrixBase<T>::CopyFromMatrix(other);
+    return *this;
   }
-  const  T&  operator() (MatrixIndexT r, MatrixIndexT c) const {
-    return *(data_ + r * stride_ + c);
+ CharacterMatrix<T> &operator = (const CharacterMatrix<T> &other) {
+    if ( CharacterMatrixBase<T>::NumRows() != other.NumRows() ||
+         CharacterMatrixBase<T>::NumCols() != other.NumCols()) {
+      Resize(other.NumRows(), other.NumCols());
+    }
+    CharacterMatrixBase<T>::CopyFromMatrix(other);
+    return *this;
   }
   
-  inline MatrixIndexT NumRows() const { return num_rows_; }
-  inline MatrixIndexT NumCols() const { return num_cols_; }
-  inline MatrixIndexT Stride() const { return stride_; }
-  inline iter Data() const { return data_; }
-  inline float Min() const { return min_; }
-  inline float Increment() const { return increment_; }
-  // [dan]: delete clear() and empty().  We can use Resize(0, 0).
-  //void
-  //bool empty() const { return num_rows_ == 0 || num_cols_ == 0; }
-  void SetZero();  
-  void SetValue(const T t); 
   // from Dan: you can remove the last argument to Resize; try to make the
   // interface like that of Matrix, where Resize takes a typedef (look at it.)
   void Resize(MatrixIndexT, MatrixIndexT);
-  void CheckMatrix();
+  //void CheckMatrix();
   // From Dan: the following function probably won't be needed, but one day it
   // might be useful so it's OK to define it.  If you initialize with kTrans from
   // a real-valued matrix, the initialization code should do the transposing itself,
   // so it can be efficient.
   void Transpose();
+ 
   template<typename Real>
   void  CopyFromMat(const MatrixBase<Real> &M);
+  
   template<typename OtherReal>
   void CopyFromMatrix(const CharacterMatrix<OtherReal> &M);
-  // recover real matrix from character matrix
-  // From Dan: Google style guide does not allow non-const references, you should use a pointer.
-  // But this should probably be called CopyToMat instead of RecoverMatrix.
-  template<typename Real>
-  void CopyToMat(Matrix<Real> *M);
- // it tells 
-  void BlockResize(const int32 blk_num_rows, const int32 blk_num_cols) {
-    if (blk_num_rows <= 0 || blk_num_cols <= 0) {
-      KALDI_ERR << "blocking size error";
-    }
-    blk_num_rows_ = blk_num_rows;
-    blk_num_cols_ = blk_num_cols;
-  }
-  // test, to be removed
-  float T2R(const T &t);
+  
+ protected:
+
+ private:
+
 };
  
 template<typename T>
-void CharacterMatrix<T>::SetZero() {
+void CharacterMatrixBase<T>::SetZero() {
   if(blk_num_rows_ == 0) {
     memset(data_, 0, sizeof(T)*num_rows_*stride_);
   } else {
@@ -835,7 +886,7 @@ void CharacterMatrix<T>::SetZero() {
   }
 }
 template<typename T>
-void CharacterMatrix<T>::SetValue(const T t) {
+void CharacterMatrixBase<T>::SetValue(const T t) {
   int  x = static_cast<int>(t);
   if(blk_num_rows_ == 0) {
     memset(data_, x, sizeof(T)*num_rows_*stride_);
@@ -853,17 +904,17 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols) {
   void*   data;       // aligned memory block
   int32 mem_rows = rows;
   int32 mem_cols = cols;
-  if (blk_num_rows_ > 0) {
-    int32 x = cols % blk_num_cols_; // pad column first
+  if (CharacterMatrixBase<T>::blk_num_rows_ > 0) {
+    int32 x = cols % CharacterMatrixBase<T>::blk_num_cols_; // pad column first
     if (x > 0) {
-      mem_cols += blk_num_cols_ - x;
+      mem_cols += CharacterMatrixBase<T>::blk_num_cols_ - x;
     }
-    x = rows % blk_num_rows_ ; // then we pad row
+    x = rows % CharacterMatrixBase<T>::blk_num_rows_ ; // then we pad row
     if (x > 0) {
-      mem_rows += blk_num_rows_ -x;
+      mem_rows += CharacterMatrixBase<T>::blk_num_rows_ -x;
     }   
-    col_blks_ = mem_cols / blk_num_cols_; 
-    row_blks_ = mem_rows / blk_num_rows_;
+    CharacterMatrixBase<T>::col_blks_ = mem_cols / CharacterMatrixBase<T>::blk_num_cols_; 
+    CharacterMatrixBase<T>::row_blks_ = mem_rows / CharacterMatrixBase<T>::blk_num_rows_;
   }
   // compute the size of skip and real cols
   skip = ((16 / sizeof(T)) - mem_cols % (16 / sizeof(T))) % (16 / sizeof(T));
@@ -876,16 +927,16 @@ void CharacterMatrix<T>::Resize(MatrixIndexT rows, MatrixIndexT cols) {
   if(pos_ret != 0) {
     KALDI_ERR << "Failed to do posix memory allot";
   }
-  data_ = static_cast<T *> (data);
-  num_rows_ = rows;
-  num_cols_ = cols;
-  stride_  = real_cols;
+  CharacterMatrixBase<T>::data_ = static_cast<T *> (data);
+  CharacterMatrixBase<T>::num_rows_ = rows;
+  CharacterMatrixBase<T>::num_cols_ = cols;
+  CharacterMatrixBase<T>::stride_  = real_cols;
   this->SetZero();
 }
 
 template<typename T>
 template<typename Real>
-inline Real CharacterMatrix<T>::CharToReal(const T t) {
+inline Real CharacterMatrixBase<T>::CharToReal(const T t) {
   int32 lower = std::numeric_limits<T>::min();
   Real x = static_cast<Real>(min_ + (t - lower) / increment_);
   return x;
@@ -893,7 +944,7 @@ inline Real CharacterMatrix<T>::CharToReal(const T t) {
 
 template<typename T>
 template<typename Real>
-T CharacterMatrix<T>::RealToChar(const Real r) {
+T CharacterMatrixBase<T>::RealToChar(const Real r) {
   int32 lower = std::numeric_limits<T>::min();
   T t = static_cast<T>((r - min_) * increment_ + lower);
   //if((r - min_) * increment_ + lower - t - 0.5)
@@ -911,7 +962,7 @@ T CharacterMatrix<T>::RealToChar(const Real r) {
 }
 // test function, to be removed
 template<typename T>
-float CharacterMatrix<T>::T2R(const T &t) {
+float CharacterMatrixBase<T>::T2R(const T &t) {
   int32 lower = std::numeric_limits<T>::min();
   float x = static_cast<float>(min_ + (t - lower) / increment_);
   return x;
@@ -925,15 +976,15 @@ void CharacterMatrix<T>::CopyFromMat(const MatrixBase<Real> & M) {
   Real Diff = static_cast<float>(0.05) * (M.Max() - M.Min());
   Real min = M.Min() - Diff, max = M.Max() + Diff;
 
-  min_ = static_cast<float>(min);
+  CharacterMatrixBase<T>::min_ = static_cast<float>(min);
   //std::cout << " min before = " << static_cast<float>(M.Min()) << " min after = " << static_cast<float> (min_) << std::endl ;
   int32 minChar = std::numeric_limits<T>::min(),
         maxChar = std::numeric_limits<T>::max();
-  increment_ = static_cast<float>(static_cast<float>(maxChar - minChar)/(max - min));
+  CharacterMatrixBase<T>::increment_ = static_cast<float>(static_cast<float>(maxChar - minChar)/(max - min));
 
   for (MatrixIndexT row = 0; row < M.NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M.NumCols(); col++) {
-      (*this)(row, col) = RealToChar<Real>(M(row, col));
+      (*this)(row, col) = CharacterMatrixBase<T>::template RealToChar<Real>(M(row, col));
     }
   }
 }
@@ -944,19 +995,19 @@ void CharacterMatrix<Real>::CopyFromMatrix(const CharacterMatrix<OtherReal> &M) 
     return;
   Resize(M.NumRows(),M.NumCols());
   //KALDI_ASSERT(num_rows_ == M.NumRows() && num_cols_ == M.NumCols());
-  int32 this_stride = stride_, other_stride = M.Stride();
-  Real *this_data = data_;
+  int32 this_stride = CharacterMatrixBase<Real>::stride_, other_stride = M.Stride();
+  Real *this_data = CharacterMatrixBase<Real>::data_;
   const OtherReal *other_data = M.Data();
-  for (MatrixIndexT i = 0; i < num_rows_; i++) 
-    for(MatrixIndexT j = 0; j < num_cols_; j++)
+  for (MatrixIndexT i = 0; i < CharacterMatrixBase<Real>::num_rows_; i++) 
+    for(MatrixIndexT j = 0; j < CharacterMatrixBase<Real>::num_cols_; j++)
      // (*this_data)[i*this_stride + j] += (*other_data)[i * other_stride + j];
      (*this)(i,j) = M(i,j);
-  }
+}
                                       
 // Recover floating matrix  from char matrix
 template<typename T>
 template<typename Real>
-void CharacterMatrix<T>::CopyToMat(Matrix<Real> *M) {
+void CharacterMatrixBase<T>::CopyToMat(Matrix<Real> *M) {
   M->Resize(num_rows_, num_cols_);
   for (MatrixIndexT row = 0; row < M->NumRows(); row++) {
     for (MatrixIndexT col = 0; col < M->NumCols(); col++) {
@@ -964,7 +1015,7 @@ void CharacterMatrix<T>::CopyToMat(Matrix<Real> *M) {
     }
   }
 }
-
+/*
 template <typename T>
 CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) {
   if (CharacterMatrix<T>::NumRows() != rhs.NumRows() || CharacterMatrix<T>::NumCols() != rhs.NumCols()) {
@@ -974,8 +1025,9 @@ CharacterMatrix<T>& CharacterMatrix<T>::operator = (const CharacterMatrix& rhs) 
   CharacterMatrix<T>::CopyFromCharacterMatrix(rhs,"kNoTrans");
   return *this;
 }
+*/
 template <typename T>
-void CharacterMatrix<T>::CheckMatrix() {
+void CharacterMatrixBase<T>::CheckMatrix() {
   if(blk_num_rows_ != 0) {
     int32 row_num = row_blks_ * blk_num_rows_;
     int32 col_num = col_blks_ * blk_num_cols_;
@@ -995,6 +1047,39 @@ void CharacterMatrix<T>::CheckMatrix() {
     }
   }
 }
+template<typename Real>
+class CharacterSubMatrix : public CharacterMatrixBase<Real> {
+
+  public:
+    CharacterSubMatrix(const CharacterMatrixBase<Real> &T,
+                       const MatrixIndexT ro,
+                       const MatrixIndexT r,
+                       const MatrixIndexT col,
+                       const MatrixIndexT c);
+    ~CharacterSubMatrix() { }
+    CharacterSubMatrix<Real> (const CharacterSubMatrix &other) :
+        CharacterMatrixBase<Real> (other.data_, other.num_cols_, other.num_rows_,
+             other.stride_) {}
+
+  private:
+    CharacterSubMatrix<Real> &operator = (const CharacterSubMatrix<Real> &other);
+};
+
+template<typename Real>
+CharacterSubMatrix<Real>::CharacterSubMatrix(const CharacterMatrixBase<Real> &M,
+   const MatrixIndexT ro,const MatrixIndexT r, const MatrixIndexT col, const MatrixIndexT c) {
+  //KALDI_ASSERT();
+  CharacterMatrixBase<Real>::num_rows_ = r;
+  CharacterMatrixBase<Real>::num_cols_ = c;
+  CharacterMatrixBase<Real>::stride_ = M.Stride();
+  CharacterMatrixBase<Real>::data_ = M.Data_workaround()+ ro * M.Stride() + col;
+}
+template<typename Real>
+CharacterSubMatrix<Real> CharacterMatrixBase<Real>::Range(const MatrixIndexT ro, const MatrixIndexT r, const MatrixIndexT col, MatrixIndexT c) {
+  
+  return CharacterSubMatrix<Real>(*this, ro, r, col, c);
+}
+                      
 
 } //  namespace kaldi
 
