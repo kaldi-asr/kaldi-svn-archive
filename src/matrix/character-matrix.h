@@ -34,7 +34,9 @@
 // you could declare that function in kaldi-matrix.h but define it in character-matrix.cc
 // You may have to use "friend declarations" here, to make this work.
 namespace  kaldi {
-
+template<typename Real> class CharacterMatrixBase;
+template<typename Real> class CharacterSubMatrix;
+template<typename Real> class CharacterMatrix;
 inline int DotProduct(unsigned char *x, signed char *y, MatrixIndexT length) {
   int32 sum=0;
   for(int32 i=0; i< length; i++) {
