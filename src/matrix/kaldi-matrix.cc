@@ -433,6 +433,7 @@ void MatrixBase<float>::AddMatMatParallel(float alpha,
                  MatrixTransposeType tM2,
                  const float beta, int32 num_threads) {
    //po.Register(num-threads, &g_num_threads, "Number of threads to use.");
+   g_num_threads = num_threads;
    MultiplicationParallel<float> m(M1,M2,this);
    RunMultiThreaded (m);
  
