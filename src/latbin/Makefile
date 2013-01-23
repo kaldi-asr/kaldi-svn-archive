@@ -26,7 +26,7 @@ TESTFILES =
 
 
 $(BINFILES): ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a ../util/kaldi-util.a \
-	../matrix/kaldi-matrix.a ../base/kaldi-base.a 
+	../matrix/kaldi-matrix.a ../thread/kaldi-thread.a ../base/kaldi-base.a 
 
 
 
