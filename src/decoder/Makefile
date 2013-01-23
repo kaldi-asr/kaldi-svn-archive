@@ -23,7 +23,7 @@ $(LIBFILE): $(OBJFILES)
 
 $(TESTFILES): $(LIBFILE) ../transform/kaldi-transform.a ../tree/kaldi-tree.a \
      ../sgmm/kaldi-sgmm.a ../gmm/kaldi-gmm.a ../hmm/kaldi-hmm.a ../util/kaldi-util.a \
-     ../base/kaldi-base.a ../matrix/kaldi-matrix.a 
+     ../base/kaldi-base.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a
 
 # Rule below would expand to, e.g.:
 # ../base/kaldi-base.a:
