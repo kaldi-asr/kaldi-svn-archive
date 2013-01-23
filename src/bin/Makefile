@@ -26,7 +26,7 @@ all:  $(BINFILES)
 
 TESTFILES =
 
-$(BINFILES): ../lm/kaldi-lm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a  ../util/kaldi-util.a ../base/kaldi-base.a 
+$(BINFILES): ../lm/kaldi-lm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a ../util/kaldi-util.a ../base/kaldi-base.a 
 
 # Rule below would expand to, e.g.:
 # ../base/kaldi-base.a:
