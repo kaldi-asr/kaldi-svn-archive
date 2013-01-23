@@ -62,25 +62,25 @@ $(EXT_SUBDIRS) :
 bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin nnetbin nnetbin_cpu latbin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet_cpu
 #2)The libraries have inter-dependencies
 base:
-matrix : base
-util: base matrix
-thread: util
-feat: base matrix util gmm transform
-tree: base util matrix
-optimization: base matrix
-gmm: base util matrix tree
-tied: base util matrix gmm tree transform
-transform: base util matrix gmm tree
+matrix : base thread
+util: base  
+thread: util 
+feat: base matrix thread util gmm transform
+tree: base util matrix thread
+optimization: base matrix thread
+gmm: base util matrix thread tree
+tied: base util matrix thread gmm tree transform
+transform: base util matrix thread gmm tree
 sgmm: base util matrix gmm tree transform thread
 sgmm2: base util matrix gmm tree transform thread
-fstext: base util matrix tree
-hmm: base tree matrix 
+fstext: base util matrix thread tree
+hmm: base tree matrix thread
 lm: base util
-decoder: base util matrix gmm sgmm hmm tree transform
+decoder: base util matrix thread gmm sgmm hmm tree transform
 lat: base util
-cudamatrix: base util matrix	
-nnet: base util matrix cudamatrix
-nnet_cpu: base util matrix
+cudamatrix: base util matrix thread	
+nnet: base util matrix thread cudamatrix
+nnet_cpu: base util matrix thread 
 #3)Dependencies for optional parts of Kaldi
 onlinebin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet_cpu online
 online: decoder
