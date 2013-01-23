@@ -63,7 +63,7 @@ bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin nnetbin nnetbin_cpu l
 #2)The libraries have inter-dependencies
 base:
 matrix : base thread
-util: base  
+util: base matrix 
 thread: util 
 feat: base matrix thread util gmm transform
 tree: base util matrix thread
