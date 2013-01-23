@@ -2,9 +2,10 @@ all:
 
 include ../kaldi.mk
 
-TESTFILES = kaldi-thread-test kaldi-thread-test2
+TESTFILES = kaldi-thread-test threadpool-test
 
-OBJFILES =  multiplication-parallel.o kaldi-thread.o kaldi-mutex.o kaldi-semaphore.o kaldi-barrier.o
+OBJFILES =  kaldi-thread.o kaldi-mutex.o kaldi-semaphore.o kaldi-barrier.o threadbase.o threadpool.o
+
 
 LIBFILE = kaldi-thread.a
 
