@@ -24,7 +24,8 @@
 #include "matrix/jama-eig.h"
 #include "thread/kaldi-thread.h"
 #include "thread/kaldi-semaphore.h"
-#include "thread/multiplication-parallel.h"
+#include "matrix/multiplication-parallel.h"
+#include "thread/threadpool.h"
 namespace kaldi {
 template<>
 void MatrixBase<float>::Invert(float *LogDet, float *DetSign,
@@ -540,6 +541,8 @@ void mm(int id, MatrixIndexT begin, MatrixIndexT end, float alpha, CharacterMatr
         float coef1, float coef2, float gconst, int *x3){
  KALDI_LOG<<"Thread "<<id<<" opened, multiplying row "<<begin<<" to row "<<end<<" of M1("<<(*M1).NumRows()<<"X"<<(*M1).NumCols()<<") with M2."; 
  for(MatrixIndexT row = begin; row < end; ++ row) {
+
+
     int x2 = Sse4DotProduct((*M1).Data() + row * (*M1).Stride(), (*Mt).Data(), (*M1).NumCols());
     MatrixIndexT col = 0;
     for( col = 0; col+3 < (*M2).NumRows(); col += 4) {
@@ -592,13 +595,26 @@ void * worker(void *arg)
   return NULL;
 }
 
+class TMyJob : public ThreadPool::TPool::Job{
+ protected:
+  int job_no_;
+  void *arg_;
+ public:
+  TMyJob(int i, void *s):ThreadPool::TPool::Job(i),job_no_(i),arg_(s) {}
+  virtual void Run (void *){
+    KALDI_LOG<<"excuting the "<< job_no_ <<" th job.";
+    worker(arg_);
+  }
+};
+
+
 template<>
 void MatrixBase<float>::AddMatMatPthread(float alpha,
                  CharacterMatrix<unsigned char> &M1,
                  MatrixTransposeType tM1,
                  CharacterMatrix<signed char> & M2,
                  MatrixTransposeType tM2,
-                 const float beta, const int num_threads) {
+                 const float beta, const bool using_threadpool, const int num_jobs, const int num_threads) {
   KALDI_ASSERT((tM1 == kNoTrans && tM2 == kNoTrans && M1.num_cols_ == M2.num_rows_ && M1.num_rows_ == num_rows_ && M2.num_cols_ == num_cols_)
                || (tM1 == kTrans && tM2 == kNoTrans && M1.num_rows_ == M2.num_rows_ && M1.num_cols_ == num_rows_ && M2.num_cols_ == num_cols_)
                || (tM1 == kNoTrans && tM2 == kTrans && M1.num_cols_ == M2.num_cols_ && M1.num_rows_ == num_rows_ && M2.num_rows_ == num_cols_)
@@ -615,33 +631,57 @@ void MatrixBase<float>::AddMatMatPthread(float alpha,
   gconst = M1.min_ * M2.min_  - M1.min_ * low_t2 / M2.increment_;
   CharacterMatrix<signed char> Mt;
   Mt.Resize(1, M1.num_cols_);
-  memset(M1.data_,1,sizeof(unsigned char) * M1.stride_);
-  // for(int32 col = 0; col < M1.num_cols_; ++col) {
-  //  *(Mt.data_ + col) = static_cast<signed char>(1);
-  // }
+  //memset(M1.data_,1,sizeof(unsigned char) * M1.stride_);
+  for(int32 col = 0; col < M1.num_cols_; ++col) {
+    *(Mt.data_ + col) = static_cast<signed char>(1);
+  }
 
   int x3[M2.NumRows()];
   for (MatrixIndexT col = 0; col < M2.NumRows(); ++col){
     x3[col] = Sse4DotProduct(reinterpret_cast<unsigned char*>(Mt.data_), M2.data_ + col * M2.stride_, M1.num_cols_);
   }
-  pthread_t *threads = new pthread_t[num_threads];
-  int *index = new int[num_threads];
-  parm *arg = new parm[num_threads];
-  int blocksize = M1.NumRows()/num_threads;
-  for(int i = 0; i < num_threads; i++) {
+  
+  parm *arg = new parm[num_jobs];
+  int blocksize = M1.NumRows()/num_threads; 
+  for(int i = 0; i < num_jobs; i++) {
     arg[i].id = i; arg[i].begin = i * blocksize; arg[i].end = ((i + 2) * blocksize > M1.NumRows()? M1.NumRows():(i + 1) * blocksize);
     arg[i].alpha = alpha; arg[i].beta = beta;
     arg[i].M1 = &M1; arg[i].M2 = &M2; arg[i].Mt = &Mt; arg[i].data = (*this).Data(); arg[i].stride = (*this).Stride(); 
     arg[i].mul_inc = mul_inc; arg[i].coef1 = coef1; arg[i].coef2 = coef2; arg[i].gconst = gconst; arg[i].x3 = x3;
-    if (pthread_create(&threads[i], NULL, worker, (void*)(arg+i))) {
-       KALDI_ERR << "Could not creare a new thread";
+  }
+  if( using_threadpool == false){
+    //not using thread pool
+    for (int j = 0; j < num_jobs; j += num_threads){
+      pthread_t *threads = new pthread_t[num_threads];
+      for(int i = 0; i < num_threads && j + i < num_jobs; i++) {
+      if (pthread_create(&threads[i], NULL, worker, (void*)(arg + j + i))) {
+         KALDI_ERR << "Could not creare a new thread";
+      }
+      }
+      for(int i = 0; i < num_threads; i++) {
+        if (pthread_join(threads[i], NULL))
+          KALDI_ERR << "Error rejoining thread.";
+      }
+      delete [] threads; 
     }
+    delete [] arg;
   }
-  for(int i = 0; i < num_threads; i++) {
-    if (pthread_join(threads[i], NULL))
-      KALDI_ERR << "Error rejoining thread.";
+  else{
+    //using thread pool
+    using namespace ThreadPool;
+    Init(num_threads);
+    TMyJob ** jobs = new TMyJob* [num_jobs];
+    for (int i = 0; i < num_jobs; i++) jobs[i] = new TMyJob(i, (void *)(arg + i));
+    for (int i = 0; i < num_jobs; i++) ThreadPool::Run(jobs[i]);
+    KALDI_LOG<<"All jobs are finished";
+    for (int i = 0; i < num_jobs; i++) ThreadPool::Sync(jobs[i]);
+    KALDI_LOG<<"Synconization of all threads finished.";
+    ThreadPool::Done();
+    for (int i = 0; i < num_jobs; i++) delete jobs[i];
+    delete[] jobs;
+    KALDI_LOG <<"Task finshed.";
   }
-  delete [] threads; delete [] arg; delete [] index;
+  
 }
 
 
