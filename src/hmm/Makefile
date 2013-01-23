@@ -16,7 +16,7 @@ $(LIBFILE): $(OBJFILES)
 	$(RANLIB) $(LIBFILE)
 
 
-$(TESTFILES): $(LIBFILE) ../tree/kaldi-tree.a ../base/kaldi-base.a ../matrix/kaldi-matrix.a 
+$(TESTFILES): $(LIBFILE) ../tree/kaldi-tree.a ../base/kaldi-base.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a
 
 
 # Rule below would expand to, e.g.:
