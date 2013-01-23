@@ -19,7 +19,7 @@ all:  $(BINFILES)
 TESTFILES =
 
 $(BINFILES): ../feat/kaldi-feature.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a \
-         ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a \
+         ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a ../util/kaldi-util.a \
          ../base/kaldi-base.a
 
 # Rule below would expand to, e.g.:
