@@ -13,7 +13,7 @@ TESTFILES = matrix-lib-test kaldi-gpsr-test character-matrix-test
 
 OBJFILES = kaldi-matrix.o kaldi-vector.o packed-matrix.o sp-matrix.o tp-matrix.o \
            matrix-functions.o qr.o srfft.o kaldi-gpsr.o compressed-matrix.o \
-           optimization.o character-matrix.o
+           optimization.o character-matrix.o multiplication-parallel.o
 
 LIBFILE = kaldi-matrix.a
 
