@@ -20,7 +20,7 @@ $(LIBFILE): $(OBJFILES)
 
 
 
-$(TESTFILES): $(LIBFILE) ../cudamatrix/cuda-matrix.a ../matrix/kaldi-matrix.a ../base/kaldi-base.a  ../util/kaldi-util.a 
+$(TESTFILES): $(LIBFILE) ../cudamatrix/cuda-matrix.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a  ../base/kaldi-base.a  ../util/kaldi-util.a 
 
 # Rule below would expand to, e.g.:
 # ../base/kaldi-base.a:
