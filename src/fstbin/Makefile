@@ -27,7 +27,7 @@ LIBFILE =
 all: $(BINFILES)
 
 
-$(BINFILES): ../fstext/kaldi-fstext.a ../matrix/kaldi-matrix.a ../base/kaldi-base.a ../util/kaldi-util.a 
+$(BINFILES): ../fstext/kaldi-fstext.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a ../base/kaldi-base.a ../util/kaldi-util.a 
 
 %.a:
 	$(MAKE) -C ${@D} ${@F}
