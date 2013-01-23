@@ -404,7 +404,7 @@ class MatrixBase {
                  MatrixTransposeType tM1,
                  CharacterMatrix<signed char> & M2,
                  MatrixTransposeType tM2,
-                 const Real beta, const int num_threads); 
+                 const Real beta, const bool using_threadpool, const int num_jobs, const int num_threads); 
 // [Pegah] The following added for Multithreaded Multiplication
  template<typename U, typename T>
  void AddVecMat(float alpha,
