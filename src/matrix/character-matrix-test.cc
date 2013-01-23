@@ -248,13 +248,14 @@ static void TestAddMatMatError(int32 MatNum ) {
 
     Matrix<Real> Mc(row,row2);
     Mc.AddMatMat(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, true, 8, 8);
     std::string note6("-----------M vs Mc --------\n");
     Real rel_error = NormDiff<Real>(ko.Stream(), M, Mc, note6);
     error_avg += rel_error;
      
     // test  Sse4DotProduct function, this should be separately tested
     Matrix<Real> Mc_naked2(row,row2);
-    Mc_naked2.AddMatMat2(1.0, Mc1, kNoTrans, Mc2, kTrans, 0);
+    Mc_naked2.AddMatMat2(1.0f, Mc1, kNoTrans, Mc2, kTrans, 0, true);
     std::string note8("---------Mc vs Mc_naked(for Sse4DotProduct)----\n");
     NormDiff<Real>(ko.Stream(), Mc, Mc_naked2, note8);
 
@@ -331,7 +332,7 @@ static void TestAddMatMatTime (int32 numTest) {
     //tot_ft2 += (std::clock() - start) / (double)CLOCKS_PER_SEC;
     ftime( &tstruct );
     tstart = tstruct.time * 1000 + tstruct.millitm;
-    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, num_threads);
+    Mc.AddMatMatPthread(1.0, Mc1, kNoTrans, Mc2, kTrans, 0, true, 8, num_threads);
     ftime( &tstruct );
     tend = tstruct.time * 1000 + tstruct.millitm; 
     tot_ft3 = tend - tstart;
@@ -530,7 +531,7 @@ static void TestError2(int32 MatNum ) {
       }
     } 
     Matrix<Real> Mc_naked2(row,row2);
-    Mc_naked2.AddMatMat2(1.0, M1, kNoTrans, M2, kTrans, 0);
+    Mc_naked2.AddMatMat2(1.0f, M1, kNoTrans, M2, kTrans, 0, true);
     
     for(MatrixIndexT row = 0; row < M3.NumRows(); ++row){
       for(MatrixIndexT col = 0; col < M3.NumCols(); ++col){
@@ -724,14 +725,14 @@ void HierarchyTest() {
 } // kaldi namespace
 
 int main() {
-  // kaldi::TestAddMatMatError<float>(1);
-  // kaldi::TestAddMatMatTime<float>(1);
+   //kaldi::TestAddMatMatError<float>(1);
+   kaldi::TestAddMatMatTime<float>(1);
   // kaldi::TestSse4DotProduct<float>(1); 
   // kaldi::TestError2<float>(3);
- // kaldi::TestAddVecMat<float>();
- kaldi::MatMatBlockingTest(1);
- kaldi::TestAddMatMatParallel<float>(10);
-// kaldi::HierarchyTest<float>();
+  // kaldi::TestAddVecMat<float>();
+  // kaldi::MatMatBlockingTest(1);
+  // kaldi::TestAddMatMatParallel<float>(10);
+  // kaldi::HierarchyTest<float>();
  KALDI_LOG << "character-matrix-test succeeded.\n";
   return 0;
 
