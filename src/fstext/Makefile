@@ -30,7 +30,7 @@ $(LIBFILE): $(OBJFILES)
 
 # tree and matrix archives needed for test-context-fst
 # matrix archive needed for push-special.
-$(TESTFILES): $(LIBFILE)  ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a 
+$(TESTFILES): $(LIBFILE)  ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a ../util/kaldi-util.a ../base/kaldi-base.a 
 
 %.a:
 	$(MAKE) -C ${@D} ${@F}
