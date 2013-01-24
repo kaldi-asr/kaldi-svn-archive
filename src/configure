@@ -504,6 +504,14 @@ if [ "`uname`" == "Darwin"  ]; then
     failure "Static OpenFST library not found:  See ../tools/INSTALL"
   fi
   echo FSTROOT = $FSTROOT >> kaldi.mk
+  if $idlak; then
+      echo IDLAK = true >> kaldi.mk
+      echo PCREROOT = $PCREROOT >> kaldi.mk
+      echo EXPATROOT = $EXPATROOT >> kaldi.mk
+      echo PUJIXMLROOT = $PUJIXMLROOT >> kaldi.mk
+  else
+      echo IDLAK = false >> kaldi.mk   
+  fi
   # posix_memalign and gcc -rdynamic options not present on OS X 10.5.*
   osx_ver=`sw_vers | grep ProductVersion | awk '{print $2}' | sed -e 's?\.[^.]*$??'`
   echo "Configuring for OS X version $osx_ver ..."
