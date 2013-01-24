@@ -260,7 +260,7 @@ void TxpSylmax::StartElement(const char * name, const char ** atts) {
   std::string item;
   PhoneVector pv;
   int32 sz;
-  if (!strcmp("nucei", name)) {
+  if (!strcmp("nuclei", name)) {
     SetAtt("stress", atts, &item);
     stress_ = false;
     if (item == "true" || item == "True" || item == "TRUE")
