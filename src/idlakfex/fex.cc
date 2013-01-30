@@ -22,11 +22,12 @@
 namespace kaldi {
 
 // constructor takes tpdb loads and sets up features
-Fex::Fex(const char * name)
-    : TxpXmlData("fex", name),
+Fex::Fex(const char * tpdb, const char * architecture)
+    : TxpXmlData("fex", architecture),
       fex_maxfieldlen_(FEX_MAXFIELDLEN),
       pauhand_(FEXPAU_HAND_SPT) {
   if (!strcmp(FEX_PAUSEHANDLING, "UTT")) pauhand_ = FEXPAU_HAND_UTT;
+  Parse(tpdb);
 }
 
 // parse file into Fex class adding feature specification and
@@ -37,7 +38,6 @@ void Fex::StartElement(const char * name, const char ** atts) {
   FexFeat feat;
   int32 featidx;
   
-  std::cout << name << "\n";
   // add features and other definitions
   // top level behaviour
   if (!strcmp(name, "fex")) {
@@ -177,10 +177,68 @@ int32 Fex::MaxFeatSz() {
 
 /// call feature functions and deal with pause behaviour
 bool Fex::ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
-                          int32 idx, char * buf, int32 buflen) {
+                          int32 idx, FexEntry * entry) {
+  FexFeatVector::iterator iter;
+  struct FexFeat feat;
+  bool rval = true;;
+  bool endbreak;
+  bool internalbreak;
+  entry->Clear();
   // check pause status
+  if (!strcmp(tk.name(), "break")) {
+    if (!idx) {
+      endbreak = false;
+      internalbreak = false;
+    } else if (iter + 1 == fexfeats_.end()) {
+      endbreak = true;
+      internalbreak = false;
+    } else if (!strcmp(tks[idx - 1].node().name(), "break")) {
+      endbreak = false;
+      internalbreak = true;
+    } else {
+      endbreak = true;
+      internalbreak = true;
+    } 
+  }
   // iterate through features inserting nulls when required
-  
+  for(iter = fexfeats_.begin(); iter != fexfeats_.end(); iter++) {
+    feat = *iter;
+    if (!strcmp(tk.name(), "phon")) {
+      if (!feat.func(this, feat, tks, tk, entry->GetBuf())) rval = false;
+    } else if (!strcmp(tk.name(), "break")) {
+      // if ! break index 4 and pause handling utterance based
+      // ignore document internal second break
+      if (pauhand_ == FEXPAU_HAND_UTT &&
+          strcmp(tk.attribute("type").value(), "4") &&
+          internalbreak &&
+          !endbreak) continue;
+      if (feat.pautype == FEXPAU_TYPE_CUR) {
+        AppendNull(feat, entry->GetBuf());
+      } else if (feat.pautype == FEXPAU_TYPE_PRE) {
+        if (endbreak && feat.pauctx) {
+          if (!feat.func(this, feat, tks, tk, entry->GetBuf())) rval = false;
+        } else {
+        AppendNull(feat, entry->GetBuf());
+        }
+      } else if (feat.pautype == FEXPAU_TYPE_PST) {
+        if (!endbreak && feat.pauctx) {
+          if (!feat.func(this, feat, tks, tk, entry->GetBuf())) rval = false;
+        } else {
+            // if pause handling is by utterance use the subsequent
+            // internal break to get pst context features
+            if (pauhand_ == FEXPAU_HAND_UTT &&
+                strcmp(tk.attribute("type").value(), "4") &&
+                internalbreak) {
+              if (!feat.func(this, feat, tks, tks[idx + 1].node(), entry->GetBuf()))
+                rval = false;
+            } else {
+              AppendNull(feat, entry->GetBuf());
+            }
+        }
+      }
+    }
+  }  
+  return rval;
 }
 
 /// utility to return index of a feature function
@@ -191,5 +249,33 @@ int32 Fex::GetFeatIndex(const std::string &name) {
   return NO_INDEX;
 }
 
-  
+bool Fex::AppendValue(const FexFeat &feat, bool error,
+                      const char * s, char * buf) {
+  return true;
+}
+
+bool Fex::AppendValue(const FexFeat &feat, bool error,
+                      int32 i, char * buf) {
+  return true;
+}
+
+bool Fex::AppendNull(const FexFeat &feat, char * buf) {
+  return true;
+}
+
+
+FexEntry::FexEntry(Fex *fex) {
+  buflen_ = fex->MaxFeatSz() + 1;
+  buf_ = new char[buflen_];
+  Clear();
+}
+
+FexEntry::~FexEntry() {
+  delete buf_;
+}
+
+void FexEntry::Clear() {
+  memset(buf_, 0, buflen_);
+}
+
 }  // namespace kaldi

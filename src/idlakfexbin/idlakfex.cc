@@ -63,8 +63,8 @@ int main(int argc, char *argv[]) {
     kaldi::Input ki(filein, &binary);
     kaldi::Output kio(fileout, binary);
     // Setup feature extraction
-    kaldi::Fex fex("default");
-    fex.Parse(tpdb.c_str());
+    kaldi::Fex fex(tpdb.c_str(), "default");
+    kaldi::FexEntry entry(&fex);
     // Use pujiXMl to read input file
     pugi::xml_document doc;
     pugi::xml_parse_result r = doc.load(ki.Stream(), pugi::encoding_utf8);
@@ -76,16 +76,12 @@ int main(int argc, char *argv[]) {
     pugi::xpath_node_set tks =
         doc.document_element().select_nodes("//phon|//break");
     tks.sort();
-    int i = 0;
+    kaldi::int32 i = 0;
     for (pugi::xpath_node_set::const_iterator it = tks.begin();
          it != tks.end();
 	 ++it, i++) {
       pugi::xml_node tk = (*it).node();
-      if (!strcmp(tk.name(), "break")) {
-        std::cout << tk.attribute("type").value() << "\n";
-      } else if (!strcmp(tk.name(), "phon")) {
-        std::cout << tk.attribute("val").value() << "\n";
-      }
+      fex.ExtractFeatures(tks, tk, i, &entry);
     }
     return 0;
   } catch(const std::exception &e) {

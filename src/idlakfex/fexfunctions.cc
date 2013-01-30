@@ -33,13 +33,20 @@
 namespace kaldi {
 
 // current phone name
-bool FexFuncCURSTRp(Fex * fex,
-               const pugi::xpath_node_set * nodes,
-               const pugi::xml_node * p,
-               const char * buffer) {
-  // extract value
+bool FexFuncCURSTRp(Fex * fex, const FexFeat &feat,
+               const pugi::xpath_node_set &nodes,
+               const pugi::xml_node &p,
+               char * buffer) {
+  bool okay = true;
+  const char * phonename;
+  // extract value from XML
+  phonename = p.attribute("val").value();
+  // error on empty string
+  if (!*phonename) okay = false;
   // check and append value
-  return true;
+  okay = fex->AppendValue(feat, okay, phonename, buffer);
+  // return error status
+  return okay;
 }
 
 }  // namespace kaldi

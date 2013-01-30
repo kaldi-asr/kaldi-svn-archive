@@ -61,10 +61,11 @@ enum FEX_TYPE {FEX_TYPE_STR = 0,
 
 class Fex;
 struct FexFeat;
+class FexEntry;
 
 typedef bool (* fexfunction) 
-     (Fex *, const pugi::xpath_node_set *, const pugi::xml_node *,
-      const char *);
+     (Fex *, const FexFeat &, const pugi::xpath_node_set &,
+      const pugi::xml_node &, char *);
 
 // array of feature functiion names
 extern const char * const FEXFUNCLBL[];
@@ -84,10 +85,19 @@ typedef std::vector<FexFeat> FexFeatVector;
 
 class Fex: public TxpXmlData {
  public:
-  explicit Fex(const char * name);
+  explicit Fex(const char * tpdb, const char * architecture);
   ~Fex() {}
-  //check and append value - function for int and str
-  //call feature function and deal with pause behaviour
+  // calculate biggest buffer required for feature output
+  int32 MaxFeatSz();
+  // call feature function and deal with pause behaviour
+  bool ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
+		       int32 idx, FexEntry * entry);
+  // check and append value - function string
+  bool AppendValue(const FexFeat &feat, bool error, const char * s, char * buf);
+  // check and append value - function integer
+  bool AppendValue(const FexFeat &feat, bool error, int32 i, char * buf);
+  // append a null value
+  bool AppendNull(const FexFeat &feat, char * buf);
  private:
   void StartElement(const char * name, const char ** atts);
   // return index of a feature function by name
@@ -139,13 +149,19 @@ struct FexFeat {
   LookupMap mapping;
 };
 
+// container for a feature output item
 class FexEntry {
  public:
-  explicit FexEntry(const Fex &fex);
-  ~Fex() {}
+  explicit FexEntry(Fex *fex);
+  ~FexEntry();
+  void Clear();
+  char * GetBuf() {return buf_;}
  private:
-  char * buf;
-  int32 buflen;
+  char * buf_;
+  int32 buflen_;
+};
+
+
 }  // namespace kaldi
 
 #endif  // SRC_IDLAKFEX_FEX_H_
