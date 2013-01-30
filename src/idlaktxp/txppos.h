@@ -43,10 +43,6 @@ enum TXPPOSRGX_POS {TXPPOSRGX_POS_WORD = 0,
 
 /// An array of tagger regular expressions
 typedef std::vector<TxpPosRgx> RgxVector;
-/// String to string map for unigram and bigram patterns
-typedef std::map<std::string, std::string> LookupMap;
-/// Pair for looking up items
-typedef std::pair<std::string, std::string> LookupItem;
 
 /// Part of speech tagger
 /// see /ref idlaktxp_pos

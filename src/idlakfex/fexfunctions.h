@@ -26,6 +26,8 @@
 
 namespace kaldi {
 
+#define FEX_NO_FEATURES 1
+
 bool FexFuncCURSTRp(Fex * fex,
                     const pugi::xpath_node_set * nodes,
                     const pugi::xml_node * p,

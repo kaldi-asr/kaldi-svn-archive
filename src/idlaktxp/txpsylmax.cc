@@ -35,7 +35,7 @@ void TxpSylmax::Maxonset(PhoneVector *pronptr) {
   std::string pat;
   int32 nlen, olen, pos, i;
   PhoneVector &pron = *pronptr;
-  SylmaxSet::iterator it;
+  StringSet::iterator it;
   // move forwards trying to find the nucleus
   for (pos = 0; pos < pron.size(); pos++) {
     // try largest nuclei first
@@ -73,7 +73,7 @@ void TxpSylmax::Writespron(PhoneVector *pronptr, std::string *sylpron) {
       } else {
         // move word boundary back
         newwrdb = pos;
-        while (newwrdb >=0 || pron[newwrdb].sylb) {
+        while (newwrdb >=0 && !pron[newwrdb].sylb) {
           newwrdb--;
         }
         if (newwrdb >=0) pron[newwrdb].wrdb = true;
@@ -135,7 +135,7 @@ int32 TxpSylmax::AddSylBound(PhoneVector *pronptr) {
 int32 TxpSylmax::FindNucleus(const PhoneVector &pron, int32 pos) {
   int len;
   std::string pat;
-  SylmaxSet::iterator it;
+  StringSet::iterator it;
   for (len = max_nucleus_; len > 0; len--) {
     if (GetPhoneNucleusPattern(pron, pos, len, stress_, &pat)) {
       it = nuclei_.find(pat);
@@ -149,7 +149,7 @@ int32 TxpSylmax::FindNucleus(const PhoneVector &pron, int32 pos) {
 int32 TxpSylmax::FindOnset(const PhoneVector &pron, int32 pos) {
   int len;
   std::string pat;
-  SylmaxSet::iterator it;
+  StringSet::iterator it;
   for (len = max_onset_; len > 0; len--) {
     if (GetPhoneOnsetPattern(pron, pos, len, &pat)) {
       it = onsets_.find(pat);
@@ -251,7 +251,7 @@ bool TxpSylmax::GetPhoneOnsetPattern(const PhoneVector &pron,
 }
 
 bool TxpSylmax::IsSyllabic(const char * phone) {
-  SylmaxSet::iterator it = syllabic_.find(std::string(phone));
+  StringSet::iterator it = syllabic_.find(std::string(phone));
   return (it != onsets_.end());
 }
 

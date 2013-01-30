@@ -34,6 +34,11 @@ enum FEXPAU_TYPE {FEXPAU_TYPE_CUR = 0,
                   FEXPAU_TYPE_PRE = 1,
                   FEXPAU_TYPE_PST = 2};
 
+// whether to allow cross pause context across breaks < 4
+// SPT (default) no, UTT yes.
+enum FEXPAU_HAND {FEXPAU_HAND_SPT = 0,
+                  FEXPAU_HAND_UTT = 1};
+
 // Is the feature result a string or an integer
 enum FEX_TYPE {FEX_TYPE_STR = 0,
                FEX_TYPE_INT = 1};
@@ -46,7 +51,13 @@ enum FEX_TYPE {FEX_TYPE_STR = 0,
 #define FEX_ERROR "ERROR"
 // Default pause handling - SPT means have two sil models between
 // every phrase - HTS menas use a single sil model within utterances
-#define PAUSEHANDLING "SPT"
+#define FEX_PAUSEHANDLING "SPT"
+// Default null value for features
+#define FEX_NULL "xx"
+
+// TODO(MPA): add padding control so that all features value strings can be
+// set to the same length so that it is easier to read and compare them visually
+
 
 class Fex;
 struct FexFeat;
@@ -55,25 +66,86 @@ typedef bool (* fexfunction)
      (Fex *, const pugi::xpath_node_set *, const pugi::xml_node *,
       const char *);
 
+// array of feature functiion names
+extern const char * const FEXFUNCLBL[];
+// array of feature functiion pointers
+extern const fexfunction FEXFUNC[];
+// array of feature function pause handling type
+extern const enum FEXPAU_TYPE FEXFUNCPAUTYPE[];
+// array of feature function types
+extern const enum FEX_TYPE FEXFUNCTYPE[];
+
+/// lookup valid values from set name
+typedef std::map<std::string, StringSet> LookupMapSet;
+/// valid values/ set name pair
+typedef std::pair<std::string, StringSet> LookupMapSetItem;
+/// vector feature structures in architecture
+typedef std::vector<FexFeat> FexFeatVector;
+
 class Fex: public TxpXmlData {
  public:
-  explicit Fex(const char * name)
-      : TxpXmlData("fex", name) {}
+  explicit Fex(const char * name);
   ~Fex() {}
   //check and append value - function for int and str
   //call feature function and deal with pause behaviour
  private:
   void StartElement(const char * name, const char ** atts);
+  // return index of a feature function by name
+  int32 GetFeatIndex(const std::string &name);
+  // stores valid values for string based features
+  LookupMapSet sets_;
+  // stores null values for string based features
+  LookupMap setnull_;
+  // stores information on current feature architecture
+  FexFeatVector fexfeats_;
+  // lookup for feature name to index of fexfeats_
+  LookupInt fexfeatlkp_;
+  // maximum feature field length
+  int32 fex_maxfieldlen_;
+  // pause handling
+  enum FEXPAU_HAND pauhand_;
+  // used while parsing input XML to keep track of current set
+  std::string curset_;
+  // used while parsing input XML to keep track of current fex function
+  std::string curfunc_;
+  
 };
 
 // hold information on a feature function defined in fex-<architecture>.xml
 struct FexFeat {
-  const fexfunction func;
+  // name of feature
+  std::string name;
+  // htsname of feature (for information only)
+  std::string htsname;
+  // description of function (for information only)
+  std::string desc;
+  // delimiter used before feature in model name
+  std::string delim;
+  // pointer to the extraction function
+  fexfunction func;
+  // whether to allow cross silence context on break < 4
   bool pauctx;
+  // how the extraction function behaves on silence  
   enum FEXPAU_TYPE pautype;
+  // the type of fuction (string or integer)
   enum FEX_TYPE type;
+  // name of the valid set of values if a string type fucntion
+  std::string set;
+  // maximum value if an integer type value
+  int32 max;
+  // minimum value if an integer type value
+  int32 min;
+  // mapping from specific feature extraction values to architecture specific values
+  LookupMap mapping;
 };
 
+class FexEntry {
+ public:
+  explicit FexEntry(const Fex &fex);
+  ~Fex() {}
+ private:
+  char * buf;
+  int32 buflen;
 }  // namespace kaldi
 
 #endif  // SRC_IDLAKFEX_FEX_H_

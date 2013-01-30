@@ -22,6 +22,12 @@
 // Function names are of the form FexFunc[CUR|PRE|PST][INT|STR][feature name]
 // i.e. FexFuncCURINTp0
 
+// if the function returns false fex appends the NULL value defined in the
+// architecture
+
+// if the function throws an error fex appends the ERROR value, reports and
+// tries to continue
+
 #include "./fex.h"
 
 namespace kaldi {

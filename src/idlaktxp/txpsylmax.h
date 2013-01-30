@@ -22,7 +22,6 @@
 // This file contains functions which carry out maximal onset
 // syllabification
 
-#include <set>
 #include <vector>
 #include <string>
 #include "base/kaldi-common.h"
@@ -39,8 +38,6 @@ enum TXPSYLMAX_TYPE {TXPSYLMAX_TYPE_CODA = 0,
 
 struct TxpSylItem;
 
-/// Lookup for valid phone sequences
-typedef std::set<std::string> SylmaxSet;
 /// Array to hold phones
 /// To allow for laison this acts as a queue with the following words
 /// pronunication loaded after the word being syllabified.
@@ -88,11 +85,11 @@ class TxpSylmax: public TxpXmlData {
                             int32 pos, int32 len,
                             std::string *pat);
   /// phones which are syllabic
-  SylmaxSet syllabic_;
+  StringSet syllabic_;
   /// valid nucleus patterns
-  SylmaxSet nuclei_;
+  StringSet nuclei_;
   /// valid onset patterns
-  SylmaxSet onsets_;
+  StringSet onsets_;
   /// If stress true nucleus patterns must match correct stress
   bool stress_;
   /// longest onset pattern

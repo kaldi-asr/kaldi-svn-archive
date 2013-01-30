@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
     po.Register("pretty", &pretty,
                 "Output XML with tabbing and line breaks to make it readable");
     po.Read(argc, argv);
-    // Must have inopout and output filenames for XML
+    // Must have input and output filenames for XML
     if (po.NumArgs() != 2) {
       po.PrintUsage();
       exit(1);
