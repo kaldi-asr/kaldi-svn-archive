@@ -43,7 +43,10 @@
     <item name="z"/>
     <item name="zh"/>
   </set>
-  <feat delim="" htsname="C" desc="current_phone" name="p" set="phone" pauctx="false">
+  <feat delim="" htsname="L" desc="phone_before" name="bp" set="phone" pauctx="false">
+    <mapping fromstr="X" tostr="sil"/>
+  </feat>
+  <feat delim="-" htsname="C" desc="current_phone" name="p" set="phone" pauctx="false">
     <mapping fromstr="X" tostr="sil"/>
   </feat>
 </fex>
