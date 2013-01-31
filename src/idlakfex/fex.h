@@ -65,7 +65,7 @@ class FexEntry;
 
 typedef bool (* fexfunction) 
      (Fex *, const FexFeat &, const pugi::xpath_node_set &,
-      const pugi::xml_node &, char *);
+      int32, const pugi::xml_node &, char *);
 
 // array of feature functiion names
 extern const char * const FEXFUNCLBL[];

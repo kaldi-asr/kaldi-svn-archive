@@ -211,7 +211,7 @@ bool Fex::ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
   for(iter = fexfeats_.begin(); iter != fexfeats_.end(); iter++) {
     feat = *iter;
     if (!strcmp(tk.name(), "phon")) {
-      if (!feat.func(this, feat, tks, tk, entry->GetBuf())) rval = false;
+      if (!feat.func(this, feat, tks, idx, tk, entry->GetBuf())) rval = false;
     } else if (!strcmp(tk.name(), "break")) {
       // if ! break index 4 and pause handling utterance based
       // ignore document internal second break
@@ -223,20 +223,20 @@ bool Fex::ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
         AppendNull(feat, entry->GetBuf());
       } else if (feat.pautype == FEXPAU_TYPE_PRE) {
         if (endbreak && feat.pauctx) {
-          if (!feat.func(this, feat, tks, tk, entry->GetBuf())) rval = false;
+          if (!feat.func(this, feat, tks, idx, tk, entry->GetBuf())) rval = false;
         } else {
         AppendNull(feat, entry->GetBuf());
         }
       } else if (feat.pautype == FEXPAU_TYPE_PST) {
         if (!endbreak && feat.pauctx) {
-          if (!feat.func(this, feat, tks, tk, entry->GetBuf())) rval = false;
+          if (!feat.func(this, feat, tks, idx, tk, entry->GetBuf())) rval = false;
         } else {
             // if pause handling is by utterance use the subsequent
             // internal break to get pst context features
             if (pauhand_ == FEXPAU_HAND_UTT &&
                 strcmp(tk.attribute("type").value(), "4") &&
                 internalbreak) {
-              if (!feat.func(this, feat, tks, tks[idx + 1].node(), entry->GetBuf()))
+              if (!feat.func(this, feat, tks, idx, tks[idx + 1].node(), entry->GetBuf()))
                 rval = false;
             } else {
               AppendNull(feat, entry->GetBuf());

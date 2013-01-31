@@ -16,6 +16,8 @@
 // limitations under the License.
 //
 
+// Automatically generated: Thu Jan 31 16:02:41 2013
+
 #ifndef SRC_IDLAKFEX_FEXFUNCTIONS_H
 #define SRC_IDLAKFEX_FEXFUNCTIONS_H
 
@@ -26,12 +28,21 @@
 
 namespace kaldi {
 
-#define FEX_NO_FEATURES 1
+#define FEX_NO_FEATURES 2
 
 bool FexFuncCURSTRp(Fex * fex, const FexFeat &feat,
                     const pugi::xpath_node_set &nodes,
+                    int32 idx,
                     const pugi::xml_node &p,
                     char * buffer);
+
+bool FexFuncPRESTRbp(Fex * fex, const FexFeat &feat,
+                     const pugi::xpath_node_set &nodes,
+                     int32 idx,
+                     const pugi::xml_node &p,
+                     char * buffer);
+
+
 
 }  // namespace kaldi
 

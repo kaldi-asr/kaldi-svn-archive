@@ -4,307 +4,168 @@
 
 import os, sys, string, re, glob, time
 
-def get_fx_details(srcdir):
-    files = glob.glob(os.path.join(srcdir, "fx", "fx*.c"))
-    files.sort()
+
+PAULOOKUP = {"CUR":"FEXPAU_TYPE_CUR", "PRE":"FEXPAU_TYPE_PRE", "PST":"FEXPAU_TYPE_PST"}
+
+TYPELOOKUP = {"STR":"FEX_TYPE_STR", "INT":"FEX_TYPE_INT"}
+
+def get_fex_details(srcdir):
     feat_details = []
+    files = glob.glob(srcdir + '/*.cc')
     for f in files:
-        print f
-	fname = os.path.split(f)[1]
-        pat = re.match("fx_(.*)\.c", fname)
-        fxname = pat.group(1)
-        if fxname == "catalog":
-            continue
-        prototype = ""
-        fwk = ""
-        lines = open(f).readlines()
-        for l in lines:
-            #match function heading
-            pat = re.match("(void\s+fx_" + fxname + ".*)\s*{.*", l)
-            if pat:
-                prototype = pat.group(1)
-            pat = re.match("/\*\s+CPRC_FX_FRAMEWORK\s+(.*)\*/.*", l)
-            if pat:
-                fwk = pat.group(1).split()
-        feat_details.append([fxname, prototype, fwk])
+        data = open(f).read()
+        pat = re.match(".*?\n\s*(bool\s+FexFunc(PRE|PST|CUR)(STR|INT)(\S+)\(.*?\))(.*)",
+                       data, re.MULTILINE | re.DOTALL)
+        while pat:
+            print pat.group(4)
+            data = pat.group(5)
+            #function signature, pause handling, type, name
+            feat_details.append([pat.group(1), pat.group(2), pat.group(3), pat.group(4)])
+            pat = re.match(".*?\n\s*(bool\s+FexFunc(PRE|PST|CUR)(STR|INT)(\S+)\(.*?\))(.*)",
+                           data, re.MULTILINE | re.DOTALL)
     return feat_details
 
-def generate_fx_cmake(srcdir, feat_details):
-    fp = open(os.path.join(srcdir, "fx", "fx.cmake"), 'w')
-    fp.write("# Automatically generated: " + time.asctime() + "\n")
-    fp.write("INCLUDE_DIRECTORIES(${MY_SOURCE_DIR}/fx)\nSET(CEREVOICE_FX\n")
-    fp.write("\t\tfx/fx_catalog.c\n")
+
+def generate_fex_catalog_h(srcdir, feat_details):
+    fp = open(os.path.join(srcdir, "fexfunctions.h"), 'w')
+    fex_h_head = FEX_CATALOG_H_HEAD.replace("$TIME$", time.asctime())
+    fex_h_head = fex_h_head.replace("$NO_FEATURES$", str(len(feat_details)))
+    fp.write(fex_h_head)
     for feat in feat_details:
-        fp.write("\t\tfx/fx_" + feat[0] + ".c\n")
-    fp.write(")\n")
-    fp.close()
-    
-def generate_fx_catalog_h(srcdir, feat_details):
-    fp = open(os.path.join(srcdir, "fx", "CPRC_fx_catalog.h"), 'w')
-    fp.write(FILE_HEADER)
-    fp.write(" " + time.asctime() + "*/\n")
-    fp.write(FX_CATALOG_H_HEAD)
-    fp.write(" " + str(len(feat_details)) + "\n\n")
-    for feat in feat_details:
-        fp.write(feat[1] + ";\n")
-    fp.write(FX_CATALOG_H_TAIL)
+        fp.write(feat[0] + ";\n\n")
+    fp.write(FEX_CATALOG_H_TAIL)
     fp.close()
 
-def generate_fx_catalog_c(srcdir, feat_details):
-    fp = open(os.path.join(srcdir, "fx", "fx_catalog.c"), 'w')
-    fp.write(FILE_HEADER)
-    fp.write(" " + time.asctime() + "*/\n")
-    fp.write(FX_CATALOG_C_HEAD)
+def generate_fex_catalog_c(srcdir, feat_details):
+    fp = open(os.path.join(srcdir, "fexfunctionscatalog.cc"), 'w')
+    fex_h_head = FEX_CATALOG_C_HEAD.replace("$TIME$", time.asctime())
+    fp.write(fex_h_head)
 
-    fp.write(FX_CATALOG_C_LINES["lbls"])
+    fp.write(FEX_CATALOG_C_LINES["lbls"])
     for feat in feat_details[:-1]:
-        fp.write('"' + feat[0] + '", ')
-    fp.write('"' + feat_details[-1][0] + '"};\n')
+        fp.write('"' + feat[3] + '", ')
+    fp.write('"' + feat_details[-1][3] + '"};\n\n')
     
-    fp.write(FX_CATALOG_C_LINES["runbuild"])
+    fp.write(FEX_CATALOG_C_LINES["funcs"])
     for feat in feat_details[:-1]:
-        fp.write('' + feat[2][1] + ', ')
-    fp.write(feat_details[-1][2][1] + '};\n')
+        fp.write('&FexFunc' + feat[1] + feat[2] + feat[3] + ', ')
+    fp.write('&FexFunc' + feat_details[-1][1] + feat_details[-1][2]
+             + feat_details[-1][3] + '};\n\n')
 
-    fp.write(FX_CATALOG_C_LINES["type"])
+    fp.write(FEX_CATALOG_C_PAUSEHELP)
+    
+    fp.write(FEX_CATALOG_C_LINES["pausehand"])
     for feat in feat_details[:-1]:
-        fp.write('' + feat[2][0] + ', ')
-    fp.write(feat_details[-1][2][0] + '};\n')
+        fp.write('' + PAULOOKUP[feat[1]] + ', ')
+    fp.write('' + PAULOOKUP[feat_details[-1][1]] + '};\n\n')
 
-    fp.write(FX_CATALOG_C_LINES["ptrs"])
+    fp.write(FEX_CATALOG_C_TYPEHELP)
+
+    fp.write(FEX_CATALOG_C_LINES["type"])
     for feat in feat_details[:-1]:
-        fp.write('&fx_' + feat[0] + ', ')
-    fp.write('&fx_' + feat_details[-1][0] + '};\n')
+        fp.write('' + TYPELOOKUP[feat[2]] + ', ')
+    fp.write('' + TYPELOOKUP[feat_details[-1][2]] + '};\n\n')
 
-    fp.write(FX_CATALOG_C_LINES["width"])
-    for feat in feat_details[:-1]:
-        fp.write('' + feat[2][3] + ', ')
-    fp.write(feat_details[-1][2][3] + '};\n')
+    fp.write("}  // namespace kaldi\n")
 
+FEX_CATALOG_H_HEAD = """// idlakfex/fexfunctions.h
 
-        
-FILE_HEADER = """
-/* $Id:
- *=======================================================================
- *
- *                       Cereproc Ltd.
- *                       Copyright (c) 2006
- *                       All Rights Reserved.
- *
- *=======================================================================
- */
+// Copyright 2013 CereProc Ltd.  (Author: Matthew Aylett)
 
-/* Automatically generated:"""
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+//
 
-FX_CATALOG_H_HEAD = """
+// Automatically generated: $TIME$
 
-/* Feature extraction
- */
+#ifndef SRC_IDLAKFEX_FEXFUNCTIONS_H
+#define SRC_IDLAKFEX_FEXFUNCTIONS_H
 
-#if !(defined __FX_CATALOG_H__)
-#define __FX_CATALOG_H__
+// This file autogenerated by running create_catalog.py
+// Do not edit manually
 
-#include <CPRC_features.h>
+#include "./fex.h"
 
-#define CPRC_NO_FEATURES"""
+namespace kaldi {
 
-
-FX_CATALOG_H_TAIL = """
-
-#endif /* __FX_CATALOG_H__ */
-"""
-
-FX_CATALOG_C_HEAD = """
-#include <CPRC_features.h>
-#include <CPRC_fx_catalog.h>
-
-"""
-FX_CATALOG_C_LINES = {"lbls":"const char * const CPRC_FX_LBL[] = {", \
-                      "runbuild":"const enum CPRC_VOICE_BUILD CPRC_FX_BUILD[] = {", \
-                      "type":"const enum CPRC_FX_TYPE CPRC_FX_TYPES[] = {", \
-                      "ptrs":"const CPRC_fx_function CPRC_FX_FUNCTIONS[] = {", \
-                      "width": "const int CPRC_FX_WIDTH[] = {"}
-
-
-def get_dm_details(srcdir):
-    files = glob.glob(os.path.join(srcdir, "dmetrics", "dm*.c"))
-    files.sort()
-    dm_details = []
-    for f in files:
-        print f
-	fname = os.path.split(f)[1]
-        pat = re.match("dm_(.*)\.c", fname)
-        dmname = pat.group(1)
-        if dmname == "catalog":
-            continue
-        prototype = ""
-        fwk = ""
-        lines = open(f).readlines()
-        for l in lines:
-            #match function heading
-            pat = re.match("(cprc_float\s+dm_" + dmname + ".*)\s*{.*", l)
-            if pat:
-                prototype = pat.group(1)
-            pat = re.match("/\*\s+CPRC_CF_FRAMEWORK\s+(.*)\*/.*", l)
-            if pat:
-                fwk = pat.group(1).split()
-        dm_details.append([dmname, prototype, fwk, 0])
-    return dm_details
-
-#new dms (protected agianst reordering
-def get_DM_details(srcdir):
-    files = glob.glob(os.path.join(srcdir, "dmetrics", "DM*.c"))
-    files.sort()
-    dm_details = []
-    for f in files:
-        print f
-	fname = os.path.split(f)[1]
-        pat = re.match("DM_(.*)\.c", fname)
-        dmname = pat.group(1)
-        if dmname == "catalog":
-            continue
-        prototype = ""
-        fwk = ""
-        lines = open(f).readlines()
-        for l in lines:
-            #match function heading
-            pat = re.match("(cprc_float\s+dm_" + dmname + ".*)\s*{.*", l)
-            if pat:
-                prototype = pat.group(1)
-            pat = re.match("/\*\s+CPRC_CF_FRAMEWORK\s+(.*)\*/.*", l)
-            if pat:
-                fwk = pat.group(1).split()
-        dm_details.append([dmname, prototype, fwk, 1])
-    return dm_details
-
-def generate_dm_cmake(srcdir, dm_details):
-    fp = open(os.path.join(srcdir, "dmetrics", "dm.cmake"), 'w')
-    fp.write("# Automatically generated: " + time.asctime() + "\n")
-    fp.write("INCLUDE_DIRECTORIES(${MY_SOURCE_DIR}/dmetrics)\nSET(CEREVOICE_DM\n")
-    fp.write("\t\tdmetrics/dm_catalog.c\n")
-    for dm in dm_details:
-        if dm[3]:
-            fp.write("\t\tdmetrics/DM_" + dm[0] + ".c\n")
-        else:
-            fp.write("\t\tdmetrics/dm_" + dm[0] + ".c\n")      
-    fp.write(")\n")
-    fp.close()
-    
-def generate_dm_catalog_h(srcdir, dm_details):
-    fp = open(os.path.join(srcdir, "dmetrics", "CPRC_dm_catalog.h"), 'w')
-    fp.write(FILE_HEADER)
-    fp.write(" " + time.asctime() + "*/\n")
-    fp.write(DM_CATALOG_H_HEAD)
-    fp.write(" " + str(len(dm_details)) + "\n\n")
-    for dm in dm_details:
-        fp.write(dm[1] + ";\n")
-    fp.write(DM_CATALOG_H_TAIL)
-    fp.close()
-    
-def generate_dm_catalog_c(srcdir, dm_details):
-    fp = open(os.path.join(srcdir,"dmetrics", "dm_catalog.c"), 'w')
-    fp.write(FILE_HEADER)
-    fp.write(" " + time.asctime() + "*/\n")
-    fp.write(DM_CATALOG_C_HEAD)
-
-    fp.write(DM_CATALOG_C_LINES["lbls"])
-    for dm in dm_details[:-1]:
-        fp.write('"' + dm[0] + '", ')
-    fp.write('"' + dm_details[-1][0] + '"};\n')
-
-    fp.write(DM_CATALOG_C_LINES["no_feats"])
-    for dm in dm_details[:-1]:
-        fp.write(dm[2][1] + ', ')
-    fp.write(dm_details[-1][2][1] + '};\n')
-
-    fp.write(DM_CATALOG_C_LINES["feat_idx"])
-    idx = 0
-    for dm in dm_details[:-1]:
-        fp.write(str(idx) + ', ')
-        idx += int(dm[2][1])
-    fp.write(str(idx) + '};\n')
-
-    fp.write(DM_CATALOG_C_LINES["feat_widths"])
-    for dm in dm_details[:-1]:
-        widths = string.split(dm[2][3], "_")
-        widths = string.join(widths, ", ")
-        fp.write(widths + ', ')
-    widths = string.split(dm_details[-1][2][3], "_")
-    widths = string.join(widths, ", ")
-    fp.write(widths + '};\n')
-
-    fp.write(DM_CATALOG_C_LINES["no_params"])
-    for dm in dm_details[:-1]:
-        fp.write(dm[2][5] + ', ')
-    fp.write(dm_details[-1][2][5] + '};\n')
-
-    fp.write(DM_CATALOG_C_LINES["param_idx"])
-    idx = 0
-    for dm in dm_details[:-1]:
-        fp.write(str(idx) + ', ')
-        idx += int(dm[2][5])
-    fp.write(str(idx) + '};\n')
-    tot_no_params = idx + int(dm_details[-1][2][5])
-
-    fp.write(DM_CATALOG_C_LINES["ptrs"])
-    for dm in dm_details[:-1]:
-        fp.write('&dm_' + dm[0] + ', ')
-    fp.write('&dm_' + dm_details[-1][0] + '};\n')
-
-    dm_param = []
-    fp.write(DM_CATALOG_C_LINES["param_lbls"])
-    for dm in dm_details:
-        for i in range(0, int(dm[2][5]) * 3, 3):
-            dm_param.append('"' + dm[2][6 + i] + '"')
-    
-    fp.write(", ".join(dm_param) + '};\n')
-
-    dm_param = []
-    fp.write(DM_CATALOG_C_LINES["param_feats"])
-    for dm in dm_details:
-        for i in range(2, int(dm[2][5]) * 3, 3):
-            dm_param.append(dm[2][6 + i])
-    
-    fp.write(", ".join(dm_param) + '};\n')
-
-
-    
-
-    if tot_no_params == 0:
-        fp.write('""};\n')
-
-DM_CATALOG_H_HEAD = """
-
-/* Distance Metrics
- */
-
-#if !(defined __DM_CATALOG_H__)
-#define __DM_CATALOG_H__
-
-#include <CPRC_cf.h>
-
-#define CPRC_NO_DMS"""
-
-DM_CATALOG_H_TAIL = """
-
-#endif /* __DM_CATALOG_H__ */
-"""
-
-DM_CATALOG_C_HEAD = """
-#include <CPRC_cf.h>
-#include <CPRC_dm_catalog.h>
+#define FEX_NO_FEATURES $NO_FEATURES$
 
 """
 
-DM_CATALOG_C_LINES = {"lbls":"const char * const CPRC_DM_LBL[] = {", \
-                      "no_feats": "const int CPRC_DM_NO_FEATS[] = {", \
-                      "feat_idx": "const int CPRC_DM_FEAT_IDX[] = {",\
-                      "feat_widths": "const int CPRC_DM_FEAT_WIDTHS[] = {",\
-                      "no_params": "const int CPRC_DM_NO_PARAMS[] = {", \
-                      "param_idx": "const int CPRC_DM_PARAM_IDX[] = {",\
-                      "ptrs":"const CPRC_dm_function CPRC_DM_FUNCTIONS[] = {", \
-                      "param_lbls":"const char * const CPRC_DM_PLBL[] = {", \
-                      "param_feats":"const int CPRC_DM_PFEAT[] = {"}
+
+FEX_CATALOG_H_TAIL = """
+
+}  // namespace kaldi
+
+#endif  // SRC_IDLAKFEX_FEXFUNCTIONS_H_
+"""
+
+FEX_CATALOG_C_HEAD = """// idlakfex/fexfunctionscatalog.cc
+
+// Copyright 2013 CereProc Ltd.  (Author: Matthew Aylett)
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//  http://www.apache.org/licenses/LICENSE-2.0
+//
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// Automatically generated: $TIME$
+
+// This file autogenerated by running create_catalog.py
+// Do not edit manually
+
+#include "./fex.h"
+#include "./fexfunctions.h"
+
+namespace kaldi {
+
+"""
+
+FEX_CATALOG_C_PAUSEHELP = """
+// Pause behavior
+// pauctx defaults to false but can be set specifically in the fex setup for each
+// extraction function.
+// CUR - return '0' unless function connected to a set in which case return
+//       the default value for that set unless pauctx is set to true then run
+//       the extraction function.
+// PRE - if pause context (pauctx) is true use previous context of initial break
+//       in mid utterance break pair or NONE on initial break
+// PST - if pause context (pauctx) is true use post context of second break in
+//       mid utterance break pair or NONE on final break
+"""
+
+FEX_CATALOG_C_TYPEHELP = """
+// Return type
+// INT - integer either a count or a class
+// STR - a string, part of a defined set of possible values listed in
+//       fex-default.xml
+"""
+
+FEX_CATALOG_C_LINES = {"lbls":"const char * const FEXFUNCLBL[] = {", \
+                      "funcs":"const fexfunction FEXFUNC[] = {", \
+                      "pausehand":"const enum FEXPAU_TYPE FEXFUNCPAUTYPE[] = {",\
+                      "type":"const enum FEX_TYPE FEXFUNCTYPE[] = {",\
+                           }
+
 
 def main(argv=None):
     #get arguments
@@ -313,27 +174,16 @@ def main(argv=None):
 
     if len(argv) < 2 or  argv[1] == '-h':
         print "python create_framework <source dir>"
-        print "\te.g. python create_framework cereproc/cerevoice/src"
+        print "\te.g. cd kaldi/src/idlakfex; python create_framework ."
         sys.exit(1)
     srcdir = argv[1]
-    feat_details = get_fx_details(srcdir)
+    feat_details = get_fex_details(srcdir)
     if (len(feat_details) == 0):
         print "Error: No feature code found\n"
         sys.exit(1)
-    generate_fx_cmake(srcdir, feat_details) 
-    generate_fx_catalog_h(srcdir, feat_details) 
-    generate_fx_catalog_c(srcdir, feat_details) 
+    generate_fex_catalog_h(srcdir, feat_details) 
+    generate_fex_catalog_c(srcdir, feat_details) 
 
-    #legacy dmetrics
-    dm_details = get_dm_details(srcdir)
-    #new dmetrics
-    dm_details = dm_details + get_DM_details(srcdir)
-    if (len(dm_details) == 0):
-        print "Error: No distance metric code found\n"
-        sys.exit(1)
-    generate_dm_cmake(srcdir, dm_details) 
-    generate_dm_catalog_h(srcdir, dm_details) 
-    generate_dm_catalog_c(srcdir, dm_details) 
     sys.exit(0)
 
 
