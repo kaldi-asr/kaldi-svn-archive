@@ -34,7 +34,7 @@ Fex::Fex(const char * tpdb, const char * architecture)
 // feature functions to architecture
 void Fex::StartElement(const char * name, const char ** atts) {
   std::string att, att2;
-  StringSet set;
+  StringSet * set;
   FexFeat feat;
   int32 featidx;
   
@@ -72,8 +72,8 @@ void Fex::StartElement(const char * name, const char ** atts) {
                  << " Col:" << XML_GetCurrentColumnNumber(parser_);
       return;
     }
-    set = sets_.find(curset_)->second;
-    set.insert(att);
+    set = &(sets_.find(curset_)->second);
+    set->insert(att);
   } else if (!strcmp(name, "feat")) {
     SetAtt("name", atts, &att);
     if (att.empty()) {
@@ -117,15 +117,23 @@ void Fex::StartElement(const char * name, const char ** atts) {
     if (feat.type == FEX_TYPE_STR) {
       SetAtt("set", atts, &att);
       if (att.empty()) {
-      // throw an error
-      KALDI_WARN << "Missing set name for string feature architecture: " << curfunc_
-                 << " Line: " << ::XML_GetCurrentLineNumber(parser_)
-                 << " Col:" << XML_GetCurrentColumnNumber(parser_);
-      return;
+        // throw an error
+        KALDI_WARN << "Missing set name for string feature architecture: " << curfunc_
+                   << " Line: " << ::XML_GetCurrentLineNumber(parser_)
+                   << " Col:" << XML_GetCurrentColumnNumber(parser_);
+        return;
       }
       // check set has been added
-      // TODO
+      if (sets_.find(att) == sets_.end()) {
+        // throw an error
+        KALDI_WARN << "Missing set for string feature architecture: " << curfunc_
+                   << " Line: " << ::XML_GetCurrentLineNumber(parser_)
+                   << " Col:" << XML_GetCurrentColumnNumber(parser_)
+                   << " (must define before function)";
+        return;
+      }
       feat.set = att;
+      feat.nullvalue = setnull_.find(att)->second;
     } else if (feat.type == FEX_TYPE_INT) {
       SetAtt("min", atts, &att);
       if (!att.empty()) feat.min = atoi(att.c_str());
@@ -156,8 +164,7 @@ void Fex::StartElement(const char * name, const char ** atts) {
       LookupInt::iterator iter;
       iter = fexfeatlkp_.find(curfunc_);
       if (iter != fexfeatlkp_.end()) {
-        LookupMap mapping = fexfeats_[iter->second].mapping;
-        mapping.insert(LookupItem(att, att2));
+        fexfeats_[iter->second].mapping.insert(LookupItem(att, att2));
       }
     }
   }
@@ -251,18 +258,51 @@ int32 Fex::GetFeatIndex(const std::string &name) {
 
 bool Fex::AppendValue(const FexFeat &feat, bool error,
                       const char * s, char * buf) {
+  StringSet * set;
+  StringSet::iterator i;
+  set = &(sets_.find(feat.set)->second);
+  if (set->find(std::string(s)) == set->end()) {
+    AppendError(feat, buf);
+    return false;
+  }
+  strncat(buf, feat.delim.c_str(), fex_maxfieldlen_);
+  strncat(buf, Mapping(feat, s), fex_maxfieldlen_);  
   return true;
 }
 
 bool Fex::AppendValue(const FexFeat &feat, bool error,
                       int32 i, char * buf) {
+  std::stringstream stream;
+  if (feat.type != FEX_TYPE_INT) {
+    AppendError(feat, buf);
+    return false;
+  }
+  if (i < feat.min) i = feat.min;
+  if (i > feat.max) i = feat.max;
+  stream << i;
+  strncat(buf, feat.delim.c_str(), fex_maxfieldlen_);
+  strncat(buf, Mapping(feat, stream.str().c_str()), fex_maxfieldlen_);
   return true;
 }
 
 bool Fex::AppendNull(const FexFeat &feat, char * buf) {
+  strncat(buf, feat.delim.c_str(), fex_maxfieldlen_);
+  strncat(buf, Mapping(feat, feat.nullvalue.c_str()), fex_maxfieldlen_);
   return true;
 }
 
+bool Fex::AppendError(const FexFeat &feat, char * buf) {
+  strncat(buf, feat.delim.c_str(), fex_maxfieldlen_);
+  strncat(buf, FEX_ERROR, fex_maxfieldlen_);
+  return true;  
+}
+
+const char * Fex::Mapping(const FexFeat &feat, const char * instr) {
+  LookupMap::const_iterator i;
+  i = feat.mapping.find(std::string(instr));
+  if (i != feat.mapping.end()) return i->second.c_str();
+  else return instr;
+}
 
 FexEntry::FexEntry(Fex *fex) {
   buflen_ = fex->MaxFeatSz() + 1;

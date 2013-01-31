@@ -98,6 +98,10 @@ class Fex: public TxpXmlData {
   bool AppendValue(const FexFeat &feat, bool error, int32 i, char * buf);
   // append a null value
   bool AppendNull(const FexFeat &feat, char * buf);
+  // append an error value
+  bool AppendError(const FexFeat &feat, char * buf);
+  // return feature specific mapping between fex value and desired value
+  const char * Mapping(const FexFeat &feat, const char * instr);
  private:
   void StartElement(const char * name, const char ** atts);
   // return index of a feature function by name
@@ -131,6 +135,8 @@ struct FexFeat {
   std::string desc;
   // delimiter used before feature in model name
   std::string delim;
+  // value when no feature value is meaningful
+  std::string nullvalue;
   // pointer to the extraction function
   fexfunction func;
   // whether to allow cross silence context on break < 4

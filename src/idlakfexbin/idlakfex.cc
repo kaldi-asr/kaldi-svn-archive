@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
 	 ++it, i++) {
       pugi::xml_node tk = (*it).node();
       fex.ExtractFeatures(tks, tk, i, &entry);
+      kio.Stream() << entry.GetBuf() << std::endl;
     }
     return 0;
   } catch(const std::exception &e) {
