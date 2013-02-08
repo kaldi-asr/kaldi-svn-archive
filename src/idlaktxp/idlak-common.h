@@ -47,6 +47,8 @@ typedef std::pair<std::string, int32> LookupIntItem;
 typedef std::vector<std::string> StringVector;
 /// Generic string set
 typedef std::set<std::string> StringSet;
+/// Generic vector of char *
+typedef std::vector<char * > CharPtrVector;
 }  // namespace kaldi
 
 #endif  // SRC_IDLAKTXP_IDLAK_COMMON_H__

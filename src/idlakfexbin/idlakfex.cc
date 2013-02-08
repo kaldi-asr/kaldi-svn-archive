@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     kaldi::Output kio(fileout, binary);
     // Setup feature extraction
     kaldi::Fex fex(tpdb.c_str(), "default");
-    kaldi::FexEntry entry(&fex);
+    kaldi::FexModels models(&fex);
     // Use pujiXMl to read input file
     pugi::xml_document doc;
     pugi::xml_parse_result r = doc.load(ki.Stream(), pugi::encoding_utf8);
@@ -72,17 +72,10 @@ int main(int argc, char *argv[]) {
       KALDI_ERR << "PugiXML Parse Error in Input Stream" << r.description()
                 << "Error offset: " << r.offset;
     }
-    // Output result for each phone and break tag
-    pugi::xpath_node_set tks =
-        doc.document_element().select_nodes("//phon|//break");
-    tks.sort();
-    kaldi::int32 i = 0;
-    for (pugi::xpath_node_set::const_iterator it = tks.begin();
-         it != tks.end();
-	 ++it, i++) {
-      pugi::xml_node tk = (*it).node();
-      fex.ExtractFeatures(tks, tk, i, &entry);
-      kio.Stream() << entry.GetBuf() << std::endl;
+    // Output
+    fex.GetModels(doc, &models);
+    for(int i = 0; i < models.GetNoModels(); i++) {
+      kio.Stream() << models.GetModel(i) << std::endl;
     }
     return 0;
   } catch(const std::exception &e) {

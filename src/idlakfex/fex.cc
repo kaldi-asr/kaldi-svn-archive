@@ -182,21 +182,36 @@ int32 Fex::MaxFeatSz() {
   return maxsz;
 }
 
-/// call feature functions and deal with pause behaviour
+// TODO set up a context class for the feature functions to access
+int32 Fex::GetModels(const pugi::xml_document &doc, FexModels * models) {
+  pugi::xpath_node_set tks =
+      doc.document_element().select_nodes("//phon|//break");
+  tks.sort();
+  kaldi::int32 i = 0;
+  for (pugi::xpath_node_set::const_iterator it = tks.begin();
+       it != tks.end();
+       ++it, i++) {
+    pugi::xml_node tk = (*it).node();
+    ExtractFeatures(tks, tk, i, models->Append());
+  }
+  // should set to error status
+  return true;
+}
+
+// call feature functions and deal with pause behaviour
 bool Fex::ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
-                          int32 idx, FexEntry * entry) {
+                          int32 idx, char * buf) {
   FexFeatVector::iterator iter;
   struct FexFeat feat;
   bool rval = true;;
   bool endbreak;
   bool internalbreak;
-  entry->Clear();
   // check pause status
   if (!strcmp(tk.name(), "break")) {
     if (!idx) {
       endbreak = false;
       internalbreak = false;
-    } else if (iter + 1 == fexfeats_.end()) {
+    } else if (idx + 1 == tks.size()) {
       endbreak = true;
       internalbreak = false;
     } else if (!strcmp(tks[idx - 1].node().name(), "break")) {
@@ -211,35 +226,31 @@ bool Fex::ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
   for(iter = fexfeats_.begin(); iter != fexfeats_.end(); iter++) {
     feat = *iter;
     if (!strcmp(tk.name(), "phon")) {
-      if (!feat.func(this, feat, tks, idx, tk, entry->GetBuf())) rval = false;
+      if (!feat.func(this, feat, tks, idx, tk, buf)) rval = false;
     } else if (!strcmp(tk.name(), "break")) {
       // if ! break index 4 and pause handling utterance based
       // ignore document internal second break
-      if (pauhand_ == FEXPAU_HAND_UTT &&
-          strcmp(tk.attribute("type").value(), "4") &&
-          internalbreak &&
-          !endbreak) continue;
       if (feat.pautype == FEXPAU_TYPE_CUR) {
-        AppendNull(feat, entry->GetBuf());
+        AppendNull(feat, buf);
       } else if (feat.pautype == FEXPAU_TYPE_PRE) {
         if (endbreak && feat.pauctx) {
-          if (!feat.func(this, feat, tks, idx, tk, entry->GetBuf())) rval = false;
+          if (!feat.func(this, feat, tks, idx, tk, buf)) rval = false;
         } else {
-        AppendNull(feat, entry->GetBuf());
+        AppendNull(feat, buf);
         }
       } else if (feat.pautype == FEXPAU_TYPE_PST) {
         if (!endbreak && feat.pauctx) {
-          if (!feat.func(this, feat, tks, idx, tk, entry->GetBuf())) rval = false;
+          if (!feat.func(this, feat, tks, idx, tk, buf)) rval = false;
         } else {
             // if pause handling is by utterance use the subsequent
             // internal break to get pst context features
             if (pauhand_ == FEXPAU_HAND_UTT &&
                 strcmp(tk.attribute("type").value(), "4") &&
                 internalbreak) {
-              if (!feat.func(this, feat, tks, idx, tks[idx + 1].node(), entry->GetBuf()))
+              if (!feat.func(this, feat, tks, idx, tks[idx + 1].node(), buf))
                 rval = false;
             } else {
-              AppendNull(feat, entry->GetBuf());
+              AppendNull(feat, buf);
             }
         }
       }
@@ -304,18 +315,30 @@ const char * Fex::Mapping(const FexFeat &feat, const char * instr) {
   else return instr;
 }
 
-FexEntry::FexEntry(Fex *fex) {
+FexModels::FexModels(Fex *fex) {
   buflen_ = fex->MaxFeatSz() + 1;
-  buf_ = new char[buflen_];
-  Clear();
 }
 
-FexEntry::~FexEntry() {
-  delete buf_;
+FexModels::~FexModels() {
+  int32 i;
+  for(i = 0; i < models_.size(); i++) {
+    delete models_[i];
+  }
 }
 
-void FexEntry::Clear() {
-  memset(buf_, 0, buflen_);
+void FexModels::Clear() {
+  int32 i;
+  for(i = 0; i < models_.size(); i++) {
+    delete models_[i];
+  }
+  models_.clear();
+}
+
+char * FexModels::Append() {
+  char * buf = new char[buflen_];
+  memset(buf, 0, buflen_);
+  models_.push_back(buf);
+  return buf;
 }
 
 }  // namespace kaldi

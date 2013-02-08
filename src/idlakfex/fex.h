@@ -61,7 +61,7 @@ enum FEX_TYPE {FEX_TYPE_STR = 0,
 
 class Fex;
 struct FexFeat;
-class FexEntry;
+class FexModels;
 
 typedef bool (* fexfunction) 
      (Fex *, const FexFeat &, const pugi::xpath_node_set &,
@@ -89,9 +89,11 @@ class Fex: public TxpXmlData {
   ~Fex() {}
   // calculate biggest buffer required for feature output
   int32 MaxFeatSz();
+  // process an XML document
+  int GetModels(const pugi::xml_document &doc, FexModels * models);
   // call feature function and deal with pause behaviour
   bool ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
-		       int32 idx, FexEntry * entry);
+  		       int32 idx, char * buf);
   // check and append value - function string
   bool AppendValue(const FexFeat &feat, bool error, const char * s, char * buf);
   // check and append value - function integer
@@ -155,15 +157,23 @@ struct FexFeat {
   LookupMap mapping;
 };
 
-// container for a feature output item
-class FexEntry {
+// container for a feature output full context HMM modelnames
+class FexModels {
  public:
-  explicit FexEntry(Fex *fex);
-  ~FexEntry();
+  explicit FexModels(Fex *fex);
+  ~FexModels();
+  // clear container for reuse
   void Clear();
-  char * GetBuf() {return buf_;}
+  // append an empty model
+  char * Append();
+  // return total number of phone models produces by XML input
+  int GetNoModels() {return models_.size();}
+  // return a model name
+  const char * GetModel(int idx) {return models_[idx];}
  private:
-  char * buf_;
+  // vector or locally allocated buffers each for a model
+  CharPtrVector models_;
+  // maximum buffer length required based on feature achitecture
   int32 buflen_;
 };
 
