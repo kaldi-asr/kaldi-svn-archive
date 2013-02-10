@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey);
-#                 Arnab Ghoshal
+#                 Arnab Ghoshal, Karel Vesely
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,18 +24,31 @@
 # The exception is --help, which takes no arguments, but prints the 
 # $help_message variable (if defined).
 
-# The following assignment allows the --config variable to be specified
-# in all cases.
-# The following test will work even if the calling script disallows unset 
-# variables (using set -u or set -o nounset).
-[ -z "${config:-}" ] && config=
 
+###
+### The --config file options have lower priority to command line 
+### options, so we need to import them first...
+###
+
+# Now import all the configs specified by command-line, in left-to-right order
+for ((n=1; n<$#; n++)); do
+  if [ "${!n}" == "--config" ]; then
+    n_plus1=$((n+1))
+    config=${!n_plus1}
+    . $config  # source the config file.
+  fi
+done
+
+
+###
+### No we process the command line options
+###
 while true; do
   [ -z "${1:-}" ] && break;  # break if there are no arguments
   case "$1" in
     # If the enclosing script is called with --help option, print the help 
     # message and exit.  Scripts should put help messages in $help_message
-  --help) if [ -z "$help_message" ]; then echo "No help found.";
+  --help|-h) if [ -z "$help_message" ]; then echo "No help found.";
 	  else printf "$help_message\n"; fi; 
 	  exit 0 ;; 
     # If the first command-line argument begins with "--" (e.g. --foo-bar), 
@@ -73,12 +86,10 @@ while true; do
 done
 
 
-# Override any of the options, if --config was specified.
-[ -z "$config" ] || . $config || exit 1;
-
 # Check for an empty argument to the --cmd option, which can easily occur as a 
 # result of scripting errors.
 [ ! -z "${cmd+xxx}" ] && [ -z "$cmd" ] && echo "$0: empty argument to --cmd option" && exit 1;
+
 
 true; # so this script returns code zero.
 

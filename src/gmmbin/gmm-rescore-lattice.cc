@@ -92,7 +92,8 @@ int main(int argc, char *argv[]) {
     kaldi::BaseFloat old_acoustic_scale = 0.0;
     kaldi::ParseOptions po(usage);
     po.Register("old-acoustic-scale", &old_acoustic_scale,
-                "Add the current acoustic scores with some scale.");
+                "Add in the scores in the input lattices with this scale, rather "
+                "than discarding them.");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 4) {
@@ -120,13 +121,13 @@ int main(int argc, char *argv[]) {
     // Write as compact lattice.
     CompactLatticeWriter compact_lattice_writer(lats_wspecifier); 
 
-    int32 num_done = 0, num_no_feats = 0, num_other_error = 0;
+    int32 num_done = 0, num_err = 0;
     int64 num_frames = 0;
     for (; !lattice_reader.Done(); lattice_reader.Next()) {
       std::string key = lattice_reader.Key();
       if (!feature_reader.HasKey(key)) {
         KALDI_WARN << "No feature found for utterance " << key << ". Skipping";
-        num_no_feats++;
+        num_err++;
         continue;
       }
 
@@ -148,7 +149,7 @@ int main(int argc, char *argv[]) {
         KALDI_WARN << "Skipping utterance " << key << " since number of time "
                    << "frames in lattice ("<< max_time << ") differ from "
                    << "number of feature frames (" << feats.NumRows() << ").";
-        num_other_error++;
+        num_err++;
         continue;
       }
 
@@ -161,7 +162,8 @@ int main(int argc, char *argv[]) {
       num_frames += feats.NumRows();
     }
 
-    KALDI_LOG << "Done " << num_done << " lattices, #frames is " << num_frames;
+    KALDI_LOG << "Done " << num_done << " lattices with errors on "
+              << num_err << ", #frames is " << num_frames;
     return (num_done != 0 ? 0 : 1);
   } catch(const std::exception &e) {
     std::cerr << e.what();

@@ -169,9 +169,17 @@ void SpMatrix<Real>::CopyFromMat(const MatrixBase<Real> &M,
         break;
       }
     case kTakeLower:
-      for (MatrixIndexT i = 0; i < D; i++)
-        for (MatrixIndexT j = 0; j <= i; j++)
-          (*this)(i, j) = M(i, j);
+      { // making this one a bit more efficient.
+        const Real *src = M.Data();
+        Real *dest = this->data_;
+        MatrixIndexT stride = M.Stride();
+        for (MatrixIndexT i = 0; i < D; i++) {
+          for (MatrixIndexT j = 0; j <= i; j++)
+            dest[j] = src[j];
+          dest += i + 1;
+          src += stride;
+        }
+      }
       break;
     case kTakeUpper:
       for (MatrixIndexT i = 0; i < D; i++)
@@ -233,8 +241,16 @@ void SpMatrix<Real>::Invert(Real *logdet, Real *det_sign, bool need_inverse) {
   KaldiBlasInt   result;
   KaldiBlasInt   rows = static_cast<int>(this->num_rows_);
   KaldiBlasInt*  p_ipiv = new KaldiBlasInt[rows];
-  Real*    p_work = new Real[rows];   // workspace for the lapack function
-
+  Real *p_work;  // workspace for the lapack function
+  void *temp;
+  if ((p_work = static_cast<Real*>(
+          KALDI_MEMALIGN(16, sizeof(Real) * rows, &temp))) == NULL)
+    throw std::bad_alloc();
+#ifdef HAVE_OPENBLAS
+  memset(p_work, 0, sizeof(Real) * rows); // gets rid of a probably
+  // spurious Valgrind warning about jumps depending upon uninitialized values.
+#endif
+  
 
   // NOTE: Even though "U" is for upper, lapack assumes column-wise storage
   // of the data. We have a row-wise storage, therefore, we need to "invert"
@@ -279,7 +295,7 @@ void SpMatrix<Real>::Invert(Real *logdet, Real *det_sign, bool need_inverse) {
   }
   if (!need_inverse) {
     delete [] p_ipiv;
-    delete [] p_work;
+    free(p_work);
     return;  // Don't need what is computed next.
   }
   // NOTE: Even though "U" is for upper, lapack assumes column-wise storage
@@ -294,7 +310,7 @@ void SpMatrix<Real>::Invert(Real *logdet, Real *det_sign, bool need_inverse) {
   }
 
   delete [] p_ipiv;
-  delete [] p_work;
+  free(p_work);
 }
 #else
 // in the ATLAS case, these are not implemented using a library and we back off to something else.
@@ -592,23 +608,19 @@ Real SpMatrix<Real>::LogDet(Real *det_sign) const {
 
 
 template<typename Real>
-int SpMatrix<Real>::ApplyFloor(Real floor, BaseFloat tolerance) {
-  if (floor < 0) {
-    KALDI_WARN<< "Cannot have negative floor for a positive semi-definite matrix. "
-        "Making the floor zero.";
-    floor = 0;
-  }
+int SpMatrix<Real>::ApplyFloor(Real floor) {
   MatrixIndexT Dim = this->NumRows();
   int nfloored = 0;
   Vector<Real> s(Dim);
   Matrix<Real> P(Dim, Dim);
-  (*this).SymPosSemiDefEig(&s, &P, tolerance);
+  (*this).Eig(&s, &P);
   for (MatrixIndexT i = 0; i < Dim; i++) {
-    if (s(i) < floor) nfloored++;
-    s(i) = sqrt(std::max(s(i), floor));
+    if (s(i) < floor) {
+      nfloored++;
+      s(i) = floor;
+    }
   }
-  P.MulColsVec(s);
-  (*this).AddMat2(1.0, P, kNoTrans);  // (*this) = P*P^T = P*floor(s)*P^T
+  (*this).AddMat2Vec(1.0, P, kNoTrans, s, 0.0);
   return nfloored;
 }
 

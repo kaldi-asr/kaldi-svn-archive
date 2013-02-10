@@ -679,6 +679,28 @@ template<class Real> static void UnitTestAxpy() {
   }
 }
 
+template<class Real> static void UnitTestCopySp() {
+  // Checking that the various versions of copying
+  // matrix to SpMatrix work the same in the symmetric case.
+  for (MatrixIndexT iter = 0;iter < 5;iter++) {
+    int32 dim = 5 + rand() %  10;
+    SpMatrix<Real> S(dim), T(dim);
+    S.SetRandn();
+    Matrix<Real> M(S);
+    T.CopyFromMat(M, kTakeMeanAndCheck);
+    AssertEqual(S, T);
+    T.SetZero();
+    T.CopyFromMat(M, kTakeMean);
+    AssertEqual(S, T);
+    T.SetZero();
+    T.CopyFromMat(M, kTakeLower);
+    AssertEqual(S, T);
+    T.SetZero();
+    T.CopyFromMat(M, kTakeUpper);
+    AssertEqual(S, T);
+  }
+}
+
 
 template<class Real> static void UnitTestPower() {
   for (MatrixIndexT iter = 0;iter < 5;iter++) {
@@ -867,9 +889,8 @@ template<class Real> static void UnitTestSherman() {
 	invA.CopyFromMat(A);
 	invA.Invert();
 
-
 	Matrix<Real> tt(dimK, dimM), I(dimK, dimK);
-	tt.AddMatMat(1.0, V, kTrans, invA, kNoTrans, 0.0);  // tt = trans(V) *inv(A)
+	tt.AddMatMat(1.0, V, kTrans, invA, kNoTrans, 0.0);  // tt0 = trans(V) *inv(A)
 
 	Matrix<Real> tt1(dimM, dimK);
 	tt1.AddMatMat(1.0, invA, kNoTrans, U, kNoTrans, 0.0);  // tt1=INV A *U
@@ -920,32 +941,29 @@ template<class Real> static void UnitTestTraceProduct() {
 }
 
 template<class Real> static void UnitTestSvd() {
-#ifndef HAVE_ATLAS
   MatrixIndexT Base = 3, Rand = 2, Iter = 25;
   for (MatrixIndexT iter = 0;iter < Iter;iter++) {
 	MatrixIndexT dimM = Base + rand() % Rand, dimN =  Base + rand() % Rand;
-    if (dimM < dimN) std::swap(dimM, dimN);  // Check that rows() >= cols(), dimM>=dimN, as required by JAMA_SVD, and
-    // which we ensure inside our Lapack routine for portability to systems with no Lapack.
 	Matrix<Real> M(dimM, dimN);
-	Matrix<Real> U(dimM, dimN), Vt(dimN, dimN); Vector<Real> s(dimN);
+	Matrix<Real> U(dimM, std::min(dimM, dimN)), Vt(std::min(dimM, dimN), dimN);
+    Vector<Real> s(std::min(dimM, dimN));
 	InitRand(&M);
 	if (iter < 2) KALDI_LOG << "M " << M;
 	Matrix<Real> M2(dimM, dimN); M2.CopyFromMat(M);
-	M.LapackGesvd(&s, &U, &Vt);
+	M.Svd(&s, &U, &Vt);
 	if (iter < 2) {
 	  KALDI_LOG << " s " << s;
 	  KALDI_LOG << " U " << U;
 	  KALDI_LOG << " Vt " << Vt;
 	}
-
-    Matrix<Real> S(dimN, dimN);
+    MatrixIndexT min_dim = std::min(dimM, dimN);
+    Matrix<Real> S(min_dim, min_dim);
     S.CopyDiagFromVec(s);
 	Matrix<Real> Mtmp(dimM, dimN);
     Mtmp.SetZero();
     Mtmp.AddMatMatMat(1.0, U, kNoTrans, S, kNoTrans, Vt, kNoTrans, 0.0);
     AssertEqual(Mtmp, M2);
   }
-#endif
 }
 
 template<class Real> static void UnitTestSvdBad() {
@@ -1355,7 +1373,7 @@ template<class Real> static void UnitTestMmulSym() {
 
 	Matrix<Real> A(dimM, dimM), B(dimM, dimM), C(dimM, dimM), tmp(dimM, dimM), tmp2(dimM, dimM);
     SpMatrix<Real> sA(dimM), sB(dimM), sC(dimM), stmp(dimM);
-
+    
 	InitRand(&A); InitRand(&B); InitRand(&C);
     // Make A, B, C symmetric.
     tmp.CopyFromMat(A); A.AddMat(1.0, tmp, kTrans);
@@ -1419,7 +1437,7 @@ template<class Real> static void UnitTestInverse() {
 
 
 template<class Real> static void UnitTestMulElements() {
-  for (MatrixIndexT iter = 0;iter < 5;iter++) {
+  for (MatrixIndexT iter = 0; iter < 5; iter++) {
 	MatrixIndexT dimM = 20 + rand()%10, dimN = 20 + rand()%10;
 	Matrix<Real> A(dimM, dimN), B(dimM, dimN), C(dimM, dimN);
 	InitRand(&A);
@@ -1433,6 +1451,7 @@ template<class Real> static void UnitTestMulElements() {
 		KALDI_ASSERT(std::abs(C(i, j) - (A(i, j)*B(i, j))) < 0.0001);
   }
 }
+
 
 template<class Real> static void UnitTestSpLogExp() {
   for (MatrixIndexT i = 0; i < 5; i++) {
@@ -1709,7 +1728,7 @@ static void UnitTestRankNUpdate() {
 
 template<class Real> static void  UnitTestSpInvert() {
   for (MatrixIndexT i = 0;i < 30;i++) {
-	MatrixIndexT dimM = 20 + rand()%10;
+	MatrixIndexT dimM = 6 + rand()%20;
 	SpMatrix<Real> M(dimM);
 	for (MatrixIndexT i = 0;i < M.NumRows();i++)
 	  for (MatrixIndexT j = 0;j<=i;j++) M(i, j) = RandGauss();
@@ -1789,8 +1808,8 @@ template<class Real> static void  UnitTestFloorChol() {
     if (i%2 == 0)
       C.Scale(0.001);  // so it's not too much bigger than B (or it's trivial)
     SpMatrix<Real> BFloored(B); BFloored.ApplyFloor(C, alpha);
-
-
+    
+    
     for (MatrixIndexT j = 0;j < 10;j++) {
       Vector<Real> v(dimM);
       InitRand(&v);
@@ -1817,12 +1836,12 @@ template<class Real> static void  UnitTestFloorUnit() {
     B.AddMat2(1.0, M, kNoTrans, 0.0);  // B = M*M^T -> positive semidefinite.
 
     SpMatrix<Real> BFloored(B); BFloored.ApplyFloor(floor);
-
+    
 
     Vector<Real> s(dimM); Matrix<Real> P(dimM, dimM); B.SymPosSemiDefEig(&s, &P);
     Vector<Real> s2(dimM); Matrix<Real> P2(dimM, dimM); BFloored.SymPosSemiDefEig(&s2, &P2);
 
-    KALDI_ASSERT ( (s.Min() > floor && std::abs(s2.Min()-s.Min())<0.01) || std::abs(s2.Min()-floor)<0.01);
+    KALDI_ASSERT ( (s.Min() >= floor && std::abs(s2.Min()-s.Min())<0.01) || std::abs(s2.Min()-floor)<0.01);
   }
 }
 
@@ -1861,6 +1880,56 @@ template<class Real> static void  UnitTestLimitCond() {
     KALDI_ASSERT(B.LimitCond(1000) == (dimM-1));
     KALDI_ASSERT(std::abs(B(2, 2) - 10.0) < 0.01);
     KALDI_ASSERT(std::abs(B(3, 0)) < 0.001);
+  }
+}
+
+template<class Real> static void  UnitTestTanh() {
+  for (MatrixIndexT i = 0; i < 10; i++) {
+    MatrixIndexT dimM = 5 + rand() % 10, dimN = 5 + rand() % 10;
+    Matrix<Real> M(dimM, dimN), P(dimM, dimN), Q(dimM, dimN), R(dimM, dimN);
+    M.SetRandn();
+    P.SetRandn();
+    Matrix<Real> N(M);
+    for(int32 r = 0; r < dimM; r++) {
+      for (int32 c = 0; c < dimN; c++) {
+        Real x = N(r, c);
+        if (x > 0.0) {
+          x = -1.0 + 2.0 / (1.0 + exp(-2.0 * x));
+        } else {
+          x = 1.0 - 2.0 / (1.0 + exp(2.0 * x));
+        }
+        N(r, c) = x;
+        Real out_diff = P(r, c), in_diff = out_diff * (1.0 - x * x);
+        Q(r, c) = in_diff;
+      }
+    }
+    M.Tanh(M);
+    R.DiffTanh(N, P);
+    AssertEqual(M, N);
+    AssertEqual(Q, R);
+  }
+}
+
+template<class Real> static void  UnitTestSigmoid() {
+  for (MatrixIndexT i = 0; i < 10; i++) {
+    MatrixIndexT dimM = 5 + rand() % 10, dimN = 5 + rand() % 10;
+    Matrix<Real> M(dimM, dimN), P(dimM, dimN), Q(dimM, dimN), R(dimM, dimN);
+    M.SetRandn();
+    P.SetRandn();
+    Matrix<Real> N(M);
+    for(int32 r = 0; r < dimM; r++) {
+      for (int32 c = 0; c < dimN; c++) {
+        Real x = N(r, c),
+            y = 1.0 / (1 + exp(-x));
+        N(r, c) = y;
+        Real out_diff = P(r, c), in_diff = out_diff * y * (1.0 - y);
+        Q(r, c) = in_diff;
+      }
+    }
+    M.Sigmoid(M);
+    R.DiffSigmoid(N, P);
+    AssertEqual(M, N);
+    AssertEqual(Q, R);
   }
 }
 
@@ -3489,6 +3558,8 @@ static void UnitTestTopEigs() {
 
 
 template<class Real> static void MatrixUnitTest(bool full_test) {
+  UnitTestFloorChol<Real>();
+  UnitTestFloorUnit<Real>();
   UnitTestAddMat2Sp<Real>();
   UnitTestLbfgs<Real>();
   // UnitTestSvdBad<Real>(); // test bug in Jama SVD code.
@@ -3543,6 +3614,7 @@ template<class Real> static void MatrixUnitTest(bool full_test) {
   UnitTestDotprod<Real>();
   // UnitTestSvdVariants<Real>();
   UnitTestPower<Real>();
+  UnitTestCopySp<Real>();
   UnitTestDeterminant<Real>();
   KALDI_LOG << " Point F";
   UnitTestDeterminantSign<Real>();
@@ -3555,8 +3627,6 @@ template<class Real> static void MatrixUnitTest(bool full_test) {
   UnitTestSpVec<Real>();
   UnitTestLimitCondInvert<Real>();
   KALDI_LOG << " Point G";
-  UnitTestFloorChol<Real>();
-  UnitTestFloorUnit<Real>();
   UnitTestLimitCond<Real>();
   UnitTestMat2Vec<Real>();
   UnitTestSpLogExp<Real>();
@@ -3570,6 +3640,8 @@ template<class Real> static void MatrixUnitTest(bool full_test) {
   UnitTestRange<Real>();
   UnitTestSimpleForVec<Real>();
   UnitTestSimpleForMat<Real>();
+  UnitTestTanh<Real>();
+  UnitTestSigmoid<Real>();
   UnitTestNorm<Real>();
   UnitTestMul<Real>();
   KALDI_LOG << " Point I";

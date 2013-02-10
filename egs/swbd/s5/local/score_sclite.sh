@@ -69,15 +69,35 @@ if [ $stage -le 1 ]; then
 # Remove some stuff we don't want to score, from the ctm.
   for x in $dir/score_*/$name.ctm; do
     cp $x $dir/tmpf;
-    cat $dir/tmpf | grep -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
-      grep -v -E '<UNK>|%HESITATION' > $x;
+    cat $dir/tmpf | grep -i -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
+      grep -i -v -E '<UNK>' > $x;
+#      grep -i -v -E '<UNK>|%HESITATION' > $x;  # hesitation is scored
   done
 fi
 
+# Score the set...
 if [ $stage -le 2 ]; then  
   $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.log \
     cp $data/stm $dir/score_LMWT/ '&&' \
     $hubscr -p $hubdir -V -l english -h hub5 -g $data/glm -r $dir/score_LMWT/stm $dir/score_LMWT/${name}.ctm || exit 1;
+fi
+
+# For eval2000 score the subsets
+if [ "$name" == "eval2000" ]; then
+  # Score only the, swbd part...
+  if [ $stage -le 3 ]; then  
+    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.swbd.LMWT.log \
+      grep -v '^en_' $data/stm '>' $dir/score_LMWT/stm.swbd '&&' \
+      grep -v '^en_' $dir/score_LMWT/${name}.ctm '>' $dir/score_LMWT/${name}.ctm.swbd '&&' \
+      $hubscr -p $hubdir -V -l english -h hub5 -g $data/glm -r $dir/score_LMWT/stm.swbd $dir/score_LMWT/${name}.ctm.swbd || exit 1;
+  fi
+  # Score only the, callhome part...
+  if [ $stage -le 3 ]; then  
+    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.callhm.LMWT.log \
+      grep -v '^sw_' $data/stm '>' $dir/score_LMWT/stm.callhm '&&' \
+      grep -v '^sw_' $dir/score_LMWT/${name}.ctm '>' $dir/score_LMWT/${name}.ctm.callhm '&&' \
+      $hubscr -p $hubdir -V -l english -h hub5 -g $data/glm -r $dir/score_LMWT/stm.callhm $dir/score_LMWT/${name}.ctm.callhm || exit 1;
+  fi
 fi
 
 exit 0

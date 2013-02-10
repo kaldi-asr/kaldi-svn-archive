@@ -36,8 +36,8 @@ $tree_map = ""; # If supplied, a text file that maps from l2 to l1 tree nodes (o
    # by build-tree-two-level).  Used for initializing mixture-prob component.
 
 $splice_context = 0;
-$dropout_proportion = 0.0;
-$additive_noise_stddev = 0.0;
+$dropout_proportion = 0.0; # I didn't find this helpful.
+$additive_noise_stddev = 0.0; # I didn't find this helpful either.
 $lda_dim = 0;
 $lda_mat = "";
 
@@ -90,7 +90,8 @@ for ($x = 1; $x < 10; $x++) {
     $single_layer_config = $ARGV[2];
     shift; shift; shift;
   }
-  if ($ARGV[0] eq "--tree-map") {
+  if ($ARGV[0] eq "--tree-map") { # Note: this was for an idea that
+    # didn't end up working for me; it relates to SCTM-like systems.
     $tree_map = $ARGV[1];
     shift; shift;
   }
@@ -100,8 +101,8 @@ for ($x = 1; $x < 10; $x++) {
 if (@ARGV != 4) {
   print STDERR "Usage: make_nnet_config_preconditioned.pl  [options] <feat-dim> <num-leaves> <num-hidden-layers> <num-parameters>  >config-file
 Options:
-   --input-left-context <n>        #  #frames of left context for input features; default 0.
-   --input-right-context <n>       #  #frames of right context for input features; default 0.
+   --input-left-context <n>        #  #frames of left context for input features; default 0 (this separate from pre-LDA splicing).
+   --input-right-context <n>       #  #frames of right context for input features; default 0  (this separate from pre-LDA splicing).
    --param-stdddev-factor <f>      #  Factor which can be used to modify the standard deviation of
                                    #  randomly nitialized features (default, 1.  Gets multiplied by
                                    #  1/sqrt of number of inputs).
@@ -113,8 +114,12 @@ Options:
    --alpha <f>                     #  Factor (default 0.1) which affects the preconditioning.  0 < alpha <= 1;
                                    #  smaller means more aggressive preconditioning / less smoothing of the Fisher
                                    #  matrix.
-   --learning-rate <f>             # Initial learning rate, default 0.001\n";
-     exit(1);
+   --learning-rate <f>             # Initial learning rate, default 0.001
+   --lda-mat <splice-width> <lda-dimension> <lda-matrix-filename>  # Allows the user to specify splice-and-lda
+                                   # with a given transformation, as a fixed component in the network.  E.g.
+                                   # splice-width of 4 represents context of +- 4 frames.  Here, lda-dimension is
+                                   # the output dimension of LDA, which must be the same as in the file.\n";
+  exit(1);
 }
 
 ($feat_dim, $num_leaves, $num_hidden_layers, $num_params) = @ARGV;

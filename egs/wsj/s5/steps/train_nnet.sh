@@ -18,7 +18,7 @@ l1_penalty=0.0     # L1 regualrization constant (lassoo)
 l2_penalty=0.0     # L2 regualrization constant (weight decay)
 # data processing config
 bunch_size=256     # size of the training block
-cache_size=16384   # size of the randimization cache
+cache_size=16384   # size of the randomization cache
 randomize=true    # do the frame level randomization
 copy_feats=true   # resave the features in the re-shuffled order to tmpdir (faster reading)
 # feature config
@@ -47,7 +47,9 @@ analyze_alignments=true # run the alignment analysis script
 
 echo "$0 $@"  # Print the command line for logging
 
-[ -f path.sh ] && . ./path.sh;
+[ -f path.sh ] && . ./path.sh; 
+
+
 . parse_options.sh || exit 1;
 
 
@@ -115,7 +117,7 @@ fi
 ###### PREPARE FEATURES ######
 # shuffle the list
 echo "Preparing train/cv lists"
-cat $data/feats.scp | utils/shuffle_list.pl ${seed:-777} > $dir/train.scp
+cat $data/feats.scp | utils/shuffle_list.pl --srand ${seed:-777} > $dir/train.scp
 cp $data_cv/feats.scp $dir/cv.scp
 # print the list sizes
 wc -l $dir/train.scp $dir/cv.scp
@@ -394,6 +396,4 @@ else
 fi
 
 echo "Succeeded training the Neural Network : $dir/final.nnet"
-
-
 

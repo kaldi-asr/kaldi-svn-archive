@@ -183,6 +183,23 @@ void UnitTestSigmoidComponent() {
   }
 }
 
+void UnitTestReduceComponent() {
+  // We're testing that the gradients are computed correctly:
+  // the input gradients and the model gradients.
+  
+  int32 input_dim = 10 + rand() % 50, n = 1 + rand() % 3;
+  {
+    ReduceComponent reduce_component(input_dim, n);
+    UnitTestGenericComponentInternal(reduce_component);
+  }
+  {
+    ReduceComponent reduce_component;
+    reduce_component.InitFromString("dim=15 n=3");
+    UnitTestGenericComponentInternal(reduce_component);
+  }
+}
+
+
 template<class T>
 void UnitTestGenericComponent() { // works if it has an initializer from int,
   // e.g. tanh, sigmoid.
@@ -216,25 +233,6 @@ void UnitTestAffineComponent() {
   {
     const char *str = "learning-rate=0.01 input-dim=10 output-dim=15 param-stddev=0.1";
     AffineComponent component;
-    component.InitFromString(str);
-    UnitTestGenericComponentInternal(component);
-  }
-}
-
-void UnitTestAffineComponentNobias() {
-  BaseFloat learning_rate = 0.01,
-             param_stddev = 0.1, bias_stddev = 1.0;
-  int32 input_dim = 5 + rand() % 10, output_dim = 5 + rand() % 10;
-  bool precondition = (rand() % 2 == 1);
-  {
-    AffineComponentNobias component;
-    component.Init(learning_rate, input_dim, output_dim,
-                   param_stddev, bias_stddev, precondition);
-    UnitTestGenericComponentInternal(component);
-  }
-  {
-    const char *str = "learning-rate=0.01 input-dim=16 output-dim=15 param-stddev=0.1";
-    AffineComponentNobias component;
     component.InitFromString(str);
     UnitTestGenericComponentInternal(component);
   }
@@ -482,13 +480,14 @@ int main() {
     UnitTestGenericComponent<TanhComponent>();
     UnitTestGenericComponent<PermuteComponent>();
     UnitTestGenericComponent<SoftmaxComponent>();
+    UnitTestSigmoidComponent();
+    UnitTestReduceComponent();
     UnitTestAffineComponent();
     UnitTestAffinePreconInputComponent();
     UnitTestBlockAffineComponent();
     UnitTestMixtureProbComponent();
     UnitTestDctComponent();
     UnitTestFixedLinearComponent();
-    UnitTestAffineComponentNobias();
     UnitTestAffineComponentPreconditioned();
     UnitTestParsing();
   }

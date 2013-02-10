@@ -90,12 +90,11 @@ int main(int argc, char *argv[]) {
 
     //create the shift component
     {
-      AddShift* shift_component = new AddShift(shift.Dim(),shift.Dim(),&nnet);
+      AddShift* shift_component = new AddShift(shift.Dim(), shift.Dim(), &nnet);
       //the pointer will be given to the nnet, so we don't need to call delete
       
       //convert Vector to CuVector
-      CuVector<BaseFloat> cu_shift;
-      cu_shift.CopyFromVec(shift);
+      CuVector<BaseFloat> cu_shift(shift);
 
       //set the weights
       shift_component->SetShiftVec(cu_shift);
@@ -106,12 +105,11 @@ int main(int argc, char *argv[]) {
 
     //create the scale component
     {
-      Rescale* scale_component = new Rescale(scale.Dim(),scale.Dim(),&nnet);
+      Rescale* scale_component = new Rescale(scale.Dim(), scale.Dim(), &nnet);
       //the pointer will be given to the nnet, so we don't need to call delete
       
       //convert Vector to CuVector
-      CuVector<BaseFloat> cu_scale;
-      cu_scale.CopyFromVec(scale);
+      CuVector<BaseFloat> cu_scale(scale);
 
       //set the weights
       scale_component->SetScaleVec(cu_scale);

@@ -126,6 +126,13 @@ class VectorBase {
   /// This is the same as: \f$ x(i) = exp(x(i)) / \sum_i exp(x(i)) \f$
   Real ApplySoftMax();
 
+  /// Sets each element of *this to the tanh of the corresponding element of "src".
+  void Tanh(const VectorBase<Real> &src);
+
+  /// Sets each element of *this to the sigmoid function of the corresponding
+  /// element of "src".
+  void Sigmoid(const VectorBase<Real> &src);
+  
   /// Take all  elements of vector to a power.
   void ApplyPow(Real power);
 
@@ -275,6 +282,8 @@ class VectorBase {
 
   friend class VectorBase<double>;
   friend class VectorBase<float>;
+  friend class CuVectorBase<Real>;
+  friend class CuVector<Real>;
  protected:
   /// Destructor;  does not deallocate memory, this is handled by child classes.
   /// This destructor is protected so this object so this object can only be
@@ -298,11 +307,11 @@ class VectorBase {
   void CopyFromPtr(const Real* Data, MatrixIndexT sz);
 
   /// data memory area
-  Real*   data_;
+  Real* data_;
   /// dimension of vector
   MatrixIndexT dim_;
   KALDI_DISALLOW_COPY_AND_ASSIGN(VectorBase);
-};  // class VectorBase
+}; // class VectorBase
 
 /** @brief A class representing a vector.
  *
@@ -322,20 +331,20 @@ class Vector: public VectorBase<Real> {
 
   /// Copy constructor.  The need for this is controversial.
   Vector(const Vector<Real> &v) : VectorBase<Real>()  { //  (cannot be explicit)
-    Resize(v.Dim());
+    Resize(v.Dim(), kUndefined);
     this->CopyFromVec(v);
   }
 
   /// Copy-constructor from base-class, needed to copy from SubVector.
   explicit Vector(const VectorBase<Real> &v) : VectorBase<Real>() {
-    Resize(v.Dim());
+    Resize(v.Dim(), kUndefined);
     this->CopyFromVec(v);
   }
 
   /// Type conversion constructor.
   template<typename OtherReal>
   explicit Vector(const VectorBase<OtherReal> &v): VectorBase<Real>() {
-    Resize(v.Dim());
+    Resize(v.Dim(), kUndefined);
     this->CopyFromVec(v);
   }
 
@@ -372,14 +381,14 @@ class Vector: public VectorBase<Real> {
 
   /// Assignment operator, protected so it can only be used by std::vector
   Vector<Real> &operator = (const Vector<Real> &other) {
-    Resize(other.Dim());
+    Resize(other.Dim(), kUndefined);
     this->CopyFromVec(other);
     return *this;
   }
 
   /// Assignment operator that takes VectorBase.
   Vector<Real> &operator = (const VectorBase<Real> &other) {
-    Resize(other.Dim());
+    Resize(other.Dim(), kUndefined);
     this->CopyFromVec(other);
     return *this;
   }
@@ -393,10 +402,6 @@ class Vector: public VectorBase<Real> {
   /// Destroy function, called internally.
   void Destroy();
 
-#ifdef KALDI_MEMALIGN_MANUAL
-  /// data to be freed (in case of manual memalignment use, see common.h)
-  Real *free_data_;
-#endif
 };
 
 
@@ -435,8 +440,8 @@ class SubVector : public VectorBase<Real> {
 
   /// Constructor from a pointer to memory and a length.  Keeps a pointer
   /// to the data but does not take ownership (will never delete).
-  SubVector(Real *Data, MatrixIndexT length) : VectorBase<Real> () {
-    VectorBase<Real>::data_ = Data;
+  SubVector(Real *data, MatrixIndexT length) : VectorBase<Real> () {
+    VectorBase<Real>::data_ = data;
     VectorBase<Real>::dim_   = length;
   }
 

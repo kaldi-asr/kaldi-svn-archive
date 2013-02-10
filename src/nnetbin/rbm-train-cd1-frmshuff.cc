@@ -127,12 +127,14 @@ int main(int argc, char *argv[]) {
         // get feature matrix
         const Matrix<BaseFloat> &mat = feature_reader.Value();
         // push features to GPU
+        feats.Resize(mat.NumRows(),mat.NumCols());
         feats.CopyFromMat(mat);
         // possibly apply transform (may contain splicing)
         rbm_transf.Feedforward(feats, &feats_transf);
         // subsample the feats to get faster epochs
         if(drop_data > 0.0) {
-          Matrix<BaseFloat> mat2;
+          Matrix<BaseFloat> mat2(feats_transf.NumRows(), feats_transf.NumCols(),
+                                 kUndefined);
           feats_transf.CopyToMat(&mat2);
           for(int32 r=mat2.NumRows()-1; r >= 0; r--) {
             if(RandUniform() < drop_data) {
@@ -140,6 +142,7 @@ int main(int argc, char *argv[]) {
             }
           }
           if(mat2.NumRows() == 0) continue;
+          feats_transf.Resize(mat2.NumRows(),mat2.NumCols());
           feats_transf.CopyFromMat(mat2);
         }
         // resize the dummy vector to fill Cache:: with
@@ -169,9 +172,11 @@ int main(int argc, char *argv[]) {
         rbm.Propagate(pos_vis, &pos_hid);
         // alter the hidden values, so we can generate negative example
         if (rbm.HidType() == Rbm::BERNOULLI) {
+          neg_hid.Resize(pos_hid.NumRows(),pos_hid.NumCols());
           cu_rand.BinarizeProbs(pos_hid, &neg_hid);
         } else {
           // assume Rbm::GAUSSIAN
+          neg_hid.Resize(pos_hid.NumRows(),pos_hid.NumCols());
           neg_hid.CopyFromMat(pos_hid);
           cu_rand.AddGaussNoise(&neg_hid);
         }

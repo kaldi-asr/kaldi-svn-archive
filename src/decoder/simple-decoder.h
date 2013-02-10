@@ -75,7 +75,6 @@ class SimpleDecoder {
   }
 
   bool ReachedFinal() {
-    Weight best_weight = Weight::Zero();
     for (unordered_map<StateId, Token*>::iterator iter = cur_toks_.begin();
          iter != cur_toks_.end();
          ++iter) {
@@ -189,9 +188,10 @@ class SimpleDecoder {
         if (arc.ilabel != 0) {  // propagate..
           arc.weight = Times(arc.weight,
                              Weight(-decodable->LogLikelihood(frame, arc.ilabel)));
-          if (arc.weight.Value() > cutoff) continue;
-          if (arc.weight.Value() + beam_  < cutoff)
-            cutoff = arc.weight.Value() + beam_;
+          BaseFloat tot_weight = arc.weight.Value() + tok->weight_.Value();
+          if (tot_weight > cutoff) continue;
+          if (tot_weight + beam_  < cutoff)
+            cutoff = tot_weight + beam_;
           Token *new_tok = new Token(arc, tok);
           unordered_map<StateId, Token*>::iterator find_iter
               = cur_toks_.find(arc.nextstate);
@@ -234,7 +234,7 @@ class SimpleDecoder {
         const Arc &arc = aiter.Value();
         if (arc.ilabel == 0) {  // propagate nonemitting only...
           Token *new_tok = new Token(arc, tok);
-          if (new_tok->arc_.weight.Value() > cutoff) {
+          if (new_tok->weight_.Value() > cutoff) {
             Token::TokenDelete(new_tok);
           } else {
             unordered_map<StateId, Token*>::iterator find_iter

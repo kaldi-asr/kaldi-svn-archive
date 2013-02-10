@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         "e.g.:\n"
         " nnet-am-fix 1.mdl 1_fixed.mdl\n"
         "or:\n"
-        " nnet-am-shrink-rows --get-counts-from=1.gradient 1.mdl 1_shrunk.mdl\n";
+        " nnet-am-fix --get-counts-from=1.gradient 1.mdl 1_shrunk.mdl\n";
 
     bool binary_write = true;
     NnetFixConfig config;

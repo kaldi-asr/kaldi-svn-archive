@@ -166,11 +166,13 @@ local/run_sgmm.sh
 # Building a larger SAT system.
 
 steps/train_sat.sh --cmd "$train_cmd" \
-  3500 100000 data/train_100k_nodup data/lang exp/tri4a_ali_100k_nodup exp/tri5a || exit 1;
+  4000 100000 data/train_100k_nodup data/lang exp/tri4a_ali_100k_nodup exp/tri5a || exit 1;
 (
   utils/mkgraph.sh data/lang_test exp/tri5a exp/tri5a/graph || exit 1;
   steps/decode_fmllr.sh --cmd "$decode_cmd" --config conf/decode.config \
    --nj 30 exp/tri5a/graph data/eval2000 exp/tri5a/decode_eval2000 || exit 1;
+  steps/decode_fmllr.sh --nj 30 --cmd "$decode_cmd" --config conf/decode.config \
+   exp/tri5a/graph data/train_dev exp/tri5a/decode_train_dev || exit 1;
 )
 
 # MMI starting from system in tri5a.  Use the same data (100k_nodup).
