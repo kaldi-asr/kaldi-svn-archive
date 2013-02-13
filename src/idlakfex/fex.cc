@@ -182,79 +182,80 @@ int32 Fex::MaxFeatSz() {
   return maxsz;
 }
 
-// TODO set up a context class for the feature functions to access
-int32 Fex::GetModels(const pugi::xml_document &doc, FexModels * models) {
-  pugi::xpath_node_set tks =
+// Add pause tk, syl, phon to break tags and information
+// on pause type
+// This makes interation for feature extraction more
+// homogeneous
+int32 Fex::AddPauseNodes(const pugi::xml_document &doc) {
+  bool uttbreak, endbreak, internalbreak;
+  pugi::xml_node node, childnode;
+  pugi::xpath_node_set nodes =
       doc.document_element().select_nodes("//phon|//break");
+  nodes.sort();
+  for (pugi::xpath_node_set::const_iterator it = nodes.begin();
+       it != nodes.end();
+       ++it) {
+    node = it->node();
+    if (!strcmp(node.name(), "break")) {
+      // determine break type
+      if (!strcmp(node.attribute("type").value(), "4")) uttbreak = true;
+      else uttbreak = false;
+      if (it == nodes.begin()) {
+        endbreak = false;
+        internalbreak = false;
+      } else if (it + 1 == nodes.end()) {
+        endbreak = true;
+        internalbreak = false;
+      } else if (!strcmp((it - 1)->node().name(), "break")) {
+        endbreak = false;
+        internalbreak = true;
+      } else {
+        endbreak = true;
+        internalbreak = true;
+      }
+      if (pauhand_ == FEXPAU_HAND_UTT && !uttbreak &&
+          internalbreak && !endbreak) continue;
+      childnode = node.append_child("tk");
+      childnode.append_attribute("pron").set_value("pau");
+      childnode = childnode.append_child("syl");
+      childnode.append_attribute("val").set_value("pau");
+      childnode = childnode.append_child("phon");
+      childnode.append_attribute("val").set_value("pau");
+    }
+  }
+  Output kio("./temp.xml", false);
+  doc.save(kio.Stream(), "\t");
+  kio.Stream().flush();
+  return true;
+}
+
+// Extract model names for the XML input
+int32 Fex::GetModels(const pugi::xml_document &doc, FexModels * models) {
+  AddPauseNodes(doc);
+  pugi::xpath_node_set tks =
+      doc.document_element().select_nodes("//phon");
   tks.sort();
+  FexContext context(doc, pauhand_);
   kaldi::int32 i = 0;
   for (pugi::xpath_node_set::const_iterator it = tks.begin();
        it != tks.end();
-       ++it, i++) {
-    pugi::xml_node tk = (*it).node();
-    ExtractFeatures(tks, tk, i, models->Append());
+       ++it, i++, context.next()) {
+    ExtractFeatures(context, models->Append());
   }
   // should set to error status
   return true;
 }
 
-// call feature functions and deal with pause behaviour
-bool Fex::ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
-                          int32 idx, char * buf) {
+// call the feature functions
+bool Fex::ExtractFeatures(const FexContext &context, char * buf) {
   FexFeatVector::iterator iter;
   struct FexFeat feat;
-  bool rval = true;;
-  bool endbreak;
-  bool internalbreak;
-  // check pause status
-  if (!strcmp(tk.name(), "break")) {
-    if (!idx) {
-      endbreak = false;
-      internalbreak = false;
-    } else if (idx + 1 == tks.size()) {
-      endbreak = true;
-      internalbreak = false;
-    } else if (!strcmp(tks[idx - 1].node().name(), "break")) {
-      endbreak = false;
-      internalbreak = true;
-    } else {
-      endbreak = true;
-      internalbreak = true;
-    } 
-  }
+  bool rval = true;
   // iterate through features inserting nulls when required
   for(iter = fexfeats_.begin(); iter != fexfeats_.end(); iter++) {
     feat = *iter;
-    if (!strcmp(tk.name(), "phon")) {
-      if (!feat.func(this, feat, tks, idx, tk, buf)) rval = false;
-    } else if (!strcmp(tk.name(), "break")) {
-      // if ! break index 4 and pause handling utterance based
-      // ignore document internal second break
-      if (feat.pautype == FEXPAU_TYPE_CUR) {
-        AppendNull(feat, buf);
-      } else if (feat.pautype == FEXPAU_TYPE_PRE) {
-        if (endbreak && feat.pauctx) {
-          if (!feat.func(this, feat, tks, idx, tk, buf)) rval = false;
-        } else {
-        AppendNull(feat, buf);
-        }
-      } else if (feat.pautype == FEXPAU_TYPE_PST) {
-        if (!endbreak && feat.pauctx) {
-          if (!feat.func(this, feat, tks, idx, tk, buf)) rval = false;
-        } else {
-            // if pause handling is by utterance use the subsequent
-            // internal break to get pst context features
-            if (pauhand_ == FEXPAU_HAND_UTT &&
-                strcmp(tk.attribute("type").value(), "4") &&
-                internalbreak) {
-              if (!feat.func(this, feat, tks, idx, tks[idx + 1].node(), buf))
-                rval = false;
-            } else {
-              AppendNull(feat, buf);
-            }
-        }
-      }
-    }
+    if (!feat.func(this, &feat, &context, buf))
+      rval = false;
   }  
   return rval;
 }
@@ -268,8 +269,8 @@ int32 Fex::GetFeatIndex(const std::string &name) {
 }
 
 bool Fex::AppendValue(const FexFeat &feat, bool error,
-                      const char * s, char * buf) {
-  StringSet * set;
+                      const char * s, char * buf) const {
+  const StringSet * set;
   StringSet::iterator i;
   set = &(sets_.find(feat.set)->second);
   if (set->find(std::string(s)) == set->end()) {
@@ -282,7 +283,7 @@ bool Fex::AppendValue(const FexFeat &feat, bool error,
 }
 
 bool Fex::AppendValue(const FexFeat &feat, bool error,
-                      int32 i, char * buf) {
+                      int32 i, char * buf) const {
   std::stringstream stream;
   if (feat.type != FEX_TYPE_INT) {
     AppendError(feat, buf);
@@ -296,19 +297,19 @@ bool Fex::AppendValue(const FexFeat &feat, bool error,
   return true;
 }
 
-bool Fex::AppendNull(const FexFeat &feat, char * buf) {
+bool Fex::AppendNull(const FexFeat &feat, char * buf) const {
   strncat(buf, feat.delim.c_str(), fex_maxfieldlen_);
   strncat(buf, Mapping(feat, feat.nullvalue.c_str()), fex_maxfieldlen_);
   return true;
 }
 
-bool Fex::AppendError(const FexFeat &feat, char * buf) {
+bool Fex::AppendError(const FexFeat &feat, char * buf) const {
   strncat(buf, feat.delim.c_str(), fex_maxfieldlen_);
   strncat(buf, FEX_ERROR, fex_maxfieldlen_);
   return true;  
 }
 
-const char * Fex::Mapping(const FexFeat &feat, const char * instr) {
+const char * Fex::Mapping(const FexFeat &feat, const char * instr) const {
   LookupMap::const_iterator i;
   i = feat.mapping.find(std::string(instr));
   if (i != feat.mapping.end()) return i->second.c_str();
@@ -340,5 +341,88 @@ char * FexModels::Append() {
   models_.push_back(buf);
   return buf;
 }
+
+FexContext::FexContext(const pugi::xml_document &doc,
+                       enum FEXPAU_HAND pauhand) : pauhand_(pauhand) {
+  phons_ = doc.document_element().select_nodes("//phon");
+  syls_ = doc.document_element().select_nodes("//syl");
+  wrds_ = doc.document_element().select_nodes("//tk");
+  spts_ = doc.document_element().select_nodes("//spt");
+  utts_ = doc.document_element().select_nodes("//utt");
+  phons_.sort();
+  syls_.sort();
+  wrds_.sort();
+  spts_.sort();
+  utts_.sort();
+  cur_phon_ = phons_.begin();
+  cur_syl_ = syls_.begin();
+  cur_wrd_ = wrds_.begin();
+  cur_spt_ = spts_.begin();
+  cur_utt_ = utts_.begin();
+}
+
+bool FexContext::next() {
+  pugi::xml_node node, phon, empty;
+  
+  // std::cout << (cur_phon_->node()).attribute("val").value() << ":"
+  //           << (cur_syl_->node()).attribute("val").value() << ":"
+  //           << (cur_wrd_->node()).attribute("norm").value() << ":"
+  //           << (cur_spt_->node()).attribute("phraseid").value() << ":"
+  //           << (cur_utt_->node()).attribute("uttid").value() << " "
+  //           << (cur_phon_->node()).attribute("type").value() << "\n";
+  // iterate over phone/break items
+  cur_phon_ = cur_phon_++;
+  phon = cur_phon_->node();
+  // update other iterators as required
+  // dummy pau items already added for tk and syl levels
+  node = getContextUp(phon, "syl");
+  while(node != cur_syl_->node()) cur_syl_++;
+  node = getContextUp(phon, "tk");
+  while(node != cur_wrd_->node()) cur_wrd_++;
+  node = getContextUp(phon, "spt");
+  while(node != cur_spt_->node()) cur_spt_++;
+  node = getContextUp(phon, "utt");
+  while(node != cur_utt_->node()) cur_utt_++;
+  
+  return true;
+}
+
+// look up from the node until we find the correct current context node
+pugi::xml_node FexContext::getContextUp(const pugi::xml_node &node,
+                                          const char * name) {
+  pugi::xml_node parent;
+  parent = node.parent();
+  while(!parent.empty()) {
+    if (!strcmp(parent.name(), name)) return parent;
+    parent = parent.parent();
+  }
+  return parent;
+}
+
+// return phon back or forwards from current phone
+pugi::xml_node FexContext::getPhon(int32 idx, bool pauctx) const {
+  int32 i;
+  int32 pau_found = 0;
+  pugi::xml_node empty;
+  if (idx >= 0) {
+    for(i = 0; i < idx; i++) {
+      if ((cur_phon_ + i) == phons_.end()) return empty;
+      if (!strcmp("pau", (cur_phon_ + i)->node().attribute("val").value()))
+        pau_found++;
+    }
+  }
+  else {
+    for(i = 0; i > idx; i--) {
+      if ((cur_phon_ + i) == phons_.begin()) return empty;
+      if (!strcmp("pau", (cur_phon_ + i)->node().attribute("val").value()))
+        pau_found++;
+    }
+  }
+  if ((cur_phon_ + i) == phons_.end()) return empty;
+  if (pau_found == 2 && !pauctx) return empty;
+  return (cur_phon_ + i)->node();
+}
+
+
 
 }  // namespace kaldi

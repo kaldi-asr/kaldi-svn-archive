@@ -25,6 +25,7 @@
 #include "base/kaldi-common.h"
 #include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpxmldata.h"
+#include <deque>
 
 namespace kaldi {
 
@@ -62,10 +63,14 @@ enum FEX_TYPE {FEX_TYPE_STR = 0,
 class Fex;
 struct FexFeat;
 class FexModels;
+class FexContext;
 
-typedef bool (* fexfunction) 
-     (Fex *, const FexFeat &, const pugi::xpath_node_set &,
-      int32, const pugi::xml_node &, char *);
+// moving vector which keeps context for each context level
+typedef std::deque<pugi::xml_node> XmlNodeVector;
+
+// a feature function
+typedef bool (* fexfunction)
+(const Fex *, const FexFeat *, const FexContext *, char *);
 
 // array of feature functiion names
 extern const char * const FEXFUNCLBL[];
@@ -90,20 +95,22 @@ class Fex: public TxpXmlData {
   // calculate biggest buffer required for feature output
   int32 MaxFeatSz();
   // process an XML document
+  int32 AddPauseNodes(const pugi::xml_document &doc);
   int GetModels(const pugi::xml_document &doc, FexModels * models);
   // call feature function and deal with pause behaviour
-  bool ExtractFeatures(pugi::xpath_node_set tks,  pugi::xml_node tk,
-  		       int32 idx, char * buf);
+  bool ExtractFeatures(const FexContext &context, char * buf);
   // check and append value - function string
-  bool AppendValue(const FexFeat &feat, bool error, const char * s, char * buf);
+  bool AppendValue(const FexFeat &feat, bool error,
+                   const char * s, char * buf) const;
   // check and append value - function integer
-  bool AppendValue(const FexFeat &feat, bool error, int32 i, char * buf);
+  bool AppendValue(const FexFeat &feat, bool error,
+                   int32 i, char * buf) const;
   // append a null value
-  bool AppendNull(const FexFeat &feat, char * buf);
+  bool AppendNull(const FexFeat &feat, char * buf) const;
   // append an error value
-  bool AppendError(const FexFeat &feat, char * buf);
+  bool AppendError(const FexFeat &feat, char * buf) const;
   // return feature specific mapping between fex value and desired value
-  const char * Mapping(const FexFeat &feat, const char * instr);
+  const char * Mapping(const FexFeat &feat, const char * instr) const;
  private:
   void StartElement(const char * name, const char ** atts);
   // return index of a feature function by name
@@ -141,7 +148,7 @@ struct FexFeat {
   std::string nullvalue;
   // pointer to the extraction function
   fexfunction func;
-  // whether to allow cross silence context on break < 4
+  // whether to allow cross silence context pause
   bool pauctx;
   // how the extraction function behaves on silence  
   enum FEXPAU_TYPE pautype;
@@ -177,6 +184,54 @@ class FexModels {
   int32 buflen_;
 };
 
+// iterator for accessing linguistic structure in the XML document
+class FexContext {
+ public:
+  explicit FexContext(const pugi::xml_document &doc,
+                      enum FEXPAU_HAND pauhand);
+  ~FexContext() {};
+  // iterate to next item
+  bool next();
+  // are we in a silence
+  bool isBreak() {return isbreak_;}
+  // is the silence doucument internal
+  bool isBreakInternal() {return internalbreak_;}
+  // is the break at the end or begining of a spt
+  bool isEndBreak() {return endbreak_;}
+  // is the break between sentences
+  bool isUttBreak() {return uttbreak_;}
+  // return phon back or forwards from current phone
+  pugi::xml_node getPhon(int32 idx, bool pauctx) const;
+ private:
+  // look up from the node until we find the correct current context node
+  pugi::xml_node getContextUp(const pugi::xml_node &node,
+                                const char * name);
+  bool isbreak_;
+  bool endbreak_;
+  bool internalbreak_;
+  bool uttbreak_;
+  enum FEXPAU_HAND pauhand_;
+  pugi::xpath_node_set phons_;
+  pugi::xpath_node_set syls_;
+  pugi::xpath_node_set wrds_;
+  pugi::xpath_node_set spts_;
+  pugi::xpath_node_set utts_;
+  pugi::xpath_node_set::const_iterator cur_phon_;
+  pugi::xpath_node_set::const_iterator cur_syl_;
+  pugi::xpath_node_set::const_iterator cur_wrd_;
+  pugi::xpath_node_set::const_iterator cur_spt_;
+  pugi::xpath_node_set::const_iterator cur_utt_;
+  // phone contexts
+  XmlNodeVector ctxphons_;
+  // syl contexts
+  XmlNodeVector ctxsyls_;
+  // wrd contexts
+  XmlNodeVector ctxwrds_;
+  // spt contexts
+  XmlNodeVector ctxspts_;
+  // utt contexts
+  XmlNodeVector ctxutts_;
+};
 
 }  // namespace kaldi
 

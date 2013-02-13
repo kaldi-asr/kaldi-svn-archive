@@ -32,40 +32,117 @@
 
 namespace kaldi {
 
-// current phone name
-bool FexFuncCURSTRp(Fex * fex, const FexFeat &feat,
-                    const pugi::xpath_node_set &nodes,
-                    int32 idx,
-                    const pugi::xml_node &p,
-                    char * buffer) {
+
+// previous previous phone name
+bool FexFuncPRESTRbbp(const Fex * fex,
+                     const FexFeat * feat,
+                     const FexContext * context,
+                     char * buffer) {
   bool okay = true;
+  pugi::xml_node node;
   const char * phonename;
-  // extract value from XML
-  phonename = p.attribute("val").value();
-  // error on empty string
-  if (!*phonename) okay = false;
-  // check and append value
-  okay = fex->AppendValue(feat, okay, phonename, buffer);
+  // get node from correct context
+  node = context->getPhon(-2, feat->pauctx);
+  // check for NULL value
+  if (node.empty()) fex->AppendNull(*feat, buffer);
+  else {
+    // extract value from XML
+    phonename = node.attribute("val").value();
+    // check and append value
+    okay = fex->AppendValue(*feat, okay, phonename, buffer);
+  }
   // return error status
   return okay;
 }
 
-// previous current phone name
-bool FexFuncPRESTRbp(Fex * fex, const FexFeat &feat,
-                     const pugi::xpath_node_set &nodes,
-                     int32 idx,
-                     const pugi::xml_node &p,
+// previous phone name
+bool FexFuncPRESTRbp(const Fex * fex,
+                     const FexFeat * feat,
+                     const FexContext * context,
                      char * buffer) {
   bool okay = true;
+  pugi::xml_node node;
   const char * phonename;
-  // extract value from XML
-  phonename = nodes[idx - 1].node().attribute("val").value();
-  // error on empty string
-  if (!*phonename) okay = false;
-  // check and append value
-  okay = fex->AppendValue(feat, okay, phonename, buffer);
+  // get node from correct context
+  node = context->getPhon(-1, feat->pauctx);
+  // check for NULL value
+  if (node.empty()) fex->AppendNull(*feat, buffer);
+  else {
+    // extract value from XML
+    phonename = node.attribute("val").value();
+    // check and append value
+    okay = fex->AppendValue(*feat, okay, phonename, buffer);
+  }
   // return error status
   return okay;
 }
+
+// current phone name
+bool FexFuncCURSTRp(const Fex * fex,
+                     const FexFeat * feat,
+                     const FexContext * context,
+                     char * buffer) {
+  bool okay = true;
+  pugi::xml_node node;
+  const char * phonename;
+  // get node from correct context
+  node = context->getPhon(0, feat->pauctx);
+  // check for NULL value
+  if (node.empty()) fex->AppendNull(*feat, buffer);
+  else {
+    // extract value from XML
+    phonename = node.attribute("val").value();
+    // check and append value
+    okay = fex->AppendValue(*feat, okay, phonename, buffer);
+  }
+  // return error status
+  return okay;
+}
+
+// next phone name
+bool FexFuncPSTSTRfp(const Fex * fex,
+                     const FexFeat * feat,
+                     const FexContext * context,
+                     char * buffer) {
+  bool okay = true;
+  pugi::xml_node node;
+  const char * phonename;
+  // get node from correct context
+  node = context->getPhon(1, feat->pauctx);
+  // check for NULL value
+  if (node.empty()) fex->AppendNull(*feat, buffer);
+  else {
+    // extract value from XML
+    phonename = node.attribute("val").value();
+    // check and append value
+    okay = fex->AppendValue(*feat, okay, phonename, buffer);
+  }
+  // return error status
+  return okay;
+}
+
+// next next phone name
+bool FexFuncPSTSTRffp(const Fex * fex,
+                     const FexFeat * feat,
+                     const FexContext * context,
+                     char * buffer) {
+  bool okay = true;
+  pugi::xml_node node;
+  const char * phonename;
+  // get node from correct context
+  node = context->getPhon(2, feat->pauctx);
+  // check for NULL value
+  if (node.empty()) fex->AppendNull(*feat, buffer);
+  else {
+    // extract value from XML
+    phonename = node.attribute("val").value();
+    // check and append value
+    okay = fex->AppendValue(*feat, okay, phonename, buffer);
+  }
+  // return error status
+  return okay;
+}
+
+
 
 }  // namespace kaldi
