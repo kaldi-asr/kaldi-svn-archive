@@ -11,6 +11,7 @@ cer=0
 decode_mbr=true
 min_lmwt=7
 max_lmwt=17
+model=
 #end configuration section.
 
 [ -f ./path.sh ] && . ./path.sh
@@ -30,7 +31,10 @@ data=$1
 lang=$2 # Note: may be graph directory not lang directory, but has the necessary stuff copied.
 dir=$3
 
-model=$dir/../final.mdl # assume model one level up from decoding dir.
+if [ -z "$model" ] ; then
+  model=$dir/../final.mdl # assume model one level up from decoding dir.
+fi
+
 
 ScoringProgram=$KALDI_ROOT/tools/sctk-2.4.0/bin/sclite
 [ ! -f $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && exit 1;
@@ -107,14 +111,16 @@ if [ $stage -le 1 ]; then
   done
 fi
 
-if [ $stage -le 2 ]; then 
-  $cmd LMWT=7:17 $dir/scoring/log/score.LMWT.log \
+if [ $stage -le 2 ]; then
+  $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.log \
     cp $data/stm $dir/score_LMWT/ '&&' cp $data/glm $dir/score_LMWT/ '&&'\
     $ScoringProgram -s -r $dir/score_LMWT/stm stm -h $dir/score_LMWT/${name}.ctm ctm -o all -o dtl;
-  
-#  $cmd LMWT=7:17 $dir/scoring/log/score.LMWT.char.log \
-#    cp $data/char.stm $dir/score_LMWT/'&&'\
-#    $ScoringProgram -s -r $dir/score_LMWT/char.stm stm -h $dir/score_LMWT/${name}.char.ctm ctm -o all -o dtl;
+
+  if [ $cer -eq 1 ]; then
+    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.char.log \
+      cp $data/char.stm $dir/score_LMWT/'&&'\
+      $ScoringProgram -s -r $dir/score_LMWT/char.stm stm -h $dir/score_LMWT/${name}.char.ctm ctm -o all -o dtl;
+  fi
   
 #  for x in $dir/score_*/*.ctm; do
 #    mv $x.filt $x;
