@@ -45,6 +45,7 @@ template<typename Real> class SpMatrix;
 */
 template<typename Real>
 class SpMatrix : public PackedMatrix<Real> {
+  friend class CuSpMatrix<Real>;
  public:
   // so it can use our assignment operator.
   friend class std::vector<Matrix<Real> >;

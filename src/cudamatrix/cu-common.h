@@ -33,7 +33,7 @@
 #include "base/kaldi-error.h"
 
 
-#define cuSafeCall(fun) \
+#define CU_SAFE_CALL(fun) \
 { \
   int32 ret; \
   if ((ret = (fun)) != 0) { \

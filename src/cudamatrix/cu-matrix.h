@@ -18,8 +18,8 @@
 
 
 
-#ifndef KALDI_CUDAMATRIX_CUMATRIX_H_
-#define KALDI_CUDAMATRIX_CUMATRIX_H_
+#ifndef KALDI_CUDAMATRIX_CU_MATRIX_H_
+#define KALDI_CUDAMATRIX_CU_MATRIX_H_
 
 #include <sstream>
 
@@ -72,16 +72,8 @@ class CuMatrixBase {
 
   /// Get size of matrix in bytes
   MatrixIndexT SizeInBytes() const { return num_rows_*stride_*sizeof(Real); }
-
-  /// Get size of matrix row in bytes
-  MatrixIndexT RowSizeInBytes() const { return num_cols_*sizeof(Real); }
   
-  /// Get size of matrix stride in bytes
-  MatrixIndexT StrideSizeInBytes() const { return stride_*sizeof(Real); }
-
-  
-  /// Copy functions (reallocates when needed, but note from Dan: eventually
-  /// I'll change it to just die if the sizes don't match, like the Matrix class.)
+  // Copy function.  These do not resize.
   void CopyFromMat(const CuMatrixBase<Real> &src);
   void CopyFromMat(const MatrixBase<Real> &src);
   void CopyToMat(MatrixBase<Real> *dst) const;

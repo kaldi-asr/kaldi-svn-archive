@@ -71,7 +71,7 @@ CuStlVector<IntType>& CuStlVector<IntType>::Resize(MatrixIndexT dim) {
 
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
-    cuSafeCall(cudaMalloc((void**)&data_, dim*sizeof(IntType)));
+    CU_SAFE_CALL(cudaMalloc((void**)&data_, dim*sizeof(IntType)));
   } else
   #endif
   {
@@ -91,7 +91,7 @@ void CuStlVector<IntType>::Destroy() {
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     if (NULL != data_) {
-      cuSafeCall(cudaFree(data_));
+      CU_SAFE_CALL(cudaFree(data_));
       data_ = NULL;
     }
   } else
@@ -113,7 +113,7 @@ CuStlVector<IntType>& CuStlVector<IntType>::CopyFromVec(const std::vector<IntTyp
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
-    cuSafeCall(cudaMemcpy(data_, &src.front(), src.size()*sizeof(IntType), cudaMemcpyHostToDevice));
+    CU_SAFE_CALL(cudaMemcpy(data_, &src.front(), src.size()*sizeof(IntType), cudaMemcpyHostToDevice));
 
     CuDevice::Instantiate().AccuProfile("CuStlVector::CopyFromVecH2D",tim.Elapsed());
   } else
@@ -135,7 +135,7 @@ void CuStlVector<IntType>::CopyToVec(std::vector<IntType> *dst) const {
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
-    cuSafeCall(cudaMemcpy(&dst->front(), Data(), dim_*sizeof(IntType), cudaMemcpyDeviceToHost));
+    CU_SAFE_CALL(cudaMemcpy(&dst->front(), Data(), dim_*sizeof(IntType), cudaMemcpyDeviceToHost));
     CuDevice::Instantiate().AccuProfile("CuStlVector::CopyToVecD2H",tim.Elapsed());
   } else
   #endif
@@ -151,7 +151,7 @@ void CuStlVector<IntType>::SetZero() {
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
-    cuSafeCall(cudaMemset(data_, 0, dim_*sizeof(IntType)));
+    CU_SAFE_CALL(cudaMemset(data_, 0, dim_*sizeof(IntType)));
     CuDevice::Instantiate().AccuProfile("CuStlVector::SetZero",tim.Elapsed());
   } else
   #endif
@@ -193,7 +193,7 @@ inline void CuStlVector<int32>::Set(int32 value) {
     ::MatrixDim d = { 1, Dim(), Dim() };
 
     cudaI32_set_const(dimGrid, dimBlock, data_, value, d);
-    cuSafeCall(cudaGetLastError());
+    CU_SAFE_CALL(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else

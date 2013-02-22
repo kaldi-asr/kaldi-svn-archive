@@ -91,7 +91,7 @@ template<typename Real> void CuRand<Real>::RandUniform(CuMatrix<Real> *tgt) {
     dim3 dimGrid(n_blocks(tgt->num_cols_, CUBLOCK), n_blocks(tgt->num_rows_, CUBLOCK));
 
     cuda_rand(dimGrid, dimBlock, tgt->data_, z1_, z2_, z3_, z4_, tgt->Dim());
-    cuSafeCall(cudaGetLastError());
+    CU_SAFE_CALL(cudaGetLastError());
   
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
@@ -119,7 +119,7 @@ template<typename Real> void CuRand<Real>::RandGaussian(CuMatrix<Real> *tgt) {
     dim3 dimGrid(n_blocks(tgt->num_cols_, CUBLOCK), n_blocks(tgt->NumRows(), CUBLOCK));
 
     cuda_gauss_rand(dimGrid, dimBlock, tgt->data_, z1_, z2_, z3_, z4_, tgt->Dim());
-    cuSafeCall(cudaGetLastError());
+    CU_SAFE_CALL(cudaGetLastError());
   
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
@@ -153,7 +153,7 @@ template<typename Real> void CuRand<Real>::BinarizeProbs(const CuMatrix<Real> &p
     dim3 dimGrid(n_blocks(states->num_cols_, CUBLOCK), n_blocks(states->num_rows_, CUBLOCK));
 
     cuda_binarize_probs(dimGrid, dimBlock, states->data_, probs.data_, tmp_.data_, states->Dim());
-    cuSafeCall(cudaGetLastError());
+    CU_SAFE_CALL(cudaGetLastError());
   
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else

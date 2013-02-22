@@ -62,7 +62,7 @@ CuDevice::CuDevice()
       std::string mem_stats = GetFreeMemory(NULL, NULL);
       KALDI_LOG << "  Using device " << gpu_id << ": " << gpu_name << "\t" << mem_stats;
       active_gpu_id_ = gpu_id;
-      cuSafeCall(cublasInit());
+      CU_SAFE_CALL(cublasInit());
       return;
     }
 #endif
@@ -118,10 +118,10 @@ CuDevice::CuDevice()
     //finally select the GPU
     if(free_mem_ratio[max_id] > 0.0) {
       KALDI_LOG << "Selected device: " << max_id << " (automatically)";
-      cuSafeCall(cudaSetDevice(max_id));
+      CU_SAFE_CALL(cudaSetDevice(max_id));
       active_gpu_id_ = max_id;
       //initialize the CUBLAS
-      cuSafeCall(cublasInit());
+      CU_SAFE_CALL(cublasInit());
     } else {
       KALDI_WARN << "CUDA will NOT be used!!! None of the " << N_GPU << " devices could be selected...";
     }
@@ -134,7 +134,7 @@ CuDevice::CuDevice()
 
 CuDevice::~CuDevice() {
   if (Enabled()) {
-    cuSafeCall(cublasShutdown());
+    CU_SAFE_CALL(cublasShutdown());
   } else {
     KALDI_WARN << "CUDA was NOT used!";
   }
@@ -145,7 +145,7 @@ CuDevice::~CuDevice() {
 void CuDevice::SelectGpuId(int32 gpu_id) {
   //release the CUBLAS and CUDA context, if any
   if(Enabled()) {
-    cuSafeCall(cublasShutdown());
+    CU_SAFE_CALL(cublasShutdown());
     cudaThreadExit(); //deprecated, but for legacy reason...
     active_gpu_id_ = -1;
   }
@@ -162,7 +162,7 @@ void CuDevice::SelectGpuId(int32 gpu_id) {
       //remember the id of active GPU 
       active_gpu_id_ = gpu_id;
       //initialize the CUBLAS
-      cuSafeCall(cublasInit());
+      CU_SAFE_CALL(cublasInit());
       KALDI_LOG << "Selected device: " << gpu_id << " (manual override...)";
       return; //we are done!
 #if (CUDA_VERSION > 3020)

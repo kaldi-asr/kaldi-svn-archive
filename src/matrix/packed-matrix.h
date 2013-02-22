@@ -1,7 +1,8 @@
 // matrix/packed-matrix.h
 
-// Copyright 2009-2012  Ondrej Glembek;  Lukas Burget;  Microsoft Corporation;
-//                      Saarland University;  Yanmin Qian;  Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2009-2013  Ondrej Glembek;  Lukas Burget;  Microsoft Corporation;
+//                      Saarland University;  Yanmin Qian;
+//                      Johns Hopkins University (Author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +36,7 @@ std::ostream & operator <<(std::ostream & out, const PackedMatrix<Real>& M);
 
 /// @brief Packed matrix: base class for triangular and symmetric matrices.
 template<typename Real> class PackedMatrix {
+  friend class CuPackedMatrix<Real>;
  public:
   PackedMatrix() : data_(NULL), num_rows_(0) {}
 
@@ -42,21 +44,19 @@ template<typename Real> class PackedMatrix {
       data_(NULL) {  Resize(r, resize_type);  }
 
   explicit PackedMatrix(const PackedMatrix<Real> &orig) : data_(NULL) {
-    Resize(orig.num_rows_);
+    Resize(orig.num_rows_, kUndefined);
     CopyFromPacked(orig);
   }
 
   template<class OtherReal>
   explicit PackedMatrix(const PackedMatrix<OtherReal> &orig) : data_(NULL) {
-    Resize(orig.NumRows());
+    Resize(orig.NumRows(), kUndefined);
     CopyFromPacked(orig);
   }
   
-  void SetZero();
+  void SetZero();  /// < Set to zero
   void SetUnit();  /// < Set to unit matrix.
-
-  /// Sets to random values of a normal distribution
-  void SetRandn();
+  void SetRandn(); /// < Set to random values of a normal distribution
 
   Real Trace() const;
 
@@ -132,10 +132,6 @@ template<typename Real> class PackedMatrix {
     return * (std::min_element(data_, data_ + ((num_rows_*(num_rows_+1))/2) ));
   }
 
-
-  // *this <-- *this + alpha* rV * rV^T.
-  // The "2" in the name is because the argument is repeated.
-  void AddVec2(const Real alpha, const Vector<Real> &rv);
   void Scale(Real c);
 
   friend std::ostream & operator << <> (std::ostream & out,
@@ -145,8 +141,7 @@ template<typename Real> class PackedMatrix {
   void Read(std::istream &in, bool binary, bool add = false);
 
   void Write(std::ostream &out, bool binary) const;
-  // binary = true is not yet supported.
-
+  
   void Destroy();
 
   /// Swaps the contents of *this and *other.  Shallow swap.
@@ -186,10 +181,6 @@ std::istream & operator >> (std::istream &is, PackedMatrix<Real> &M) {
 /// @}
 
 }  // namespace kaldi
-
-
-// Including the implementation
-#include "matrix/packed-matrix-inl.h"
 
 #endif
 
