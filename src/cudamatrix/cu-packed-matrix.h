@@ -46,6 +46,7 @@ namespace kaldi {
 template<typename Real>
 class CuPackedMatrix {
  public:
+  friend class CuMatrixBase<Real>;
   friend class CuVectorBase<Real>;
   friend class CuSubMatrix<Real>;
   friend class CuRand<Real>;
@@ -67,11 +68,46 @@ class CuPackedMatrix {
     CopyFromPacked(orig);
   }
 
+  // The following two functions should only be called if we did not compile with CUDA             
+  // or could not get a CUDA card; in that case the contents are interpreted the                   
+  // same as a regular matrix.                                                                           
+  inline const MatrixBase<Real> &Mat() const {
+    return *(reinterpret_cast<const MatrixBase<Real>* >(this));
+  }
+  inline MatrixBase<Real> &Mat() {
+    return *(reinterpret_cast<MatrixBase<Real>* >(this));
+  }
+
+  /// Dimensions
+  ::MatrixDim Dim() const {
+    ::MatrixDim d = {num_rows_, num_cols_, stride_};
+    return d;
+  }
+  
+  MatrixIndexT Stride() const { return stride_; }
+
   void SetZero();  /// < Set to zero
+  void Set(Real value);
   void SetUnit();  /// < Set to unit matrix.
   void SetRandn(); /// < Set to random values of a normal distribution
   void AddToDiag(Real r); ///< Add this quantity to the diagonal of the matrix.
+  void Add(Real value);
 
+  void ApplyLog();
+  /// Multiply two matrices elementhwise: C = A .* C 
+  void MulElements(const CuPackedMatrix<Real>& A);
+  /// scale i'th column by scale[i] 
+  void MulColsVec(const CuVectorBase<Real>& scale);
+  /// scale i'th row by scale[i] 
+  void MulRowsVec(const CuVectorBase<Real>& scale);
+  /// divide i'th row by scale[i]
+  void DivRowsVec(const CuVectorBase<Real>& div);
+  /// B = aplha * A + beta * B
+  void AddMat(Real alpha, const CuPackedMatrix<Real>& A, Real beta=1.0);
+  /// B = aplha * row + beta * B 
+  void AddVecToCols(Real alpha, const CuVectorBase<Real>& col, Real beta=1.0);
+  /// B = aplha * row + beta * B
+  void AddVecToRows(Real alpha, const CuVectorBase<Real>& row, Real beta=1.0);
   Real Trace() const;
 
   ~CuPackedMatrix() { Destroy(); }
@@ -93,6 +129,8 @@ class CuPackedMatrix {
   void CopyFromPacked(const CuPackedMatrix<Real> &src);
   void CopyFromPacked(const PackedMatrix<Real> &src);
 
+  void CopyToMat(PackedMatrix<Real> *dst) const;
+
   void Scale(Real c);
   
   void Read(std::istream &in, bool binary);
@@ -111,6 +149,8 @@ class CuPackedMatrix {
   void AddPacked(const Real alpha, const CuPackedMatrix<Real>& M);
   Real *data_;
   MatrixIndexT num_rows_;
+  MatrixIndexT num_cols_;
+  MatrixIndexT stride_;
  private:
   // Disallow assignment.
   PackedMatrix<Real> & operator =(const PackedMatrix<Real> &other);
