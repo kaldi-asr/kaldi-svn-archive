@@ -26,6 +26,7 @@
 #include "cudamatrix/cu-common.h"
 #include "matrix/matrix-common.h"
 #include "matrix/packed-matrix.h"
+#include "matrix/sp-matrix.h"
 #include "cudamatrix/cu-stlvector.h"
 #include "cudamatrix/cu-math.h"
 
@@ -68,16 +69,17 @@ class CuPackedMatrix {
     CopyFromPacked(orig);
   }
 
-  // The following two functions should only be called if we did not compile with CUDA             
-  // or could not get a CUDA card; in that case the contents are interpreted the                   
-  // same as a regular matrix.                                                                           
+  // The following two functions should only be called if we did not compile with CUDA
+  // or could not get a CUDA card; in that case the contents are interpreted the   
+  // same as a regular matrix.                                                     
+                 
   inline const MatrixBase<Real> &Mat() const {
     return *(reinterpret_cast<const MatrixBase<Real>* >(this));
   }
   inline MatrixBase<Real> &Mat() {
     return *(reinterpret_cast<MatrixBase<Real>* >(this));
   }
-
+  
   /// Dimensions
   ::MatrixDim Dim() const {
     ::MatrixDim d = {num_rows_, num_cols_, stride_};
@@ -121,15 +123,13 @@ class CuPackedMatrix {
   /// This function takes time proportional to the number of data elements.
   void Resize(MatrixIndexT nRows, MatrixResizeType resize_type = kSetZero);
   
-  inline MatrixIndexT NumRows() const { return num_rows_; }
-  inline MatrixIndexT NumCols() const { return num_rows_; }
-  
-  
   // Copy functions (do not resize).
   void CopyFromPacked(const CuPackedMatrix<Real> &src);
   void CopyFromPacked(const PackedMatrix<Real> &src);
+  void CopyFromMat(const Matrix<Real> &src);
 
   void CopyToMat(PackedMatrix<Real> *dst) const;
+  void CopyToMat(Matrix<Real> *dst) const;
 
   void Scale(Real c);
   
@@ -144,6 +144,19 @@ class CuPackedMatrix {
 
   /// Swaps the contents of *this and *other.
   void Swap(PackedMatrix<Real> *other);
+
+  void Swap(Matrix<Real> *other);
+
+  Real* Data() { return data_; }
+  const Real* Data() const { return data_; }
+  /// Size
+  inline MatrixIndexT NumRows() const { return num_rows_; }
+  inline MatrixIndexT NumCols() const { return num_rows_; }
+  /// Returns size in bytes of the data held by the matrix.
+  size_t  SizeInBytes() const {
+    return static_cast<size_t>(num_rows_) * static_cast<size_t>(stride_) * sizeof(Real);
+  }
+
  protected:
   // Will only be called from this class or derived classes.
   void AddPacked(const Real alpha, const CuPackedMatrix<Real>& M);
