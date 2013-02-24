@@ -59,7 +59,7 @@ void CuPackedMatrix<Real>::Resize(MatrixIndexT rows,
   { // Let the initializer of SpMatrix<Real> handle the allocation,
     // and then just do Swap which will switch the pointers.
     // This wastes a few instructions but is simple to code.
-    SpMatrix<Real> mat(rows, cols, resize_type);
+    SpMatrix<Real> mat(rows, resize_type);
     this->Swap(&mat);
   }
 }
@@ -120,7 +120,7 @@ void CuPackedMatrix<Real>::Swap(PackedMatrix<Real> *mat) {
 
 template<typename Real>
 void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
-  KALDI_ASSERT(src.NumRows() == num_rows_ && src.NumCols() == num_cols_);
+  KALDI_ASSERT(src.NumRows() == num_rows_);
 #if HAVE_CUDA==1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
@@ -140,12 +140,13 @@ void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
 
 template<typename Real>
 void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
-  KALDI_ASSERT(src.NumRows() == num_rows_ && src.NumCols() == num_cols_);
+  KALDI_ASSERT(src.NumRows() == num_rows_);
 #if HAVE_CUDA==1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
         num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
+    MatrixIndexT width = src.NumCols() * sizeof(Real);
     CU_SAFE_CALL(cudaMemcpy2D(data_, src.data_, num_bytes,
                             width, src.NumRows(), cudaMemcpyHostToDevice));
 
@@ -153,7 +154,7 @@ void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
   } else
 #endif
   {
-    Mat().CopyFromPacked(src);
+    this->Mat().CopyFromPacked(src);
   }
 }
 
@@ -166,7 +167,7 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
   if (CuDevice::Instantiate().Enabled()) { 
 
     Timer tim;
-   
+
     MatrixIndexT src_pitch = stride_*sizeof(Real);
     MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
     MatrixIndexT width = NumCols()*sizeof(Real);
@@ -352,7 +353,7 @@ void CuPackedMatrix<Real>::MulElements(const CuPackedMatrix<Real>& A) {
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
 
-    KALDI_ASSERT(num_cols_ == A.NumCols());
+    //KALDI_ASSERT(num_cols_ == A.NumCols());
     KALDI_ASSERT(num_rows_ == A.NumRows());
     KALDI_ASSERT(stride_ == A.Stride());
     
