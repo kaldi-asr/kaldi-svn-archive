@@ -55,10 +55,13 @@ template<typename Real> class CuMatrix;
 template<typename Real> class CuVectorBase;
 template<typename Real> class CuSubVector;
 template<typename Real> class CuVector;
+//<<<<<<< .mine
 template<typename Real> class CuPackedMatrix;
+//=======
+//template<typename Real> class CuPackedMatrix;
 template<typename Real> class CuSpMatrix;
 template<typename Real> class CuTpMatrix;
-
+//>>>>>>> .r2072
 
 /// This class provides a way for switching between double and float types.
 template<typename T> class OtherReal { };  // useful in reading+writing routines

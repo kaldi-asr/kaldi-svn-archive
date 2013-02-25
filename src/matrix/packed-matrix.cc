@@ -76,6 +76,12 @@ void PackedMatrix<Real>::Swap(PackedMatrix<Real> *other) {
   std::swap(num_rows_, other->num_rows_);
 }
 
+template<typename Real>
+void PackedMatrix<Real>::Swap(Matrix<Real> *other) {
+  std::swap(data_, other->data_);
+  std::swap(num_rows_, other->num_rows_);
+}
+
 
 template<typename Real>
 void PackedMatrix<Real>::Resize(MatrixIndexT r, MatrixResizeType resize_type) {

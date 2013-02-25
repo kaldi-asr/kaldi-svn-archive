@@ -38,6 +38,8 @@ std::ostream & operator <<(std::ostream & out, const PackedMatrix<Real>& M);
 template<typename Real> class PackedMatrix {
   friend class CuPackedMatrix<Real>;
  public:
+  //friend class CuPackedMatrix<Real>;
+
   PackedMatrix() : data_(NULL), num_rows_(0) {}
 
   explicit PackedMatrix(MatrixIndexT r, MatrixResizeType resize_type = kSetZero):
@@ -86,7 +88,7 @@ template<typename Real> class PackedMatrix {
 
   template<class OtherReal>
   void CopyFromPacked(const PackedMatrix<OtherReal> &orig);
-
+  
   /// CopyFromVec just interprets the vector as having the same layout
   /// as the packed matrix.  Must have the same dimension, i.e.
   /// orig.Dim() == (NumRows()*(NumRows()+1)) / 2;
@@ -101,6 +103,8 @@ template<typename Real> class PackedMatrix {
     size_t nr = static_cast<size_t>(num_rows_);
     return ((nr * (nr+1)) / 2) * sizeof(Real);
   }
+
+  MatrixIndexT Stride() const { return stride_; }
 
   // This code is duplicated in child classes to avoid extra levels of calls.
   Real operator() (MatrixIndexT r, MatrixIndexT c) const {
@@ -146,12 +150,15 @@ template<typename Real> class PackedMatrix {
 
   /// Swaps the contents of *this and *other.  Shallow swap.
   void Swap(PackedMatrix<Real> *other);
+  void Swap(Matrix<Real> *other);
+
 
  protected:
   // Will only be called from this class or derived classes.
   void AddPacked(const Real alpha, const PackedMatrix<Real>& M);
   Real *data_;
   MatrixIndexT num_rows_;
+  MatrixIndexT stride_;
  private:
   /// Init assumes the current contents of the class are is invalid (i.e. junk or
   /// has already been freed), and it sets the matrixd to newly allocated memory
