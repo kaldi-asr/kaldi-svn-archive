@@ -36,6 +36,7 @@ template<typename Real>
 class CuVectorBase {
  public:
   friend class CuMatrixBase<Real>;
+  friend class CuPackedMatrix<Real>;
   friend void cu::Splice<Real>(const CuMatrix<Real> &src,
                                const CuStlVector<int32> &frame_offsets,
                                CuMatrix<Real> *tgt);

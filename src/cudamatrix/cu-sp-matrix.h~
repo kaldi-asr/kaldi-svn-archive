@@ -1,5 +1,5 @@
-#ifndef KALDI_CUDAMATRIX_CU_SP_MATRIX_H_
-#define KALDI_CUDAMATRIX_CU_SP_MATRIX_H_
+#ifndef KALDI_CUDAMATRIX_SP_MATRIX_H_
+#define KALDI_CUDAMATRIX_SP_MATRIX_H_
 
 #include <sstream>
 
@@ -49,9 +49,9 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   // operators
   //inline Real operator() (MatrixIndexT r, MatrixIndexT c) const {
     
-  private:
+  //private:
   
-};
+  };
 
 } // namespace
 

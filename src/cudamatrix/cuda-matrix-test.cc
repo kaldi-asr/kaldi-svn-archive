@@ -666,8 +666,6 @@ static void UnitTestCuDiffXent() {
   AssertEqual(Hlogpost,Hlogpost2);
 }
 
-
-
 template<class Real> void CudaMatrixUnitTest() {
   //test CuMatrix<Real> methods by cross-check with Matrix
   UnitTestCuMatrixApplyLog<Real>();
