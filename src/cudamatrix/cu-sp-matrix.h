@@ -12,12 +12,12 @@
 
 namespace kaldi {
 
-  typedef enum {
-    kTakeLower,
-    kTakeUpper,
-    kTakeMean,
-    kTakeMeanAndCheck
-  } CuSpCopyType;
+  /*typedef enum {
+  kTakeLower,
+  kTakeUpper,
+  kTakeMean,
+  kTakeMeanAndCheck
+  } CuSpCopyType;*/
 
 template<typename Real>
 class CuSpMatrix : public CuPackedMatrix<Real> {
@@ -48,10 +48,10 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   /// copy from Mat
 #ifdef KALDI_PARANOID
   void CopyFromMat(const MatrixBase<Real> &orig,
-		   CuSpCopyType copy_type = kTakeMeanAndCheck);
+		   kaldi::SpCopyType copy_type = kTakeMeanAndCheck);
 #else  // different default arg if non-paranoid mode.
   void CopyFromMat(const MatrixBase<Real> &orig,
-		   CuSpCopyType copy_type = kTakeMean);
+		   kaldi::SpCopyType copy_type = kTakeMean);
 #endif
 
   private:
