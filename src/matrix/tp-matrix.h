@@ -39,8 +39,7 @@ class TpMatrix : public PackedMatrix<Real> {
   TpMatrix(const TpMatrix<Real>& Orig) : PackedMatrix<Real>(Orig) {}
   template<class OtherReal> explicit TpMatrix(const TpMatrix<OtherReal>& Orig)
       : PackedMatrix<Real>(Orig) {}
-  ~TpMatrix() {}
-
+  
   Real operator() (MatrixIndexT r, MatrixIndexT c) const {
     if (static_cast<UnsignedMatrixIndexT>(c) >
         static_cast<UnsignedMatrixIndexT>(r)) {

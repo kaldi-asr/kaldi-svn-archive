@@ -76,8 +76,6 @@ class SpMatrix : public PackedMatrix<Real> {
   }
 #endif
 
-  ~SpMatrix() {}
-
   /// Shallow swap.
   void Swap(SpMatrix *other);
 
