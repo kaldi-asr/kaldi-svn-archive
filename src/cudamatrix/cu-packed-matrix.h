@@ -29,6 +29,7 @@
 #include "matrix/sp-matrix.h"
 #include "cudamatrix/cu-stlvector.h"
 #include "cudamatrix/cu-math.h"
+#include "cudamatrix/cu-matrix.h"
 
 namespace kaldi {
 
