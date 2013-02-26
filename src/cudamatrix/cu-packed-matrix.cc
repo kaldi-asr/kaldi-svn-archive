@@ -17,6 +17,7 @@
 // limitations under the License.
 
 
+
 #if HAVE_CUDA==1
 #include <cuda_runtime_api.h>
 #include <cublas.h>

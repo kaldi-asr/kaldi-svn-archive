@@ -12,13 +12,20 @@
 
 namespace kaldi {
 
+  typedef enum {
+    kTakeLower,
+    kTakeUpper,
+    kTakeMean,
+    kTakeMeanAndCheck
+  } CuSpCopyType;
+
 template<typename Real>
 class CuSpMatrix : public CuPackedMatrix<Real> {
  public:
   // friendships
   //friend class std:vector<CuMatrix<Real> >;
   
-  // constructor
+  /// constructor
   CuSpMatrix(): CuPackedMatrix<Real>() {}
   
   explicit CuSpMatrix(MatrixIndexT r, MatrixResizeType resize_type = kSetZero)
@@ -30,21 +37,30 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   explicit CuSpMatrix(const CuSpMatrix<Real> &orig)
     : CuPackedMatrix<Real>(orig) {}
 
-  // deconstructor
+  /// deconstructor
   ~CuSpMatrix() {}
 
-  // resize
+  /// resize
   inline void Resize(MatrixIndexT nRows, MatrixResizeType resize_type = kSetZero) {
     CuPackedMatrix<Real>::Resize(nRows, resize_type);
   }
 
-  // copyfromsp
+  /// copyfromsp
   void CopyFromSp(const CuSpMatrix<Real> &other) {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
   void CopyFromSp(const SpMatrix<Real> &other) {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
+
+  /// copy from Mat
+#ifdef KALDI_PARANOID
+  void CopyFromMat(const MatrixBase<Real> &orig,
+		   CuSpCopyType copy_type = kTakeMeanAndCheck);
+#else  // different default arg if non-paranoid mode.
+  void CopyFromMat(const MatrixBase<Real> &orig,
+		   CuSpCopyType copy_type = kTakeMean);
+#endif
 
   // operators
   //inline Real operator() (MatrixIndexT r, MatrixIndexT c) const {
