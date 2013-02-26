@@ -22,10 +22,7 @@ namespace kaldi {
 template<typename Real>
 class CuSpMatrix : public CuPackedMatrix<Real> {
  public:
-  // friendships
-  //friend class std:vector<CuMatrix<Real> >;
   
-  /// constructor
   CuSpMatrix(): CuPackedMatrix<Real>() {}
   
   explicit CuSpMatrix(MatrixIndexT r, MatrixResizeType resize_type = kSetZero)
@@ -37,15 +34,10 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   explicit CuSpMatrix(const CuSpMatrix<Real> &orig)
     : CuPackedMatrix<Real>(orig) {}
 
-  /// deconstructor
-  ~CuSpMatrix() {}
-
-  /// resize
   inline void Resize(MatrixIndexT nRows, MatrixResizeType resize_type = kSetZero) {
     CuPackedMatrix<Real>::Resize(nRows, resize_type);
   }
 
-  /// copyfromsp
   void CopyFromSp(const CuSpMatrix<Real> &other) {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
@@ -62,9 +54,6 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
 		   CuSpCopyType copy_type = kTakeMean);
 #endif
 
-  // operators
-  //inline Real operator() (MatrixIndexT r, MatrixIndexT c) const {
-    
   private:
   
 };
