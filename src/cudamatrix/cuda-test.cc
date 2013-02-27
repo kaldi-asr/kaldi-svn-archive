@@ -3,6 +3,7 @@
 
 
 #include "cudamatrix/cu-sp-matrix.h"
+#include "cudamatrix/cu-packed-matrix.h"
 #include <numeric>
 #include <time.h>
 
@@ -12,8 +13,8 @@ template<class Real>
 static void SimpleTest() {
   int32 dim = 5 + rand() % 10;
   std::cout << "dim is : " << dim << std::endl;
-  //CuSpMatrix<Real> S;
-  CuSpMatrix<Real> S(dim);
+  CuPackedMatrix<Real> S;
+  //CuPackedMatrix<Real> S(dim);
 }
 // Initialization
 template<class Real> static void InitRand(CuSpMatrix<Real> *M) {

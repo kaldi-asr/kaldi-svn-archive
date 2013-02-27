@@ -322,7 +322,10 @@ void CuPackedMatrix<Real>::SetZero() {
   #if HAVE_CUDA==1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
-    CU_SAFE_CALL(cudaMemset(data_, 0, num_rows_*stride_*sizeof(Real)));
+    size_t nr = static_cast<size_t>(num_rows_),
+      num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
+
+    CU_SAFE_CALL(cudaMemset(data_, 0, num_bytes));
     CuDevice::Instantiate().AccuProfile("CuMatrix::SetZero", tim.Elapsed());
   } else
   #endif
