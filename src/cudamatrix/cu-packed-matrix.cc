@@ -325,7 +325,8 @@ void CuPackedMatrix<Real>::SetZero() {
     size_t nr = static_cast<size_t>(num_rows_),
       num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
 
-    CU_SAFE_CALL(cudaMemset(data_, 0, num_bytes));
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&this->data_), num_bytes));
+    //CU_SAFE_CALL(cudaMemset(reinterpret_cast<void*>(data_), 0, num_bytes));
     CuDevice::Instantiate().AccuProfile("CuMatrix::SetZero", tim.Elapsed());
   } else
   #endif
