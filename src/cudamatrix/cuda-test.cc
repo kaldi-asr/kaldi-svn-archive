@@ -1,4 +1,4 @@
-
+ #include <iostream>
 #include "base/kaldi-common.h"
 
 
@@ -15,7 +15,49 @@ static void SimpleTest() {
   std::cout << "dim is : " << dim << std::endl;
   //CuPackedMatrix<Real> S;
   CuPackedMatrix<Real> S(dim);
+  PackedMatrix<Real> S2(dim);
+  S.CopyToMat(&S2);
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j <= i; j++) {
+      std::cout << S2(i,j) << " ";
+    }
+    std::cout << std::endl;
+  }
+  CuSpMatrix<Real> Sp(dim);
+  std::cout << Sp.NumRows() << std::endl;
+  std::cout << Sp.NumCols() << std::endl;
+  
+  SpMatrix<Real> Sp2(dim);
+  Sp.CopyToMat(&Sp2);
+
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j <= i; j++) {
+      std::cout << Sp2(i,j) << " ";
+    }
+    std::cout << std::endl;
+  }
+  
+  Sp2(0,0) = 10;
+  
+  //CuSpMatrix<Real> CuSp(&Sp2);
+  //InitRand(&Sp);
+
 }
+
+/*
+ * INITIALIZERS
+ */ 
+template<class Real>
+static void InitRand(MatrixBase<Real> *M) {
+  do {
+    for (MatrixIndexT i = 0; i < M->NumRows(); i++) {
+      for (MatrixIndexT j = 0; j <= i; j++ ) {
+	(*M)(i,j) = RandGauss();
+      }
+    }
+  } while (M->NumRows() != 0 && M->Cond() > 100);
+}
+
 // Initialization
 template<class Real> static void InitRand(CuSpMatrix<Real> *M) {
  start:

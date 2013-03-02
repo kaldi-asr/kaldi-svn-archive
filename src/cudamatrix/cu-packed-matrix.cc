@@ -232,13 +232,20 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
 
     Timer tim;
 
-    MatrixIndexT src_pitch = stride_*sizeof(Real);
-    MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
-    MatrixIndexT width = NumCols()*sizeof(Real);
-    CU_SAFE_CALL(cudaMemcpy2D(dst->data_, dst_pitch, this->data_, src_pitch,
-                            width, this->num_rows_, cudaMemcpyDeviceToHost));
+    //MatrixIndexT src_pitch = stride_*sizeof(Real);
+    //MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
+    //MatrixIndexT width = NumCols()*sizeof(Real);
 
-    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyToMatD2H",tim.Elapsed());
+    size_t nr = static_cast<size_t>(num_rows_),
+      num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
+    
+    CU_SAFE_CALL(cudaMemcpy(dst->data_, data_, num_bytes,
+                            cudaMemcpyDeviceToHost));
+    
+    //CU_SAFE_CALL(cudaMemcpy2D(dst->data_, dst_pitch, this->data_, src_pitch,
+    //                        width, this->num_rows_, cudaMemcpyDeviceToHost));
+
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrixMatrix::CopyToMatD2H",tim.Elapsed());
   } else
   #endif
   {
@@ -259,8 +266,13 @@ void CuPackedMatrix<Real>::CopyToMat(Matrix<Real> *dst) const {
     MatrixIndexT src_pitch = stride_*sizeof(Real);
     MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
     MatrixIndexT width = NumCols()*sizeof(Real);
+
+    //CU_SAFE_CALL(cudaMemcpy(data_, src.data_, num_bytes,
+    //                        cudaMemcpyDeviceToDevice));
+
+
     CU_SAFE_CALL(cudaMemcpy2D(dst->data_, dst_pitch, this->data_, src_pitch,
-			      width, this->num_rows_, cudaMemcpyDeviceToHost));
+    		      width, this->num_rows_, cudaMemcpyDeviceToHost));
 
     CuDevice::Instantiate().AccuProfile("CuMatrix::CopyToMatD2H",tim.Elapsed());
   } else
@@ -303,7 +315,7 @@ void CuPackedMatrix<Real>::CopyRowsFromPacked(int32 r, const CuPackedMatrix<Real
 
 
 template<typename Real>
-void CuMatrix<Real>::Read(std::istream &is, bool binary) {
+void CuPackedMatrix<Real>::Read(std::istream &is, bool binary) {
   Matrix<Real> temp;
   temp.Read(is, binary);
   Destroy();
@@ -311,7 +323,7 @@ void CuMatrix<Real>::Read(std::istream &is, bool binary) {
 }
 
 template<typename Real>
-void CuMatrix<Real>::Write(std::ostream &os, bool binary) const {
+void CuPackedMatrix<Real>::Write(std::ostream &os, bool binary) const {
   Matrix<Real> temp(this->num_rows_, this->num_cols_, kUndefined);
   this->CopyToMat(&temp);
   temp.Write(os, binary); 
@@ -326,8 +338,8 @@ void CuPackedMatrix<Real>::SetZero() {
       num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
 
     CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&this->data_), num_bytes));
-    //CU_SAFE_CALL(cudaMemset(reinterpret_cast<void*>(data_), 0, num_bytes));
-    CuDevice::Instantiate().AccuProfile("CuMatrix::SetZero", tim.Elapsed());
+    CU_SAFE_CALL(cudaMemset(reinterpret_cast<void*>(this->data_), 0, num_bytes));
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::SetZero", tim.Elapsed());
   } else
   #endif
   {

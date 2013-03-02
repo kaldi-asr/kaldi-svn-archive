@@ -25,6 +25,7 @@
 
 #include "cudamatrix/cu-common.h"
 #include "matrix/matrix-common.h"
+#include "matrix/kaldi-matrix.h"
 #include "matrix/packed-matrix.h"
 #include "matrix/sp-matrix.h"
 #include "cudamatrix/cu-stlvector.h"
@@ -156,6 +157,27 @@ class CuPackedMatrix {
   /// Returns size in bytes of the data held by the matrix.
   size_t  SizeInBytes() const {
     return static_cast<size_t>(num_rows_) * static_cast<size_t>(stride_) * sizeof(Real);
+  }
+
+  /// operators
+  // This code is duplicated in child classes to avoid extra levels of calls.          
+  Real operator() (MatrixIndexT r, MatrixIndexT c) const {
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_) &&
+                 static_cast<UnsignedMatrixIndexT>(c) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_)
+                 && c <= r);
+    return *(data_ + (r * (r + 1)) / 2 + c);
+  }
+
+  // This code is duplicated in child classes to avoid extra levels of calls.         
+  Real &operator() (MatrixIndexT r, MatrixIndexT c) {
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_) &&
+                 static_cast<UnsignedMatrixIndexT>(c) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_)
+                 && c <= r);
+    return *(data_ + (r * (r + 1)) / 2 + c);
   }
 
  protected:
