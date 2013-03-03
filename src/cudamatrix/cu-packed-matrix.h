@@ -62,7 +62,7 @@ class CuPackedMatrix {
       data_(NULL) {  Resize(r, resize_type);  }
   
   explicit CuPackedMatrix(const PackedMatrix<Real> &orig) : data_(NULL) {
-    Resize(orig.NumRows(), kUndefined);
+    Resize(orig.num_rows_, kUndefined);
     CopyFromPacked(orig);
   }
 
@@ -84,11 +84,11 @@ class CuPackedMatrix {
   
   /// Dimensions
   ::MatrixDim Dim() const {
-    ::MatrixDim d = {num_rows_, num_cols_, stride_};
+    ::MatrixDim d = {num_rows_};
     return d;
   }
   
-  MatrixIndexT Stride() const { return stride_; }
+  //MatrixIndexT Stride() const { return stride_; }
 
   void SetZero();  /// < Set to zero
   void Set(Real value);
@@ -128,10 +128,7 @@ class CuPackedMatrix {
   // Copy functions (do not resize).
   void CopyFromPacked(const CuPackedMatrix<Real> &src);
   void CopyFromPacked(const PackedMatrix<Real> &src);
-  void CopyFromMat(const Matrix<Real> &src);
-
   void CopyToMat(PackedMatrix<Real> *dst) const;
-  void CopyToMat(Matrix<Real> *dst) const;
 
   void Scale(Real c);
   
@@ -147,8 +144,6 @@ class CuPackedMatrix {
   /// Swaps the contents of *this and *other.
   void Swap(PackedMatrix<Real> *other);
 
-  void Swap(Matrix<Real> *other);
-
   Real* Data() { return data_; }
   const Real* Data() const { return data_; }
   /// Size
@@ -156,7 +151,10 @@ class CuPackedMatrix {
   inline MatrixIndexT NumCols() const { return num_rows_; }
   /// Returns size in bytes of the data held by the matrix.
   size_t  SizeInBytes() const {
-    return static_cast<size_t>(num_rows_) * static_cast<size_t>(stride_) * sizeof(Real);
+    size_t nr = static_cast<size_t>(num_rows_),
+      num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
+    return num_bytes;
+    //return static_cast<size_t>(num_rows_) * static_cast<size_t>(stride_) * sizeof(Real);
   }
 
   /// operators
@@ -185,8 +183,6 @@ class CuPackedMatrix {
   void AddPacked(const Real alpha, const CuPackedMatrix<Real>& M);
   Real *data_;
   MatrixIndexT num_rows_;
-  MatrixIndexT num_cols_;
-  MatrixIndexT stride_;
  private:
   // Disallow assignment.
   PackedMatrix<Real> & operator =(const PackedMatrix<Real> &other);

@@ -15,20 +15,34 @@ static void SimpleTest() {
   std::cout << "dim is : " << dim << std::endl;
   //CuPackedMatrix<Real> S;
   CuPackedMatrix<Real> S(dim);
-  PackedMatrix<Real> S2(dim);
-  S.CopyToMat(&S2);
+  PackedMatrix<Real> T(dim);
+  S.CopyToMat(&T);
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
-      std::cout << S2(i,j) << " ";
+      std::cout << T(i,j) << " ";
     }
     std::cout << std::endl;
   }
+  T(0,0) = 10;
+  CuPackedMatrix<Real> U(dim);
+  U.CopyFromPacked(T);
+  //std::cout << U(0,0) << std::endl;
+  /*  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j <= i; j++) {
+      std::cout << U(i,j) << " ";
+    }
+    std::cout << std::endl;
+    }*/
+
+
   CuSpMatrix<Real> Sp(dim);
   std::cout << Sp.NumRows() << std::endl;
   std::cout << Sp.NumCols() << std::endl;
-  
+
+  // Sp test 
+  /*
   SpMatrix<Real> Sp2(dim);
-  Sp.CopyToMat(&Sp2);
+  Sp.CopyToMat(Sp2);
 
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
@@ -39,9 +53,9 @@ static void SimpleTest() {
   
   Sp2(0,0) = 10;
   
-  //CuSpMatrix<Real> CuSp(&Sp2);
+  CuSpMatrix<Real> CuSp(&Sp2);
   //InitRand(&Sp);
-
+*/
 }
 
 /*

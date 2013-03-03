@@ -99,7 +99,7 @@ void CuPackedMatrix<Real>::Swap(PackedMatrix<Real> *mat) {
         // Both *this and *mat are nonempty.  Recurse to simpler cases.
         // this could be done more efficiently in the case where
         // the size does not change.
-        Matrix<Real> temp;
+        PackedMatrix<Real> temp;
         this->Swap(&temp); // now temp is full, *this is empty.
         mat->Swap(&temp); // now mat has data from *this, temp has
         // data from mat.
@@ -119,44 +119,6 @@ void CuPackedMatrix<Real>::Swap(PackedMatrix<Real> *mat) {
 }
 
 template<typename Real>
-void CuPackedMatrix<Real>::Swap(Matrix<Real> *mat) {
-#if HAVE_CUDA==1
-  if (CuDevice::Instantiate().Enabled()) {
-    if (this->num_rows_ == 0) {
-      if (mat->num_rows_ != 0) {
-	// *this is empty, but mat is nonempty.
-	Resize(mat->num_rows_, kUndefined);
-	CopyFromMat(*mat);
-	mat->Resize(0, 0);
-      }
-      // else both are empty
-    } else {
-      if (mat->num_rows_ != 0) {
-	// Both *this and *mat are nonempty.  Recurse to simpler cases.
-	// this could be done more efficiently in the case where
-	// the size does not change.
-	Matrix<Real> temp;
-	this->Swap(&temp); // now temp is full, *this is empty.
-	mat->Swap(&temp); // now mat has data from *this, temp has 
-	// data from mat.
-	this->Swap(mat); // copy data in mat to *this, which is now empty.
-      } else { // *this is full but *mat is empty.
-	mat->Resize(this->num_rows_, this->num_cols_, kUndefined);
-	this->CopyToMat(mat);
-	this->Destroy();
-      }
-    }
-  } else
-#endif
-  {
-    std::swap(mat->data_, this->data_);
-    std::swap(mat->num_cols_, this->num_cols_);
-    std::swap(mat->num_rows_, this->num_rows_);
-    std::swap(mat->stride_, this->stride_);
-  }
-}
-
-template<typename Real>
 void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
   KALDI_ASSERT(src.NumRows() == num_rows_);
 #if HAVE_CUDA==1 
@@ -164,9 +126,11 @@ void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
         num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
+
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&this->data_), num_bytes));    
     CU_SAFE_CALL(cudaMemcpy(data_, src.data_, num_bytes,
                             cudaMemcpyDeviceToDevice));
-    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyFromPacked1",tim.Elapsed());
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::CopyFromPacked1",tim.Elapsed());
   } else
 #endif
   {
@@ -175,23 +139,21 @@ void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
   }
 }
 
-
-
 template<typename Real>
 void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
   KALDI_ASSERT(src.NumRows() == num_rows_);
+  std::cout << "WE ARE HERE!" << std::endl;
 #if HAVE_CUDA==1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
         num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
-    MatrixIndexT width = src.NumCols() * sizeof(Real);
-    MatrixIndexT dst_pitch = stride_ * sizeof(Real);
-    //MatrixIndexT src_pitch = src.Stride() * sizeof(Real);
-    CU_SAFE_CALL(cudaMemcpy2D(data_, dst_pitch, src.data_, num_bytes,
-			      width, src.NumRows(), cudaMemcpyHostToDevice));
+    std::cout << data_ << std::endl;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&this->data_), num_bytes));    
+    CU_SAFE_CALL(cudaMemcpy(data_, src.data_, num_bytes,
+                            cudaMemcpyHostToDevice));
 
-    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyFromPacked2",tim.Elapsed());
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::CopyFromPacked2",tim.Elapsed());
   } else
 #endif
   {
@@ -201,29 +163,6 @@ void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
 }
 
 template<typename Real>
-void CuPackedMatrix<Real>::CopyFromMat(const Matrix<Real> &src) {
-  KALDI_ASSERT(src.NumRows() == num_rows_ && src.NumCols() == num_cols_);
-#if HAVE_CUDA==1
-  if (CuDevice::Instantiate().Enabled()) {
-    Timer tim;
-    
-    MatrixIndexT dst_pitch = stride_ * sizeof(Real);
-    MatrixIndexT src_pitch = src.Stride() * sizeof(Real);
-    MatrixIndexT width = src.NumCols() * sizeof(Real);
-    CU_SAFE_CALL(cudaMemcpy2D(data_, dst_pitch, src.data_, src_pitch,
-			      width, src.num_rows_, cudaMemcpyDeviceToDevice));
-    
-    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyFromMatD2D",tim.Elapsed());
-  } else
-#endif
-    {
-      Mat().CopyFromMat(src);
-      //Mat().CopyFromMat(src.Mat());
-    }
-}
-
-
-template<typename Real>
 void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
   KALDI_ASSERT(dst->NumRows() == NumRows() && dst->NumCols() == NumCols());
   
@@ -231,20 +170,11 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
   if (CuDevice::Instantiate().Enabled()) { 
 
     Timer tim;
-
-    //MatrixIndexT src_pitch = stride_*sizeof(Real);
-    //MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
-    //MatrixIndexT width = NumCols()*sizeof(Real);
-
     size_t nr = static_cast<size_t>(num_rows_),
       num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
     
     CU_SAFE_CALL(cudaMemcpy(dst->data_, data_, num_bytes,
                             cudaMemcpyDeviceToHost));
-    
-    //CU_SAFE_CALL(cudaMemcpy2D(dst->data_, dst_pitch, this->data_, src_pitch,
-    //                        width, this->num_rows_, cudaMemcpyDeviceToHost));
-
     CuDevice::Instantiate().AccuProfile("CuPackedMatrixMatrix::CopyToMatD2H",tim.Elapsed());
   } else
   #endif
@@ -253,36 +183,6 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
     //dst->CopyFromPacked(Mat());
   }
 }
-
-template<typename Real>
-void CuPackedMatrix<Real>::CopyToMat(Matrix<Real> *dst) const {
-  KALDI_ASSERT(dst->NumRows() == NumRows() && dst->NumCols() == NumCols());
-  
-#if HAVE_CUDA==1
-  if (CuDevice::Instantiate().Enabled()) {
-    
-    Timer tim;
-    
-    MatrixIndexT src_pitch = stride_*sizeof(Real);
-    MatrixIndexT dst_pitch = dst->Stride()*sizeof(Real);
-    MatrixIndexT width = NumCols()*sizeof(Real);
-
-    //CU_SAFE_CALL(cudaMemcpy(data_, src.data_, num_bytes,
-    //                        cudaMemcpyDeviceToDevice));
-
-
-    CU_SAFE_CALL(cudaMemcpy2D(dst->data_, dst_pitch, this->data_, src_pitch,
-    		      width, this->num_rows_, cudaMemcpyDeviceToHost));
-
-    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyToMatD2H",tim.Elapsed());
-  } else
-#endif
-    {
-      memcpy(data_, dst->Data(), SizeInBytes());
-      //dst->CopyFromPacked(Mat());                                                   
-    }
-}
-
 
 /*
 template<typename Real>
@@ -316,7 +216,7 @@ void CuPackedMatrix<Real>::CopyRowsFromPacked(int32 r, const CuPackedMatrix<Real
 
 template<typename Real>
 void CuPackedMatrix<Real>::Read(std::istream &is, bool binary) {
-  Matrix<Real> temp;
+  PackedMatrix<Real> temp;
   temp.Read(is, binary);
   Destroy();
   Swap(&temp);
@@ -324,7 +224,7 @@ void CuPackedMatrix<Real>::Read(std::istream &is, bool binary) {
 
 template<typename Real>
 void CuPackedMatrix<Real>::Write(std::ostream &os, bool binary) const {
-  Matrix<Real> temp(this->num_rows_, this->num_cols_, kUndefined);
+  PackedMatrix<Real> temp(this->num_rows_, kUndefined);
   this->CopyToMat(&temp);
   temp.Write(os, binary); 
 }
@@ -460,7 +360,7 @@ void CuPackedMatrix<Real>::MulElements(const CuPackedMatrix<Real>& A) {
 
     //KALDI_ASSERT(num_cols_ == A.NumCols());
     KALDI_ASSERT(num_rows_ == A.NumRows());
-    KALDI_ASSERT(stride_ == A.Stride());
+    //KALDI_ASSERT(stride_ == A.Stride());
     
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
@@ -633,10 +533,6 @@ void CuPackedMatrix<Real>::AddVecToRows(Real alpha,
     Mat().AddVecToRows(alpha, row.Vec());
   }
 }
-
-
-
-
 
 // Instantiate class CuPackedMatrix for float and double.
 template class CuPackedMatrix<float>;
