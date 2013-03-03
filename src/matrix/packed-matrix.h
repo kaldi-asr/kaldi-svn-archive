@@ -104,7 +104,7 @@ template<typename Real> class PackedMatrix {
     return ((nr * (nr+1)) / 2) * sizeof(Real);
   }
 
-  MatrixIndexT Stride() const { return stride_; }
+  //MatrixIndexT Stride() const { return stride_; }
 
   // This code is duplicated in child classes to avoid extra levels of calls.
   Real operator() (MatrixIndexT r, MatrixIndexT c) const {
@@ -158,7 +158,7 @@ template<typename Real> class PackedMatrix {
   void AddPacked(const Real alpha, const PackedMatrix<Real>& M);
   Real *data_;
   MatrixIndexT num_rows_;
-  MatrixIndexT stride_;
+  //MatrixIndexT stride_;
  private:
   /// Init assumes the current contents of the class are is invalid (i.e. junk or
   /// has already been freed), and it sets the matrixd to newly allocated memory
