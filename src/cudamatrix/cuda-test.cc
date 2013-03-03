@@ -9,6 +9,10 @@
 
 namespace kaldi {
 
+/*
+ * INITIALIZAERS
+ */
+
 template<class Real>
 static void SimpleTest() {
   int32 dim = 5 + rand() % 10;
@@ -26,19 +30,25 @@ static void SimpleTest() {
   T(0,0) = 10;
   CuPackedMatrix<Real> U(dim);
   U.CopyFromPacked(T);
-  //std::cout << U(0,0) << std::endl;
-  /*  for (int i = 0; i < dim; i++) {
+  PackedMatrix<Real> V(dim);
+  U.CopyToMat(&V);
+  for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
-      std::cout << U(i,j) << " ";
+      std::cout << V(i,j) << " ";
     }
     std::cout << std::endl;
-    }*/
-
-
-  CuSpMatrix<Real> Sp(dim);
-  std::cout << Sp.NumRows() << std::endl;
-  std::cout << Sp.NumCols() << std::endl;
-
+  }
+  V(7,7) = 17;
+  CuPackedMatrix<Real> W(V);
+  PackedMatrix<Real> X(dim);
+  W.CopyToMat(&X);
+  for (int i = 0; i < dim; i++) {
+    for (int j = 0; j <= i; j++) {
+      std::cout << X(i,j) << " ";
+    }
+    std::cout << std::endl;
+  }
+  
   // Sp test 
   /*
   SpMatrix<Real> Sp2(dim);
