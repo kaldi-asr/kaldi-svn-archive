@@ -53,7 +53,6 @@ class CuPackedMatrix {
   friend class CuVectorBase<Real>;
   friend class CuSubMatrix<Real>;
   friend class CuRand<Real>;
-
   
   CuPackedMatrix() : data_(NULL), num_rows_(0) {}
 
@@ -139,25 +138,6 @@ class CuPackedMatrix {
   }
 
   /// operators
-  // This code is duplicated in child classes to avoid extra levels of calls.          
-  Real operator() (MatrixIndexT r, MatrixIndexT c) const {
-    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
-                 static_cast<UnsignedMatrixIndexT>(num_rows_) &&
-                 static_cast<UnsignedMatrixIndexT>(c) <
-                 static_cast<UnsignedMatrixIndexT>(num_rows_)
-                 && c <= r);
-    return *(data_ + (r * (r + 1)) / 2 + c);
-  }
-
-  // This code is duplicated in child classes to avoid extra levels of calls.         
-  Real &operator() (MatrixIndexT r, MatrixIndexT c) {
-    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
-                 static_cast<UnsignedMatrixIndexT>(num_rows_) &&
-                 static_cast<UnsignedMatrixIndexT>(c) <
-                 static_cast<UnsignedMatrixIndexT>(num_rows_)
-                 && c <= r);
-    return *(data_ + (r * (r + 1)) / 2 + c);
-  }
 
  protected:
   // Will only be called from this class or derived classes.
@@ -174,8 +154,6 @@ class CuPackedMatrix {
 template<typename Real>
 std::ostream &operator << (std::ostream &out, const CuPackedMatrix<Real> &mat);
 
-
-  
 } // namespace
 
 

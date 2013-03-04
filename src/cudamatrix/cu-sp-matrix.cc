@@ -13,5 +13,9 @@
 
 namespace kaldi {
 
+template<class Real>
+Real CuSpMatrix<Real>::Trace() const {
+
+}
 
 } // namespace

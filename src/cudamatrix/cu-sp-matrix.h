@@ -12,13 +12,6 @@
 
 namespace kaldi {
 
-  /*typedef enum {
-  kTakeLower,
-  kTakeUpper,
-  kTakeMean,
-  kTakeMeanAndCheck
-  } CuSpCopyType;*/
-
 template<typename Real>
 class CuSpMatrix : public CuPackedMatrix<Real> {
  public:
@@ -29,7 +22,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     : CuPackedMatrix<Real>(r, resize_type) {}
 
   explicit CuSpMatrix(const SpMatrix<Real> &orig)
-    : PackedMatrix<Real>(orig) {}
+    : CuPackedMatrix<Real>(orig) {}
 
   explicit CuSpMatrix(const CuSpMatrix<Real> &orig)
     : CuPackedMatrix<Real>(orig) {}
@@ -45,15 +38,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
 
-  /// copy from Mat
-#ifdef KALDI_PARANOID
-  void CopyFromMat(const MatrixBase<Real> &orig,
-		   kaldi::SpCopyType copy_type = kTakeMeanAndCheck);
-#else  // different default arg if non-paranoid mode.
-  void CopyFromMat(const MatrixBase<Real> &orig,
-		   kaldi::SpCopyType copy_type = kTakeMean);
-#endif
-
+  Real Trace() const;
   private:
   
 };
