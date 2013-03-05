@@ -41,6 +41,7 @@ namespace kaldi {
 /*
  * CuMatrix
  */
+template<typename Real> inline void cuda_trace(int Gr, int Bl, Real* mat, Real* value) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_set_const(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_scale(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
@@ -84,6 +85,7 @@ template<typename Real> inline void cuda_copy(dim3 Gr, dim3 Bl, Real *y, const R
 /*
  * CuMatrix 
  */
+template<> inline void cuda_trace<float>(int Gr, int Bl, float* mat, float* value) { cudaF_trace(Gr,Bl,mat,value); }
 template<> inline void cuda_set_const<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_set_const(Gr,Bl,mat,value,d); }
 template<> inline void cuda_add<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_add(Gr,Bl,mat,value,d); }
 template<> inline void cuda_scale<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_scale(Gr,Bl,mat,value,d); }
@@ -130,6 +132,7 @@ template<> inline void cuda_copy<float>(dim3 Gr, dim3 Bl, float *y, const float 
 /*
  * CuMatrix 
  */
+template<> inline void cuda_trace<double>(int Gr, int Bl, double* mat, double* value) { cudaD_trace(Gr,Bl,mat,value); }
 template<> inline void cuda_set_const<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_set_const(Gr,Bl,mat,value,d); }
 template<> inline void cuda_add<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_add(Gr,Bl,mat,value,d); }
 template<> inline void cuda_scale<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_scale(Gr,Bl,mat,value,d); }

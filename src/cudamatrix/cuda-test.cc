@@ -93,6 +93,13 @@ static void SimpleTest() {
     }
     std::cout << std::endl;
   }
+
+  CuSpMatrix<Real> test(B);
+  //Real ans = test.Trace();
+  std::cout << W.NumRows() << std::endl;
+  std::cout << W.NumCols() << std::endl;
+  std::cout << "the trace is " << test.Trace() << std::endl;
+
   SpMatrix<Real> C(dim);
   InitRand(&C);
   for (int i = 0; i < dim; i++) {
@@ -101,9 +108,13 @@ static void SimpleTest() {
     }
     std::cout << std::endl;
   }
-  C(7,7) = 22;
+  for (int i = 0; i < dim; i++) {
+    C(i,i) = i;
+  }
+  //C(7,7) = 22;
   CuSpMatrix<Real> D(C);
-  SpMatrix<Real> E(dim);
+  std::cout << "The trace is : " << D.Trace() << std::endl;
+  SpMatrix<Real> E(dim);  
   D.CopyToMat(&E);
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
