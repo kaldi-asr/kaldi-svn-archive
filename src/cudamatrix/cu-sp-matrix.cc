@@ -12,6 +12,35 @@
 #include "cu-sp-matrix.h"
 
 namespace kaldi {
+
+/**
+ * C++ templated wrapper of ANSI-C CUBLAS function SPR
+ */
+#if HAVE_CUDA==1
+template<typename Real> inline void cublas_spr(char uplo, int n, const Real alpha, const Real* x, int incx, Real* AP) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline void cublas_spr<float>(char uplo, int n, const float alpha, const float*x, int incx, float* AP) {
+  cublasSspr(uplo, n, alpha, x, incx, AP);
+}
+template<> inline void cublas_spr<double>(char uplo, int n, const double alpha, const double* x, int incx, double* AP) {
+  cublasDspr(uplo, n, alpha, x, incx, AP);
+}
+#endif
+
+
+template<>
+void CuSpMatrix<float>::AddVec2(const float alpha, const CuVectorBase<float> &v, char uplo) {
+  KALDI_ASSERT(v.Dim() == this->NumRows());
+  cublas_spr((uplo=='U'?'U':'L'), v.Dim(), alpha, v.Data(), 1, this->data_);
+}
+
+template<>
+void CuSpMatrix<double>::AddVec2(const double alpha, const CuVectorBase<double> &v, char uplo) {
+  KALDI_ASSERT(v.Dim() == this->NumRows());
+  cublas_spr((uplo=='U'?'U':'L'), v.Dim(), alpha, v.Data(), 1, this->data_);
+}
+
   /*
   template<class Real>
   Real CuSpMatrix<Real>::Trace() const {
@@ -35,7 +64,7 @@ namespace kaldi {
     return ans;
   }
   */
-  template class CuSpMatrix<float>;
-  template class CuSpMatrix<double>;
+template class CuSpMatrix<float>;
+template class CuSpMatrix<double>;
 
 } // namespace

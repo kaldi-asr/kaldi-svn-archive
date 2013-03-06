@@ -38,6 +38,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
 
+  void AddVec2(const Real alpha, const CuVectorBase<Real> &v, const char uplo);
   //Real Trace() const;
   private:
   
