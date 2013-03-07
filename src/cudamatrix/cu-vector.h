@@ -64,8 +64,7 @@ class CuVectorBase {
   /// Sum the columns of the matrix, add to vector
   void AddColSumMat(Real alpha, const CuMatrixBase<Real> &mat, Real beta = 1.0); 
   void InvertElements(); 
-  
-  Real* Data() const{ return data_; }
+
 
 protected:
   // The following two functions should only be called if we did not compile
