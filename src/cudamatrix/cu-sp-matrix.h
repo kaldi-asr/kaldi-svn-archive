@@ -38,7 +38,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
 
-  //Real Trace() const;
+  Real Trace() const;
   private:
   
 };

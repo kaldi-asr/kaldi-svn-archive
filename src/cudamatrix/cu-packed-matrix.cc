@@ -172,12 +172,12 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
     
     CU_SAFE_CALL(cudaMemcpy(dst->data_, data_, num_bytes,
                             cudaMemcpyDeviceToHost));
-    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::CopyToMat",tim.Elapsed());
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrixMatrix::CopyToMatD2H",tim.Elapsed());
   } else
   #endif
   {
-    //memcpy(data_, dst->Data(), SizeInBytes());
-    dst->CopyFromPacked(Mat());
+    memcpy(data_, dst->Data(), SizeInBytes());
+    //dst->CopyFromPacked(Mat());
   }
 }
 
@@ -244,27 +244,6 @@ void CuPackedMatrix<Real>::SetZero() {
   }
 }
 
-template<class Real>
-Real CuPackedMatrix<Real>::Trace() const {
-  Real ans = 0.0;
-#if HAVE_CUDA==1
-  if (CuDevice::Instantiate().Enabled()) {
-    Timer tim;
-    
-    int dimBlock(CUBLOCK);
-    int dimGrid(n_blocks(NumRows(), CUBLOCK));
-    
-    cuda_trace(dimGrid, dimBlock, data_, &ans);
-    CU_SAFE_CALL(cudaGetLastError());
-    
-    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
-  } else
-#endif
-    {
-      ans = Mat().Trace();
-    }
-  return ans;
-}
 
 
 /**

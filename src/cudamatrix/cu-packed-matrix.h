@@ -74,11 +74,11 @@ class CuPackedMatrix {
   // or could not get a CUDA card; in that case the contents are interpreted the   
   // same as a regular matrix.                                                     
                  
-  inline const PackedMatrix<Real> &Mat() const {
-    return *(reinterpret_cast<const PackedMatrix<Real>* >(this));
+  inline const MatrixBase<Real> &Mat() const {
+    return *(reinterpret_cast<const MatrixBase<Real>* >(this));
   }
-  inline PackedMatrix<Real> &Mat() {
-    return *(reinterpret_cast<PackedMatrix<Real>* >(this));
+  inline MatrixBase<Real> &Mat() {
+    return *(reinterpret_cast<MatrixBase<Real>* >(this));
   }
   
   /// Dimensions
