@@ -50,39 +50,46 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
 
 template<class Real>
 static void SimpleTest() {
+  // test differnet constructors + CopyFrom* + CopyToMat
   int32 dim = 5 + rand() % 10;
   std::cout << "dim is : " << dim << std::endl;
-  //CuPackedMatrix<Real> S;
-  CuPackedMatrix<Real> S(dim);
-  PackedMatrix<Real> T(dim);
-  S.CopyToMat(&T);
+  CuPackedMatrix<Real> A(dim);
+  PackedMatrix<Real> B(dim);
+  A.CopyToMat(&B);
+  std::cout << "The cudamatrix A is" << std::endl;
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
-      std::cout << T(i,j) << " ";
+      std::cout << B(i,j) << " ";
     }
     std::cout << std::endl;
   }
-  T(0,0) = 10;
-  CuPackedMatrix<Real> U(dim);
-  U.CopyFromPacked(T);
-  PackedMatrix<Real> V(dim);
-  U.CopyToMat(&V);
+  for (int i = 0; i < dim; i++) {
+    B(i,i) = i;
+  }
+  CuPackedMatrix<Real> C(B);
+  PackedMatrix<Real> D(dim);
+  C.CopyToMat(&D);
+  std::cout << "The cudamatrix C is" << std::endl;
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
-      std::cout << V(i,j) << " ";
+      std::cout << D(i,j) << " ";
+      D(i,j) = D(i,j) + 1;
     }
     std::cout << std::endl;
   }
-  V(7,7) = 17;
-  CuPackedMatrix<Real> W(V);
-  PackedMatrix<Real> X(dim);
-  W.CopyToMat(&X);
+  C.CopyFromPacked(D);
+  CuPackedMatrix<Real> E(C);
+  PackedMatrix<Real> F(dim);
+  E.CopyToMat(&F);
+  std::cout << "The cudamatrix E is" << std::endl;
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
-      std::cout << X(i,j) << " ";
+      std::cout << F(i,j) << " ";
     }
     std::cout << std::endl;
   }
+  std::cout << "Trace(E) = " << E.Trace() << std::endl;
+  /*
   CuSpMatrix<Real> A(dim);
   SpMatrix<Real> B(dim);
   A.CopyToMat(&B);
@@ -122,7 +129,7 @@ static void SimpleTest() {
     }
     std::cout << std::endl;
   }
-  
+  */
 }
 
 template<class Real> static void UnitTestCopySp() {

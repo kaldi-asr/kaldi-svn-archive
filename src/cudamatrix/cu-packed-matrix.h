@@ -74,21 +74,13 @@ class CuPackedMatrix {
   // or could not get a CUDA card; in that case the contents are interpreted the   
   // same as a regular matrix.                                                     
                  
-  inline const MatrixBase<Real> &Mat() const {
-    return *(reinterpret_cast<const MatrixBase<Real>* >(this));
+  inline const PackedMatrix<Real> &Mat() const {
+    return *(reinterpret_cast<const PackedMatrix<Real>* >(this));
   }
-  inline MatrixBase<Real> &Mat() {
-    return *(reinterpret_cast<MatrixBase<Real>* >(this));
+  inline PackedMatrix<Real> &Mat() {
+    return *(reinterpret_cast<PackedMatrix<Real>* >(this));
   }
   
-  /// Dimensions
-  /*::MatrixDim Dim() const {
-    ::MatrixDim d = {num_rows_};
-    return d;
-  }
-  */
-  //MatrixIndexT Stride() const { return stride_; }
-
   void SetZero();  /// < Set to zero
   void SetUnit();  /// < Set to unit matrix.
   void SetRandn(); /// < Set to random values of a normal distribution

@@ -134,8 +134,8 @@ void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
   } else
 #endif
   {
-    //Mat().CopyFromPacked(src.Mat());
-    memcpy(data_, src.Data(), SizeInBytes());
+    Mat().CopyFromPacked(src.Mat());
+    //memcpy(data_, src.Data(), SizeInBytes());
   }
 }
 
@@ -154,8 +154,8 @@ void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
   } else
 #endif
   {
-    //Mat().CopyFromPacked(src);
-    memcpy(data_, src.Data(), SizeInBytes());
+    Mat().CopyFromPacked(src);
+    //memcpy(data_, src.Data(), SizeInBytes());
   }
 }
 
@@ -176,8 +176,8 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
   } else
   #endif
   {
-    memcpy(data_, dst->Data(), SizeInBytes());
-    //dst->CopyFromPacked(Mat());
+    //memcpy(data_, dst->Data(), SizeInBytes());
+    dst->CopyFromPacked(Mat());
   }
 }
 
@@ -244,7 +244,28 @@ void CuPackedMatrix<Real>::SetZero() {
   }
 }
 
+template<class Real>
+Real CuPackedMatrix<Real>::Trace() const {
+  Real ans = 0.0;
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimBlock(CUBLOCK);
+    int dimGrid(n_blocks(NumRows(), CUBLOCK));
 
+    cuda_trace(dimGrid, dimBlock, data_, &ans, NumRows());
+    CU_SAFE_CALL(cudaGetLastError());
+    std::cout << "ANS" << ans << std::endl;  
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+    std::cout << "CUDA!" << std::endl;  
+  } else
+#endif
+  {
+    ans = Mat().Trace();
+  }
+  return ans;
+}
 
 /**
  * Print the matrix to stream
