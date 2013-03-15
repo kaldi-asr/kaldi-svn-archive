@@ -1,0 +1,46 @@
+INITIAL ALIGNER
+
+Start my generating an egs for arctic_bdl to align the data
+
+#data
+
+text file
+<utt id> <TRANS in upper case>
+
+wav.scp
+<utt id> <wav name>
+
+utt2spk
+<utt id> <spk id>
+
+#create
+
+spk2utt
+utils/utt2spk_to_spk2utt.pl data/train/utt2spk > data/train/spk2utt
+
+feats.scp
+steps/make_mfcc.sh --nj 20 --cmd "$train_cmd" data/train exp/make_mfcc/train $mfccdir 
+
+cmvn.scp
+steps/compute_cmvn_stats.sh data/train exp/make_mfcc/train $mfccdir
+
+
+#lang
+
+kaldi has a script to generate what it needs from:
+extra_questions.txt - empty  
+lexicon.txt - like HTK format WORD P1 P2 P3 ...
+nonsilence_phones.txt - list of phones
+optional_silence.txt - internal pause symbol
+silence_phones.txt - silence phones
+
+utils/prepare_lang.sh 
+
+#This also generates the HMM prototype
+
+
+#Then
+steps/train_mono.sh
+
+#Then get alignnents
+show-alignments data/lang/phones.txt $dir/30.mdl "ark:gunzip -c $dir/ali.0.gz|" | head -4
