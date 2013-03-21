@@ -1,5 +1,5 @@
 
-all:
+all: 
 EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 

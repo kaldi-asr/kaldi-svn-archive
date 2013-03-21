@@ -70,17 +70,6 @@ class CuPackedMatrix {
     CopyFromPacked(orig);
   }
 
-  // The following two functions should only be called if we did not compile with CUDA
-  // or could not get a CUDA card; in that case the contents are interpreted the   
-  // same as a regular matrix.                                                     
-                 
-  inline const PackedMatrix<Real> &Mat() const {
-    return *(reinterpret_cast<const PackedMatrix<Real>* >(this));
-  }
-  inline PackedMatrix<Real> &Mat() {
-    return *(reinterpret_cast<PackedMatrix<Real>* >(this));
-  }
-  
   void SetZero();  /// < Set to zero
   void SetUnit();  /// < Set to unit matrix.
   void SetRandn(); /// < Set to random values of a normal distribution
@@ -116,22 +105,29 @@ class CuPackedMatrix {
   /// Swaps the contents of *this and *other.
   void Swap(PackedMatrix<Real> *other);
 
-  Real* Data() { return data_; }
-  const Real* Data() const { return data_; }
-  /// Size
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_rows_; }
+
   /// Returns size in bytes of the data held by the matrix.
   size_t  SizeInBytes() const {
     size_t nr = static_cast<size_t>(num_rows_),
       num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
     return num_bytes;
-    //return static_cast<size_t>(num_rows_) * static_cast<size_t>(stride_) * sizeof(Real);
   }
 
-  /// operators
 
  protected:
+  // The following two functions should only be called if we did not compile with CUDA
+  // or could not get a CUDA card; in that case the contents are interpreted the   
+  // same as a regular matrix.                                                                      
+  inline const PackedMatrix<Real> &Mat() const {
+    return *(reinterpret_cast<const PackedMatrix<Real>* >(this));
+  }
+  inline PackedMatrix<Real> &Mat() {
+    return *(reinterpret_cast<PackedMatrix<Real>* >(this));
+  }
+
+  
   // Will only be called from this class or derived classes.
   void AddPacked(const Real alpha, const CuPackedMatrix<Real>& M);
   Real *data_;
