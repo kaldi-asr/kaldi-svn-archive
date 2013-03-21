@@ -4,17 +4,20 @@
 
 SHELL := /bin/bash
 
-SUBDIRS = base matrix util feat tree gmm tied transform sgmm \
-          thread fstext hmm lm decoder lat cudamatrix nnet nnet_cpu \
+SUBDIRS = base matrix util feat tree thread gmm tied transform sgmm \
+          fstext hmm lm decoder lat cudamatrix nnet \
           bin fstbin gmmbin fgmmbin tiedbin sgmmbin featbin \
-          nnetbin nnetbin_cpu latbin sgmm2 sgmm2bin kwsbin \
+          nnetbin latbin sgmm2 sgmm2bin nnet-cpu nnet-cpubin kwsbin
           idlaktxp idlaktxpbin
 
 # Optional subdirectories
 EXT_SUBDIRS = online onlinebin
 
-all: test_install $(SUBDIRS) 
+all: test_install kaldi.mk $(SUBDIRS) 
 	echo Done
+
+kaldi.mk:
+	@[ -f kaldi.mk ] || { echo "kaldi.mk does not exist; you have to run ./configure"; exit 1; }
 
 # Compile optional stuff 
 ext: test_install check_portaudio $(SUBDIRS) $(EXT_SUBDIRS)
@@ -23,7 +26,7 @@ ext: test_install check_portaudio $(SUBDIRS) $(EXT_SUBDIRS)
 # delete or comment out the lines below.
 OPENFST_VER = $(shell grep 'PACKAGE_VERSION' ../tools/openfst/Makefile | sed -e 's:.*= ::')
 test_install:
-	@[ $(OPENFST_VER) == '1.2.10' ] || { echo "You now need openfst-1.2.10.  Do: cd ../tools; svn update; ./install.sh; cd ../src; make depend; make"; exit 1; };
+	@[ "$(OPENFST_VER)" == '1.2.10' ] || [ "$(OPENFST_VER)" == '1.3.2' ] || { echo "You now need openfst-1.2.10.  Do: cd ../tools; svn update; ./install.sh; cd ../src; make depend; make"; exit 1; };
 
 check_portaudio:
 	@[ -d ../tools/portaudio ] || ( cd ../tools;  ./install_portaudio.sh )
@@ -31,7 +34,7 @@ check_portaudio:
 clean: 
 	-for x in $(SUBDIRS); do $(MAKE) -C $$x clean; done
 
-# the part after the ":" expands to "base/test matrix/test util/test ...."
+# the part after the expands to "base/test matrix/test util/test ...."
 test: $(addsuffix /test, $(SUBDIRS))
 
 # Define an implicit rule, expands to e.g.:
@@ -39,7 +42,6 @@ test: $(addsuffix /test, $(SUBDIRS))
 #     $(MAKE) -C base test 
 %/test: %
 	$(MAKE) -C $< test
-
 
 valgrind:
 	-for x in $(SUBDIRS); do $(MAKE) -C $$x valgrind || { echo "valgrind on $$x failed"; exit 1; }; done
@@ -60,7 +62,8 @@ $(EXT_SUBDIRS) :
 ### Dependency list ###
 # this is necessary for correct parallel compilation
 #1)The tools depend on all the libraries
-bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin nnetbin nnetbin_cpu latbin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet_cpu
+bin fstbin gmmbin fgmmbin tiedbin sgmmbin sgmm2bin featbin nnetbin nnet-cpubin latbin: base matrix util feat tree optimization thread gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet-cpu
+
 #2)The libraries have inter-dependencies
 base:
 matrix : base
@@ -81,8 +84,8 @@ decoder: base util matrix gmm sgmm hmm tree transform
 lat: base util
 cudamatrix: base util matrix	
 nnet: base util matrix cudamatrix
-nnet_cpu: base util matrix
+nnet-cpu: base util matrix thread
 #3)Dependencies for optional parts of Kaldi
-onlinebin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet_cpu online
+onlinebin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet-cpu online
 online: decoder
 kwsbin: fstext lat base util

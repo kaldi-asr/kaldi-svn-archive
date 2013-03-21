@@ -1,6 +1,7 @@
 // decoder/lattice-faster-decoder.h
 
-// Copyright 2009-2012  Microsoft Corporation  Mirko Hannemann  Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2009-2013  Microsoft Corporation;  Mirko Hannemann;
+//                      Johns Hopkins University (Author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +33,7 @@ namespace kaldi {
 struct LatticeFasterDecoderConfig {
   BaseFloat beam;
   int32 max_active;
+  int32 min_active;
   BaseFloat lattice_beam;
   int32 prune_interval;
   bool determinize_lattice; // not inspected by this class... used in
@@ -44,6 +46,7 @@ struct LatticeFasterDecoderConfig {
   BaseFloat hash_ratio;
   LatticeFasterDecoderConfig(): beam(16.0),
                                 max_active(std::numeric_limits<int32>::max()),
+                                min_active(200),
                                 lattice_beam(10.0),
                                 prune_interval(25),
                                 determinize_lattice(true),
@@ -55,6 +58,7 @@ struct LatticeFasterDecoderConfig {
   void Register(ParseOptions *po) {
     po->Register("beam", &beam, "Decoding beam.");
     po->Register("max-active", &max_active, "Decoder max active states.");
+    po->Register("min-active", &min_active, "Decoder minimum #active states.");
     po->Register("lattice-beam", &lattice_beam, "Lattice generation beam");
     po->Register("prune-interval", &prune_interval, "Interval (in frames) at which to prune tokens");
     po->Register("determinize-lattice", &determinize_lattice, "If true, determinize the lattice (in a special sense, keeping only best pdf-sequence for each word-sequence).");
@@ -88,11 +92,20 @@ class LatticeFasterDecoder {
   LatticeFasterDecoder(const fst::Fst<fst::StdArc> &fst,
                        const LatticeFasterDecoderConfig &config);
 
+  // This version of the initializer "takes ownership" of the fst,
+  // and will delete it when this object is destroyed.
+  LatticeFasterDecoder(const LatticeFasterDecoderConfig &config,
+                       fst::Fst<fst::StdArc> *fst);
+                       
+  
   void SetOptions(const LatticeFasterDecoderConfig &config) {
     config_ = config;
   }
 
-  ~LatticeFasterDecoder() { ClearActiveTokens(); }
+  ~LatticeFasterDecoder() {
+    ClearActiveTokens();
+    if (delete_fst_) delete &(fst_);
+  }
 
   // Returns true if any kind of traceback is available (not necessarily from
   // a final state).
@@ -113,7 +126,8 @@ class LatticeFasterDecoder {
   // Outputs an FST corresponding to the lattice-determinized
   // lattice (one path per word sequence).
   bool GetLattice(fst::MutableFst<CompactLatticeArc> *ofst) const;
-  
+
+
  private:
   struct Token;
   // ForwardLinks are the links from a token to a token on the next frame.
@@ -251,6 +265,7 @@ class LatticeFasterDecoder {
   std::vector<BaseFloat> tmp_array_;  // used in GetCutoff.
   // make it class member to avoid internal new/delete.
   const fst::Fst<fst::StdArc> &fst_;
+  bool delete_fst_;
   std::vector<BaseFloat> cost_offsets_; // This contains, for each
   // frame, an offset that was added to the acoustic likelihoods on that
   // frame in order to keep everything in a nice dynamic range.
@@ -294,6 +309,63 @@ bool DecodeUtteranceLatticeFaster(
     CompactLatticeWriter *compact_lattice_writer,
     LatticeWriter *lattice_writer,
     double *like_ptr); // puts utterance's likelihood in like_ptr on success.
+
+// This class basically does the same job as the function
+// DecodeUtteranceLatticeFaster, but in a way that allows us
+// to build a multi-threaded command line program more easily,
+// using code in ../thread/kaldi-task-sequence.h.  The main
+// computation takes place in operator (), and the output happens
+// in the destructor.
+class DecodeUtteranceLatticeFasterClass {
+ public:
+  // Initializer sets various variables.
+  // NOTE: we "take ownership" of "decoder" and "decodable".  These
+  // are deleted by the destructor.  On error, "num_err" is incremented.
+  DecodeUtteranceLatticeFasterClass( 
+      LatticeFasterDecoder *decoder,
+      DecodableInterface *decodable,
+      const fst::SymbolTable *word_syms,
+      std::string utt,
+      BaseFloat acoustic_scale,
+      bool determinize,
+      bool allow_partial,
+      Int32VectorWriter *alignments_writer,
+      Int32VectorWriter *words_writer,
+      CompactLatticeWriter *compact_lattice_writer,
+      LatticeWriter *lattice_writer,
+      double *like_sum, // on success, adds likelihood to this.
+      int64 *frame_sum, // on success, adds #frames to this.
+      int32 *num_done, // on success (including partial decode), increments this.
+      int32 *num_err,  // on failure, increments this.
+      int32 *num_partial);  // If partial decode (final-state not reached), increments this.
+  void operator () (); // The decoding happens here.
+  ~DecodeUtteranceLatticeFasterClass(); // Output happens here.
+ private:
+  // The following variables correspond to inputs:
+  LatticeFasterDecoder *decoder_;
+  DecodableInterface *decodable_;
+  const fst::SymbolTable *word_syms_;
+  std::string utt_;
+  BaseFloat acoustic_scale_;
+  bool determinize_;
+  bool allow_partial_;
+  Int32VectorWriter *alignments_writer_;
+  Int32VectorWriter *words_writer_;
+  CompactLatticeWriter *compact_lattice_writer_;
+  LatticeWriter *lattice_writer_;
+  double *like_sum_;
+  int64 *frame_sum_;
+  int32 *num_done_;
+  int32 *num_err_;
+  int32 *num_partial_;
+
+  // The following variables are stored by the computation.
+  bool computed_; // operator ()  was called.
+  bool success_; // decoding succeeded (possibly partial)
+  bool partial_; // decoding was partial.
+  CompactLattice *clat_; // Stored output, if determinize_ == true.
+  Lattice *lat_; // Stored output, if determinize_ == false.
+};
 
 
 } // end namespace kaldi.

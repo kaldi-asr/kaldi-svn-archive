@@ -1,0 +1,1 @@
+../steps/search_index.sh

@@ -136,13 +136,8 @@ class SpMatrix : public PackedMatrix<Real> {
 
   // Below routine does inversion in double precision,
   // even for single-precision object.
-  void InvertDouble(Real *logdet = NULL, Real *det_sign = NULL) {
-    SpMatrix<double> dmat(*this);
-    dmat.Invert();
-    (*this).CopyFromSp(dmat);
-    // georg: commented this out as function returns void:
-    // return *this;
-  }
+  void InvertDouble(Real *logdet = NULL, Real *det_sign = NULL,
+                    bool inverse_needed = true);
 
   /// Returns maximum ratio of singular values.
   inline Real Cond() const {
@@ -302,13 +297,12 @@ class SpMatrix : public PackedMatrix<Real> {
                  bool verbose = false, bool is_psd = true);
 
   /// Floor: Given a positive semidefinite matrix, floors the eigenvalues
-  /// to the specified quantity.  Positive semidefiniteness is only assumed
-  /// because a function we call checks for it (to within a tolerance), and
-  /// because it tends to be present in situations where doing this would
-  /// make sense.  Set the tolerance to 2 to ensure it won't ever complain
-  /// about non-+ve-semidefinite matrix (it will zero out negative dimensions)
-  /// returns number of floored elements.
-  int ApplyFloor(Real floor, BaseFloat tolerance = 0.001);
+  /// to the specified quantity.  A previous version of this function had
+  /// a tolerance which is now no longer needed since we have code to
+  /// do the symmetric eigenvalue decomposition and no longer use the SVD
+  /// code for that purose.
+  int ApplyFloor(Real floor);
+  
   bool IsDiagonal(Real cutoff = 1.0e-05) const;
   bool IsUnit(Real cutoff = 1.0e-05) const;
   bool IsZero(Real cutoff = 1.0e-05) const;
@@ -413,14 +407,9 @@ Real TraceMatSpMatSp(const MatrixBase<Real> &A, MatrixTransposeType transA,
 
 /// Returns \f$ v_1^T M v_2 \f$
 /// Not as efficient as it could be where v1 == v2.
-float VecSpVec(const VectorBase<float> &v1, const SpMatrix<float> &M,
-               const VectorBase<float> &v2);
-
-
-/// Returns \f$ v_1^T M v_2 \f$
-/// Not as efficient as it could be where v1 == v2.
-double VecSpVec(const VectorBase<double> &v1, const SpMatrix<double> &M,
-                const VectorBase<double> &v2);
+template<class Real>
+Real VecSpVec(const VectorBase<Real> &v1, const SpMatrix<Real> &M,
+               const VectorBase<Real> &v2);
 
 
 /// @} \addtogroup matrix_funcs_scalar

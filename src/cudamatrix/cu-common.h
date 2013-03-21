@@ -1,6 +1,7 @@
 // cudamatrix/cu-common.h
 
 // Copyright 2009-2011  Karel Vesely
+//                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,9 +43,6 @@
 } 
 
 
-
-
-
 namespace kaldi {
 
   /** The size of edge of CUDA square block **/
@@ -54,8 +52,21 @@ namespace kaldi {
   inline int32 n_blocks(int32 size, int32 block_size) { 
     return size / block_size + ((size % block_size == 0)? 0 : 1); 
   }
-
 }
+
 #endif // HAVE_CUDA
+
+namespace kaldi {
+// Some forward declarations, frequently needed
+template<typename Real> class CuVectorBase;
+template<typename Real> class CuVector;
+template<typename Real> class CuSubVector;
+template<typename Real> class CuRand;
+template<typename Real> class CuMatrixBase;
+template<typename Real> class CuMatrix;
+template<typename Real> class CuSubMatrix;
+template<typename Real> class CuRand;
+}
+
 
 #endif

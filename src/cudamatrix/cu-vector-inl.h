@@ -32,103 +32,118 @@
 
 namespace kaldi {
 
+
 template<typename Real>
-const Real* CuVector<Real>::Data() const {
-  #if HAVE_CUDA==1
+CuVector<Real>::CuVector(const CuVectorBase<Real> &v) {
+  this->Resize(v.dim_);
+  this->CopyFromVec(v);
+}
+
+template<typename Real>
+CuVector<Real>::CuVector(const VectorBase<Real> &v) {
+  this->Resize(v.dim_);
+  this->CopyFromVec(v);
+}
+
+template<typename Real>
+void CuVector<Real>::Resize(MatrixIndexT dim, MatrixResizeType t) {
+  KALDI_ASSERT(t == kSetZero || t == kUndefined); // Others not implemented
+  // yet.
+  if (this->dim_ == dim) {
+    this->SetZero();
+    return;
+  }
+  if (this->dim_ != 0)
+    this->Destroy();
+  if (dim == 0) return;
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
-    return data_; 
+    cuSafeCall(cudaMalloc(reinterpret_cast<void**>(&this->data_), dim * sizeof(Real)));
+    this->dim_ = dim;
+    if (t == kSetZero) this->SetZero();
   } else
-  #endif
+#endif
   {
-    return vec_.Data();
+    Vector<Real> vec(dim);
+    this->Swap(&vec); 
   }
 }
 
-
-
 template<typename Real>
-Real* CuVector<Real>::Data() { 
-  #if HAVE_CUDA==1
-  if (CuDevice::Instantiate().Enabled()) { 
-    return data_; 
+void CuVector<Real>::Swap(Vector<Real> *vec) {
+#if HAVE_CUDA==1 
+  if (CuDevice::Instantiate().Enabled()) {
+    if (this->dim_ == 0) {
+      if (vec->dim_ != 0) {
+        // *this is empty, but vec is nonempty.
+        Resize(vec->dim_, kUndefined);
+        this->CopyFromVec(*vec);
+        vec->Resize(0);
+      }
+      // else both are empty.
+    } else { // *this is nonempty.
+      if (vec->dim_ != 0) {
+        // Both *this and *vec are nonempty.  Recurse to simpler cases.
+        // this could be done more efficiently in the case where
+        // the size does not change.
+        Vector<Real> temp;
+        this->Swap(&temp); // now temp is full, *this is empty.
+        vec->Swap(&temp); // now vec has data from *this, temp has
+        // data from vec.
+        Swap(vec); // copy data in vec to *this, which is now empty.
+      } else { // *this is full but *vec is empty.
+        vec->Resize(this->dim_, kUndefined);
+        this->CopyToVec(vec);
+        this->Destroy();
+      }
+    }
   } else
-  #endif
+#endif
   {
-    return vec_.Data();
+    std::swap(vec->data_, this->data_);
+    std::swap(vec->dim_, this->dim_);
   }
 }
-
-
-
-template<typename Real>
-CuVector<Real>& CuVector<Real>::Resize(size_t dim) {
-  if (dim_ == dim) {
-    // SetZero();
-    return *this;
-  }
-
-  Destroy();
-
-  #if HAVE_CUDA==1
-  if (CuDevice::Instantiate().Enabled()) { 
-    cuSafeCall(cudaMalloc((void**)&data_, dim*sizeof(Real)));
-  } else
-  #endif
-  {
-    vec_.Resize(dim);
-  }
-
-  dim_ = dim;
-  SetZero();
-
-  return *this;
-}
-
-
 
 template<typename Real>
 void CuVector<Real>::Destroy() {
-  #if HAVE_CUDA==1
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
-    if (NULL != data_) {
-      cuSafeCall(cudaFree(data_));
-      data_ = NULL;
+    if (this->data_ != NULL) {
+      cuSafeCall(cudaFree(this->data_));
     }
   } else
-  #endif
+#endif
   {
-    vec_.Resize(0);
+    if (this->data_ != NULL) KALDI_MEMALIGN_FREE(this->data_);
   }
-
-  dim_ = 0;
+  this->data_ = NULL;
+  this->dim_ = 0;
 }
 
 
 
 template<typename Real>
-CuVector<Real>& CuVector<Real>::CopyFromVec(const CuVector<Real> &src) {
-  Resize(src.Dim());
-  
-  #if HAVE_CUDA==1
+void CuVectorBase<Real>::CopyFromVec(const CuVectorBase<Real> &src) {
+  KALDI_ASSERT(src.Dim() == dim_);
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
-    cuSafeCall(cudaMemcpy(data_, src.Data(), src.Dim()*sizeof(Real), cudaMemcpyDeviceToDevice));
+    cuSafeCall(cudaMemcpy(data_, src.data_, src.dim_ * sizeof(Real), cudaMemcpyDeviceToDevice));
     CuDevice::Instantiate().AccuProfile("CuVector::CopyFromVecD2D",tim.Elapsed());
   } else
   #endif
   {
-    vec_.CopyFromVec(src.vec_);
+    memcpy(static_cast<void*>(data_), static_cast<void*>(src.data_),
+           dim_ * sizeof(Real));
   }
-
-  return *this;
 }
 
 
 
 template<typename Real>
-CuVector<Real>& CuVector<Real>::CopyFromVec(const Vector<Real> &src) {
-  Resize(src.Dim());
-
+void CuVectorBase<Real>::CopyFromVec(const VectorBase<Real> &src) {
+  KALDI_ASSERT(src.Dim() == dim_);
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
@@ -139,28 +154,26 @@ CuVector<Real>& CuVector<Real>::CopyFromVec(const Vector<Real> &src) {
   } else
   #endif
   {
-    vec_.CopyFromVec(src);
+    memcpy(static_cast<void*>(data_), static_cast<const void*>(src.Data()),
+           dim_ * sizeof(Real));
   }
-  return *this;
 }
 
 
 
 template<typename Real>
-void CuVector<Real>::CopyToVec(Vector<Real> *dst) const {
-  if (dst->Dim() != dim_) {
-    dst->Resize(dim_);
-  }
-
+void CuVectorBase<Real>::CopyToVec(VectorBase<Real> *dst) const {
+  KALDI_ASSERT(dst->Dim() == dim_);
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
-    cuSafeCall(cudaMemcpy(dst->Data(), Data(), dim_*sizeof(Real), cudaMemcpyDeviceToHost));
+    cuSafeCall(cudaMemcpy(dst->Data(), this->data_,
+                          dim_*sizeof(Real), cudaMemcpyDeviceToHost));
     CuDevice::Instantiate().AccuProfile("CuVector::CopyToVecD2H",tim.Elapsed());
   } else
   #endif
   {
-    dst->CopyFromVec(vec_);
+    dst->CopyFromVec(Vec());
   }
 }
 
@@ -168,25 +181,26 @@ void CuVector<Real>::CopyToVec(Vector<Real> *dst) const {
 
 template<typename Real>
 void CuVector<Real>::Read(std::istream &is, bool binary) {
-  Vector<BaseFloat> tmp;
-  tmp.Read(is, binary);
-  CopyFromVec(tmp);    
+  Vector<BaseFloat> temp;
+  temp.Read(is, binary);
+  Destroy();
+  Swap(&temp);
 }
 
 
 
 template<typename Real>
 void CuVector<Real>::Write(std::ostream &os, bool binary) const {
-  Vector<BaseFloat> tmp;
-  CopyToVec(&tmp);
-  tmp.Write(os, binary); 
+  Vector<BaseFloat> temp(this->dim_);
+  this->CopyToVec(&temp);
+  temp.Write(os, binary); 
 }
 
 
 
 template<typename Real>
-void CuVector<Real>::SetZero() {
-  #if HAVE_CUDA==1
+void CuVectorBase<Real>::SetZero() {
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     KALDI_ASSERT(dim_>0);
     KALDI_ASSERT(data_!=NULL);
@@ -194,9 +208,9 @@ void CuVector<Real>::SetZero() {
     cuSafeCall(cudaMemset(data_, 0, dim_*sizeof(Real)));
     CuDevice::Instantiate().AccuProfile("CuVector::SetZero",tim.Elapsed());
   } else
-  #endif
+#endif
   {
-    vec_.SetZero();
+    Vec().SetZero();
   }
 }
 
@@ -206,10 +220,10 @@ void CuVector<Real>::SetZero() {
  * Print the vector to stream
  */
 template<typename Real>
-std::ostream &operator << (std::ostream &out, const CuVector<Real> &vec) {
-  Vector<Real> tmp;
-  vec.CopyToVec(&tmp);
-  out << tmp;
+std::ostream &operator << (std::ostream &out, const CuVectorBase<Real> &vec) {
+  Vector<Real> temp;
+  vec.CopyToVec(&temp);
+  out << temp;
   return out;
 }
 
@@ -220,31 +234,30 @@ std::ostream &operator << (std::ostream &out, const CuVector<Real> &vec) {
  * Methods wrapping the ANSI-C CUDA kernels
  */
 template<typename Real>
-void CuVector<Real>::Set(Real value) {
-  #if HAVE_CUDA==1
+void CuVectorBase<Real>::Set(Real value) {
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
-
+    
     dim3 dimBlock(CUBLOCK);
     dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
     ::MatrixDim d = { 1, Dim(), Dim() };
-
+    
     cuda_set_const(dimGrid, dimBlock, data_, value, d);
     cuSafeCall(cudaGetLastError());
-
+    
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
-  #endif
+#endif
   {
-    vec_.Set(value);
+    Vec().Set(value);
   }
 }
 
 
 
 template<typename Real>
-void CuVector<Real>::AddVec(Real alpha, const CuVector<Real> &vec, Real beta) {
-  assert(vec.Dim() == Dim());
+void CuVectorBase<Real>::Add(Real value) {
   #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
@@ -253,29 +266,77 @@ void CuVector<Real>::AddVec(Real alpha, const CuVector<Real> &vec, Real beta) {
     dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
     ::MatrixDim d = { 1, Dim(), Dim() };
 
-    cuda_add_mat(dimGrid, dimBlock, alpha, vec.Data(), beta, data_, d);
+    cuda_add(dimGrid, dimBlock, data_, value, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    Vec().Add(value);
+  }
+}
+
+
+
+template<typename Real>
+void CuVectorBase<Real>::Scale(Real value) {
+  #if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) { 
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_scale(dimGrid, dimBlock, data_, value, d);
+    cuSafeCall(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    Vec().Scale(value);
+  }
+}
+
+
+template<class Real>
+void CuVectorBase<Real>::AddVec(Real alpha, const CuVectorBase<Real> &vec,
+                                Real beta) {
+  KALDI_ASSERT(vec.Dim() == Dim());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) { 
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK);
+    dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
+    ::MatrixDim d = { 1, Dim(), Dim() };
+
+    cuda_add_mat(dimGrid, dimBlock, alpha, vec.data_, beta, data_, d);
     cuSafeCall(cudaGetLastError());
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
   #endif
   {
-    if (beta != 1.0) { vec_.Scale(beta); }
-    vec_.AddVec(alpha, vec.Vec());
+    if (beta != 1.0) Vec().Scale(beta);
+    Vec().AddVec(alpha, vec.Vec());
   }
 }
 
 
 
 template<typename Real>
-void CuVector<Real>::AddRowSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta) {
-  assert(mat.NumCols() == Dim());
-  #if HAVE_CUDA==1
+void CuVectorBase<Real>::AddRowSumMat(Real alpha, const CuMatrixBase<Real> &mat,
+                                      Real beta) {
+  KALDI_ASSERT(mat.NumCols() == Dim());
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
    
-    CuVector<Real> tmp(Dim()); // create a buffer
-    tmp.SetZero();
+    CuVector<Real> temp(Dim()); // create a buffer
+    temp.SetZero();
     
     MatrixDim d = mat.Dim(); // only stride will be used!
   
@@ -286,7 +347,7 @@ void CuVector<Real>::AddRowSumMat(Real alpha, const CuMatrix<Real> &mat, Real be
       dim3 dimGrid(1, mat.NumCols());
       int32 offset = block*256*d.stride;
 
-      cuda_add_row_sum_mat(dimGrid, dimBlock, mat.Data()+offset, tmp.Data(), d);
+      cuda_add_row_sum_mat(dimGrid, dimBlock, mat.data_ + offset, temp.data_, d);
     }
     
     // process the remainder
@@ -298,29 +359,33 @@ void CuVector<Real>::AddRowSumMat(Real alpha, const CuMatrix<Real> &mat, Real be
       dim3 dimGrid(1, mat.NumCols());
       int32 offset = div*256*d.stride;
       
-      cuda_add_row_sum_mat(dimGrid, dimBlock, mat.Data()+offset, tmp.Data(), d);
+      cuda_add_row_sum_mat(dimGrid, dimBlock, mat.data_ + offset, temp.data_, d);
     }
     // now we have the sum!
     
     // add buffer rmp to this vector using alpha and beta
-    this->AddVec(alpha,tmp,beta);
+    this->AddVec(alpha,temp,beta);
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
-  #endif
-    vec_.AddRowSumMat(alpha, mat.Mat(), beta);
+#endif
+  {
+    Vec().AddRowSumMat(alpha, mat.Mat(), beta);
+  }
 }
 
 
 
 template<typename Real>
-void CuVector<Real>::AddColSumMat(Real alpha, const CuMatrix<Real> &mat, Real beta) {
-  assert(mat.NumRows() == Dim());
-  #if HAVE_CUDA==1
+void CuVectorBase<Real>::AddColSumMat(Real alpha,
+                                      const CuMatrixBase<Real> &mat,
+                                      Real beta) {
+  KALDI_ASSERT(mat.NumRows() == Dim());
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
-    CuVector<Real> tmp(Dim()); // create a buffer
+    CuVector<Real> temp(Dim()); // create a buffer
     
     MatrixDim d = mat.Dim(); // only stride will be used!
   
@@ -331,7 +396,7 @@ void CuVector<Real>::AddColSumMat(Real alpha, const CuMatrix<Real> &mat, Real be
       dim3 dimGrid(1, mat.NumRows());
       int32 offset = block*256;
 
-      cuda_add_col_sum_mat(dimGrid, dimBlock, mat.Data()+offset, tmp.Data(), d);
+      cuda_add_col_sum_mat(dimGrid, dimBlock, mat.data_ + offset, temp.data_, d);
     }
     
     // process the remainder
@@ -343,24 +408,26 @@ void CuVector<Real>::AddColSumMat(Real alpha, const CuMatrix<Real> &mat, Real be
       dim3 dimGrid(1, mat.NumRows());
       int32 offset=div*256;
       
-      cuda_add_col_sum_mat(dimGrid, dimBlock, mat.Data()+offset, tmp.Data(), d);
+      cuda_add_col_sum_mat(dimGrid, dimBlock, mat.data_ +offset, temp.data_, d);
     }
     // now we have the sum!
     
     // add buffer rmp to this vector using alpha and beta
-    this->AddVec(alpha,tmp,beta);
+    this->AddVec(alpha, temp, beta);
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
   #endif
-    vec_.AddColSumMat(alpha, mat.Mat(), beta);
+  {
+    Vec().AddColSumMat(alpha, mat.Mat(), beta);
+  }
 }
 
 
  
 template<typename Real> 
-void CuVector<Real>::InvertElements() {
-  #if HAVE_CUDA==1
+void CuVectorBase<Real>::InvertElements() {
+#if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     
@@ -373,9 +440,9 @@ void CuVector<Real>::InvertElements() {
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
-  #endif
+#endif
   {
-    vec_.InvertElements();
+    Vec().InvertElements();
   }
 }
 

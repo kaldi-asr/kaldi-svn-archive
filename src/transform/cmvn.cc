@@ -1,6 +1,7 @@
 // transform/cmvn.cc
 
-// Copyright 2009-2011 Microsoft Corporation
+// Copyright 2009-2013 Microsoft Corporation
+//                     Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +28,7 @@ void InitCmvnStats(int32 dim, Matrix<double> *stats) {
 void AccCmvnStats(const VectorBase<BaseFloat> &feats, BaseFloat weight, MatrixBase<double> *stats) {
   int32 dim = feats.Dim();
   KALDI_ASSERT(stats != NULL);
-  KALDI_ASSERT(stats->NumRows() == 2 && stats->NumCols() == dim+1);
+  KALDI_ASSERT(stats->NumRows() == 2 && stats->NumCols() == dim + 1);
   // Remove these __restrict__ modifiers if they cause compilation problems.
   // It's just an optimization.
    double *__restrict__ mean_ptr = stats->RowData(0),
@@ -63,16 +64,22 @@ void ApplyCmvn(const MatrixBase<double> &stats,
                MatrixBase<BaseFloat> *feats) {
   KALDI_ASSERT(feats != NULL);
   int32 dim = stats.NumCols() - 1;
-  if (stats.NumRows() != 2 || feats->NumCols() != dim) {
+  if (stats.NumRows() > 2 || stats.NumRows() < 1 || feats->NumCols() != dim) {
     KALDI_ERR << "Dim mismatch in ApplyCmvn: cmvn "
               << stats.NumRows() << 'x' << stats.NumCols()
               << ", feats " << feats->NumRows() << 'x' << feats->NumCols();
   }
+  if (stats.NumRows() == 1 && var_norm)
+    KALDI_ERR << "You requested variance normalization but no variance stats "
+              << "are supplied.";
+  
   double count = stats(0, dim);
+  // Do not change the threshold of 1.0 here: in the balanced-cmvn code, when
+  // computing an offset and representing it as stats, we use a count of one.
   if (count < 1.0)
     KALDI_ERR << "Insufficient stats for cepstral mean and variance normalization: "
               << "count = " << count;
-
+  
   Matrix<BaseFloat> norm(2, dim);  // norm(0, d) = mean offset
   // norm(1, d) = scale, e.g. x(d) <-- x(d)*norm(1, d) + norm(0, d).
   for (int32 d = 0; d < dim; d++) {
@@ -110,4 +117,3 @@ void ApplyCmvn(const MatrixBase<double> &stats,
 
 
 }  // namespace kaldi
-

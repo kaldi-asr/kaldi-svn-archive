@@ -1,7 +1,8 @@
 // decoder/simple-decoder.h
 
-// Copyright 2009-2011  Microsoft Corporation;  Lukas Burget;
-//                      Saarland University
+// Copyright 2009-2013  Microsoft Corporation;  Lukas Burget;
+//                      Saarland University (author: Arnab Ghoshal);
+//                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -75,7 +76,6 @@ class SimpleDecoder {
   }
 
   bool ReachedFinal() {
-    Weight best_weight = Weight::Zero();
     for (unordered_map<StateId, Token*>::iterator iter = cur_toks_.begin();
          iter != cur_toks_.end();
          ++iter) {
@@ -189,9 +189,10 @@ class SimpleDecoder {
         if (arc.ilabel != 0) {  // propagate..
           arc.weight = Times(arc.weight,
                              Weight(-decodable->LogLikelihood(frame, arc.ilabel)));
-          if (arc.weight.Value() > cutoff) continue;
-          if (arc.weight.Value() + beam_  < cutoff)
-            cutoff = arc.weight.Value() + beam_;
+          BaseFloat tot_weight = arc.weight.Value() + tok->weight_.Value();
+          if (tot_weight > cutoff) continue;
+          if (tot_weight + beam_  < cutoff)
+            cutoff = tot_weight + beam_;
           Token *new_tok = new Token(arc, tok);
           unordered_map<StateId, Token*>::iterator find_iter
               = cur_toks_.find(arc.nextstate);
@@ -217,9 +218,9 @@ class SimpleDecoder {
     float best_weight = 1.0e+10;
     for (unordered_map<StateId, Token*>::iterator iter = cur_toks_.begin();
         iter != cur_toks_.end();
-        ++iter) {
+         ++iter) {
       queue_.push_back(iter->first);
-      best_weight = std::min(best_weight, iter->second->arc_.weight.Value());
+      best_weight = std::min(best_weight, iter->second->weight_.Value());
     }
     BaseFloat cutoff = best_weight + beam_;
 
@@ -234,7 +235,7 @@ class SimpleDecoder {
         const Arc &arc = aiter.Value();
         if (arc.ilabel == 0) {  // propagate nonemitting only...
           Token *new_tok = new Token(arc, tok);
-          if (new_tok->arc_.weight.Value() > cutoff) {
+          if (new_tok->weight_.Value() > cutoff) {
             Token::TokenDelete(new_tok);
           } else {
             unordered_map<StateId, Token*>::iterator find_iter

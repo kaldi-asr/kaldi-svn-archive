@@ -32,7 +32,7 @@ void Xent::Eval(const CuMatrix<BaseFloat> &net_out, const CuMatrix<BaseFloat> &t
   diff->Resize(net_out.NumRows(), net_out.NumCols());
 
   // compute derivative wrt. activations of last layer of neurons
-  diff->CopyFromMat(net_out);
+  *diff = net_out;
   diff->AddMat(-1.0, target);
 
   // we'll not produce per-frame classification accuracy for soft labels
@@ -40,7 +40,8 @@ void Xent::Eval(const CuMatrix<BaseFloat> &net_out, const CuMatrix<BaseFloat> &t
 
   // :TODO: reimplement when needed
   // compute xentropy (ON CPU)
-  Matrix<BaseFloat> target_host, net_out_host;
+  Matrix<BaseFloat> target_host(target.NumRows(), target.NumCols(), kUndefined),
+      net_out_host(net_out.NumRows(), net_out.NumCols(), kUndefined);
   target.CopyToMat(&target_host);
   net_out.CopyToMat(&net_out_host);
   BaseFloat val;
@@ -59,19 +60,19 @@ void Xent::Eval(const CuMatrix<BaseFloat> &net_out, const CuMatrix<BaseFloat> &t
 void Xent::EvalVec(const CuMatrix<BaseFloat> &net_out, const std::vector<int32> &target, CuMatrix<BaseFloat> *diff) {
   // evaluate the frame-level classification
   int32 correct=0;
-  cu::FindRowMaxId(net_out, &max_id_);
+  net_out.FindRowMaxId(&max_id_);
   max_id_.CopyToVec(&max_id_host_);
   KALDI_ASSERT(max_id_host_.size() == target.size());
-  for(int32 i=0; i<target.size(); i++) {
+  for(int32 i=0; i<static_cast<int32>(target.size()); i++) {
     if (target[i] == max_id_host_[i]) correct++;
   }
   
   // get the xentropy and global error 
   target_device_.CopyFromVec(target);
   if(&net_out != diff) { //<allow no-copy speedup
-    diff->CopyFromMat(net_out);
+    *diff = net_out;
   }
-  cu::DiffXent(target_device_, diff, &log_post_tgt_);
+  diff->DiffXent(target_device_, &log_post_tgt_);
   //
   // Now we have derivative of Xentropy in diff,
   // it's computed as dE/da = net_out - target_mat,
@@ -83,7 +84,8 @@ void Xent::EvalVec(const CuMatrix<BaseFloat> &net_out, const std::vector<int32> 
   // The frame-level xentropy statistics are computed as:
   // log(sum_row(net_out.*target_mat)))
   // they now are stored in vector log_post_tgt_
-  // 
+  //
+  log_post_tgt_host_.Resize(log_post_tgt_.Dim());
   log_post_tgt_.CopyToVec(&log_post_tgt_host_);
   loss_    -= log_post_tgt_host_.Sum();
   
@@ -110,9 +112,10 @@ std::string Xent::Report() {
 void Mse::Eval(const CuMatrix<BaseFloat> &net_out, const CuMatrix<BaseFloat> &target, CuMatrix<BaseFloat> *diff) {
   KALDI_ASSERT(net_out.NumCols() == target.NumCols());
   KALDI_ASSERT(net_out.NumRows() == target.NumRows());
-  diff->Resize(net_out.NumRows(), net_out.NumCols());
+
 
   // compute derivative w.r.t. neural nerwork outputs
+  diff->Resize(net_out.NumRows(), net_out.NumCols());
   diff->CopyFromMat(net_out);
   diff->AddMat(-1.0, target);
 
@@ -147,9 +150,9 @@ std::string Mse::Report() {
 void MseProgress::Eval(const CuMatrix<BaseFloat>& net_out, const CuMatrix<BaseFloat>& target, CuMatrix<BaseFloat>* diff) {
   KALDI_ASSERT(net_out.NumCols() == target.NumCols());
   KALDI_ASSERT(net_out.NumRows() == target.NumRows());
-  diff->Resize(net_out.NumRows(),net_out.NumCols());
 
   //compute derivative w.r.t. neural nerwork outputs
+  diff->Resize(net_out.NumRows(),net_out.NumCols());
   diff->CopyFromMat(net_out);
   diff->AddMat(-1.0,target);
 
@@ -183,8 +186,8 @@ void MseProgress::Eval(const CuMatrix<BaseFloat>& net_out, const CuMatrix<BaseFl
 
 std::string MseProgress::Report() {
   std::ostringstream oss;
-  oss << "Mse:" << loss_ << " frames:" << frames_
-      << " err/frm:" << loss_/frames_ 
+  oss << "Mse:" << loss_+loss_progress_ << " frames:" << frames_+frames_progress_
+      << " err/frm:" << (loss_+loss_progress_) / (frames_+frames_progress_)
       << std::endl;
   oss << "progress: [";
   std::copy(loss_vec_.begin(),loss_vec_.end(),std::ostream_iterator<float>(oss," "));

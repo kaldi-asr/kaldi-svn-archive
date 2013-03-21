@@ -21,6 +21,7 @@
 
 #include "base/kaldi-math.h"
 #include "cudamatrix/cu-math.h"
+#include "cudamatrix/cu-matrix.h"
 
 namespace kaldi {
 
@@ -73,11 +74,11 @@ class CacheTgtMat {
 
   State state_; ///< Current state of the cache
 
-  size_t filling_pos_;  ///< Number of frames filled to cache by AddData
-  size_t emptying_pos_; ///< Number of frames given by cache by GetBunch
+  int32 filling_pos_;  ///< Number of frames filled to cache by AddData
+  int32 emptying_pos_; ///< Number of frames given by cache by GetBunch
   
-  size_t cachesize_; ///< Size of cache
-  size_t bunchsize_; ///< Size of bunch
+  int32 cachesize_; ///< Size of cache
+  int32 bunchsize_; ///< Size of bunch
 
   bool randomized_;
 

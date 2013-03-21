@@ -54,10 +54,16 @@ int main(int argc, char *argv[]) {
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
 
-    int32 bunchsize=512, cachesize=32768;
+    int32 bunchsize=512, cachesize=32768, seed=777;
     po.Register("bunchsize", &bunchsize, "Size of weight update block");
     po.Register("cachesize", &cachesize, "Size of cache for frame level shuffling");
+    po.Register("seed", &seed, "Seed value for srand, sets fixed order of frame-shuffling");
 
+#if HAVE_CUDA==1
+    int32 use_gpu_id=-2;
+    po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID (-2 automatic selection, -1 disable GPU, 0..N select GPU)");
+#endif
+    
     po.Read(argc, argv);
 
     if (po.NumArgs() != 4-(crossvalidate?1:0)) {
@@ -74,10 +80,17 @@ int main(int argc, char *argv[]) {
       target_model_filename = po.GetArg(4);
     }
 
+    //set the seed to the pre-defined value
+    srand(seed);
      
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
+    //Select the GPU
+#if HAVE_CUDA==1
+    if(use_gpu_id > -2)
+    CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+#endif
 
     Nnet nnet_transf;
     if(feature_transform != "") {
@@ -104,7 +117,7 @@ int main(int argc, char *argv[]) {
     Xent xent;
 
     
-    CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, glob_err;
+    CuMatrix<BaseFloat> feats, feats_transf, nnet_in, nnet_out, obj_diff;
     std::vector<int32> targets;
 
     Timer tim;
@@ -128,6 +141,7 @@ int main(int argc, char *argv[]) {
             num_other_error++;
           } else { //dimension OK
             // push features to GPU
+            feats.Resize(mat.NumRows(), mat.NumCols(), kUndefined);
             feats.CopyFromMat(mat);
             // possibly apply transform
             nnet_transf.Feedforward(feats, &feats_transf);
@@ -155,9 +169,9 @@ int main(int argc, char *argv[]) {
         cache.GetBunch(&nnet_in, &targets);
         // train 
         nnet.Propagate(nnet_in, &nnet_out);
-        xent.EvalVec(nnet_out, targets, &glob_err);
+        xent.EvalVec(nnet_out, targets, &obj_diff);
         if (!crossvalidate) {
-          nnet.Backpropagate(glob_err, NULL);
+          nnet.Backpropagate(obj_diff, NULL);
         }
         tot_t += nnet_in.NumRows();
       }

@@ -103,9 +103,9 @@ int main(int argc, char *argv[]) {
     }
     KALDI_LOG << "Successfully aligned " << num_done << " lattices; "
               << num_err << " had errors.";
-    return (num_done > num_err ? 0 : 1); // Change the error condition slightly here,
-    // if there are errors in the word-boundary phones we can get situations where
-    // most lattice give an error.
+    return (num_done > num_err ? 0 : 1); // We changed the error condition slightly here,
+    // if there are errors in the word-boundary phones we can get situations
+    // where most lattices give an error.
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

@@ -2,7 +2,7 @@
 
 // Copyright 2009-2011  Ondrej Glembek;  Microsoft Corporation;  Lukas Burget;
 //                      Saarland University;  Petr Schwarz;  Yanmin Qian;
-//                      Karel Vesely;  Go Vivace Inc.
+//                      Karel Vesely;  Go Vivace Inc.;  Haihua Xu
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,10 @@ class MatrixBase {
  public:
   // so this child can access protected members of other instances.
   friend class Matrix<Real>;
+  // friend declarations for CUDA matrices (see ../cudamatrix/)
+  friend class CuMatrixBase<Real>;
+  friend class CuMatrix<Real>;
+  friend class CuSubMatrix<Real>;
 
   /// Returns number of rows (or zero for emtpy matrix).
   inline MatrixIndexT  NumRows() const { return num_rows_; }
@@ -168,14 +172,21 @@ class MatrixBase {
   }
 
   /// Return a sub-part of matrix.
-  /// @param ro [in] row offset.
-  /// @param r [in] num-rows in result.
-  /// @param co [in] column offset.
-  /// @param c [in] num-columns in result.
-  SubMatrix<Real> Range(const MatrixIndexT ro, const MatrixIndexT r, const MatrixIndexT co,
-                        const MatrixIndexT c) const {
-    return SubMatrix<Real>(*this, ro, r, co, c);
+  inline SubMatrix<Real> Range(const MatrixIndexT row_offset,
+                               const MatrixIndexT num_rows,
+                               const MatrixIndexT col_offset,
+                               const MatrixIndexT num_cols) const {
+    return SubMatrix<Real>(*this, row_offset, num_rows,
+                           col_offset, num_cols);
   }
+  inline SubMatrix<Real> RowRange(const MatrixIndexT row_offset,
+                                  const MatrixIndexT num_rows) const {
+    return SubMatrix<Real>(*this, row_offset, num_rows, 0, num_cols_);
+  }  
+  inline SubMatrix<Real> ColRange(const MatrixIndexT col_offset,
+                                  const MatrixIndexT num_cols) const {
+    return SubMatrix<Real>(*this, 0, num_rows_, col_offset, num_cols);
+  }  
 
   /* Various special functions. */
   /// Returns sum of all elements in matrix.
@@ -208,13 +219,12 @@ class MatrixBase {
 
   /// Returns logdet of matrix.
   Real LogDet(Real *det_sign = NULL) const;
-
+  
   /// matrix inverse.
   /// if inverse_needed = false, will fill matrix with garbage.
   /// (only useful if logdet wanted).
   void Invert(Real *log_det = NULL, Real *det_sign = NULL,
               bool inverse_needed = true);
-
   /// matrix inverse [double].
   /// if inverse_needed = false, will fill matrix with garbage
   /// (only useful if logdet wanted).
@@ -300,6 +310,9 @@ class MatrixBase {
     return tmp.Min();
   }
 
+  void TestUninitialized() const; // This function is designed so that if any element
+  // if the matrix is uninitialized memory, valgrind will complain.
+  
   /// returns condition number by computing Svd.  Works even if cols > rows.
   Real Cond() const;
 
@@ -338,6 +351,22 @@ class MatrixBase {
   /// Apply soft-max to the collection of all elements of the
   /// matrix and return normalizer (log sum of exponentials).
   Real ApplySoftMax();
+
+  /// Set each element to the sigmoid of the corresponding element of "src".
+  void Sigmoid(const MatrixBase<Real> &src);
+
+  /// Set each element to the tanh of the corresponding element of "src".
+  void Tanh(const MatrixBase<Real> &src);
+
+  // Function used in backpropagating derivatives of the sigmoid function:
+  // element-by-element, set *this = diff * value * (1.0 - value).
+  void DiffSigmoid(const MatrixBase<Real> &value,
+                   const MatrixBase<Real> &diff);
+
+  // Function used in backpropagating derivatives of the tanh function:
+  // element-by-element, set *this = diff * (1.0 - value^2).
+  void DiffTanh(const MatrixBase<Real> &value,
+                const MatrixBase<Real> &diff);
   
   /** Uses Svd to compute the eigenvalue decomposition of a symmetric positive
    * semi-definite matrix: (*this) = rP * diag(rS) * rP^T, with rP an
@@ -465,7 +494,7 @@ class MatrixBase {
   void Write(std::ostream & out, bool binary) const;
 
   // Below is internal methods for Svd, user does not have to know about this.
-#ifndef HAVE_ATLAS
+#if !defined(HAVE_ATLAS) && !defined(USE_KALDI_SVD)
   // protected:
   // Should be protected but used directly in testing routine.
   // destroys *this!
@@ -528,7 +557,7 @@ class Matrix : public MatrixBase<Real> {
 
   /// Basic constructor.  Sets to zero by default.
   /// if set_zero == false, memory contents are undefined.
-  Matrix(const MatrixIndexT r, const MatrixIndexT c, MatrixResizeType resize_type = kSetZero) :
+  Matrix(const MatrixIndexT r, const MatrixIndexT c, MatrixResizeType resize_type = kSetZero):
     MatrixBase<Real>() { Resize(r, c, resize_type); }
 
   /// Swaps the contents of *this and *other.  Shallow swap.
@@ -551,7 +580,7 @@ class Matrix : public MatrixBase<Real> {
   /// It is symmetric, so no option for transpose, and NumRows == Cols
   template<typename OtherReal>
   explicit Matrix(const SpMatrix<OtherReal> & M) : MatrixBase<Real>() {
-    Resize(M.NumRows(), M.NumRows());
+    Resize(M.NumRows(), M.NumRows(), kUndefined);
     this->CopyFromSp(M);
   }
 
@@ -560,10 +589,10 @@ class Matrix : public MatrixBase<Real> {
   explicit Matrix(const TpMatrix<OtherReal> & M,
                     MatrixTransposeType trans = kNoTrans) : MatrixBase<Real>() {
     if (trans == kNoTrans) {
-      Resize(M.NumRows(), M.NumCols());
+      Resize(M.NumRows(), M.NumCols(), kUndefined);
       this->CopyFromTp(M);
     } else {
-      Resize(M.NumCols(), M.NumRows());
+      Resize(M.NumCols(), M.NumRows(), kUndefined);
       this->CopyFromTp(M, kTrans);
     }
   }
@@ -582,9 +611,6 @@ class Matrix : public MatrixBase<Real> {
   /// Distructor to free matrices.
   ~Matrix() { Destroy(); }
 
-  /// Deallocates memory and sets to empty matrix.
-  void Destroy();
-
   /// Sets matrix to a specified size (zero is OK as long as both r and c are
   /// zero).  The value of the new data depends on resize_type:
   ///   -if kSetZero, the new data will be zero
@@ -599,9 +625,8 @@ class Matrix : public MatrixBase<Real> {
   /// Assignment operator that takes MatrixBase.
   Matrix<Real> &operator = (const MatrixBase<Real> &other) {
     if (MatrixBase<Real>::NumRows() != other.NumRows() ||
-        MatrixBase<Real>::NumCols() != other.NumCols()) {
-      Resize(other.NumRows(), other.NumCols());
-    }
+        MatrixBase<Real>::NumCols() != other.NumCols())
+      Resize(other.NumRows(), other.NumCols(), kUndefined);
     MatrixBase<Real>::CopyFromMat(other);
     return *this;
   }
@@ -609,15 +634,17 @@ class Matrix : public MatrixBase<Real> {
   /// Assignment operator. Needed for inclusion in std::vector.
   Matrix<Real> &operator = (const Matrix<Real> &other) {
     if (MatrixBase<Real>::NumRows() != other.NumRows() ||
-        MatrixBase<Real>::NumCols() != other.NumCols()) {
-      Resize(other.NumRows(), other.NumCols());
-    }
+        MatrixBase<Real>::NumCols() != other.NumCols())
+      Resize(other.NumRows(), other.NumCols(), kUndefined);
     MatrixBase<Real>::CopyFromMat(other);
     return *this;
   }
   
 
  private:
+  /// Deallocates memory and sets to empty matrix (dimension 0, 0).
+  void Destroy();
+  
   /// Init assumes the current class contents are invalid (i.e. junk or have
   /// already been freed), and it sets the matrix to newly allocated memory with
   /// the specified number of rows and columns.  r == c == 0 is acceptable.  The data
@@ -625,10 +652,6 @@ class Matrix : public MatrixBase<Real> {
   void Init(const MatrixIndexT r,
             const MatrixIndexT c);
 
-#ifdef KALDI_MEMALIGN_MANUAL
-  /// data to be freed (in case of manual memory alignment).
-  Real*   free_data_;
-#endif
 };
 /// @} end "addtogroup matrix_group"
 
@@ -669,21 +692,31 @@ bool WriteHtk(std::ostream &os, const MatrixBase<Real> &M, HtkHeader htk_hdr);
 template<typename Real>
 class SubMatrix : public MatrixBase<Real> {
  public:
+  // Initialize a SubMatrix from part of a matrix; this is
+  // a bit like A(b:c, d:e) in Matlab.
   // This initializer is against the proper semantics of "const", since
-  // SubMatrix can change its contents.
+  // SubMatrix can change its contents.  It would be hard to implement
+  // a "const-safe" version of this class.
   SubMatrix(const MatrixBase<Real>& T,
             const MatrixIndexT ro,  // row offset, 0 < ro < NumRows()
             const MatrixIndexT r,   // number of rows, r > 0
             const MatrixIndexT co,  // column offset, 0 < co < NumCols()
-            const MatrixIndexT c);  // number of columns, c > 0
+            const MatrixIndexT c);   // number of columns, c > 0
 
+  // This initializer is mostly intended for use in CuMatrix and related
+  // classes.  Be careful!
+  SubMatrix(Real *data,
+            MatrixIndexT num_rows,
+            MatrixIndexT num_cols,
+            MatrixIndexT stride);
+  
   ~SubMatrix<Real>() {}
   
   /// This type of constructor is needed for Range() to work [in Matrix base
   /// class]. Cannot make it explicit.
-  SubMatrix<Real> (const SubMatrix &other) :
-      MatrixBase<Real> (other.data_, other.num_cols_, other.num_rows_,
-          other.stride_) {}
+  SubMatrix<Real> (const SubMatrix &other):
+  MatrixBase<Real> (other.data_, other.num_cols_, other.num_rows_,
+                    other.stride_) {}
 
  private:
   /// Disallow assignment.
@@ -715,16 +748,6 @@ Real TraceMatMatMatMat(const MatrixBase<Real> &A, MatrixTransposeType transA,
                          const MatrixBase<Real> &D, MatrixTransposeType transD);
 
 /// @} end "addtogroup matrix_funcs_scalar"
-
-// The following two template specializations don't need to be separately
-// documented.
-template <>
-double TraceMatMat(const MatrixBase<double> &A, const MatrixBase<double> &B,
-                   MatrixTransposeType trans);
-
-template <>
-float TraceMatMat(const MatrixBase<float> &A, const MatrixBase<float> &B,
-                    MatrixTransposeType trans);
 
 
 /// \addtogroup matrix_funcs_misc

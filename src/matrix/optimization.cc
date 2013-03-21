@@ -27,7 +27,7 @@ namespace kaldi {
 // Below, N&W refers to Nocedal and Wright, "Numerical Optimization", 2nd Ed.
 
 template<class Real>
-OptimizeLbfgs<Real>::OptimizeLbfgs(VectorBase<Real> &x,
+OptimizeLbfgs<Real>::OptimizeLbfgs(const VectorBase<Real> &x,
                                    const LbfgsOptions &opts):
     opts_(opts), k_(0), computation_state_(kBeforeStep), H_was_set_(false) {
   KALDI_ASSERT(opts.m > 0); // dimension.
@@ -37,15 +37,12 @@ OptimizeLbfgs<Real>::OptimizeLbfgs(VectorBase<Real> &x,
   new_x_ = x;  // this is where we'll evaluate the function next.
   deriv_.Resize(dim);
   temp_.Resize(dim);
-  H_.Resize(dim);
-  KALDI_ASSERT(opts.first_step_learning_rate > 0.0);
-  H_.Set(opts_.minimize ?
-         opts.first_step_learning_rate :
-         -opts.first_step_learning_rate);
   data_.Resize(2 * opts.m, dim);
   rho_.Resize(opts.m);
   // Just set f_ to some invalid value, as we haven't yet set it.
   f_ = (opts.minimize ? 1 : -1 ) * std::numeric_limits<Real>::infinity();
+  best_f_ = f_;
+  best_x_ = x_;
 }
 
 
@@ -65,18 +62,43 @@ Real OptimizeLbfgs<Real>::RecentStepLength() const {
 }
 
 template<class Real>
-void OptimizeLbfgs<Real>::ComputeHifNeeded() {
-  if (!H_was_set_ && k_ > 0) { // The user never specified an approximate
-    // diagonal inverse Hessian.
-    // Set it using formula 7.20: H_k^{(0)} = \gamma_k I, where
-    // \gamma_k = s_{k-1}^T y_{k-1} / y_{k-1}^T y_{k-1}
-    SubVector<Real> y_km1 = Y(k_-1);
-    double gamma_k = VecVec(S(k_-1), y_km1) / VecVec(y_km1, y_km1);
-    if (KALDI_ISNAN(gamma_k) || KALDI_ISINF(gamma_k)) {
-      KALDI_WARN << "NaN encountered in L-BFGS (already converged?)";
-      gamma_k = (opts_.minimize ? 1.0 : -1.0);
+void OptimizeLbfgs<Real>::ComputeHifNeeded(const VectorBase<Real> &gradient) {
+  if (k_ == 0) {
+    if (H_.Dim() == 0) {
+      // H was never set up.  Set it up for the first time.
+      Real learning_rate;
+      if (opts_.first_step_length > 0.0) { // this takes
+        // precedence over first_step_learning_rate, if set.
+        // We are setting up H for the first time.
+        Real gradient_length = gradient.Norm(2.0);
+        learning_rate = (gradient_length > 0.0 ?
+                         opts_.first_step_length / gradient_length :
+                         1.0);
+      } else if (opts_.first_step_impr > 0.0) {
+        Real gradient_length = gradient.Norm(2.0);
+        learning_rate = (gradient_length > 0.0 ?
+                  opts_.first_step_impr / (gradient_length * gradient_length) :
+                  1.0);
+      } else {
+        learning_rate = opts_.first_step_learning_rate;
+      }
+      H_.Resize(x_.Dim());
+      KALDI_ASSERT(learning_rate > 0.0);
+      H_.Set(opts_.minimize ? learning_rate : -learning_rate);
     }
-    H_.Set(gamma_k);
+  } else { // k_ > 0
+    if (!H_was_set_) { // The user never specified an approximate
+      // diagonal inverse Hessian.
+      // Set it using formula 7.20: H_k^{(0)} = \gamma_k I, where
+      // \gamma_k = s_{k-1}^T y_{k-1} / y_{k-1}^T y_{k-1}
+      SubVector<Real> y_km1 = Y(k_-1);
+      double gamma_k = VecVec(S(k_-1), y_km1) / VecVec(y_km1, y_km1);
+      if (KALDI_ISNAN(gamma_k) || KALDI_ISINF(gamma_k)) {
+        KALDI_WARN << "NaN encountered in L-BFGS (already converged?)";
+        gamma_k = (opts_.minimize ? 1.0 : -1.0);
+      }
+      H_.Set(gamma_k);
+    }
   }
 }  
 
@@ -88,7 +110,7 @@ void OptimizeLbfgs<Real>::ComputeNewDirection(Real function_value,
                                               const VectorBase<Real> &gradient) {
   KALDI_ASSERT(computation_state_ == kBeforeStep);
   SignedMatrixIndexT m = M(), k = k_;
-  ComputeHifNeeded();
+  ComputeHifNeeded(gradient);
   // The rest of this is computing p_k <-- - H_k \nabla f_k using Algorithm
   // 7.4 of N&W.
   Vector<Real> &q(deriv_), &r(new_x_); // Use deriv_ as a temporary place to put
@@ -232,7 +254,7 @@ void OptimizeLbfgs<Real>::StepSizeIteration(Real function_value,
   bool wolfe_i_ok;
   if (opts_.minimize) wolfe_i_ok = (function_value <= temp);
   else wolfe_i_ok = (function_value >= temp);
-
+  
   // Wolfe condition ii) can be written as:
   //  p_k^T \nabla f(x_k + \alpha_k p_k) >= c_2 p_k^T \nabla f(x_k)
   // p2f equals \alpha_k p_k^T \nabla f(x_k + \alpha_k p_k), where
@@ -293,7 +315,7 @@ void OptimizeLbfgs<Real>::StepSizeIteration(Real function_value,
   if (d_action == kDecrease)
     d_ = std::sqrt(d_);
   
-  KALDI_VLOG(3) << "d = " << d_ << ", action = "
+  KALDI_VLOG(3) << "d = " << d_ << ", iter = " << k_ << ", action = "
                 << (iteration_action == kAccept ? "accept" :
                     (iteration_action == kDecreaseStep ? "decrease" :
                      (iteration_action == kIncreaseStep ? "increase" :
@@ -355,6 +377,10 @@ void OptimizeLbfgs<Real>::StepSizeIteration(Real function_value,
 template<class Real>
 void OptimizeLbfgs<Real>::DoStep(Real function_value,
                                  const VectorBase<Real> &gradient) {
+  if (opts_.minimize ? function_value < best_f_ : function_value > best_f_) {
+    best_f_ = function_value;
+    best_x_.CopyFromVec(new_x_);
+  }
   if (computation_state_ == kBeforeStep)
     ComputeNewDirection(function_value, gradient);
   else // kWithinStep{1,2,3}
@@ -365,6 +391,10 @@ template<class Real>
 void OptimizeLbfgs<Real>::DoStep(Real function_value,
                                  const VectorBase<Real> &gradient,
                                  const VectorBase<Real> &diag_approx_2nd_deriv) {
+  if (opts_.minimize ? function_value < best_f_ : function_value > best_f_) {
+    best_f_ = function_value;
+    best_x_.CopyFromVec(new_x_);
+  }
   if (opts_.minimize) {
     KALDI_ASSERT(diag_approx_2nd_deriv.Min() > 0.0);
   } else {
@@ -379,8 +409,8 @@ void OptimizeLbfgs<Real>::DoStep(Real function_value,
 template<class Real>
 const VectorBase<Real>&
 OptimizeLbfgs<Real>::GetValue(Real *objf_value) const {
-  if (objf_value != NULL) *objf_value = f_;
-  return x_;
+  if (objf_value != NULL) *objf_value = best_f_;
+  return best_x_;
 }
 
 

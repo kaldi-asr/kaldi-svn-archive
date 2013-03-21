@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "base/kaldi-common.h"
+#include "util/kaldi-holder.h"
 
 namespace kaldi {
 
@@ -200,7 +201,8 @@ enum RspecifierType  {
   kScriptRspecifier
 };
 
-RspecifierType ClassifyRspecifier(const std::string &rspecifier, std::string *rxfilename, RspecifierOptions *opts);
+RspecifierType ClassifyRspecifier(const std::string &rspecifier, std::string *rxfilename,
+                                  RspecifierOptions *opts);
 
 // Class Table<Holder> is useful when you want the entire set of
 // objects in memory.  NOT IMPLEMENTED YET.
@@ -252,6 +254,7 @@ class RandomAccessTableReader {
                           // message and dies (with KALDI_ERR) if NULL.
   RandomAccessTableReaderImplBase<Holder> *impl_;
 };
+
 
 
 /// A templated class for reading objects sequentially from an archive or script
@@ -372,6 +375,48 @@ class TableWriter {
                           // message and dies (with KALDI_ERR) if NULL.
   TableWriterImplBase<Holder> *impl_;
 };
+
+
+/// This class is for when you are reading something in random access, but
+/// it may actually be stored per-speaker (or something similar) but the 
+/// keys you're using are per utterance.  So you also provide an "rxfilename"
+/// for a file containing lines like
+/// utt1 spk1
+/// utt2 spk1
+/// utt3 spk1
+/// and so on.  Note: this is optional; if it is an empty string, we just won't
+/// do the mapping.  Also, "table_rxfilename" may be the empty string (as for
+/// a regular table), in which case the table just won't be opened.
+/// We provide only the most frequently used of the functions of RandomAccessTableReader.
+
+template<class Holder>
+class RandomAccessTableReaderMapped {
+ public:
+  typedef typename Holder::T T;
+  /// Note: "utt2spk_rxfilename" will in the normal case be an rxfilename
+  /// for an utterance to speaker map, but this code is general; it accepts
+  /// a generic map.
+  RandomAccessTableReaderMapped(const std::string &table_rxfilename,
+                                const std::string &utt2spk_rxfilename);
+
+  RandomAccessTableReaderMapped() {};
+
+  /// Note: when calling Open, utt2spk_rxfilename may be empty.
+  bool Open(const std::string &table_rxfilename,
+            const std::string &utt2spk_rxfilename);
+
+  bool HasKey(const std::string &key);
+  const T &Value(const std::string &key);
+  inline bool IsOpen() const { return reader_.IsOpen(); }
+  inline bool Close() { return reader_.Close(); }
+  
+  // Use the default destructor.
+ private:
+  RandomAccessTableReader<Holder> reader_;
+  RandomAccessTableReader<TokenHolder> token_reader_;
+  std::string utt2spk_rxfilename_; // Used only in diagnostic messages.
+};
+
 
 /// @} end "addtogroup table_group"
 } // end namespace kaldi

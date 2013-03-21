@@ -1,17 +1,19 @@
 #!/bin/bash
 
+. cmd.sh
+
 exit 1;
 # This is a shell script, but it's recommended that you run the commands one by
 # one by copying and pasting into the shell.
 # Caution: some of the graph creation steps use quite a bit of memory, so you
 # should run this on a machine that has sufficient memory.
 
-. cmd.sh
 
 # Data prep
 
 #local/swbd_p1_data_prep.sh /mnt/matylda2/data/SWITCHBOARD_1R2
-local/swbd_p1_data_prep.sh /export/corpora3/LDC/LDC97S62 
+local/swbd_p1_data_prep.sh /data/corpora0/LDC97S62/
+#local/swbd_p1_data_prep.sh /export/corpora3/LDC/LDC97S62 
 
 local/swbd_p1_prepare_dict.sh
 
@@ -25,7 +27,8 @@ local/swbd_p1_format_data.sh
 # is not very much preprocessed; for actual WER reporting we'll use
 # sclite.
 #local/eval2000_data_prep.sh /mnt/matylda2/data/HUB5_2000/ /mnt/matylda2/data/HUB5_2000/2000_hub5_eng_eval_tr
-local/eval2000_data_prep.sh /export/corpora2/LDC/LDC2002S09/hub5e_00 /export/corpora2/LDC/LDC2002T43
+#local/eval2000_data_prep.sh /export/corpora2/LDC/LDC2002S09/hub5e_00 /export/corpora2/LDC/LDC2002T43
+local/eval2000_data_prep.sh  /data/corpora0/LDC2002S09/hub5e_00 /data/corpora0/LDC2002T43 || exit 1;
 
 . cmd.sh
 # mfccdir should be some place with a largish disk where you
@@ -135,7 +138,6 @@ steps/train_lda_mllt.sh --cmd "$train_cmd" \
    exp/tri3a/graph data/eval2000 exp/tri3a/decode_eval2000 || exit 1;
 )&
 
-
 # From now, we start building a more serious system (with SAT), and we'll
 # do the alignment with fMLLR.
 
@@ -143,7 +145,7 @@ steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
   data/train_100k_nodup data/lang exp/tri3a exp/tri3a_ali_100k_nodup || exit 1;
 
 steps/train_sat.sh  --cmd "$train_cmd" \
-  2500 20000 data/train_100k_nodup data/lang exp/tri3a_ali_100k_nodup exp/tri4a || exit 1;
+  4000 100000 data/train_100k_nodup data/lang exp/tri3a_ali_100k_nodup exp/tri4a || exit 1;
 
 (
   utils/mkgraph.sh data/lang_test exp/tri4a exp/tri4a/graph
@@ -156,17 +158,24 @@ steps/train_sat.sh  --cmd "$train_cmd" \
 steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
   data/train_100k_nodup data/lang exp/tri4a exp/tri4a_ali_100k_nodup
 
+
+# Some experiments with neural nets:
+#local/run_nnet_cpu.sh &
+
+
 local/run_sgmm.sh
 #local/run_sgmm2.sh
 
 # Building a larger SAT system.
 
 steps/train_sat.sh --cmd "$train_cmd" \
-  3500 100000 data/train_100k_nodup data/lang exp/tri4a_ali_100k_nodup exp/tri5a || exit 1;
+  4000 100000 data/train_100k_nodup data/lang exp/tri4a_ali_100k_nodup exp/tri5a || exit 1;
 (
   utils/mkgraph.sh data/lang_test exp/tri5a exp/tri5a/graph || exit 1;
   steps/decode_fmllr.sh --cmd "$decode_cmd" --config conf/decode.config \
    --nj 30 exp/tri5a/graph data/eval2000 exp/tri5a/decode_eval2000 || exit 1;
+  steps/decode_fmllr.sh --nj 30 --cmd "$decode_cmd" --config conf/decode.config \
+   exp/tri5a/graph data/train_dev exp/tri5a/decode_train_dev || exit 1;
 )
 
 # MMI starting from system in tri5a.  Use the same data (100k_nodup).
@@ -208,8 +217,19 @@ steps/train_mmi_fmmi_indirect.sh \
      exp/tri5a/graph data/eval2000 exp/tri5a_fmmi_b0.1_indirect/decode_eval2000_it$iter &
  done
 
+
+# Recipe with DNN system on top of fMLLR features
+local/run_hybrid.sh
+
+
+
+
 # Note: we haven't yet run with all the data.
 
+# utils/make_phone_bigram_lang.sh data/lang exp/tri4a_ali_100k_nodup data/lang_phone_bg
+# utils/mkgraph.sh data/lang_phone_bg exp/tri4a exp/tri4a/graph_phone_bg
+# steps/decode_fmllr.sh --nj 30 --cmd "$decode_cmd" --config conf/decode.config \
+#   exp/tri4a/graph_phone_bg data/train_dev exp/tri4a/decode_train_dev_phone_bg
 
 # getting results (see RESULTS file)
 for x in exp/*/decode*; do [ -d $x ] && grep Sum $x/score_*/*.sys | utils/best_wer.sh; done 2>/dev/null

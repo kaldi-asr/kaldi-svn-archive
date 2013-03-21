@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# CAUTION: I changed e.g. 1.trans to trans.1 in the scripts.  If you ran it
-# part-way through prior to this, to convert to the new naming
-# convention, run:
-# for x in `find . -name '*.trans'`; do mv $x `echo $x | perl -ane 's/(\d+)\.trans/trans.$1/;print;'`; done
-# but be careful as this will not follow soft links.
-
 . cmd.sh
 
 # call the next line with the directory where the RM data is
@@ -14,6 +8,7 @@
 #    rm1_audio1  rm1_audio2	rm2_audio
 
 #local/rm_data_prep.sh /mnt/matylda2/data/RM || exit 1;
+
 local/rm_data_prep.sh /export/corpora5/LDC/LDC93S3A/rm_comp || exit 1;
 
 utils/prepare_lang.sh data/local/dict '!SIL' data/local/lang data/lang || exit 1;
@@ -181,3 +176,5 @@ local/run_sgmm.sh
 local/run_sgmm2.sh
 local/run_sgmm2x.sh
 
+# you can do:
+# local/run_nnet_cpu.sh

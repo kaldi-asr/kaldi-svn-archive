@@ -1,7 +1,7 @@
 // matrix/tp-matrix.cc
 
 // Copyright 2009-2011  Ondrej Glembek;  Lukas Burget;  Microsoft Corporation
-//                      Saarland University;  Yanmin Qian
+//                      Saarland University;  Yanmin Qian;   Haihua Xu
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,20 +19,22 @@
 #include "matrix/tp-matrix.h"
 #include "matrix/sp-matrix.h"
 #include "matrix/kaldi-matrix.h"
+#include "matrix/cblas-wrappers.h"
+
 
 namespace kaldi {
 
 #ifndef HAVE_ATLAS
-template<>
-void TpMatrix<float>::Invert() {
+template<typename Real>
+void TpMatrix<Real>::Invert() {
   // these are CLAPACK types
   KaldiBlasInt result;
-  KaldiBlasInt rows = static_cast<int>(num_rows_);
+  KaldiBlasInt rows = static_cast<int>(this->num_rows_);
 
   // clapack call
   // NOTE: Even though "U" is for upper, lapack assumes column-wise storage
   // of the data. We have a row-wise storage, therefore, we need to "invert"
-  stptri_(const_cast<char *>("U"), const_cast<char *>("N"), &rows, data_, &result);
+  clapack_Xtptri(&rows, this->data_, &result);
 
   if (result < 0) {
     KALDI_ERR << "Call to CLAPACK stptri_ function failed";
@@ -40,67 +42,24 @@ void TpMatrix<float>::Invert() {
     KALDI_ERR << "Matrix is singular";
   }
 }
-
-template<>
-void TpMatrix<double>::Invert() {
-  // these are CLAPACK types
-  KaldiBlasInt result;
-  KaldiBlasInt rows = static_cast<int>(num_rows_);
-
-  // clapack call
-  // NOTE: Even though "U" is for upper, lapack assumes column-wise storage
-  // of the data. We have a row-wise storage, therefore, we need to "invert"
-  dtptri_(const_cast<char *>("U"), const_cast<char *>("N"), &rows, data_, &result);
-
-  if (result < 0) {
-    KALDI_ERR << "Call to CLAPACK dtptri_ function failed";
-  } else if (result > 0) {
-    KALDI_ERR << "Matrix is singular";
-  }
-}
 #else
-
   
-template<>
-void TpMatrix<float>::Invert() {
+template<typename Real>
+void TpMatrix<Real>::Invert() {
   // ATLAS doesn't implement triangular matrix inversion in packed
   // format, so we temporarily put in non-packed format.
-  Matrix<float> tmp(*this);
-  int rows = static_cast<int>(num_rows_);
+  Matrix<Real> tmp(*this);
+  int rows = static_cast<int>(this->num_rows_);
 
   
   // ATLAS call.  It's really row-major ordering and a lower triangular matrix,
   // but there is some weirdness with Fortran-style indexing that we need to
   // take account of, so everything gets swapped.
-  int result = clapack_strtri(CblasColMajor, CblasUpper, CblasNonUnit, rows,
-                              tmp.Data(), tmp.Stride());
+  int result = clapack_Xtrtri( rows, tmp.Data(), tmp.Stride());
   // Let's hope ATLAS has the same return value conventions as clapack.
   // I couldn't find any documentation online.
   if (result < 0) {
     KALDI_ERR << "Call to ATLAS strtri function failed";
-  } else if (result > 0) {
-    KALDI_ERR << "Matrix is singular";
-  }
-  (*this).CopyFromMat(tmp);
-}
-
-
-template<>
-void TpMatrix<double>::Invert() {
-  // ATLAS doesn't implement triangular matrix inversion in packed
-  // format, so we temporarily put in non-packed format.
-  Matrix<double> tmp(*this);
-  int rows = static_cast<int>(num_rows_);
-
-  // ATLAS call.  It's really row-major ordering and a lower triangular matrix,
-  // but there is some weirdness with Fortran-style indexing that we need to
-  // take account of, so everything gets swapped.
-  int result = clapack_dtrtri(CblasColMajor, CblasUpper, CblasNonUnit, rows,
-                              tmp.Data(), tmp.Stride());
-  // Let's hope ATLAS has the same return value conventions as clapack.
-  // I couldn't find any documentation online.
-  if (result < 0) {
-    KALDI_ERR << "Call to ATLAS dtrtri function failed";
   } else if (result > 0) {
     KALDI_ERR << "Matrix is singular";
   }
@@ -136,26 +95,22 @@ void TpMatrix<Real>::Swap(TpMatrix<Real> *other) {
 
 
 template<typename Real>
-void TpMatrix<Real>::Cholesky(const SpMatrix<Real> &rOrig) {
-  KALDI_ASSERT(rOrig.NumRows() == this->NumRows());
+void TpMatrix<Real>::Cholesky(const SpMatrix<Real> &orig) {
+  KALDI_ASSERT(orig.NumRows() == this->NumRows());
   MatrixIndexT n = this->NumRows();
   this->SetZero();
   Real *data = this->data_, *jdata = data;  // start of j'th row of matrix.
-  const Real *orig_jdata = rOrig.Data(); // start of j'th row of matrix.
+  const Real *orig_jdata = orig.Data(); // start of j'th row of matrix.
   for (MatrixIndexT j = 0; j < n; j++, jdata += j, orig_jdata += j) {
     Real *kdata = data; // start of k'th row of matrix.
     Real d(0.0);
     for (MatrixIndexT k = 0; k < j; k++, kdata += k) {
-      Real s(0.0);
-      for (MatrixIndexT i = 0; i < k; i++) {
-        // s += (*this)(k, i) * (*this)(j, i);
-        s += kdata[i] * jdata[i];
-      }
-      // (*this)(j, k) = s = (rOrig(j, k) - s)/(*this)(k, k);
+      Real s = cblas_Xdot(k, kdata, 1, jdata, 1);
+      // (*this)(j, k) = s = (orig(j, k) - s)/(*this)(k, k);
       jdata[k] = s = (orig_jdata[k] - s)/kdata[k];
       d = d + s*s;
     }
-    // d = rOrig(j, j) - d;
+    // d = orig(j, j) - d;
     d = orig_jdata[j] - d;
     
     if (d >= 0.0) {

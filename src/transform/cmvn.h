@@ -1,6 +1,7 @@
 // transform/cmvn.h
 
-// Copyright 2009-2011 Microsoft Corporation
+// Copyright 2009-2013 Microsoft Corporation
+//                     Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,11 +20,8 @@
 #ifndef KALDI_TRANSFORM_CMVN_H_
 #define KALDI_TRANSFORM_CMVN_H_
 
-#include <vector>
-
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-#include "hmm/transition-model.h"
 
 namespace kaldi {
 
@@ -34,20 +32,23 @@ namespace kaldi {
 void InitCmvnStats(int32 dim, Matrix<double> *stats);
 
 /// Accumulation from a single frame (weighted).
-void AccCmvnStats(const VectorBase<BaseFloat> &feats, BaseFloat weight, MatrixBase<double> *stats);
+void AccCmvnStats(const VectorBase<BaseFloat> &feat,
+                  BaseFloat weight,
+                  MatrixBase<double> *stats);
 
 /// Accumulation from a feature file (possibly weighted-- useful in excluding silence).
 void AccCmvnStats(const MatrixBase<BaseFloat> &feats,
                   const VectorBase<BaseFloat> *weights,  // or NULL
                   MatrixBase<double> *stats);
 
-
-
 /// Apply cepstral mean and variance normalization to a matrix of features.
+/// If norm_vars == true, expects stats to be of dimension 2 by (dim+1), but
+/// if norm_vars == false, will accept stats of dimension 1 by (dim+1); these
+/// are produced by the balanced-cmvn code when it computes an offset and
+/// represents it as "fake stats".
 void ApplyCmvn(const MatrixBase<double> &stats,
                bool norm_vars,
                MatrixBase<BaseFloat> *feats);
-
 
 }  // namespace kaldi
 

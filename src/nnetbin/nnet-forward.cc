@@ -52,6 +52,11 @@ int main(int argc, char *argv[]) {
 
     po.Register("silent", &silent, "Don't print any messages");
 
+#if HAVE_CUDA==1
+    int32 use_gpu_id=-2;
+    po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID (-2 automatic selection, -1 disable GPU, 0..N select GPU)");
+#endif
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 3) {
@@ -66,6 +71,12 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
+    //Select the GPU
+#if HAVE_CUDA==1
+    if(use_gpu_id > -2)
+    CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+#endif
+
     Nnet nnet_transf;
     if(feature_transform != "") {
       nnet_transf.Read(feature_transform);
@@ -73,6 +84,11 @@ int main(int argc, char *argv[]) {
 
     Nnet nnet;
     nnet.Read(model_filename);
+    //optionally remove softmax
+    if(no_softmax && nnet.Layer(nnet.LayerCount()-1)->GetType() == Component::kSoftmax) {
+      KALDI_LOG << "Removing softmax from the nnet " << model_filename;
+      nnet.RemoveLayer(nnet.LayerCount()-1);
+    }
 
     kaldi::int64 tot_t = 0;
 
@@ -118,6 +134,7 @@ int main(int argc, char *argv[]) {
       }
 
       // push priors to GPU
+      priors.Resize(tmp_priors.Dim());
       priors.CopyFromVec(tmp_priors);
     }
 
@@ -139,7 +156,7 @@ int main(int argc, char *argv[]) {
         }
       }
       // push it to gpu
-      feats.CopyFromMat(mat);
+      feats = mat;
       // fwd-pass
       nnet_transf.Feedforward(feats, &feats_transf);
       nnet.Feedforward(feats_transf, &nnet_out);
@@ -158,7 +175,8 @@ int main(int argc, char *argv[]) {
         }
       }
      
-      //download from GPU 
+      //download from GPU
+      nnet_out_host.Resize(nnet_out.NumRows(), nnet_out.NumCols());
       nnet_out.CopyToMat(&nnet_out_host);
       //check for NaN/inf
       for(int32 r=0; r<nnet_out_host.NumRows(); r++) {

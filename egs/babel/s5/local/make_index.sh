@@ -1,0 +1,1 @@
+../steps/make_index.sh

@@ -9,6 +9,7 @@ cmd=run.pl
 num_iters=4
 boost=0.0
 cancel=true # if true, cancel num and den counts on each frame.
+zero_if_disjoint=false
 acwt=0.1
 stage=0
 update_opts=
@@ -54,11 +55,12 @@ cp $alidir/splice_opts $dir 2>/dev/null
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 echo $nj > $dir/num_jobs
 
-cp $alidir/{final.mdl,tree} $dir
+cp $alidir/tree $dir
+cp $alidir/final.mdl $dir/0.mdl
 
 silphonelist=`cat $lang/phones/silence.csl` || exit 1;
 
-# Set up featuresl
+# Set up features
 
 if [ -f $alidir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
@@ -90,7 +92,7 @@ fi
 
 if [ -f $alidir/gselect.1.gz ]; then
   echo "$0: using Gaussian-selection info from $alidir"
-  gselect_opt="--gselect=ark:gunzip -c $alidir/gselect.JOB.gz|"
+  gselect_opt="--gselect=ark,s,cs:gunzip -c $alidir/gselect.JOB.gz|"
 else
   echo "$0: error: no Gaussian-selection info found" && exit 1;
 fi
@@ -100,37 +102,35 @@ if [[ "$boost" != "0.0" && "$boost" != 0 ]]; then
   lats="$lats lattice-boost-ali --b=$boost --silence-phones=$silphonelist $alidir/final.mdl ark:- 'ark,s,cs:gunzip -c $alidir/ali.JOB.gz|' ark:- |"
 fi
 
-
-cur_mdl=$alidir/final.mdl
 x=0
 while [ $x -lt $num_iters ]; do
   echo "Iteration $x of MMI training"
-  # Note: the num and den states are accumulated at the same time, so we
+  # Note: the num and den states are accumulated at the same time: 
   # can cancel them per frame.
   if [ $stage -le $x ]; then
     $cmd JOB=1:$nj $dir/log/acc.$x.JOB.log \
-      sgmm2-rescore-lattice "$gselect_opt" $spkvecs_opt $cur_mdl "$lats" "$feats" ark:- \| \
+      test -s $dir/den_acc.$x.JOB.gz '||' \
+      sgmm2-rescore-lattice "$gselect_opt" $spkvecs_opt $dir/$x.mdl "$lats" "$feats" ark:- \| \
       lattice-to-post --acoustic-scale=$acwt ark:- ark:- \| \
-      sum-post --merge=$cancel --scale1=-1 \
+      sum-post --zero-if-disjoint=$zero_if_disjoint --merge=$cancel --scale1=-1 \
       ark:- "ark,s,cs:gunzip -c $alidir/ali.JOB.gz | ali-to-post ark:- ark:- |" ark:- \| \
-      sgmm2-acc-stats2 "$gselect_opt" $spkvecs_opt $cur_mdl "$feats" ark,s,cs:- \
-        $dir/num_acc.$x.JOB.acc $dir/den_acc.$x.JOB.acc || exit 1;
+      sgmm2-acc-stats2 "$gselect_opt" $spkvecs_opt $dir/$x.mdl "$feats" ark,s,cs:- \
+      "|gzip -c >$dir/num_acc.$x.JOB.gz" "|gzip -c >$dir/den_acc.$x.JOB.gz" || exit 1;
 
-    n=`echo $dir/{num,den}_acc.$x.*.acc | wc -w`;
+    n=`echo $dir/{num,den}_acc.$x.*.gz | wc -w`;
     [ "$n" -ne $[$nj*2] ] && \
       echo "Wrong number of MMI accumulators $n versus 2*$nj" && exit 1;
-    $cmd $dir/log/den_acc_sum.$x.log \
-      sgmm2-sum-accs $dir/den_acc.$x.acc $dir/den_acc.$x.*.acc || exit 1;
-    rm $dir/den_acc.$x.*.acc
-    $cmd $dir/log/num_acc_sum.$x.log \
-      sgmm2-sum-accs $dir/num_acc.$x.acc $dir/num_acc.$x.*.acc || exit 1;
-    rm $dir/num_acc.$x.*.acc
-
+    num_acc_sum="sgmm2-sum-accs - ";
+    den_acc_sum="sgmm2-sum-accs - ";
+    for j in `seq $nj`; do 
+      num_acc_sum="$num_acc_sum 'gunzip -c $dir/num_acc.$x.$j.gz|'"; 
+      den_acc_sum="$den_acc_sum 'gunzip -c $dir/den_acc.$x.$j.gz|'"; 
+    done
     $cmd $dir/log/update.$x.log \
-     sgmm2-est-ebw $update_opts $cur_mdl $dir/num_acc.$x.acc $dir/den_acc.$x.acc $dir/$[$x+1].mdl || exit 1;
+     sgmm2-est-ebw $update_opts $dir/$x.mdl "$num_acc_sum |" "$den_acc_sum |" \
+      $dir/$[$x+1].mdl || exit 1;
+    rm $dir/*_acc.$x.*.gz 
   fi
-  cur_mdl=$dir/$[$x+1].mdl
-
 
   # Some diagnostics: the objective function progress and auxiliary-function
   # improvement.  Note: this code is same as in train_mmi.sh
@@ -147,6 +147,7 @@ done
 echo "MMI training finished"
 
 rm $dir/final.mdl 2>/dev/null
+rm $dir/*.acc 2>/dev/null
 ln -s $x.mdl $dir/final.mdl
 
 exit 0;

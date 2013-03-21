@@ -17,8 +17,7 @@ latbeam=6.0
 acwt=0.083333 # note: only really affects pruning (scoring is on lattices).
 extra_beam=0.0 # small additional beam over varying beam
 max_beam=100.0 # maximum of varying beam
-min_lmwt=9
-max_lmwt=24
+scoring_opts=
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -45,8 +44,7 @@ if [ $# != 3 ]; then
    echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
    echo "  --transform_dir <trans-dir>                      # dir to find fMLLR transforms "
    echo "                                                   # speaker-adapted decoding"
-   echo "  --min-lmwt <int>                                 # minimum LM-weight for lattice rescoring "
-   echo "  --max-lmwt <int>                                 # maximum LM-weight for lattice rescoring "
+   echo "  --scoring-opts <string>                          # options to local/score.sh"
    echo "  --reverse [true/false]                           # time reversal of features"
    exit 1;
 fi
@@ -67,7 +65,7 @@ if [ -z "$model" ]; then # if --model <mdl> was not specified on the command lin
   else model=$srcdir/$iter.mdl; fi
 fi
 
-for f in $sdata/1/feats.scp $sdata/1/cmvn.scp $model $srcdir/tree $graphdir/HCLG.fst $graphdir/words.txt; do
+for f in $sdata/1/feats.scp $sdata/1/cmvn.scp $model $graphdir/HCLG.fst $graphdir/words.txt; do
   [ ! -f $f ] && echo "decode_fwdbwd.sh: no such file $f" && exit 1;
 done
 
@@ -95,9 +93,9 @@ fi
 if [ -f $first_pass/lat.1.gz ]; then
   echo "converting first pass lattice to graph arc acceptor"
   $cmd JOB=1:$nj $dir/log/arc_graph.JOB.log \
-    time lattice-arcgraph --write-graph=HCLG_mapped.fst --write-lattices=ark,t:$dir/lat.det \
-      $srcdir/tree $model $graphdir/HCLG.fst "ark:gunzip -c $first_pass/lat.JOB.gz|" \
-      ark,t:$dir/lat.JOB.arcs || exit 1;
+    time lattice-arcgraph $model $graphdir/HCLG.fst \
+    "ark:gunzip -c $first_pass/lat.JOB.gz|" ark,t:$dir/lat.JOB.arcs || exit 1;
+    #  --write-lattices=ark,t:$dir/lat.det
     #  --acoustic-scale=$acwt --lattice-beam=$latbeam --prune=false \
 
   echo "decode with tracking first pass lattice"
@@ -118,7 +116,7 @@ fi
 
 [ ! -x local/score.sh ] && \
   echo "Not scoring because local/score.sh does not exist or not executable." && exit 1;
-local/score.sh --cmd "$cmd" --reverse $reverse --min_lmwt $min_lmwt --max_lmwt $max_lmwt $data $graphdir $dir
+local/score.sh $scoring_opts --cmd "$cmd" --reverse $reverse $scoring_opts $data $graphdir $dir
 
 echo "Decoding done."
 exit 0;

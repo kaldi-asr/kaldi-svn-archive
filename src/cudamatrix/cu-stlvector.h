@@ -31,8 +31,7 @@ template<typename IntType> class CuMatrix;
  */
 template<typename IntType>
 class CuStlVector {
- typedef CuStlVector<IntType> ThisType;
-
+  typedef CuStlVector<IntType> ThisType;
  public:
 
   /// Default Constructor
@@ -40,7 +39,7 @@ class CuStlVector {
    : dim_(0), data_(NULL) { 
   }
   /// Constructor with memory initialisation
-  CuStlVector<IntType>(size_t dim)
+  CuStlVector<IntType>(MatrixIndexT dim)
    : dim_(0), data_(NULL) { 
     Resize(dim); 
   }
@@ -51,7 +50,7 @@ class CuStlVector {
   }
 
   /// Dimensions
-  size_t Dim() const { 
+  MatrixIndexT Dim() const { 
     return dim_; 
   }
 
@@ -60,7 +59,7 @@ class CuStlVector {
   IntType* Data();
  
   /// Allocate the memory
-  ThisType& Resize(size_t dim);
+  ThisType& Resize(MatrixIndexT dim);
 
   /// Deallocate the memory
   void Destroy();
@@ -81,12 +80,11 @@ class CuStlVector {
     return vec_;
   }
 
-private:
-  size_t dim_;     ///< dimension of the vector
+ private:
+  MatrixIndexT dim_;     ///< dimension of the vector
   IntType *data_;  ///< GPU data pointer
   std::vector<IntType> vec_; ///< non-GPU vector as back-up
 };
-
 
 
 /*
