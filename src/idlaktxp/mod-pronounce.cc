@@ -38,10 +38,10 @@ bool TxpPronounce::Process(pugi::xml_document * input) {
   const char * lex_pron;
   const char * word, *p;
   const std::string * symbol;
-  std::string utfchar, word_str;
+  std::string utfchar, word_str, altprons;
   TxpLexiconLkp lexlkp;
   TxpUtf8 utf8;
-  int32 clen;
+  int32 clen, i;
   tks.sort();
   for (pugi::xpath_node_set::const_iterator it = tks.begin();
        it != tks.end();
@@ -91,6 +91,14 @@ bool TxpPronounce::Process(pugi::xml_document * input) {
       // standard lookup of word
       AppendPron(lex_entry, std::string(word), lexlkp);
       node.append_attribute("pron").set_value(lexlkp.pron.c_str());
+      if (!lexlkp.lts && lexlkp.altprons.size() > 1) {
+        altprons.clear();
+        for(i = 0; i < lexlkp.altprons.size(); i++) {
+          if (i) altprons = altprons + ", ";
+          altprons = altprons + lexlkp.altprons[i];
+        }
+        node.append_attribute("altprons").set_value(altprons.c_str());
+      }
     }
   }
   return true;

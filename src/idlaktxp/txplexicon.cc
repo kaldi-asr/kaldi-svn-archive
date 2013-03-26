@@ -40,14 +40,22 @@ void TxpLexicon:: EndElement(const char * name) {
   LookupMap::iterator it;
   if (!strcmp(name, "lex")) {
     inlex_ = false;
+    // if word as delimiter char : in it we can't add it
+    if (word_.find(":") != std::string::npos) {
+      KALDI_ERR << "Lexicon error with forbidden ':' character: " << word_;
+      return;
+    }
+    // The first default is set as the default
     if (isdefault_ == "true") {
-      lookup_.insert(LookupItem(std::string("default:") + word_, pron_));
-      lookup_.insert(LookupItem(entry_ + std::string(":") + word_, pron_));
-    } else {
-      it =  lookup_.find(entry_ + std::string(":") + word_);
+      it =  lookup_.find(word_ + std::string(":default"));
       if (it == lookup_.end()) {
-        lookup_.insert(LookupItem(entry_ + std::string(":") + word_, pron_));
+        lookup_.insert(LookupItem(word_ + std::string(":default"), pron_));
       }
+    }
+    // If entry types repeat only the first is inserted
+    it = lookup_.find(word_ + std::string(":") + entry_);
+    if (it == lookup_.end()) {
+      lookup_.insert(LookupItem(word_ + std::string(":") + entry_, pron_));
     }
   }
 }
@@ -56,12 +64,23 @@ int TxpLexicon::GetPron(const std::string &word,
                         const std::string &entry,
                         TxpLexiconLkp &lkp) {
   LookupMap::iterator it;
+  std::size_t pos;
   if (!entry.empty())
-    it =  lookup_.find(entry + std::string(":") + word);
+    it = lookup_.find(word + std::string(":") + entry);
   else
-    it =  lookup_.find(std::string("default:") + word);
+    it = lookup_.find(word + std::string(":default"));
   if (it != lookup_.end()) {
     lkp.pron += it->second;
+    // Extract other pronunciations
+    it = lookup_.find(word + std::string(":default"));
+    it++;
+    pos = (it->first).find(":");
+    while ((it->first).substr(0, pos) == word) {
+      lkp.altprons.push_back(it->second);
+      it++;
+      if (it == lookup_.end()) break;
+      pos = (it->first).find(":");
+    }
     return true;
   } else {
     return false;
