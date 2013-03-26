@@ -262,7 +262,7 @@ template<> inline double cublas_dot<double>(int n, const double *x, int incx, co
 
 template<class Real>
 Real CuPackedMatrix<Real>::Trace() const {
-  Real *host_result = 0;
+  Real result = 0.0;
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -272,20 +272,20 @@ Real CuPackedMatrix<Real>::Trace() const {
     Real *device_result = 0;
     //Real *host_result = 0;
     size_t num_bytes = sizeof(Real);
-    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)));
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), num_bytes));
     CU_SAFE_CALL(cudaMemset(device_result, 0, num_bytes));    //CU_SAFE_CALL(cudaMemcpy());
-    //cuda_trace(dimGrid, dimBlock, data_, device_result, num_rows_);
+    cuda_trace(dimGrid, dimBlock, data_, device_result, num_rows_);
     CU_SAFE_CALL(cudaGetLastError());
-    CU_SAFE_CALL(cudaMemcpy(host_result, device_result, num_bytes, cudaMemcpyDeviceToHost));
+    CU_SAFE_CALL(cudaMemcpy(&result, device_result, num_bytes, cudaMemcpyDeviceToHost));
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
     std::cout << "CUDA!" << std::endl;  
   } else
 #endif
   {
-    *host_result = Mat().Trace();
+    result = Mat().Trace();
   }
-  return *host_result;
+  return result;
 }
 
 /**
