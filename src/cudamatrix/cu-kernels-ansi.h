@@ -41,7 +41,6 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda *mat, int32_cuda value, Matr
 /*
  * CuMatrix 
  */
-void cudaF_trace(int Gr, int Bl, float* mat, float* value, int nR);
 void cudaF_set_const(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_add(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_scale(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
@@ -57,6 +56,7 @@ void cudaF_add_vec_to_rows(dim3 Gr, dim3 Bl, float alpha, const float *row, floa
 /*
  * CuVector
  */
+void cudaF_trace(int Gr, int Bl, float* mat, float* value, int dim);
 void cudaF_add_row_sum_mat(dim3 Gr, dim3 Bl, const float *mat, float *vec_sum, MatrixDim d);
 void cudaF_add_col_sum_mat(dim3 Gr, dim3 Bl, const float *mat, float *vec_sum, MatrixDim d);
 void cudaF_invert_elements(dim3 Gr, dim3 Bl, float *data, MatrixDim d);
@@ -87,7 +87,6 @@ void cudaF_copy(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *co
 /*
  * CuMatrix 
  */
-void cudaD_trace(int Gr, int Bl, double* mat, double* value, int nR);
 void cudaD_set_const(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_add(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_scale(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
@@ -103,6 +102,7 @@ void cudaD_add_vec_to_rows(dim3 Gr, dim3 Bl, double alpha, const double *row, do
 /*
  * CuVector
  */
+void cudaD_trace(int Gr, int Bl, double* mat, double* value, int dim);
 void cudaD_add_row_sum_mat(dim3 Gr, dim3 Bl, const double *mat, double *vec_sum, MatrixDim d);
 void cudaD_add_col_sum_mat(dim3 Gr, dim3 Bl, const double *mat, double *vec_sum, MatrixDim d);
 void cudaD_invert_elements(dim3 Gr, dim3 Bl, double *data, MatrixDim d);

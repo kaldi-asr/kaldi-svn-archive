@@ -119,17 +119,6 @@ static int32_cuda _max_id_reduce(Real val[], int32_cuda idx[]) {
  */
 template<typename Real>
 __global__
-static void _trace(Real* mat, Real* value, int nR) {
-  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
-  // the diagonal index
-  int32_cuda index = (i+1) * (i+2) / 2;
-  if ( index < nR )
-    *value += *(mat+index);
-}
-
-
-template<typename Real>
-__global__
 static void _set_const(Real* mat, Real value, MatrixDim d) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -278,6 +267,24 @@ static void _apply_mask(Real* mat, const char* mask, MatrixDim dmat, MatrixDim d
 /*
  * CuVector
  */
+template<typename Real>
+__global__
+static void _trace(const Real* mat, Real* value, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  
+  int32_cuda index = (i+1) * (i+2) / 2;
+  __shared__ Real row_data[256];
+
+  //copy the input to row_data
+  row_data[i] = mat[index];
+  __syncthreads();
+
+  //get the sum
+  *value = _sum_reduce(row_data);
+  __syncthreads();
+}
+
+
 template<typename Real>
 __global__
 static void _add_row_sum_mat(const Real* mat, Real* vec_sum, MatrixDim d) {
@@ -581,11 +588,6 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda* mat, int32_cuda value, Matr
 /*
  * CuMatrix
  */
-void cudaF_trace(int Gr, int Bl, float* mat, float* value, int nR) {
-
-  _trace<<<Gr,Bl>>>(mat,value,nR);
-}
-
 void cudaF_set_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
@@ -640,6 +642,11 @@ void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim 
 /*
  * CuVector
  */
+void cudaF_trace(int Gr, int Bl, float* mat, float* value, int dim) {
+
+  _trace<<<Gr,Bl>>>(mat,value,dim);
+}
+
 void cudaF_add_row_sum_mat(dim3 Gr, dim3 Bl, const float* mat, float* vec_sum, MatrixDim d) {
   _add_row_sum_mat<<<Gr,Bl>>>(mat,vec_sum,d);
 }
@@ -714,10 +721,6 @@ void cudaF_diff_xent(dim3 Gr, dim3 Bl, const int32_cuda* vec_tgt, float* mat_net
 /*
  * CuMatrix
  */
-void cudaD_trace(int Gr, int Bl, double* mat, double* value, int nR) {
-  _trace<<<Gr,Bl>>>(mat,value,nR);
-}
-
 void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
@@ -772,6 +775,10 @@ void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim
 /*
  * CuVector
  */
+void cudaD_trace(int Gr, int Bl, double* mat, double* value, int dim) {
+  _trace<<<Gr,Bl>>>(mat,value,dim);
+}
+
 void cudaD_add_row_sum_mat(dim3 Gr, dim3 Bl, const double* mat, double* vec_sum, MatrixDim d) {
   _add_row_sum_mat<<<Gr,Bl>>>(mat,vec_sum,d);
 }

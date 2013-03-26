@@ -244,27 +244,48 @@ void CuPackedMatrix<Real>::SetZero() {
   }
 }
 
+/**
+ * C++ templatd wrapper of ANSI-C CUBLAS function GEMM (matrix multiply)
+ */
+#if HAVE_CUDA==1
+template<typename Real> inline Real cublas_dot(int n, const Real *x, int incx, const Real *y, int incy) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline float cublas_dot<float>(int n, const float *x, int incx, const float *y, int incy) {
+  cublasSdot(n, x, incx, y, incy);
+}
+template<> inline double cublas_dot<double>(int n, const double *x, int incx, const double *y, int incy) {
+  cublasDdot(n, x, incx, y, incy);
+}
+#endif
+
+
 template<class Real>
 Real CuPackedMatrix<Real>::Trace() const {
-  Real ans = 0.0;
+  Real *host_result = 0;
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(NumRows(), CUBLOCK));
 
-    cuda_trace(dimGrid, dimBlock, data_, &ans, NumRows());
+    Real *device_result = 0;
+    //Real *host_result = 0;
+    size_t num_bytes = sizeof(Real);
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)));
+    CU_SAFE_CALL(cudaMemset(device_result, 0, num_bytes));    //CU_SAFE_CALL(cudaMemcpy());
+    //cuda_trace(dimGrid, dimBlock, data_, device_result, num_rows_);
     CU_SAFE_CALL(cudaGetLastError());
-    std::cout << "ANS" << ans << std::endl;  
+    CU_SAFE_CALL(cudaMemcpy(host_result, device_result, num_bytes, cudaMemcpyDeviceToHost));
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
     std::cout << "CUDA!" << std::endl;  
   } else
 #endif
   {
-    ans = Mat().Trace();
+    *host_result = Mat().Trace();
   }
-  return ans;
+  return *host_result;
 }
 
 /**
