@@ -252,10 +252,10 @@ template<typename Real> inline Real cublas_dot(int n, const Real *x, int incx, c
   KALDI_ERR << __func__ << " Not implemented!";
 }
 template<> inline float cublas_dot<float>(int n, const float *x, int incx, const float *y, int incy) {
-  cublasSdot(n, x, incx, y, incy);
+  return cublasSdot(n, x, incx, y, incy);
 }
 template<> inline double cublas_dot<double>(int n, const double *x, int incx, const double *y, int incy) {
-  cublasDdot(n, x, incx, y, incy);
+  return cublasDdot(n, x, incx, y, incy);
 }
 #endif
 
@@ -268,18 +268,34 @@ Real CuPackedMatrix<Real>::Trace() const {
     Timer tim;
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(NumRows(), CUBLOCK));
+    size_t nr = static_cast<size_t>(num_rows_),
+        num_bytes = nr * sizeof(Real);
 
-    Real *device_result = 0;
-    //Real *host_result = 0;
-    size_t num_bytes = sizeof(Real);
-    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), num_bytes));
-    CU_SAFE_CALL(cudaMemset(device_result, 0, num_bytes));    //CU_SAFE_CALL(cudaMemcpy());
+    //this is the cublas implementation
+    Real host_ones[num_rows_];
+    for (MatrixIndexT i = 0; i < num_rows_; i++) {
+      host_ones[i] = 1;
+    }    
+    Real *device_ones = 0;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_ones), num_bytes));
+    CU_SAFE_CALL(cudaMemcpy(device_ones, host_ones, num_bytes, cudaMemcpyHostToDevice));
+    Real* device_array;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_array),num_bytes));
+    cuda_copy_diag(dimGrid,dimBlock,device_array,data_,num_rows_);
+    result = cublas_dot(num_rows_, device_array, 1, device_ones, 1); 
+    
+    /*
+    // implementaion using sum_reduce
+    Real* device_result;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)))
+    CU_SAFE_CALL(cudaMemset(device_result,0, sizeof(Real)));
     cuda_trace(dimGrid, dimBlock, data_, device_result, num_rows_);
     CU_SAFE_CALL(cudaGetLastError());
-    CU_SAFE_CALL(cudaMemcpy(&result, device_result, num_bytes, cudaMemcpyDeviceToHost));
-
+    CU_SAFE_CALL(cudaMemcpy(&result, device_result, sizeof(Real), cudaMemcpyDeviceToHost));
+    */
+    
+    
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
-    std::cout << "CUDA!" << std::endl;  
   } else
 #endif
   {

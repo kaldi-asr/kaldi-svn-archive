@@ -75,7 +75,7 @@ template<typename Real> inline void cuda_diff_xent(dim3 Gr, dim3 Bl, const int32
 template<typename Real> inline void cuda_randomize(dim3 Gr, dim3 Bl, Real *y, const Real *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_splice(dim3 Gr, dim3 Bl, Real *y, const Real *x, const int32_cuda *off, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_copy(dim3 Gr, dim3 Bl, Real *y, const Real *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << " Not implemented!"; }
-
+template<typename Real> inline void cuda_copy_diag(int Gr, int Bl, Real* y, const Real* x, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
 
 
 /*********************************************************
@@ -123,7 +123,7 @@ template<> inline void cuda_randomize<float>(dim3 Gr, dim3 Bl, float *y, const f
 
 template<> inline void cuda_splice<float>(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *off, MatrixDim d_out, MatrixDim d_in) { cudaF_splice(Gr,Bl,y,x,off,d_out,d_in); }
 template<> inline void cuda_copy<float>(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in) { cudaF_copy(Gr,Bl,y,x,copy_from,d_out,d_in); }
-
+template<> inline void cuda_copy_diag<float>(int Gr, int Bl, float* y, const float* x, int dim) { cudaF_copy_diag(Gr,Bl,y,x,dim); }
 
 /*********************************************************
  * double specializations
@@ -169,6 +169,7 @@ template<> inline void cuda_diff_xent<double>(dim3 Gr, dim3 Bl, const int32_cuda
 template<> inline void cuda_randomize<double>(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in) { cudaD_randomize(Gr,Bl,y,x,copy_from,d_out,d_in); }
 template<> inline void cuda_splice<double>(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *off, MatrixDim d_out, MatrixDim d_in) { cudaD_splice(Gr,Bl,y,x,off,d_out,d_in); }
 template<> inline void cuda_copy<double>(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in) { cudaD_copy(Gr,Bl,y,x,copy_from,d_out,d_in); }
+template<> inline void cuda_copy_diag<double>(int Gr, int Bl, double* y, const double* x, int dim) { cudaD_copy_diag(Gr,Bl,y,x,dim); }
 
 } // namespace
 

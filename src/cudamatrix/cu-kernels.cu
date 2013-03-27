@@ -271,17 +271,19 @@ template<typename Real>
 __global__
 static void _trace(const Real* mat, Real* value, int dim) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
-  
-  int32_cuda index = (i+1) * (i+2) / 2;
-  __shared__ Real row_data[256];
+  if(blockIdx.x > 0) return;
 
-  //copy the input to row_data
-  row_data[i] = mat[index];
-  __syncthreads();
+  if ( i < dim) {
+    int32_cuda index = (i+1) * (i+2) / 2;
+    __shared__ Real row_data[256];
 
-  //get the sum
-  *value = _sum_reduce(row_data);
-  __syncthreads();
+   //copy the input to row_data
+   row_data[i] = mat[index];
+   __syncthreads();
+
+   //get the sum
+   *value = _sum_reduce(row_data);
+}
 }
 
 
@@ -445,7 +447,15 @@ static void _splice(Real* y, const Real* x, const int32_cuda* off, MatrixDim d_o
   }
 }
 
-
+template<typename Real>
+__global__
+static void _copy_diag(Real* y, const Real* x, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = ((i+1) * (i+2) / 2) - 1;
+  if (i < dim) {
+     y[i] = *(x+index);
+  }
+}
 
 template<typename Real>
 __global__
@@ -690,6 +700,10 @@ void cudaF_splice(dim3 Gr, dim3 Bl, float* y, const float* x, const int32_cuda* 
   _splice<<<Gr,Bl>>>(y,x,off,d_out,d_in); 
 }
 
+void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim) {
+  _copy_diag<<<Gr,Bl>>>(y,x,dim);
+}
+
 void cudaF_copy(dim3 Gr, dim3 Bl, float* y, const float* x, const int32_cuda* copy_from, MatrixDim d_out, MatrixDim d_in) {
   _copy<<<Gr,Bl>>>(y,x,copy_from,d_out,d_in); 
 }
@@ -821,6 +835,10 @@ void cudaD_softmax_part(dim3 Gr, dim3 Bl, const double* X, const int32_cuda* vec
 
 void cudaD_splice(dim3 Gr, dim3 Bl, double* y, const double* x, const int32_cuda* off, MatrixDim d_out, MatrixDim d_in) {
   _splice<<<Gr,Bl>>>(y,x,off,d_out,d_in); 
+}
+
+void cudaD_copy_diag(int Gr, int Bl, double* y, const double* x, int dim) {
+  _copy_diag<<<Gr,Bl>>>(y,x,dim);
 }
 
 void cudaD_copy(dim3 Gr, dim3 Bl, double* y, const double* x, const int32_cuda* copy_from, MatrixDim d_out, MatrixDim d_in) {
