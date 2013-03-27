@@ -272,6 +272,7 @@ Real CuPackedMatrix<Real>::Trace() const {
         num_bytes = nr * sizeof(Real);
 
     //this is the cublas implementation
+    /*
     Real host_ones[num_rows_];
     for (MatrixIndexT i = 0; i < num_rows_; i++) {
       host_ones[i] = 1;
@@ -283,8 +284,8 @@ Real CuPackedMatrix<Real>::Trace() const {
     CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_array),num_bytes));
     cuda_copy_diag(dimGrid,dimBlock,device_array,data_,num_rows_);
     result = cublas_dot(num_rows_, device_array, 1, device_ones, 1); 
+    */
     
-    /*
     // implementaion using sum_reduce
     Real* device_result;
     CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)))
@@ -292,7 +293,7 @@ Real CuPackedMatrix<Real>::Trace() const {
     cuda_trace(dimGrid, dimBlock, data_, device_result, num_rows_);
     CU_SAFE_CALL(cudaGetLastError());
     CU_SAFE_CALL(cudaMemcpy(&result, device_result, sizeof(Real), cudaMemcpyDeviceToHost));
-    */
+    
     
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());

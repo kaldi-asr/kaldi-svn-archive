@@ -274,7 +274,7 @@ static void _trace(const Real* mat, Real* value, int dim) {
   if(blockIdx.x > 0) return;
 
   if ( i < dim) {
-    int32_cuda index = (i+1) * (i+2) / 2;
+    int32_cuda index = ((i+1) * (i+2) / 2) - 1;
     __shared__ Real row_data[256];
 
    //copy the input to row_data
