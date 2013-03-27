@@ -21,8 +21,8 @@
 namespace kaldi {
 
 TxpPronounce::TxpPronounce(const std::string &tpdb, const std::string &configf)
-    : TxpModule("pronounce", tpdb, configf), nrules_("lexicon", "default"),
-      lex_("lexicon", "default"), lts_("ccart", "default") {
+    : TxpModule("pronounce", tpdb, configf), nrules_(&config_, "lexicon", "default"),
+      lex_(&config_, "lexicon", "default"), lts_(&config_, "ccart", "default") {
   nrules_.Parse(tpdb.c_str());
   lex_.Parse(tpdb.c_str());
   lts_.Parse(tpdb.c_str());
@@ -91,7 +91,9 @@ bool TxpPronounce::Process(pugi::xml_document * input) {
       // standard lookup of word
       AppendPron(lex_entry, std::string(word), lexlkp);
       node.append_attribute("pron").set_value(lexlkp.pron.c_str());
-      if (!lexlkp.lts && lexlkp.altprons.size() > 1) {
+      if (lexlkp.lts) {
+        node.append_attribute("lts").set_value("true");
+      } else if (!lexlkp.lts && lexlkp.altprons.size() > 1) {
         altprons.clear();
         for(i = 0; i < lexlkp.altprons.size(); i++) {
           if (i) altprons = altprons + ", ";

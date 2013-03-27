@@ -112,7 +112,9 @@
    is a word but it can also be a series of symbols. For languages
    such as Mandarin a token can be part of a word. The pronunciation
    of the token is available as plain phones (pron), with syllable
-   structure (spron) and also as sub tags (syl, phon) 
+   structure (spron) and also as sub tags (syl, phon). altpron atribute
+   lists all possible prons for that word. if attribute lts = true then pron
+   was generated using letter to sound rules.
 
  - \b break: This tag represents a phrase break an has both a strength
    and a time associates with it. Often a break will be generated from

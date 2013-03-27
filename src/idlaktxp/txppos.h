@@ -48,8 +48,8 @@ typedef std::vector<TxpPosRgx> RgxVector;
 /// see /ref idlaktxp_pos
 class TxpPos: public TxpXmlData {
  public:
-  explicit TxpPos(const char * type, const char * name)
-      : TxpXmlData(type, name) {}
+  explicit TxpPos(TxpConfig * config, const char * type, const char * name)
+      : TxpXmlData(config, type, name) {}
   ~TxpPos() {}
   bool Parse(const std::string &tpdb);
   /// Return the part of speech for word current with previous
@@ -85,8 +85,8 @@ struct TxpPosRgx {
 /// see /ref idlaktxp_pos
 class TxpPosSet: public TxpXmlData {
  public:
-  explicit TxpPosSet(const char * type, const char * name)
-      : TxpXmlData(type, name) {}
+  explicit TxpPosSet(TxpConfig * config, const char * type, const char * name)
+      : TxpXmlData(config, type, name) {}
   ~TxpPosSet() {}
   bool Parse(const std::string &tpdb);
   /// Return the part of speech for word current with previous

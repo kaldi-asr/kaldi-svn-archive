@@ -26,7 +26,7 @@ static void _insert_break_before(pugi::xml_node *tk,
                                  const TxpPbreakInfo * pbreak);
 
 TxpPauses::TxpPauses(const std::string &tpdb, const std::string &configf)
-    : TxpModule("pauses", tpdb, configf), pbreak_("pbreak", "default"),
+    : TxpModule("pauses", tpdb, configf), pbreak_(&config_, "pbreak", "default"),
       hzone_(false), hzone_start_(0), hzone_end_(0) {
   pbreak_.Parse(tpdb.c_str());
   hzone_ = GetConfigValueBool("hzone");

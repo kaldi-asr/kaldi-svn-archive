@@ -23,7 +23,7 @@
 #include "pugixml.hpp"
 #include "base/kaldi-common.h"
 #include "./idlak-common.h"
-#include "./txpnrules.h"
+//#include "./txpnrules.h"
 
 /// Name of configuration tag in XML source text
 #define TXPCONFIG_SECTION "tpconfig"

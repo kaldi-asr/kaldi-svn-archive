@@ -30,8 +30,8 @@ int main(int argc, char *argv[]) {
   const char *usage =
       "Tokenise utf8 input xml\n"
       "Usage:  idlaktxp [options] xml_input xml_output\n"
-      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/arctic-bdl/tpdb ../idlaktxp/mod-test001.xml output.xml\n" //NOLINT
-      "e.g.: cat  ../idlaktxp/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/arctic-bdl/tpdb - - > output.xml\n"; //NOLINT
+      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/mod-test001.xml output.xml\n" //NOLINT
+      "e.g.: cat  ../idlaktxp/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
   // input output variables 
   std::string filein;
   std::string fileout;

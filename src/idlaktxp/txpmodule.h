@@ -51,7 +51,7 @@ class TxpModule {
   /// Process the XML, modifying the XML to reflect linguistic
   /// information
   virtual bool Process(pugi::xml_document * input) {return true;}
-  /// Return a configurtioan value for this module as a string
+  /// Return a configuration value for this module as a string
   const char * GetConfigValue(const char * key);
   /// Return a boolean configuration
   /// True/true/TRUE -> true, False, false, FALSE, anything else -> false

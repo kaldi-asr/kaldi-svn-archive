@@ -48,8 +48,8 @@ typedef std::pair<std::string, TxpPbreakInfo> PbreakItem;
 /// is valid when the punctuation is before or after a token
 class TxpPbreak: public TxpXmlData {
  public:
-  explicit TxpPbreak(const char * type, const char * name)
-      : TxpXmlData(type, name), default_type_(4), default_time_(0.2f) {}
+  explicit TxpPbreak(TxpConfig * config, const char * type, const char * name)
+      : TxpXmlData(config, type, name), default_type_(4), default_time_(0.2f) {}
   ~TxpPbreak() {}
   bool Parse(const std::string &tpdb);
   /// Lookup a punctuation symbol and depending whether before or

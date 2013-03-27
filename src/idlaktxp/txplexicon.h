@@ -56,15 +56,15 @@ struct TxpLexCompare {
 };
 
 /// Generic string to string lookup with custom comparison function
-typedef std::map<std::string, std::string, TxpLexCompare> LookupLex;
+typedef std::multimap<std::string, std::string, TxpLexCompare> LookupLex;
 
 
 /// Hold pronunciations for words by entry.
 /// There must be at least one default pronunciation for every word
 class TxpLexicon: public TxpXmlData {
  public:
-  explicit TxpLexicon(const char * type, const char * name)
-  : TxpXmlData(type, name), inlex_(false) {}
+  explicit TxpLexicon(TxpConfig * config, const char * type, const char * name)
+      : TxpXmlData(config, type, name), inlex_(false) {}
   ~TxpLexicon() {}
   /// Fill the lexicon lookup structure with the correct pronunciation
   int GetPron(const std::string &word,

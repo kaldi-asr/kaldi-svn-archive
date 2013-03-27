@@ -25,6 +25,10 @@ namespace kaldi {
 /// \todo currently nonsense values and modules
 const char * txpconfigdefault =
     "<tpconfig>\n"
+    "    <general lang='en'\n"
+    "         region='us'\n"
+    "         acc='ga'\n"
+    "         spk=''/>\n"
     "    <tokenise processing_mode='lax'/>\n"
     "    <pauses hzone='True'\n"
     "         hzone_start='45'\n"

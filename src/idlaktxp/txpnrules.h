@@ -70,7 +70,7 @@ struct TxpCaseInfo;
 class TxpNRules: public TxpXmlData {
  public:
   /// Set up hard coded regular expresisons and lookups
-  explicit TxpNRules(const char * type, const char * name);
+  explicit TxpNRules(TxpConfig * config, const char * type, const char * name);
   ~TxpNRules();
   /// Checks to see what regexs have been found to determine whether to use
   /// hard coded defaults

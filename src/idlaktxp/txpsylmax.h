@@ -47,8 +47,8 @@ typedef std::vector<TxpSylItem> PhoneVector;
 /// see \ref idlaktxp_syll
 class TxpSylmax: public TxpXmlData {
  public:
-  explicit TxpSylmax(const char * type, const char * name)
-      : TxpXmlData(type, name), stress_(false), max_onset_(0), max_nucleus_(0) {}
+  explicit TxpSylmax(TxpConfig * config, const char * type, const char * name)
+      : TxpXmlData(config, type, name), stress_(false), max_onset_(0), max_nucleus_(0) {}
   ~TxpSylmax() {}
   bool Parse(const std::string &tpdb);
   /// Apply maximal onset rules to the phones in the array

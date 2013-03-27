@@ -21,7 +21,7 @@
 namespace kaldi {
 
 TxpTokenise::TxpTokenise(const std::string &tpdb, const std::string &configf)
-    : TxpModule("tokenise", tpdb, configf), nrules_("nrules", "default") {
+    : TxpModule("tokenise", tpdb, configf), nrules_(&config_, "nrules", "default") {
   nrules_.Parse(tpdb.c_str());
 }
 

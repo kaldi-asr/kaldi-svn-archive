@@ -48,8 +48,8 @@ typedef std::pair<std::string, TxpLtsTree> LtsItem;
 /// wagon
 class TxpLts: public TxpXmlData {
  public:
-  explicit TxpLts(const char * type, const char * name)
-      : TxpXmlData(type, name) {}
+  explicit TxpLts(TxpConfig * config, const char * type, const char * name)
+      : TxpXmlData(config, type, name) {}
   ~TxpLts() {}
   /// Given a word return the result of looking up the pronciation of
   /// of each letter in a cart tree

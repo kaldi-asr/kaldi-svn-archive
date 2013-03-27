@@ -21,8 +21,8 @@
 
 namespace kaldi {
 
-TxpNRules::TxpNRules(const char * type, const char * name)
-    : TxpXmlData(type, name), incdata_(false), cdata_buffer_("") {
+TxpNRules::TxpNRules(TxpConfig * config, const char * type, const char * name)
+    : TxpXmlData(config, type, name), incdata_(false), cdata_buffer_("") {
   TxpPcre pcre;
   lkp_item_ = pcre.Compile("[\n\\s]*(u?[\\'\\\"](.*?)[\\'\\\"]\\s*:\\s*u?[\\'\\\"](.*?)[\\'\\\"])[\n\\s]*[,}][\n\\s]*");// NOLINT
   lkp_open_ = pcre.Compile("[\n\\s]*{");

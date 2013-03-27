@@ -20,8 +20,8 @@
 
 namespace kaldi {
 
-TxpXmlData::TxpXmlData(const char * type, const char * name)
-    : type_(type), name_(name) {
+TxpXmlData::TxpXmlData(TxpConfig * config, const char * type, const char * name)
+    : config_(config), type_(type), name_(name) {
   parser_ = XML_ParserCreate("UTF-8");
   ::XML_SetUserData(parser_, this);
   ::XML_SetElementHandler(parser_, StartElementCB, EndElementCB);
@@ -56,14 +56,69 @@ void TxpXmlData::EndCDataCB(void *userData) {
 }
 
 bool TxpXmlData::Parse(const std::string &tpdb) {
-  bool binary;
+  const char * lang, * region, * acc, * spk;
+  bool binary, indataroot = false;
   enum XML_Status r;
+  Input ki;
+  std::string dataroot;
   tpdb_.clear();
   tpdb_.append(tpdb);
   fname_.clear();
-  fname_ = tpdb + "/" + type_ + "-" + name_ + ".xml";
-  Input ki(fname_.c_str(), &binary);
-  if (binary) return false;
+  // get general settings from the configuration
+  lang = GetConfigValue("lang");
+  region = GetConfigValue("region");
+  acc = GetConfigValue("acc");
+  spk = GetConfigValue("spk");
+  // See if we are in a kaldi-data directory structure by checking
+  // directories .. and ../.. and ../../.. for the file idlak-data-trunk
+  if (!ki.Open((tpdb + "/idlak-data-flat").c_str())) {
+    dataroot = tpdb;
+    if (ki.Open((dataroot + "/idlak-data-trunk").c_str())) {
+      indataroot = true;
+    } else {
+      dataroot = tpdb + std::string("/..");
+      if (ki.Open((dataroot + "/idlak-data-trunk").c_str())) {
+        indataroot = true;
+      } else {
+        dataroot = tpdb + std::string("/../..");
+        if (ki.Open((dataroot + "/idlak-data-trunk").c_str())) {
+          indataroot = true;
+        } else {
+          dataroot = tpdb + std::string("/../../..");
+          if (ki.Open((dataroot + "/idlak-data-trunk").c_str())) {
+            indataroot = true;
+          } else {
+            // not flat and not a kaldi-trunk error
+            KALDI_ERR << "Missing idlak-data-trunk or idlak-data-flat file";
+          }
+        }
+      }
+    }
+  }
+  if (indataroot) {  
+    // search speaker specific directory
+    fname_ = dataroot + "/" + lang + "/" + acc + "/" + spk + "/" + type_ + "-" + name_ + ".xml";
+    if (!ki.Open(fname_.c_str(), &binary)) {
+      // search accent specific directory
+      fname_ = dataroot + "/" + lang + "/" + acc + "/" + type_ + "-" + name_ + ".xml";
+      if (!ki.Open(fname_.c_str(), &binary)) {
+        // search region specific directory
+        fname_ = dataroot + "/" + lang + "/region_" + region + "/" + type_ + "-" + name_ + ".xml";
+        if (!ki.Open(fname_.c_str(), &binary)) {
+          // search language directory
+          fname_ = dataroot + "/" + lang + "/" + type_ + "-" + name_ + ".xml";
+          if (!ki.Open(fname_.c_str(), &binary)) {
+            KALDI_ERR << "Can't find xml data:" << type_ << "-" << name_ << ".xml";
+          }
+        }
+      }
+    }
+  } else {
+    fname_ = tpdb + "/" + type_ + "-" + name_ + ".xml";
+    if (!ki.Open(fname_.c_str(), &binary)) {
+      KALDI_ERR << "Can't find xml data:" << type_ << "-" << name_ << ".xml";
+    }
+  }
   while (getline(ki.Stream(), buffer_)) {
     buffer_.append("\n");  // Reappend line break to get correct error reporting
     r = XML_Parse(parser_, buffer_.c_str(), buffer_.length(), false);
@@ -76,6 +131,7 @@ bool TxpXmlData::Parse(const std::string &tpdb) {
     }
   }
   XML_Parse(parser_, "", 0, true);
+  ki.Close();
   return true;
 }
 
@@ -88,6 +144,10 @@ int32 TxpXmlData::SetAtt(const char * name, const char ** atts,
     i += 2;
   }
   return i / 2;
+}
+
+const char * TxpXmlData::GetConfigValue(const char * key) {
+  return config_->GetValue("general", key);
 }
 
 }  // namespace kaldi

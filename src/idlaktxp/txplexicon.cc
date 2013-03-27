@@ -45,18 +45,18 @@ void TxpLexicon:: EndElement(const char * name) {
       KALDI_ERR << "Lexicon error with forbidden ':' character: " << word_;
       return;
     }
-    // The first default is set as the default
+    // Only one default for each word is valid
     if (isdefault_ == "true") {
       it =  lookup_.find(word_ + std::string(":default"));
       if (it == lookup_.end()) {
         lookup_.insert(LookupItem(word_ + std::string(":default"), pron_));
+      } else {
+        KALDI_ERR << "Lexicon error muliple default entries for word: " << word_;
+        return;
       }
     }
-    // If entry types repeat only the first is inserted
-    it = lookup_.find(word_ + std::string(":") + entry_);
-    if (it == lookup_.end()) {
-      lookup_.insert(LookupItem(word_ + std::string(":") + entry_, pron_));
-    }
+    // If entry types repeat only the first will normally be accessed
+    lookup_.insert(LookupItem(word_ + std::string(":") + entry_, pron_));
   }
 }
 

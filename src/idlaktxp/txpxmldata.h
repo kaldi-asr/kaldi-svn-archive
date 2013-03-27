@@ -25,6 +25,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "./idlak-common.h"
+#include "./txpconfig.h"
 
 namespace kaldi {
 
@@ -50,7 +51,7 @@ class TxpXmlData {
   /// Callback functions set in expat for end of Cdata
   static void EndCDataCB(void *userData);
 
-  explicit TxpXmlData(const char * type, const char * name);
+  explicit TxpXmlData(TxpConfig * config, const char * type, const char * name);
   virtual ~TxpXmlData();
 
   /// Inherited class for bespoke start element handling
@@ -66,12 +67,20 @@ class TxpXmlData {
 
   /// Load and parse a file belonging to the object in the tpdb directory
   /// file name is based on the object type and name set on construction
+  /// the system first searches spk then acc then region then lang directories
+  /// if present. i.e en/ga/bdl en/ga en/region_us en as set in the general
+  /// section of the configuration file. If not present they load from the
+  /// directory name given (tpdb).
   bool Parse(const std::string &tpdb);
   /// Utility to set a named attribute from an expat array of attribute
   /// key value pairs
   int32 SetAtt(const char * name, const char ** atts, std::string *val);
+  /// Return a general configuration value
+  const char * GetConfigValue(const char * key);
 
  protected:
+  /// Configuration structure all xmldats classes use the general section
+  TxpConfig * config_;
   /// Expat parser structure
   XML_Parser parser_;
   /// Type of object e.g. lexicon
