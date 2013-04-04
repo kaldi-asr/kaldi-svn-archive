@@ -73,8 +73,11 @@ class CuPackedMatrix {
   void SetZero();  /// < Set to zero
   void SetUnit();  /// < Set to unit matrix.
   void SetRandn(); /// < Set to random values of a normal distribution
+  void SetDiag(Real alpha); /// < Set the diagonal value to alpha  
   void AddToDiag(Real r); ///< Add this quantity to the diagonal of the matrix.
 
+  void Scale(Real alpha); 
+  void ScaleDiag(Real alpha);
   Real Trace() const;
 
   ~CuPackedMatrix() { Destroy(); }
@@ -104,6 +107,8 @@ class CuPackedMatrix {
 
   /// Swaps the contents of *this and *other.
   void Swap(PackedMatrix<Real> *other);
+  Real* Data() { return data_; }  
+  const Real* Data() const { return data_; }
 
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_rows_; }

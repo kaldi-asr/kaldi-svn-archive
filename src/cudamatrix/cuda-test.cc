@@ -4,6 +4,7 @@
 
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-packed-matrix.h"
+#include "cudamatrix/cu-vector.h"
 #include <numeric>
 #include <time.h>
 
@@ -23,9 +24,28 @@ static void InitRand(SpMatrix<Real> *M) {
   } while (M->NumRows() != 0 && M->Cond() > 100);
 }
 
+template<class Real>
+static void InitRand(VectorBase<Real> *v) {
+  for (MatrixIndexT i = 0; i < v->Dim(); i++) {
+    (*v)(i) = RandGauss();
+  }
+}
 /*
  * ASSERTS
  */
+template<class Real>
+static void AssertEqual(const MatrixBase<Real> &A,
+                        const MatrixBase<Real> &B,
+                        float tol = 0.001) {
+  KALDI_ASSERT(A.NumRows() == B.NumRows()&&A.NumCols() == B.NumCols());
+  for (MatrixIndexT i = 0;i < A.NumRows();i++) {
+    for (MatrixIndexT j = 0;j < A.NumCols();j++) {
+      KALDI_ASSERT(std::abs(A(i, j)-B(i, j)) < tol*std::max(1.0, (double) (std::abs(A(\
+          i, j))+std::abs(B(i, j)))));
+    }
+  }
+}
+
 template<class Real> 
 static void ApproxEqual(const SpMatrix<Real> &A,
 			const SpMatrix<Real> &B,
@@ -88,49 +108,70 @@ static void SimpleTest() {
     }
     std::cout << std::endl;
   }
+  E.SetDiag(10);
+  E.Scale(2);
+  E.ScaleDiag(4);
   std::cout << "Trace(E) = " << E.Trace() << std::endl;
-  /*
-  CuSpMatrix<Real> A(dim);
-  SpMatrix<Real> B(dim);
-  A.CopyToMat(&B);
-  B(1,1)=14;
+  
+  
+  CuSpMatrix<Real> G(dim);
+  G.SetDiag(10);
+  G.Invert();
+  SpMatrix<Real> H(dim);
+  G.CopyToMat(&H);
+  H(1,1)=14;
   for (int i = 0; i < dim; i++) {
     for (int j = 0; j <= i; j++) {
-      std::cout << B(i,j) << " ";
+      std::cout << H(i,j) << " ";
     }
     std::cout << std::endl;
   }
-  SpMatrix<Real> C(dim);
-  InitRand(&C);
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << C(i,j) << " ";
+
+  Vector<Real> I(dim);
+  InitRand(&I);
+  CuVector<Real> J(dim);
+  J.CopyFromVec(I);
+
+  G.AddVec2(1,J);
+  SpMatrix<Real> K(dim);
+  G.CopyToMat(&K);
+
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <= i; j++) {
+      std::cout << K(i,j) << " ";
     }
     std::cout << std::endl;
   }
-  C(7,7) = 22;
-  CuSpMatrix<Real> D(C);
-  SpMatrix<Real> E(dim);
-  D.CopyToMat(&E);
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << E(i,j) << " ";
-    }
-    std::cout << std::endl;
-  }
-  E(0,0) = 13;
-  D.CopyFromPacked(E);
-  CuSpMatrix<Real> F(D);
-  SpMatrix<Real> G(dim);
-  F.CopyToMat(&G);
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << G(i,j) << " ";
-    }
-    std::cout << std::endl;
-  }
-  */
+
 }
+
+template<class Real> static void UnitTestCholesky() {
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    MatrixIndexT dim = 15 + rand() %  40;;
+    CuMatrix<Real> A(dim,dim);
+    Matrix<Real> B(dim,dim);
+    Vector<Real> C(dim);
+    for (MatrixIndexT i = 0; i < dim; i++) {
+      B(i,i) = 1;
+      C(i) = i + 1;
+    }
+    B.AddVecVec(1.0,C,C);
+    
+    A.CopyFromMat(B);
+    A.CopyToMat(&B);
+    A.Cholesky();
+    Matrix<Real> D(dim,dim);
+    A.CopyToMat(&D);
+    for (MatrixIndexT i = 0; i < dim; i++) {
+      for (MatrixIndexT j = i+1; j < dim; j++)
+        D(i,j) = 0;
+    }
+    Matrix<Real> E(dim,dim);
+    E.AddMatMat(1,D,kNoTrans,D,kTrans,0);
+    AssertEqual(B,E);
+  }
+}
+
 
 template<class Real> static void UnitTestCopySp() {
   // Checking that the various versions of copying                                 
@@ -157,6 +198,7 @@ template<class Real> static void UnitTestCopySp() {
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
   SimpleTest<Real>();
+  UnitTestCholesky<Real>();
 }
 } //namespace
 

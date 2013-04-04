@@ -27,6 +27,14 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   explicit CuSpMatrix(const CuSpMatrix<Real> &orig)
     : CuPackedMatrix<Real>(orig) {}
 
+  inline const SpMatrix<Real> &Mat() const {
+    return *(reinterpret_cast<const SpMatrix<Real>* >(this));
+  }
+
+  inline SpMatrix<Real> &Mat() {
+    return *(reinterpret_cast<SpMatrix<Real>* >(this));
+  }
+  
   inline void Resize(MatrixIndexT nRows, MatrixResizeType resize_type = kSetZero) {
     CuPackedMatrix<Real>::Resize(nRows, resize_type);
   }
@@ -38,7 +46,17 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
 
-  Real Trace() const;
+  void CopyToSp(SpMatrix<Real> *dst) {
+    CuPackedMatrix<Real>::CopyToMat(dst);
+  }
+  
+  void Invert(Real *logdet = NULL, Real *det_sign = NULL,
+              bool inverse_needed = true);
+
+  void AddVec2(const Real alpha, const CuVectorBase<Real> &v);
+
+  void AddMat2(const Real alpha, const CuMatrix<Real> &M,
+               MatrixTransposeType transM, const Real beta);
   private:
   
 };

@@ -119,6 +119,26 @@ static int32_cuda _max_id_reduce(Real val[], int32_cuda idx[]) {
  */
 template<typename Real>
 __global__
+static void _scale_diag(Real* mat, Real value, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = ((i+1)*(i+2)/2) - 1;
+  if ( i < dim ) {
+     mat[index] = value * mat[index];
+  }
+}
+
+template<typename Real>
+__global__
+static void _set_diag(Real* mat, Real value, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = ((i+1)*(i+2)/2) - 1;
+  if ( i < dim ) {
+     mat[index] = value;
+  }
+}
+
+template<typename Real>
+__global__
 static void _set_const(Real* mat, Real value, MatrixDim d) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -136,6 +156,17 @@ static void _add(Real* mat, Real value, MatrixDim d) {
   int32_cuda index = i + j*d.stride;
   if ( i < d.cols  &&  j < d.rows )
     mat[index] = mat[index] + value;
+}
+
+template<typename Real>
+__global__
+static void _add_vec2(Real* mat, const Real* vec, const Real alpha, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.x * blockDim.x + threadIdx.y;
+  if ( i < dim && j <= i) {
+     int32_cuda index = (i * (i+1) / 2) + j;
+     mat[index] = mat[index] + alpha * vec[i] * vec[j];   
+  }
 }
 
 
@@ -473,6 +504,14 @@ static void _copy(Real* y, const Real* x, const int32_cuda* copy_from, MatrixDim
   }
 }
 
+template<typename Real>
+__global__
+static void _one(Real* x, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if ( i < dim ) {
+     x[i] = 1.0;
+  }
+}
 
 template<typename Real>
 __global__
@@ -598,12 +637,24 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda* mat, int32_cuda value, Matr
 /*
  * CuMatrix
  */
+void cudaF_set_diag(int Gr, int Bl, float* mat, float value, int dim) {
+  _set_diag<<<Gr,Bl>>>(mat,value,dim);
+}
+
 void cudaF_set_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
 
 void cudaF_add(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _add<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaF_add_vec2(dim3 Gr, dim3 Bl, float* mat, const float* vec, const float alpha, int dim) {
+  _add_vec2<<<Gr,Bl>>>(mat,vec,alpha,dim);
+}
+
+void cudaF_scale_diag(int Gr, int Bl, float* mat, float value, int dim) {
+  _scale_diag<<<Gr,Bl>>>(mat,value,dim);
 }
 
 void cudaF_scale(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
@@ -700,6 +751,10 @@ void cudaF_splice(dim3 Gr, dim3 Bl, float* y, const float* x, const int32_cuda* 
   _splice<<<Gr,Bl>>>(y,x,off,d_out,d_in); 
 }
 
+void cudaF_one(int Gr, int Bl, float* x, int dim) {
+  _one<<<Gr,Bl>>>(x,dim);
+}
+
 void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim) {
   _copy_diag<<<Gr,Bl>>>(y,x,dim);
 }
@@ -735,12 +790,24 @@ void cudaF_diff_xent(dim3 Gr, dim3 Bl, const int32_cuda* vec_tgt, float* mat_net
 /*
  * CuMatrix
  */
+void cudaD_set_diag(int Gr, int Bl, double* mat, double value, int dim) {
+  _set_diag<<<Gr,Bl>>>(mat,value,dim);
+}
+
 void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
 
 void cudaD_add(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _add<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaD_add_vec2(dim3 Gr, dim3 Bl, double* mat, const double* vec, const double alpha, int dim) {
+  _add_vec2<<<Gr,Bl>>>(mat,vec,alpha,dim);
+}
+
+void cudaD_scale_diag(int Gr, int Bl, double* mat, double value, int dim) {
+  _scale_diag<<<Gr,Bl>>>(mat,value,dim);
 }
 
 void cudaD_scale(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
@@ -835,6 +902,10 @@ void cudaD_softmax_part(dim3 Gr, dim3 Bl, const double* X, const int32_cuda* vec
 
 void cudaD_splice(dim3 Gr, dim3 Bl, double* y, const double* x, const int32_cuda* off, MatrixDim d_out, MatrixDim d_in) {
   _splice<<<Gr,Bl>>>(y,x,off,d_out,d_in); 
+}
+
+void cudaD_one(int Gr, int Bl, double* x, int dim) {
+  _one<<<Gr,Bl>>>(x,dim);
 }
 
 void cudaD_copy_diag(int Gr, int Bl, double* y, const double* x, int dim) {

@@ -45,6 +45,11 @@ class CuVectorBase {
   /// Dimensions
   MatrixIndexT Dim() const { return dim_;  }   
 
+  /// Returns a pointer to the start of the vector's data.
+  inline Real* Data() { return data_; }
+  /// Returns a pointer to the start of the vector's data (const).
+  inline const Real* Data() const { return data_; }
+  
   /// Copy functions; these will crash if the dimension
   /// do not match.  The operator = in class CuVector will
   /// also change the sizes for you.
@@ -65,8 +70,6 @@ class CuVectorBase {
   void AddColSumMat(Real alpha, const CuMatrixBase<Real> &mat, Real beta = 1.0); 
   void InvertElements(); 
 
-
-protected:
   // The following two functions should only be called if we did not compile
   // with CUDA or could not get a CUDA card; in that case the contents are
   // interpreted the same as a regular vector.
@@ -76,6 +79,8 @@ protected:
   inline VectorBase<Real> &Vec() {
     return *(reinterpret_cast<VectorBase<Real>* >(this));
   }
+
+protected:
   
   /// Default constructor: make it private so the user cannot
   /// instantiate this class.

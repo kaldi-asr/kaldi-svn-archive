@@ -35,7 +35,7 @@ namespace kaldi {
  */
 template<class Real> 
 static void InitRand(VectorBase<Real> *v) {
-  for (MatrixIndexT i = 0;i < v->Dim();i++)
+  for (MatrixIndexT i = 0; i < v->Dim(); i++)
 	(*v)(i) = RandGauss();
 }
 

@@ -12,9 +12,9 @@ LDFLAGS += $(CUDA_LDFLAGS)
 
 TESTFILES = cuda-matrix-test cuda-test
 
-OBJFILES = cu-device.o cu-math.o cu-matrix.o cu-packed-matrix.o
+OBJFILES = cu-device.o cu-math.o cu-matrix.o cu-packed-matrix.o cu-sp-matrix.o
 ifeq ($(CUDA), true)
-  OBJFILES += cu-kernels.o cu-randkernels.o
+  OBJFILES += cu-kernels.o cu-randkernels.o cu-choleskykernels.o
 endif
 
 LIBFILE = cuda-matrix.a

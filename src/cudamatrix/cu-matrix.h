@@ -107,7 +107,8 @@ class CuMatrixBase {
   ///                  log(sum_row(posterior_mat .* target_mat))
   void DiffXent(const CuStlVector<int32> &tgt,
                 CuVector<Real> *log_post_tgt);  
-  
+
+  void Cholesky();
   /// Softmax nonlinearity
   /// Y = Softmax(X) : Yij = e^Xij / sum_k(e^Xik)
   /// for each row, the max value is first subtracted for good numerical stability
@@ -167,6 +168,18 @@ class CuMatrixBase {
     return CuSubMatrix<Real>(*this, 0, num_rows_, col_offset, num_cols); 
   }
 
+  Real* Data() { return data_; }
+  const Real* Data() const { return data_; }
+  
+  // The following two functions should only be called if we did not compile with CUDA
+  // or could not get a CUDA card; in that case the contents are interpreted the
+  // same as a regular matrix.
+  inline const MatrixBase<Real> &Mat() const {
+    return *(reinterpret_cast<const MatrixBase<Real>* >(this));
+  }
+  inline MatrixBase<Real> &Mat() {
+    return *(reinterpret_cast<MatrixBase<Real>* >(this));
+  }
   
  protected:
   /// Get raw row pointer
@@ -188,16 +201,6 @@ class CuMatrixBase {
                      MatrixIndexT stride):
   data_(data), num_cols_(num_cols), num_rows_(num_rows), stride_(stride) { }
 
-  // The following two functions should only be called if we did not compile with CUDA
-  // or could not get a CUDA card; in that case the contents are interpreted the
-  // same as a regular matrix.
-  inline const MatrixBase<Real> &Mat() const {
-    return *(reinterpret_cast<const MatrixBase<Real>* >(this));
-  }
-  inline MatrixBase<Real> &Mat() {
-    return *(reinterpret_cast<MatrixBase<Real>* >(this));
-  }
-  
   Real *data_;       ///< GPU data pointer (or regular matrix data pointer,
                      ///< if either CUDA was not compiled in or we could not
                      ///< acquire the device).

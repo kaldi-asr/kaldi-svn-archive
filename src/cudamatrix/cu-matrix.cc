@@ -27,6 +27,7 @@
 #include "cu-vector.h"
 #include "cu-device.h"
 #include "cu-kernels.h"
+#include "cu-choleskykernels.h"
 #include "cu-stlvector.h"
 #include "cu-math.h"
 
@@ -819,6 +820,48 @@ void CuMatrixBase<Real>::DiffXent(const CuStlVector<int32> &tgt,
   }
 }
 
+template<typename Real>
+void CuMatrixBase<Real>::Cholesky() {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int TILE_SIZE = 16;
+    int n_blocks = (num_rows_ + TILE_SIZE - 1) / TILE_SIZE;
+    int n_rows_padded = n_blocks*TILE_SIZE;
+
+    dim3 threads(TILE_SIZE,TILE_SIZE);
+
+    dim3 logrid;
+    
+    for (int i = n_blocks; i > 2; i--) {
+      logrid.x = 1;
+      logrid.y = i-2;
+
+      cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
+      cudaThreadSynchronize();
+      cuda_strip_update(data_, n_blocks-i, Dim().stride, i  );
+      cudaThreadSynchronize();
+      cuda_diag_update(data_, n_blocks-i, Dim().stride, i);
+      cudaThreadSynchronize();
+      cuda_lo_update(data_, n_blocks-i, n_blocks, Dim().stride, i);
+      cudaThreadSynchronize();      
+    }
+    
+    if (n_blocks > 1) {
+      cuda_factorize_diagonal_block(data_, n_blocks-2, Dim());
+      cudaThreadSynchronize();
+      cuda_strip_update(data_, n_blocks-2, Dim().stride, 2);
+      cudaThreadSynchronize();
+      cuda_diag_update(data_, n_blocks-2, Dim().stride, 2);
+      cudaThreadSynchronize();
+    }
+   
+    cuda_factorize_diagonal_block(data_, n_blocks-1, Dim());
+    cudaThreadSynchronize();
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }
+#endif
+}
 // Instantiate classes CuMatrix and CuMatrixBase for float and double.
 template class CuMatrix<float>;
 template class CuMatrix<double>;

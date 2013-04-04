@@ -14,8 +14,115 @@
 namespace kaldi {
 
 template<class Real>
-Real CuSpMatrix<Real>::Trace() const {
-
+void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
+                              bool inverse_needed) {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    SpMatrix<Real> mat(this->num_rows_);
+    this->CopyToSp(&mat);
+    mat.Invert();
+    CopyFromSp(mat);
+    CU_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::Invert", tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().Invert(logdet, det_sign, inverse_needed);
+  }
 }
+
+template<class Real>
+void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
+  KALDI_ASSERT(v.Dim() == this->NumRows());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    size_t nr = this->num_rows_;
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(nr, CUBLOCK), n_blocks(nr, CUBLOCK));
+
+    Real* data = this->data_;
+    const Real* v_data = v.Data();
+
+    cuda_add_vec2(dimGrid, dimBlock, data, v_data, alpha, nr);
+    CU_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::AddVec2", tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().AddVec2(alpha, v.Vec());
+  }
+}
+
+#if HAVE_CUDA==1
+template<typename Real> inline void cublas_syrk(char uplo, char trans, int n, int k,
+                                                Real alpha, const Real *A, int lda,
+                                                Real beta, Real *C, int ldc) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline void cublas_syrk(char uplo, char trans, int n, int k,
+                                    float alpha, const float *A, int lda,
+                                    float beta, float *C, int ldc) {
+  cublasSsyrk(uplo,trans,n,k,alpha,A,lda,beta,C,ldc);
+}
+template<> inline void cublas_syrk(char uplo, char trans, int n, int k,
+                                   double alpha, const double *A, int lda,
+                                   double beta, double *C, int ldc) {
+  cublasDsyrk(uplo,trans,n,k,alpha,A,lda,beta,C,ldc);
+}
+#endif
+
+template<class Real>
+void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrix<Real> &M,
+                               MatrixTransposeType transM, const Real beta) {
+  KALDI_ASSERT((transM == kNoTrans && this->NumRows() == M.NumRows())
+               || (transM == kTrans && this->NumRows() == M.NumCols()));
+
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    MatrixIndexT this_dim = this->NumRows(),
+        m_other_dim = (transM == kNoTrans ? M.NumCols() : M.NumRows());
+
+    if (this_dim == 0) return;
+    if (alpha == 0.0) {
+      if (beta != 1.0) this->Scale(beta);
+      return;
+    }
+
+    //CuMatrix<Real> tmp_mat(*this);
+    cublas_syrk('U', transM, this_dim, m_other_dim, alpha, M.Data(),
+                M.Stride(), beta, this->Data(), 1);
+    //this->CopyFromMat(tmp_mat, kTakeLower);
+    
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::AddVEc2", tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().AddMat2(alpha, M.Mat(), transM, beta);
+  }
+}
+/*
+#if HAVE_CUDA==1
+template<typename Real> inline void cublas_trsm(int m, int n, Real alpha,
+                                                const Real *A, int lda, Real *B,
+                                                int ldb) { 
+  KALDI_ERR << __func__ << " Not implemented!"; 
+}
+template<> inline void cublas_trsm<float>(int m, int n, float alpha,
+                                          const float *A, int lda, float *B,
+                                          int ldb) {
+  cublasStrsm('L', 'U', 'N', 'N', m, n, alpha, A, lda, B, ldb);
+}
+template<> inline void cublas_trsm<double>(int m, int n, float alpha,
+                                           const float *A, int lda, float *B,
+                                           int ldb) {
+  cublasDtrsm('L', 'U', 'N', 'N', m, n, alpha, A, lda, B, ldb);
+}
+#endif
+*/
+template class CuSpMatrix<float>;
+template class CuSpMatrix<double>;
 
 } // namespace

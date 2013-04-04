@@ -41,8 +41,11 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda *mat, int32_cuda value, Matr
 /*
  * CuMatrix 
  */
+void cudaF_set_diag(int Gr, int Bl, float* mat, float value, int dim);
 void cudaF_set_const(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_add(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
+void cudaF_add_vec2(dim3 Gr, dim3 Bl, float* mat, const float* vec, const float alpha, int dim);
+void cudaF_scale_diag(int Gr, int Bl, float* mat, float value, int dim);
 void cudaF_scale(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_apply_log(dim3 Gr, dim3 Bl, float *mat, MatrixDim d);
 void cudaF_mul_elements(dim3 Gr, dim3 Bl, float *mat, const float *A, MatrixDim d);
@@ -77,6 +80,7 @@ void cudaF_diff_xent(dim3 Gr, dim3 Bl, const int32_cuda *vec_tgt, float *mat_net
 
 void cudaF_randomize(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in);
 void cudaF_splice(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *off, MatrixDim d_out, MatrixDim d_in);
+void cudaF_one(int Gr, int Bl, float* x, int dim);
 void cudaF_copy(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in);
 void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim);
 
@@ -87,8 +91,11 @@ void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim);
 /*
  * CuMatrix 
  */
+void cudaD_set_diag(int Gr, int Bl, double* mat, double value, int dim);
 void cudaD_set_const(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_add(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
+void cudaD_add_vec2(dim3 Gr, dim3 Bl, double *mat, const double *vec, const double alpha, int dim);
+void cudaD_scale_diag(int Gr, int Bl, double* mat, double value, int dim);
 void cudaD_scale(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_apply_log(dim3 Gr, dim3 Bl, double *mat, MatrixDim d);
 void cudaD_mul_elements(dim3 Gr, dim3 Bl, double *mat, const double *A, MatrixDim d);
@@ -123,6 +130,7 @@ void cudaD_diff_xent(dim3 Gr, dim3 Bl, const int32_cuda *vec_tgt, double *mat_ne
 
 void cudaD_randomize(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in);
 void cudaD_splice(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *off, MatrixDim d_out, MatrixDim d_in);
+void cudaD_one(int Gr, int Bl, double* x, int dim);
 void cudaD_copy(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in);
 void cudaD_copy_diag(int Gr, int Bl, double* y, const double* x, int dim);
 
