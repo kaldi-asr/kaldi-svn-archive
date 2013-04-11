@@ -55,7 +55,7 @@ void CuMatrix<Real>::Resize(MatrixIndexT rows, MatrixIndexT cols,
                                row_bytes, rows));
     this->num_rows_ = rows;
     this->num_cols_ = cols; 
-    this->stride_ = pitch/sizeof(Real);
+    this->stride_ = pitch / sizeof(Real);
     if (resize_type == kSetZero) this->SetZero();
   } else
 #endif
@@ -171,6 +171,24 @@ void CuMatrixBase<Real>::CopyFromMat(const MatrixBase<Real> &src) {
 
 
 template<typename Real>
+void CuMatrixBase<Real>::CopyFromSp(const CuSpMatrix<Real> &M) {
+  KALDI_ASSERT(num_rows_ == M.NumRows() && num_cols_ == num_rows_);
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimBlock(CUBLOCK);
+    int dimGrid(n_blocks(NumRows(),CUBLOCK));
+    cuda_copy_from_sp(dimGrid, dimBlock, M.Data(), data_, num_rows_, Dim());
+    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyFromSp",tim.Elapsed());
+  } else
+#endif
+  {
+    //Mat().CopyFromSp(M.Mat());
+  }
+}
+
+
+template<typename Real>
 void CuMatrixBase<Real>::CopyToMat(MatrixBase<Real> *dst) const {
   KALDI_ASSERT(dst->NumRows() == NumRows() && dst->NumCols() == NumCols());
   
@@ -253,18 +271,6 @@ void CuMatrixBase<Real>::SetZero() {
   }
 }
 
-
-
-/**
- * Print the matrix to stream
- */
-template<typename Real>
-std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat) {
-  Matrix<Real> temp;
-  mat.CopyToMat(&temp);
-  out << temp;
-  return out;
-}
 
 
 
@@ -820,6 +826,7 @@ void CuMatrixBase<Real>::DiffXent(const CuStlVector<int32> &tgt,
   }
 }
 
+
 template<typename Real>
 void CuMatrixBase<Real>::Cholesky() {
 #if HAVE_CUDA==1
@@ -830,38 +837,125 @@ void CuMatrixBase<Real>::Cholesky() {
     int n_rows_padded = n_blocks*TILE_SIZE;
 
     dim3 threads(TILE_SIZE,TILE_SIZE);
-
+    KALDI_LOG << "n_blcoks is : " << n_blocks << '\n';
     dim3 logrid;
-    
+    cuda_factorize_diagonal_block(data_, 0, Dim());
+    cudaThreadSynchronize();
+    cuda_strip_update(data_, 0, 4, Dim());
+    cudaThreadSynchronize();
+    cuda_diag_update(data_, 0, 4, Dim());
+    cudaThreadSynchronize();
+    cuda_lo_update(data_, 0, 4, 4, Dim());
+    cudaThreadSynchronize();
+    /*
+    cuda_factorize_diagonal_block(data_, 1, Dim());
+    cudaThreadSynchronize();
+    cuda_strip_update(data_, 1, 3, Dim());
+    cudaThreadSynchronize();
+    /*
+    cuda_diag_update(data_, 1, 3, Dim());
+    cudaThreadSynchronize();
+    cuda_factorize_diagonal_block(data_, 2, Dim());
+    cudaThreadSynchronize();
+    */
+    /*
     for (int i = n_blocks; i > 2; i--) {
-      logrid.x = 1;
-      logrid.y = i-2;
-
       cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
       cudaThreadSynchronize();
-      cuda_strip_update(data_, n_blocks-i, Dim().stride, i  );
+
+      cuda_strip_update(data_, n_blocks-i, i, Dim());
       cudaThreadSynchronize();
-      cuda_diag_update(data_, n_blocks-i, Dim().stride, i);
+      
+      cuda_diag_update(data_, n_blocks-i, i, Dim());
       cudaThreadSynchronize();
-      cuda_lo_update(data_, n_blocks-i, n_blocks, Dim().stride, i);
+      
+      cuda_lo_update(data_, n_blocks-i, n_blocks, i, Dim());
       cudaThreadSynchronize();      
     }
+    */
+    {
+      //int i = 3;
+      //cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
+      //cudaThreadSynchronize();
+
+      //cuda_strip_update(data_, n_blocks-i, i, Dim());
+      //cudaThreadSynchronize();
+      
+      //cuda_diag_update(data_, n_blocks-i, i, Dim());
+      //cudaThreadSynchronize();
+
+      //cuda_lo_update(data_, n_blocks-i, n_blocks, i, Dim());
+      //cudaThreadSynchronize();      
+    }
     
+    /*
     if (n_blocks > 1) {
       cuda_factorize_diagonal_block(data_, n_blocks-2, Dim());
       cudaThreadSynchronize();
-      cuda_strip_update(data_, n_blocks-2, Dim().stride, 2);
+      
+      cuda_strip_update(data_, n_blocks-2, 2, Dim());
       cudaThreadSynchronize();
-      cuda_diag_update(data_, n_blocks-2, Dim().stride, 2);
+      
+      cuda_diag_update(data_, n_blocks-2, 2, Dim());
       cudaThreadSynchronize();
+      
     }
-   
+
+    
     cuda_factorize_diagonal_block(data_, n_blocks-1, Dim());
     cudaThreadSynchronize();
+    */
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+    
+  }
+#endif
+}
+
+#if HAVE_CUDA
+template<typename Real> inline void cublas_trsm(int m, int n, Real alpha, const Real* A, int lda, Real* B, int ldb) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline void cublas_trsm<float>(int m, int n, float alpha, const float* A, int lda, float* B, int ldb) {
+  cublasStrsm('l','u','n','n',m,n,alpha,A,lda,B,ldb);
+}
+template<> inline void cublas_trsm<double>(int m, int n, double alpha, const double* A, int lda, double* B, int ldb) {
+  cublasDtrsm('l','u','n','n',m,n,alpha,A,lda,B,ldb);
+}
+#endif
+
+template<typename Real>
+void CuMatrixBase<Real>::Invert(Real alpha, CuMatrix<Real> &A) {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    Real* device_eye;
+    int dimBlock(CUBLOCK);
+    int dimGrid(n_blocks(NumRows(),CUBLOCK));
+    CuMatrix<Real> temp(num_rows_,num_rows_);
+    int dim = num_rows_;
+    Real value = 1.0;
+    cuda_set_diag(dimGrid, dimBlock, temp.RowData(0), value, temp.Dim());
+    Matrix<Real> A(dim,dim);
+    temp.CopyToMat(&A);
+    KALDI_LOG << "the eye matrix is : " << '\n';
+    KALDI_LOG << A << '\n';
+    this->Cholesky();
+    //CuSpMatrix<Real> L(*this, kTakeLower);
+    cublas_trsm(num_rows_,num_rows_,alpha,data_,stride_,temp.RowData(0),temp.Dim().stride);
+    
+    CuSpMatrix<Real> L(temp, kTakeLower);
+    CuMatrix<Real> L1(dim,dim);
+    L1.CopyFromSp(L);
+    Matrix<Real> L_test(dim,dim);
+    L1.CopyToMat(&L_test);
+    KALDI_LOG << L_test << '\n';
+    this->AddMatMat(1,L1,kTrans,L1,kNoTrans,0);
+    
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   }
 #endif
 }
+
 // Instantiate classes CuMatrix and CuMatrixBase for float and double.
 template class CuMatrix<float>;
 template class CuMatrix<double>;

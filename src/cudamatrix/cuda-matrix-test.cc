@@ -666,6 +666,20 @@ static void UnitTestCuDiffXent() {
   AssertEqual(Hlogpost,Hlogpost2);
 }
 
+template<class Real> void UnitTestCheck() {
+  Matrix<Real> Hi(100,111);
+  RandGaussMatrix(&Hi);
+
+  CuMatrix<Real> Di(100,111);
+  Di.CopyFromMat(Hi);
+
+
+  CuMatrix<Real> Dj(Di);
+  KALDI_LOG << Dj.NumRows() << '\n';
+ 
+
+}
+
 template<class Real> void CudaMatrixUnitTest() {
   //test CuMatrix<Real> methods by cross-check with Matrix
   UnitTestCuMatrixApplyLog<Real>();
@@ -690,6 +704,8 @@ template<class Real> void CudaMatrixUnitTest() {
   UnitTestCuFindRowMaxId<Real>();
   UnitTestCuSoftmax<Real>();
   UnitTestCuDiffXent<Real>();
+
+  UnitTestCheck<Real>();
 }
 
 

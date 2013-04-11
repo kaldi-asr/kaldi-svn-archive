@@ -46,6 +46,19 @@ static void AssertEqual(const MatrixBase<Real> &A,
   }
 }
 
+template<class Real>
+static void AssertEqual(const SpMatrix<Real> &A,
+                        const SpMatrix<Real> &B,
+                        float tol = 0.001) {
+  KALDI_ASSERT(A.NumRows() == B.NumRows());
+  for (MatrixIndexT i = 0;i < A.NumRows();i++) {
+    for (MatrixIndexT j = 0;j <= i;j++) {
+      KALDI_ASSERT(std::abs(A(i, j)-B(i, j)) < tol*std::max(1.0, (double) (std::abs(A(\
+          i, j))+std::abs(B(i, j)))));
+    }
+  }
+}
+
 template<class Real> 
 static void ApproxEqual(const SpMatrix<Real> &A,
 			const SpMatrix<Real> &B,
@@ -118,6 +131,7 @@ static void SimpleTest() {
   G.SetDiag(10);
   G.Invert();
   SpMatrix<Real> H(dim);
+  KALDI_LOG << "NUMROWS is" << H.NumRows() << '\n';
   G.CopyToMat(&H);
   H(1,1)=14;
   for (int i = 0; i < dim; i++) {
@@ -143,11 +157,18 @@ static void SimpleTest() {
     std::cout << std::endl;
   }
 
+  CuMatrix<Real> L(dim,dim);
+  L.CopyFromSp(G);
+  Matrix<Real> M(dim,dim);
+  L.CopyToMat(&M);
+  KALDI_LOG << M << '\n';
+
 }
 
 template<class Real> static void UnitTestCholesky() {
-  for (MatrixIndexT iter = 0; iter < 10; iter++) {
-    MatrixIndexT dim = 15 + rand() %  40;;
+  for (MatrixIndexT iter = 0; iter < 1; iter++) {
+    //MatrixIndexT dim = 15 + rand() %  40;
+    MatrixIndexT dim = 49;
     CuMatrix<Real> A(dim,dim);
     Matrix<Real> B(dim,dim);
     Vector<Real> C(dim);
@@ -159,6 +180,7 @@ template<class Real> static void UnitTestCholesky() {
     
     A.CopyFromMat(B);
     A.CopyToMat(&B);
+    KALDI_LOG << B << '\n';
     A.Cholesky();
     Matrix<Real> D(dim,dim);
     A.CopyToMat(&D);
@@ -166,39 +188,210 @@ template<class Real> static void UnitTestCholesky() {
       for (MatrixIndexT j = i+1; j < dim; j++)
         D(i,j) = 0;
     }
+    KALDI_LOG << D << '\n';
     Matrix<Real> E(dim,dim);
     E.AddMatMat(1,D,kNoTrans,D,kTrans,0);
     AssertEqual(B,E);
   }
 }
 
+template<class Real> static void UnitInvert() {
+  //MatrixIndexT dim = 15 + rand() %  40;;
+  MatrixIndexT dim = 8;
+  CuMatrix<Real> A(dim,dim);
+  Matrix<Real> B(dim,dim);
+  Vector<Real> C(dim);
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    B(i,i) = 1;
+    C(i) = i + 1;
+  }
+  B.AddVecVec(1.0,C,C);
+  CuMatrix<Real> tmp(dim,dim);
+  A.CopyFromMat(B);
+  //A.Cholesky();
+  A.CopyToMat(&B);
+  KALDI_LOG << "B is : " << '\n';
+  KALDI_LOG << B << '\n';
+  A.Invert(1.0, tmp);
+  Matrix<Real> D(dim,dim);
+  A.CopyToMat(&D);
+  KALDI_LOG << "D is : " << '\n';
+  KALDI_LOG << D << '\n';
+  Matrix<Real> X(dim,dim);
+  X.AddMatMat(1,B,kNoTrans,D,kNoTrans,0);
+  KALDI_LOG << X << '\n';
+  //for (MatrixIndexT i = 0; i < dim; i++) {
+  //  for (MatrixIndexT j = i+1; j < dim; j++)
+  //    D(i,j) = 0;
+  //}
+  //Matrix<Real> E(dim,dim);
+  //E.AddMatMat(1,D,kNoTrans,D,kTrans,0);
+  //AssertEqual(B,E);
+}
+
+template<class Real> static void UnitTestInvert() {
+  for (MatrixIndexT iter = 0; iter < 1; iter++) {
+    // MatrixIndexT dim = 15 + rand() % 40;
+    MatrixIndexT dim = 50;
+    KALDI_LOG << "dim is : " << '\n';
+    KALDI_LOG << dim << '\n';
+    CuMatrix<Real> A(dim,dim);
+    Matrix<Real> B(dim,dim);
+    Vector<Real> C(dim);
+    for (MatrixIndexT i = 0; i < dim; i++) {
+      B(i,i) = 1;
+      C(i) = i + 1;
+    }
+    Matrix<Real> Identity(B);
+    B.AddVecVec(1.0,C,C);
+    CuMatrix<Real> tmp(dim,dim);
+    A.CopyFromMat(B);
+    KALDI_LOG << "B is " << '\n';
+    KALDI_LOG << B << '\n';
+    
+    A.Invert(1.0, tmp);
+    Matrix<Real> D(dim,dim);
+    A.CopyToMat(&D);
+    KALDI_LOG << "D is " << '\n';
+    KALDI_LOG << D << '\n';
+    Matrix<Real> X(dim,dim);
+    X.AddMatMat(1,B,kNoTrans,D,kNoTrans,0);
+    KALDI_LOG << X << '\n';
+    AssertEqual(Identity,X);
+  }
+}
+
+template<class Real> static void UnitTestConstructor() {
+  MatrixIndexT dim = 8;
+  CuMatrix<Real> A(dim,dim);
+  Matrix<Real> B(dim,dim);
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <=i; j++)
+      B(i,j) = i+j;
+    for (MatrixIndexT j = i+1; j < dim; j++)
+      B(i,j) = i+j+4;
+  }
+  KALDI_LOG << "A is : " << '\n';
+  KALDI_LOG << B << '\n';
+  A.CopyFromMat(B);
+  //CuSpMatrix<Real> C(dim);
+  //C.CopyFromMat(A,kTakeLower);
+  CuSpMatrix<Real> C(A, kTakeLower);
+  SpMatrix<Real> D(dim);
+  C.CopyToMat(&D);
+  KALDI_LOG << "C is : " << '\n';
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <= i; j++)
+      std::cout << D(i,j) << " ";
+    std::cout << '\n';
+  }  
+}
 
 template<class Real> static void UnitTestCopySp() {
   // Checking that the various versions of copying                                 
   // matrix to SpMatrix work the same in the symmetric case.                         
   for (MatrixIndexT iter = 0;iter < 5;iter++) {
     int32 dim = 5 + rand() %  10;
-    CuSpMatrix<Real> S(dim), T(dim);
-    S.SetRandn();
-    Matrix<Real> M(S);
-    T.CopyFromMat(M, kTakeMeanAndCheck);
-    AssertEqual(S, T);
-    T.SetZero();
-    T.CopyFromMat(M, kTakeMean);
-    AssertEqual(S, T);
-    T.SetZero();
-    T.CopyFromMat(M, kTakeLower);
-    AssertEqual(S, T);
-    T.SetZero();
-    T.CopyFromMat(M, kTakeUpper);
-    AssertEqual(S, T);
+    SpMatrix<Real> A(dim), B(dim);
+    A.SetRandn();
+    Matrix<Real> C(A);
+    //CuMatrix<Real> D(C);
+    
+    {
+      CuMatrix<Real> D2(dim,dim);
+      D2.CopyFromMat(C);
+      KALDI_LOG << "D2 is " << D2;
+      CuSpMatrix<Real> E(D2.NumRows(), kUndefined);
+      KALDI_LOG << "D2 is " << D2;
+      E.CopyFromMat(D2, kTakeLower);
+      KALDI_LOG << "D2 is " << D2;
+    }
+    
+    CuMatrix<Real> D(dim,dim);
+    D.CopyFromMat(C);
+    KALDI_LOG << "D stride is : " << D.Stride() <<'\n';
+    
+    CuSpMatrix<Real> E(D,kTakeLower);
+    ///CuSpMatrix<Real> E(dim);
+    //E.CopyFromMat(D,kTakeLower);
+    /*
+    KALDI_LOG << D.NumRows() << '\n';
+    //E.CopyFromMat(D, kTakeMean);
+    //E(D, kTakeMean);
+    //KALDI_LOG << E.NumRows() << '\n';
+    /*
+    E.CopyToMat(&B);
+    AssertEqual(A, B);
+    B.SetZero();
+    //E.CopyFromMat(D, kTakeLower);
+    CuSpMatrix<Real> F(D,kTakeLower);
+    //F(D, kTakeLower);
+    F.CopyToMat(&B);
+    AssertEqual(A, B);
+    B.SetZero();
+    //E.CopyFromMat(D, kTakeUpper);
+    //E(D, kTakeUpper);
+    CuSpMatrix<Real> G(D, kTakeUpper);
+    G.CopyToMat(&B);
+    AssertEqual(A, B);
+    */  
   }
+  
+}
+
+template<class Real> static void UnitTestCopyFromMat() {
+  MatrixIndexT dim = 8;
+  CuMatrix<Real> A(dim,dim);
+  Matrix<Real> B(dim,dim);
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <=i; j++)
+      B(i,j) = i+j;
+    for (MatrixIndexT j = i+1; j < dim; j++)
+      B(i,j) = i+j+4;
+  }
+  KALDI_LOG << "A is : " << '\n';
+  KALDI_LOG << B << '\n';
+  A.CopyFromMat(B);
+  CuSpMatrix<Real> C(dim);
+  C.CopyFromMat(A,kTakeLower);
+  SpMatrix<Real> D(dim);
+  C.CopyToSp(&D);
+  KALDI_LOG << "C is : " << '\n';
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <= i; j++)
+      std::cout << D(i,j) << " ";
+    std::cout << '\n';
+  }
+  C.CopyFromMat(A,kTakeUpper);
+  C.CopyToSp(&D);
+  KALDI_LOG << "C is : " << '\n';
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <= i; j++)
+      std::cout << D(i,j) << " ";
+    std::cout << '\n';
+  }
+  
+  C.CopyFromMat(A,kTakeMean);
+  C.CopyToSp(&D);
+  KALDI_LOG << "C is : " << '\n';
+  for (MatrixIndexT i = 0; i < dim; i++) {
+    for (MatrixIndexT j = 0; j <= i; j++)
+      std::cout << D(i,j) << " ";
+    std::cout << '\n';
+  }
+  
+  //KALDI_LOG << D << '\n';
 }
 
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
-  SimpleTest<Real>();
+  //SimpleTest<Real>();
   UnitTestCholesky<Real>();
+  //UnitTestInvert<Real>();
+  //UnitInvert<Real>();
+  //UnitTestCopyFromMat<Real>();
+  //UnitTestCopySp<Real>();
+  //UnitTestConstructor<Real>();
 }
 } //namespace
 

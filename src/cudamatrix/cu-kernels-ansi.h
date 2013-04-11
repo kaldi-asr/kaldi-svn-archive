@@ -41,7 +41,8 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda *mat, int32_cuda value, Matr
 /*
  * CuMatrix 
  */
-void cudaF_set_diag(int Gr, int Bl, float* mat, float value, int dim);
+void cudaF_set_diag(int Gr, int Bl, float* mat, float value, MatrixDim d);
+void cudaF_set_diag_packed(int Gr, int Bl, float* mat, float value, int dim);
 void cudaF_set_const(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_add(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d);
 void cudaF_add_vec2(dim3 Gr, dim3 Bl, float* mat, const float* vec, const float alpha, int dim);
@@ -83,7 +84,10 @@ void cudaF_splice(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *
 void cudaF_one(int Gr, int Bl, float* x, int dim);
 void cudaF_copy(dim3 Gr, dim3 Bl, float *y, const float *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in);
 void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim);
-
+void cudaF_copy_from_sp(int Gr, int Bl, const float* x, float* y, int d_in, MatrixDim d_out);
+void cudaF_take_lower(dim3 Gr, dim3 Bl, const float* x, float* y, MatrixDim d_in, int d_out);
+void cudaF_take_upper(dim3 Gr, dim3 Bl, const float* x, float* y, MatrixDim d_in, int d_out);
+void cudaF_take_mean(dim3 Gr, dim3 Bl, const float* x, float* y, MatrixDim d_in, int d_out);
 /*********************************************************
  * double CUDA kernel calls
  */
@@ -91,7 +95,8 @@ void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim);
 /*
  * CuMatrix 
  */
-void cudaD_set_diag(int Gr, int Bl, double* mat, double value, int dim);
+void cudaD_set_diag(int Gr, int Bl, double* mat, double value, MatrixDim d);
+void cudaD_set_diag_packed(int Gr, int Bl, double* mat, double value, int dim);
 void cudaD_set_const(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_add(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d);
 void cudaD_add_vec2(dim3 Gr, dim3 Bl, double *mat, const double *vec, const double alpha, int dim);
@@ -133,7 +138,10 @@ void cudaD_splice(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda
 void cudaD_one(int Gr, int Bl, double* x, int dim);
 void cudaD_copy(dim3 Gr, dim3 Bl, double *y, const double *x, const int32_cuda *copy_from, MatrixDim d_out, MatrixDim d_in);
 void cudaD_copy_diag(int Gr, int Bl, double* y, const double* x, int dim);
-
+void cudaD_copy_from_sp(int Gr, int Bl, const double* x, double* y, int d_in, MatrixDim d_out);
+void cudaD_take_lower(dim3 Gr, dim3 Bl, const double* x, double* y, MatrixDim d_in, int d_out);
+void cudaD_take_upper(dim3 Gr, dim3 Bl, const double* x, double* y, MatrixDim d_in, int d_out);
+void cudaD_take_mean(dim3 Gr, dim3 Bl, const double* x, double* y, MatrixDim d_in, int d_out);
 } // extern "C" 
 
 #endif // HAVE_CUDA

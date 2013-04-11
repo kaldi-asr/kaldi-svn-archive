@@ -58,14 +58,14 @@ class CuPackedMatrix {
 
   explicit CuPackedMatrix(MatrixIndexT r,
                           MatrixResizeType resize_type = kSetZero):
-      data_(NULL) {  Resize(r, resize_type);  }
+  data_(NULL), num_rows_(0) {  Resize(r, resize_type);  }
   
-  explicit CuPackedMatrix(const PackedMatrix<Real> &orig) : data_(NULL) {
+  explicit CuPackedMatrix(const PackedMatrix<Real> &orig) : data_(NULL), num_rows_(0) {
     Resize(orig.num_rows_, kUndefined);
     CopyFromPacked(orig);
   }
 
-  explicit CuPackedMatrix(const CuPackedMatrix<Real> &orig) : data_(NULL) {
+  explicit CuPackedMatrix(const CuPackedMatrix<Real> &orig) : data_(NULL), num_rows_(0) {
     Resize(orig.NumRows(), kUndefined);
     CopyFromPacked(orig);
   }

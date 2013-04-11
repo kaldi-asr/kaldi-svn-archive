@@ -29,7 +29,7 @@
 #include "matrix/kaldi-matrix.h"
 #include "cudamatrix/cu-stlvector.h"
 #include "cudamatrix/cu-math.h"
-
+#include "cudamatrix/cu-sp-matrix.h"
 namespace kaldi {
 
 
@@ -43,6 +43,7 @@ namespace kaldi {
 template<typename Real>
 class CuMatrixBase {
  public:
+  friend class CuSpMatrix<Real>;
   friend class CuVectorBase<Real>;
   friend class CuSubMatrix<Real>;
   friend class CuRand<Real>;
@@ -76,6 +77,8 @@ class CuMatrixBase {
   // Copy function.  These do not resize.
   void CopyFromMat(const CuMatrixBase<Real> &src);
   void CopyFromMat(const MatrixBase<Real> &src);
+  void CopyFromSp(const CuSpMatrix<Real> &M);
+
   void CopyToMat(MatrixBase<Real> *dst) const;
 
   /// Set each element to the sigmoid of the corresponding element of "src":
@@ -109,6 +112,7 @@ class CuMatrixBase {
                 CuVector<Real> *log_post_tgt);  
 
   void Cholesky();
+  void Invert(Real alpha, CuMatrix<Real> &A);
   /// Softmax nonlinearity
   /// Y = Softmax(X) : Yij = e^Xij / sum_k(e^Xik)
   /// for each row, the max value is first subtracted for good numerical stability
@@ -168,8 +172,8 @@ class CuMatrixBase {
     return CuSubMatrix<Real>(*this, 0, num_rows_, col_offset, num_cols); 
   }
 
-  Real* Data() { return data_; }
-  const Real* Data() const { return data_; }
+  //Real* Data() { return data_; }
+  //const Real* Data() const { return data_; }
   
   // The following two functions should only be called if we did not compile with CUDA
   // or could not get a CUDA card; in that case the contents are interpreted the
@@ -273,6 +277,7 @@ class CuMatrix: public CuMatrixBase<Real> {
 
   /// Destructor
   ~CuMatrix() { Destroy(); }
+
  private:
   void Destroy();
 };
@@ -312,8 +317,12 @@ bool SameDimAndStride(const CuMatrixBase<Real> &M, const CuMatrixBase<Real> &N) 
 
 /// I/O
 template<typename Real>
-std::ostream &operator << (std::ostream &out, const CuMatrixBase<Real> &mat);
-
+std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat) {
+  Matrix<Real> temp(mat.NumRows(), mat.NumCols(), kUndefined);
+  mat.CopyToMat(&temp);
+  out << temp;
+  return out;
+}
 
   
 } // namespace

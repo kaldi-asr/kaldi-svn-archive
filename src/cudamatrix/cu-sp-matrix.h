@@ -9,6 +9,7 @@
 #include "cudamatrix/cu-stlvector.h"
 #include "cudamatrix/cu-math.h"
 #include "cudamatrix/cu-packed-matrix.h"
+#include "cudamatrix/cu-matrix.h"
 
 namespace kaldi {
 
@@ -26,6 +27,14 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
 
   explicit CuSpMatrix(const CuSpMatrix<Real> &orig)
     : CuPackedMatrix<Real>(orig) {}
+
+  explicit CuSpMatrix(const CuMatrixBase<Real> &orig,
+                      SpCopyType copy_type = kTakeLower)
+      : CuPackedMatrix<Real>(orig.NumRows(), kUndefined) {
+    CopyFromMat(orig, copy_type);
+  }
+
+  ~CuSpMatrix() {}  
 
   inline const SpMatrix<Real> &Mat() const {
     return *(reinterpret_cast<const SpMatrix<Real>* >(this));
@@ -46,6 +55,9 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     CuPackedMatrix<Real>::CopyFromPacked(other);
   }
 
+  void CopyFromMat(const CuMatrixBase<Real> &orig,
+                   SpCopyType copy_type = kTakeLower);
+  
   void CopyToSp(SpMatrix<Real> *dst) {
     CuPackedMatrix<Real>::CopyToMat(dst);
   }

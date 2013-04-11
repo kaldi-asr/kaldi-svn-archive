@@ -49,11 +49,11 @@ void CuPackedMatrix<Real>::Resize(MatrixIndexT rows,
   if (rows == 0) return;  
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
+    this->num_rows_ = rows;
     size_t nr = static_cast<size_t>(num_rows_),
         num_bytes = ((nr * (nr+1)) / 2) * sizeof(Real);
     CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&this->data_), num_bytes));
 
-    this->num_rows_ = rows;
     if (resize_type == kSetZero) this->SetZero();
   } else
 #endif
@@ -315,7 +315,7 @@ void CuPackedMatrix<Real>::SetDiag(Real alpha) {
     Timer tim;
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(NumRows(),CUBLOCK));
-    cuda_set_diag(dimGrid,dimBlock,data_,alpha,num_rows_);
+    cuda_set_diag_packed(dimGrid,dimBlock,data_,alpha,num_rows_);
     CU_SAFE_CALL(cudaGetLastError());
     CuDevice::Instantiate().AccuProfile("CuPackedMatrix::SetDiag", tim.Elapsed());
   } else
@@ -374,6 +374,7 @@ void CuPackedMatrix<Real>::ScaleDiag(Real alpha) {
 /**
  * Print the matrix to stream
  */
+/*
 template<typename Real>
 std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat) {
   Matrix<Real> temp;
@@ -381,7 +382,7 @@ std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat) {
   out << temp;
   return out;
 }
-
+*/
 // Instantiate class CuPackedMatrix for float and double.
 template class CuPackedMatrix<float>;
 template class CuPackedMatrix<double>;

@@ -10,8 +10,52 @@
 #include "cu-kernels.h"
 #include "cu-math.h"
 #include "cu-sp-matrix.h"
+#include "cu-matrix.h"
 
 namespace kaldi {
+
+
+template<typename Real>
+void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
+                                   SpCopyType copy_type) {
+  KALDI_ASSERT(this->NumRows() == M.NumRows() && M.NumRows() == M.NumCols());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    MatrixIndexT D = this->NumRows();
+    dim3 dimBlock(CUBLOCK,CUBLOCK);
+    dim3 dimGrid(n_blocks(M.NumCols(),CUBLOCK), n_blocks(M.NumRows(),CUBLOCK));
+    switch (copy_type) {
+      case kTakeMeanAndCheck:
+        KALDI_LOG << "kTakeMeanAndCheck!" << '/n';
+      case kTakeMean:
+        {
+          cuda_take_mean(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), D);
+          CU_SAFE_CALL(cudaGetLastError());
+        }
+        break;
+      case kTakeLower:
+        {
+          cuda_take_lower(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), D);
+          cudaThreadSynchronize();
+        }
+        break;
+      case kTakeUpper:
+        {
+          cuda_take_upper(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), D);
+        }
+        break;
+      default:
+        KALDI_ASSERT("Invalid argument to CuSpMatrix::CopyFromMat");
+    }
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::Invert", tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().CopyFromMat(M.Mat(), kTakeLower);
+  }
+}
+
 
 template<class Real>
 void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
@@ -92,7 +136,7 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrix<Real> &M,
     }
 
     //CuMatrix<Real> tmp_mat(*this);
-    cublas_syrk('U', transM, this_dim, m_other_dim, alpha, M.Data(),
+    cublas_syrk('U', transM, this_dim, m_other_dim, alpha, M.RowData(0),
                 M.Stride(), beta, this->Data(), 1);
     //this->CopyFromMat(tmp_mat, kTakeLower);
     
@@ -103,6 +147,7 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrix<Real> &M,
     Mat().AddMat2(alpha, M.Mat(), transM, beta);
   }
 }
+
 /*
 #if HAVE_CUDA==1
 template<typename Real> inline void cublas_trsm(int m, int n, Real alpha,

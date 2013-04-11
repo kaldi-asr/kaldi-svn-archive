@@ -129,7 +129,17 @@ static void _scale_diag(Real* mat, Real value, int dim) {
 
 template<typename Real>
 __global__
-static void _set_diag(Real* mat, Real value, int dim) {
+static void _set_diag(Real* mat, Real value, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = i + i*d.stride;
+  if ( i < d.rows ) {
+    mat[index] = 1;
+  }
+}
+
+template<typename Real>
+__global__
+static void _set_diag_packed(Real* mat, Real value, int dim) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda index = ((i+1)*(i+2)/2) - 1;
   if ( i < dim ) {
@@ -480,11 +490,59 @@ static void _splice(Real* y, const Real* x, const int32_cuda* off, MatrixDim d_o
 
 template<typename Real>
 __global__
+static void _take_mean(const Real* x, Real* y, MatrixDim d_in, int d_out) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index1 = i + j * d_in.stride;
+  int32_cuda index2 = j + i * d_in.stride;
+  if ( i <= j && j < d_in.rows) {
+    int32_cuda index_sp = (j * (j+1) / 2) + i;
+    y[index_sp] = 0.5 * (x[index1] + x[index2]);
+  }
+}
+
+template<typename Real>
+__global__
+static void _take_lower(const Real* x, Real* y, MatrixDim d_in, int d_out) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j * d_in.stride;
+  int32_cuda index_sp = (j * (j+1) / 2) + i;
+  int32_cuda nr = d_out * (d_out + 1) / 2;
+  if ( i <= j  &&  j < d_in.rows && index_sp < nr) {
+    y[index_sp] = x[index];
+  }
+}
+
+template<typename Real>
+__global__
+static void _take_upper(const Real* x, Real* y, MatrixDim d_in, int d_out) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j * d_in.stride;
+  if ( i >= j  &&  i < d_in.rows) {
+    int32_cuda index_sp = (i * (i+1) / 2) + j;
+    y[index_sp] = x[index];
+  }
+}
+
+template<typename Real>
+__global__
 static void _copy_diag(Real* y, const Real* x, int dim) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda index = ((i+1) * (i+2) / 2) - 1;
   if (i < dim) {
      y[i] = *(x+index);
+  }
+}
+
+template<typename Real>
+__global__
+static void _copy_from_sp(const Real* x, Real* y, int d_in, MatrixDim d_out) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  for (int32_cuda j = 0; j <= i; j++) {
+    int32_cuda index = j + i * d_out.stride;
+    y[index] = x[(i * (i+1) / 2) + j];
   }
 }
 
@@ -637,8 +695,12 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda* mat, int32_cuda value, Matr
 /*
  * CuMatrix
  */
-void cudaF_set_diag(int Gr, int Bl, float* mat, float value, int dim) {
-  _set_diag<<<Gr,Bl>>>(mat,value,dim);
+void cudaF_set_diag(int Gr, int Bl, float* mat, float value, MatrixDim d) {
+  _set_diag<<<Gr,Bl>>>(mat,value,d);
+}
+
+void cudaF_set_diag_packed(int Gr, int Bl, float* mat, float value, int dim) {
+  _set_diag_packed<<<Gr,Bl>>>(mat,value,dim);
 }
 
 void cudaF_set_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
@@ -755,8 +817,24 @@ void cudaF_one(int Gr, int Bl, float* x, int dim) {
   _one<<<Gr,Bl>>>(x,dim);
 }
 
+void cudaF_take_mean(dim3 Gr, dim3 Bl, const float* x, float* y, MatrixDim d_in, int d_out) {
+  _take_mean<<<Gr,Bl>>>(x,y,d_in,d_out);
+}
+
+void cudaF_take_lower(dim3 Gr, dim3 Bl, const float* x, float* y, MatrixDim d_in, int d_out) {
+  _take_lower<<<Gr,Bl>>>(x,y,d_in,d_out);
+}
+
+void cudaF_take_upper(dim3 Gr, dim3 Bl, const float* x, float* y, MatrixDim d_in, int d_out) {
+  _take_upper<<<Gr,Bl>>>(x,y,d_in,d_out);
+}
+
 void cudaF_copy_diag(int Gr, int Bl, float* y, const float* x, int dim) {
   _copy_diag<<<Gr,Bl>>>(y,x,dim);
+}
+
+void cudaF_copy_from_sp(int Gr, int Bl, const float* x, float* y, int d_in, MatrixDim d_out) {
+  _copy_from_sp<<<Gr,Bl>>>(x,y,d_in,d_out);
 }
 
 void cudaF_copy(dim3 Gr, dim3 Bl, float* y, const float* x, const int32_cuda* copy_from, MatrixDim d_out, MatrixDim d_in) {
@@ -790,8 +868,12 @@ void cudaF_diff_xent(dim3 Gr, dim3 Bl, const int32_cuda* vec_tgt, float* mat_net
 /*
  * CuMatrix
  */
-void cudaD_set_diag(int Gr, int Bl, double* mat, double value, int dim) {
-  _set_diag<<<Gr,Bl>>>(mat,value,dim);
+void cudaD_set_diag(int Gr, int Bl, double* mat, double value, MatrixDim d) {
+  _set_diag<<<Gr,Bl>>>(mat,value,d);
+}
+
+void cudaD_set_diag_packed(int Gr, int Bl, double* mat, double value, int dim) {
+  _set_diag_packed<<<Gr,Bl>>>(mat,value,dim);
 }
 
 void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
@@ -908,8 +990,24 @@ void cudaD_one(int Gr, int Bl, double* x, int dim) {
   _one<<<Gr,Bl>>>(x,dim);
 }
 
+void cudaD_take_mean(dim3 Gr, dim3 Bl, const double* x, double* y, MatrixDim d_in, int d_out) {
+  _take_mean<<<Gr,Bl>>>(x,y,d_in,d_out);
+}
+
+void cudaD_take_lower(dim3 Gr, dim3 Bl, const double* x, double* y, MatrixDim d_in, int d_out) {
+  _take_lower<<<Gr,Bl>>>(x,y,d_in,d_out);
+}
+
+void cudaD_take_upper(dim3 Gr, dim3 Bl, const double* x, double* y, MatrixDim d_in, int d_out) {
+  _take_upper<<<Gr,Bl>>>(x,y,d_in,d_out);
+}
+
 void cudaD_copy_diag(int Gr, int Bl, double* y, const double* x, int dim) {
   _copy_diag<<<Gr,Bl>>>(y,x,dim);
+}
+
+void cudaD_copy_from_sp(int Gr, int Bl, const double* x, double* y, int d_in, MatrixDim d_out) {
+  _copy_from_sp<<<Gr,Bl>>>(x,y,d_in,d_out);
 }
 
 void cudaD_copy(dim3 Gr, dim3 Bl, double* y, const double* x, const int32_cuda* copy_from, MatrixDim d_out, MatrixDim d_in) {
