@@ -20,7 +20,7 @@
 #include <stdio.h>
 
 
-#define TILE_SIZE 16
+#define TILE_SIZE 4
 
 /***********************************************************************
  * CUDA kernels

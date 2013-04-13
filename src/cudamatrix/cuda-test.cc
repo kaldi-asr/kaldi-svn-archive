@@ -168,7 +168,7 @@ static void SimpleTest() {
 template<class Real> static void UnitTestCholesky() {
   for (MatrixIndexT iter = 0; iter < 1; iter++) {
     //MatrixIndexT dim = 15 + rand() %  40;
-    MatrixIndexT dim = 49;
+    MatrixIndexT dim = 13;
     CuMatrix<Real> A(dim,dim);
     Matrix<Real> B(dim,dim);
     Vector<Real> C(dim);

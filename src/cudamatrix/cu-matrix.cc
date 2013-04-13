@@ -832,13 +832,14 @@ void CuMatrixBase<Real>::Cholesky() {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
-    int TILE_SIZE = 16;
+    int TILE_SIZE = 4;
     int n_blocks = (num_rows_ + TILE_SIZE - 1) / TILE_SIZE;
     int n_rows_padded = n_blocks*TILE_SIZE;
 
     dim3 threads(TILE_SIZE,TILE_SIZE);
     KALDI_LOG << "n_blcoks is : " << n_blocks << '\n';
     dim3 logrid;
+    /*
     cuda_factorize_diagonal_block(data_, 0, Dim());
     cudaThreadSynchronize();
     cuda_strip_update(data_, 0, 4, Dim());
@@ -847,18 +848,18 @@ void CuMatrixBase<Real>::Cholesky() {
     cudaThreadSynchronize();
     cuda_lo_update(data_, 0, 4, 4, Dim());
     cudaThreadSynchronize();
-    /*
+    
     cuda_factorize_diagonal_block(data_, 1, Dim());
     cudaThreadSynchronize();
     cuda_strip_update(data_, 1, 3, Dim());
     cudaThreadSynchronize();
-    /*
+    
     cuda_diag_update(data_, 1, 3, Dim());
     cudaThreadSynchronize();
     cuda_factorize_diagonal_block(data_, 2, Dim());
     cudaThreadSynchronize();
     */
-    /*
+    
     for (int i = n_blocks; i > 2; i--) {
       cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
       cudaThreadSynchronize();
@@ -872,7 +873,7 @@ void CuMatrixBase<Real>::Cholesky() {
       cuda_lo_update(data_, n_blocks-i, n_blocks, i, Dim());
       cudaThreadSynchronize();      
     }
-    */
+    
     {
       //int i = 3;
       //cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
@@ -888,7 +889,7 @@ void CuMatrixBase<Real>::Cholesky() {
       //cudaThreadSynchronize();      
     }
     
-    /*
+    
     if (n_blocks > 1) {
       cuda_factorize_diagonal_block(data_, n_blocks-2, Dim());
       cudaThreadSynchronize();
@@ -904,7 +905,7 @@ void CuMatrixBase<Real>::Cholesky() {
     
     cuda_factorize_diagonal_block(data_, n_blocks-1, Dim());
     cudaThreadSynchronize();
-    */
+    
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
     
   }
