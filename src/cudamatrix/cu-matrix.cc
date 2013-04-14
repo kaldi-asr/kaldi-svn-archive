@@ -838,28 +838,9 @@ void CuMatrixBase<Real>::Cholesky() {
 
     dim3 threads(TILE_SIZE,TILE_SIZE);
     KALDI_LOG << "n_blcoks is : " << n_blocks << '\n';
+    KALDI_LOG << "the stride is : " << Dim().stride << '\n';
     dim3 logrid;
-    /*
-    cuda_factorize_diagonal_block(data_, 0, Dim());
-    cudaThreadSynchronize();
-    cuda_strip_update(data_, 0, 4, Dim());
-    cudaThreadSynchronize();
-    cuda_diag_update(data_, 0, 4, Dim());
-    cudaThreadSynchronize();
-    cuda_lo_update(data_, 0, 4, 4, Dim());
-    cudaThreadSynchronize();
-    
-    cuda_factorize_diagonal_block(data_, 1, Dim());
-    cudaThreadSynchronize();
-    cuda_strip_update(data_, 1, 3, Dim());
-    cudaThreadSynchronize();
-    
-    cuda_diag_update(data_, 1, 3, Dim());
-    cudaThreadSynchronize();
-    cuda_factorize_diagonal_block(data_, 2, Dim());
-    cudaThreadSynchronize();
-    */
-    
+     
     for (int i = n_blocks; i > 2; i--) {
       cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
       cudaThreadSynchronize();
@@ -873,22 +854,6 @@ void CuMatrixBase<Real>::Cholesky() {
       cuda_lo_update(data_, n_blocks-i, n_blocks, i, Dim());
       cudaThreadSynchronize();      
     }
-    
-    {
-      //int i = 3;
-      //cuda_factorize_diagonal_block(data_, n_blocks-i, Dim());
-      //cudaThreadSynchronize();
-
-      //cuda_strip_update(data_, n_blocks-i, i, Dim());
-      //cudaThreadSynchronize();
-      
-      //cuda_diag_update(data_, n_blocks-i, i, Dim());
-      //cudaThreadSynchronize();
-
-      //cuda_lo_update(data_, n_blocks-i, n_blocks, i, Dim());
-      //cudaThreadSynchronize();      
-    }
-    
     
     if (n_blocks > 1) {
       cuda_factorize_diagonal_block(data_, n_blocks-2, Dim());

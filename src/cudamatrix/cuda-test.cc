@@ -168,7 +168,10 @@ static void SimpleTest() {
 template<class Real> static void UnitTestCholesky() {
   for (MatrixIndexT iter = 0; iter < 1; iter++) {
     //MatrixIndexT dim = 15 + rand() %  40;
+    // set dimension
     MatrixIndexT dim = 13;
+    // computing the matrix for cholesky input
+    // CuMatrix is cuda matrix class while Matrix is cpu matrix class
     CuMatrix<Real> A(dim,dim);
     Matrix<Real> B(dim,dim);
     Vector<Real> C(dim);
@@ -177,10 +180,11 @@ template<class Real> static void UnitTestCholesky() {
       C(i) = i + 1;
     }
     B.AddVecVec(1.0,C,C);
-    
+    // copy the matrix to cudamatrix object
     A.CopyFromMat(B);
     A.CopyToMat(&B);
     KALDI_LOG << B << '\n';
+    // doing cholesky
     A.Cholesky();
     Matrix<Real> D(dim,dim);
     A.CopyToMat(&D);
@@ -191,6 +195,7 @@ template<class Real> static void UnitTestCholesky() {
     KALDI_LOG << D << '\n';
     Matrix<Real> E(dim,dim);
     E.AddMatMat(1,D,kNoTrans,D,kTrans,0);
+    // check if the D'D is eaual to B or not!
     AssertEqual(B,E);
   }
 }
