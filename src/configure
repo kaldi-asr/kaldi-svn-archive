@@ -253,15 +253,11 @@ is_set $OPENBLASROOT && echo "Force-configuring KALDI to use OPENBLAS"&& export 
 function linux_configure_cuda {
   #check for CUDA toolkit in the system
   if [ ! $CUDATKDIR ]; then
-    if [ -f /usr/local/share/cuda/bin/nvcc ]; then #BUT
-      CUDATKDIR=/usr/local/share/cuda/
-    elif [ -f /usr/local/cuda/bin/nvcc ]; then
-      CUDATKDIR=/usr/local/cuda/
-    elif [ -f /pkgs_local/cuda-3.2/bin/nvcc ]; then #CS.TORONTO
-      CUDATKDIR=/pkgs_local/cuda-3.2/ 
-    elif [ -f /opt/nvidia_cuda/cuda-5.0/bin/nvcc ]; then # t01 at JHU
-      CUDATKDIR=/opt/nvidia_cuda/cuda-5.0/
-    fi
+    for base in /usr/local/share/cuda /usr/local/cuda /pkgs_local/cuda-3.2/ /opt/nvidia_cuda/cuda-5.0/ /usr/; do
+      if [ -f $base/bin/nvcc ]; then
+        CUDATKDIR=$base
+      fi
+    done
   fi
 
   if [ $CUDATKDIR ]; then
@@ -324,12 +320,8 @@ function linux_check_static {
   fi
 }
 
-function linux_configure_debian {
-  if [ "`uname -m`" == "x86_64" ]; then
-    m=64
-  else
-    m=
-  fi
+function linux_configure_debian_ubuntu {
+  m=$1
   ATLASLIBS="/usr/lib$m/atlas-base/libatlas.so.3gf  /usr/lib$m/atlas-base/libf77blas.so.3gf /usr/lib$m/atlas-base/libcblas.so.3gf  /usr/lib$m/atlas-base/liblapack_atlas.so.3gf"
   for f in $ATLASLIBS; do 
     [ ! -f $f ] && return 1;
@@ -337,7 +329,7 @@ function linux_configure_debian {
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
-  echo "Configured for Debian Linux [static libraries] with ATLASLIBS =$ATLASLIBS"
+  echo "Successfully configured for Debian/Ubuntu Linux [static libraries] with ATLASLIBS =$ATLASLIBS"
   $use_cuda && linux_configure_cuda
   exit 0;
 }
@@ -389,7 +381,7 @@ function linux_configure_static {
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
   $use_cuda && linux_configure_cuda
-  echo "Configured for Linux [static libraries] with ATLASLIBS =$ATLASLIBS"
+  echo "Successfully configured for Linux [static libraries] with ATLASLIBS =$ATLASLIBS"
   exit 0;
 }
 
@@ -456,7 +448,7 @@ function linux_configure_dynamic {
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
   $use_cuda && linux_configure_cuda
-  echo "Configured for Linux [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
+  echo "Successfully configured for Linux [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
   exit 0;
 }
 
@@ -564,7 +556,8 @@ if [ "`uname`" == "Linux" ]; then
 
     linux_configure_static || \
       linux_configure_dynamic || \
-      linux_configure_debian || \
+      linux_configure_debian_ubuntu 64 || \
+      linux_configure_debian_ubuntu || \
       linux_atlas_failure "Failed to configure ATLAS lbiraries";
 
   elif [ $MATHLIB == "MKL" ]; then
@@ -624,7 +617,7 @@ if [ "`uname`" == "Linux" ]; then
     echo "MKLFLAGS = ${MKL_LINK_LINE} ${OMP_LINK_LINE} " >> kaldi.mk
 
     $use_cuda && linux_configure_cuda
-    echo "Configured for Linux with MKL libs from $MKLROOT"
+    echo "Successfully configured for Linux with MKL libs from $MKLROOT"
     exit 0;
 
   elif [ $MATHLIB == "CLAPACK" ]; then
@@ -645,7 +638,7 @@ if [ "`uname`" == "Linux" ]; then
     cat makefiles/linux_clapack.mk >> kaldi.mk
     echo "Warning (CLAPACK): this part of the configure process is not properly tested and will not work."
     $use_cuda && linux_configure_cuda
-    echo "Configured for Linux with CLAPACK libs from $CLAPACKROOT"
+    echo "Successfully configured for Linux with CLAPACK libs from $CLAPACKROOT"
     exit 0
   elif [ $MATHLIB == "OPENBLAS" ]; then
     OPENBLASROOT=`rel2abs $OPENBLASROOT`
@@ -666,6 +659,7 @@ if [ "`uname`" == "Linux" ]; then
     fi
     echo "OPENBLASLIBS = $OPENBLASLIBS" >> kaldi.mk
     echo "OPENBLASROOT = $OPENBLASROOT" >> kaldi.mk
+    echo "Successfully configured."
     exit 0;
   else 
     failure "Unsupported linear algebra library '$MATHLIB'"
