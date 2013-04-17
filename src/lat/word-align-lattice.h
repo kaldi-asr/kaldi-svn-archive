@@ -30,6 +30,9 @@ namespace kaldi {
 
 
 struct WordBoundaryInfoOpts {
+  // Note: use of this structure
+  // is deprecated, see WordBoundaryInfoNewOpts.
+  
   // Note: this structure (and the code in word-align-lattice.{h,cc}
   // makes stronger assumptions than the rest of the Kaldi toolkit:
   // that is, it assumes you have word-position-dependent phones,
@@ -173,10 +176,16 @@ struct WordBoundaryInfo {
 /// the lattice was "forced out" as the end-state was not
 /// reached during decoding, and in this case the output might
 /// be usable.
+///  If max_states > 0, if this code detects that the #states
+/// of the output will be greater than max_states, it will
+/// abort the computation, return false and produce an empty
+/// lattice out.
 bool WordAlignLattice(const CompactLattice &lat,
                       const TransitionModel &tmodel,
                       const WordBoundaryInfo &info,
+                      int32 max_states,
                       CompactLattice *lat_out);
+
 
 
 /// This function is designed to crash if something went wrong with the

@@ -1,6 +1,6 @@
 // kwsbin/kws-search.cc
 
-// Copyright 2012  Johns Hopkins University (Author: Guoguo Chen)
+// Copyright 2012-2013  Johns Hopkins University (Authors: Guoguo Chen, Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,9 +94,11 @@ int main(int argc, char *argv[]) {
 
     int32 n_best = -1;
     double negative_tolerance = -0.1;
+    bool strict = true;
     po.Register("nbest", &n_best, "Return the best n hypotheses.");
     po.Register("negative-tolerance", &negative_tolerance, 
                 "The program will die if we get negative score smaller than the tolerance.");
+    po.Register("strict", &strict, "Will allow 0 lattice if it is set to false.");
     if (n_best < 0 && n_best != -1) {
       KALDI_ERR << "Bad number for nbest";
       exit (1);
@@ -119,7 +121,7 @@ int main(int argc, char *argv[]) {
 
     // Index has key "global"
     KwsLexicographicFst index = index_reader.Value("global");
-
+    
     // First we have to remove the disambiguation symbols. But rather than
     // removing them totally, we actually move them from input side to output
     // side, making the output symbol a "combined" symbol of the disambiguation
@@ -127,7 +129,7 @@ int main(int argc, char *argv[]) {
     // Note that in Dogan and Murat's original paper, they simply remove the
     // disambiguation symbol on the input symbol side, which will not allow us
     // to do epsilon removal after composition with the keyword FST. They have
-    // to traversal the result FST.
+    // to traverse the resulting FST.
     int32 label_count = 1;
     std::tr1::unordered_map<uint64, uint32> label_encoder;
     std::tr1::unordered_map<uint32, uint64> label_decoder;
@@ -154,7 +156,8 @@ int main(int argc, char *argv[]) {
         aiter.SetValue(arc);
       }
     }
-
+    ArcSort(&index, fst::ILabelCompare<KwsLexicographicArc>());
+    
     int32 n_done = 0;
     int32 n_fail = 0;
     for (; !keyword_reader.Done(); keyword_reader.Next()) {
@@ -212,7 +215,10 @@ int main(int argc, char *argv[]) {
     }
 
     KALDI_LOG << "Done " << n_done << " keywords";
-    return (n_done != 0 ? 0 : 1);    
+    if (strict == true)
+      return (n_done != 0 ? 0 : 1);
+    else
+      return 0;
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

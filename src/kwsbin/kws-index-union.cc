@@ -39,6 +39,13 @@ int main(int argc, char *argv[]) {
 
     ParseOptions po(usage);
 
+    bool strict = true;
+    bool skip_opt = false;
+    int32 max_states = -1;
+    po.Register("strict", &strict, "Will allow 0 lattice if it is set to false.");
+    po.Register("skip-optimization", &skip_opt, "Skip optimization if it's set to true.");
+    po.Register("max-states", &max_states, "Maximum states for DeterminizeStar.");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() < 2 || po.NumArgs() > 3) {
@@ -64,19 +71,31 @@ int main(int argc, char *argv[]) {
       n_done++;
     }
 
-    // Do the encoded epsilon removal, determinization and minimization
-    KwsLexicographicFst ifst = global_index;
-    EncodeMapper<KwsLexicographicArc> encoder(kEncodeLabels, ENCODE);
-    Encode(&ifst, &encoder);
-    DeterminizeStar(ifst, &global_index);
-    Minimize(&global_index);
-    Decode(&global_index, encoder);
+    if (skip_opt == false) {
+      // Do the encoded epsilon removal, determinization and minimization
+      KwsLexicographicFst ifst = global_index;
+      EncodeMapper<KwsLexicographicArc> encoder(kEncodeLabels, ENCODE);
+      Encode(&ifst, &encoder);
+      try {
+        DeterminizeStar(ifst, &global_index, kDelta, NULL, max_states);
+      } catch(const std::exception &e) {
+        KALDI_WARN << e.what();
+        global_index = ifst;
+      }
+      Minimize(&global_index);
+      Decode(&global_index, encoder);
+    } else {
+      KALDI_LOG << "Skipping index optimization...";
+    }
 
     // Write the result
     index_writer.Write("global", global_index);
 
     KALDI_LOG << "Done " << n_done << " indices";
-    return (n_done != 0 ? 0 : 1);    
+    if (strict == true)
+      return (n_done != 0 ? 0 : 1);
+    else
+      return 0;
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

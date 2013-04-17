@@ -27,6 +27,7 @@
 #include "lat/lattice-functions.h"
 
 #include "nnet/nnet-component.h"
+#include "nnet/nnet-activation.h"
 #include "nnet/nnet-nnet.h"
 #include "util/timer.h"
 #include "cudamatrix/cu-device.h"
@@ -103,7 +104,7 @@ int main(int argc, char *argv[]) {
     po.Register("l1-penalty", &l1_penalty, "L1 penalty (promote sparsity)");
 
     std::string feature_transform,class_frame_counts;
-    po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
+    po.Register("feature-transform", &feature_transform, "Feature transform in Nnet format");
     po.Register("class-frame-counts", &class_frame_counts, "Class frame counts to compute the class priors");
 
     kaldi::BaseFloat acoustic_scale = 1.0, lm_scale = 1.0;
@@ -113,7 +114,22 @@ int main(int argc, char *argv[]) {
     po.Register("lm-scale", &lm_scale,
                 "Scaling factor for \"graph costs\" (including LM costs)");
     po.Register("old-acoustic-scale", &old_acoustic_scale,
-                "Add the current acoustic scores with some scale.");
+                "Add in the scores in the input lattices with this scale, rather "
+                "than discarding them.");
+
+    bool drop_frames = true;
+    po.Register("drop-frames", &drop_frames, 
+                "Drop frames, where correct path has zero FW-BW probability over den-lat (ie. path not in lattice)");
+    kaldi::int32 oov_phone = -1;
+    po.Register("oov-phone", &oov_phone, 
+                "Drop frames, where the oovs are (were causing problems in babel systems)");
+
+    
+
+#if HAVE_CUDA==1
+    kaldi::int32 use_gpu_id=-2;
+    po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID (-2 automatic selection, -1 disable GPU, 0..N select GPU)");
+#endif
 
     po.Read(argc, argv);
 
@@ -137,6 +153,10 @@ int main(int argc, char *argv[]) {
     using namespace kaldi;
     typedef kaldi::int32 int32;
 
+    //Select the GPU
+#if HAVE_CUDA==1
+    CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+#endif
 
     Nnet nnet_transf;
     if(feature_transform != "") {
@@ -145,8 +165,12 @@ int main(int argc, char *argv[]) {
 
     Nnet nnet;
     nnet.Read(model_filename);
+    //remove the softmax
     if(nnet.Layer(nnet.LayerCount()-1)->GetType() == Component::kSoftmax) {
-      KALDI_ERR << "The MLP has to be without softmax...";
+      KALDI_LOG << "Removing softmax from the nnet " << model_filename;
+      nnet.RemoveLayer(nnet.LayerCount()-1);
+    } else {
+      KALDI_LOG << "The nnet was without softmax " << model_filename;
     }
 
     nnet.SetLearnRate(learn_rate, NULL);
@@ -193,7 +217,7 @@ int main(int argc, char *argv[]) {
     double time_next=0;
     KALDI_LOG << (crossvalidate?"CROSSVALIDATE":"TRAINING") << " STARTED";
 
-    int32 num_done = 0, num_no_num_ali = 0, num_no_den_lat = 0, num_other_error = 0, num_frm_drop = 0;
+    int32 num_done = 0, num_no_num_ali = 0, num_no_den_lat = 0, num_other_error = 0, num_frm_drop = 0, num_frm_drop_oov = 0;
 
     double total_like = 0.0, lat_like;
     double total_lat_ac_like = 0.0, lat_ac_like; // acoustic likelihood weighted by posterior.
@@ -276,20 +300,21 @@ int main(int argc, char *argv[]) {
         // - once including the frames with zero posterior under the alignment
         // - once leaving these ``suspicious'' frames out (mmi_obj_notdrop)
         mmi_obj = mmi_obj_notdrop = 0.0;
-        int32 frm_drop = 0; 
+        int32 frm_drop = 0;
+        std::vector<int32> frm_drop_vec; 
         for(int32 t=0; t<nnet_diff_h.NumRows(); t++) {
           int32 pdf = trans_model.TransitionIdToPdf(num_ali[t]);
           double posterior = nnet_diff_h(t, pdf);
           if(posterior < 1e-20) {
             posterior = 1e-20;
             frm_drop++;
+            frm_drop_vec.push_back(t);
           } else {
             mmi_obj_notdrop += log(posterior);
           }
           //here we sum even the dropped frames
           mmi_obj += log(posterior);
         }
-
         // report
         std::stringstream ss;
         ss << "Utt " << num_done+1 << " : " << key
@@ -307,24 +332,53 @@ int main(int argc, char *argv[]) {
         total_like += lat_like;
         total_lat_ac_like += lat_ac_like;
         total_mmi_obj += mmi_obj;
+
+        // report suspicious frames, candidates for dropping
+        if (frm_drop > 0) {
+          ss.str(std::string()); //reset the stringstream
+          if(drop_frames) {
+            ss << "Dropped: ";
+          } else {
+            ss << "[dropping disabled] Would drop: ";
+          }
+          ss << frm_drop << "/" << nnet_diff_h.NumRows() << " frames."; 
+
+          //get frame intervals from vec frm_drop_vec
+          ss << " Sections of num-ali with den-lat posteriors equal zero:";
+          int32 beg=0;
+          while(beg < frm_drop_vec.size()) {
+            int32 off=1;
+            while(beg+off < frm_drop_vec.size() && frm_drop_vec[beg+off] == frm_drop_vec[beg]+off) off++;
+            ss << " " << frm_drop_vec[beg] << ".." << frm_drop_vec[beg+off-1] << "frm";
+            beg += off;
+          }
+          KALDI_WARN << ss.str();
+        }
         
         //7a) Check there is non-zero FW-BW probability 
         //at the alignment position (ie. the correct path 
         //exist within the lattice, and MMI has a chance to correct it)
-        frm_drop = 0;
-        for(int32 t=0; t<nnet_diff_h.NumRows(); t++) {
-          int32 pdf = trans_model.TransitionIdToPdf(num_ali[t]);
-          if(nnet_diff_h(t, pdf) < 1e-20) {
-            frm_drop++;
-            nnet_diff_h.Row(t).Set(0.0);
+        if(drop_frames) {
+          frm_drop = 0;
+          int32 frm_drop_oov = 0;
+          for(int32 t=0; t<nnet_diff_h.NumRows(); t++) {
+            //drop the oov-phone frames
+            int32 phone = trans_model.TransitionIdToPhone(num_ali[t]);
+            if(phone == oov_phone) {
+              frm_drop_oov++;
+              nnet_diff_h.Row(t).Set(0.0);
+              continue;
+            } 
+            //drop the frames with totally mismatched den-posteriors
+            int32 pdf = trans_model.TransitionIdToPdf(num_ali[t]);
+            if(nnet_diff_h(t, pdf) < 1e-20) {
+              frm_drop++;
+              nnet_diff_h.Row(t).Set(0.0);
+            }
           }
-        }
-        if (frm_drop > 0) {
-          KALDI_WARN << " The lattice is likely to miss part of the correct path..."
-                       << " Dropped: " << frm_drop << "/" << nnet_diff_h.NumRows() << " frames";
-        }
-        num_frm_drop += frm_drop;
-
+          num_frm_drop += frm_drop;
+          num_frm_drop_oov += frm_drop_oov;
+        } 
         
 
         //8) subtract the pdf-Viterbi-path
@@ -351,6 +405,10 @@ int main(int argc, char *argv[]) {
     }
        
     if (!crossvalidate) {
+      //add back the softmax
+      KALDI_LOG << "Appending the softmax " << target_model_filename;
+      nnet.AppendLayer(new Softmax(nnet.OutputDim(),nnet.OutputDim(),&nnet));
+      //store the nnet
       nnet.Write(target_model_filename, binary);
     }
     
@@ -362,12 +420,13 @@ int main(int argc, char *argv[]) {
 
     KALDI_LOG << "Done " << num_done << " files, " 
               << num_no_num_ali << " with no numerator alignments, " 
-              << num_no_den_lat << " with no denumerator lattices, " 
+              << num_no_den_lat << " with no denominator lattices, " 
               << num_other_error << " with other errors.";
 
     KALDI_LOG << "Overall MMI-objective/frame is "
               << (total_mmi_obj/tot_t) << " over " << tot_t << " frames. "
-              << " Dropped " << num_frm_drop << " frames."
+              << " From which dropped " << num_frm_drop << " zero-posterior-best-path frames and "
+              << num_frm_drop_oov << " oov frames."
               << "\n";
 
 

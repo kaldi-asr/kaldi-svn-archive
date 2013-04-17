@@ -1,8 +1,8 @@
 // lat/lattice-functions.h
 
 // Copyright 2009-2012   Saarland University (author: Arnab Ghoshal)
-//                       Johns Hopkins University (Author: Daniel Povey)
-
+//           2012-2013   Johns Hopkins University (Author: Daniel Povey);
+//                       Bagher BabaAli
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -74,6 +74,7 @@ void LatticeActivePhones(const Lattice &lat, const TransitionModel &trans,
 /// we ensure this in HmmTopology::Check()).  This would be the last
 /// transition-id in the phone if reordering is not done (but typically
 /// we do reorder).
+/// Also see PhoneAlignLattice, in phone-align-lattice.h.
 void ConvertLatticeToPhones(const TransitionModel &trans_model,
                             Lattice *lat);
 
@@ -81,6 +82,7 @@ void ConvertLatticeToPhones(const TransitionModel &trans_model,
 /// there was some kind of failure.
 template<class LatticeType>
 bool PruneLattice(BaseFloat beam, LatticeType *lat);
+
 
 /// Given a lattice, and a transition model to map pdf-ids to phones,
 /// replace the sequences of transition-ids with sequences of phones.
@@ -119,6 +121,11 @@ BaseFloat LatticeForwardBackwardMpe(const Lattice &lat,
                                     Posterior *arc_post,
                                     const std::vector<int32> &silence_phones);
 
+BaseFloat LatticeForwardBackwardSmbr(const Lattice &lat,
+                                     const TransitionModel &trans,
+                                     const vector< std::map<int32, char> > &arc_accs,
+                                     const std::vector<int32> &silence_phones,
+                                     Posterior *arc_post);
 
 /// This function takes a CompactLattice that should only contain
 /// a single linear sequence (e.g. derived from lattice-1best), and
@@ -140,6 +147,11 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
 /// CompactLattice.   Requires that clat be acyclic.
 void CompactLatticeShortestPath(const CompactLattice &clat,
                                 CompactLattice *shortest_path);
+
+/// This function add the word insertion penalty to graph score of each word
+/// in the compact lattice
+void AddWordInsPenToCompactLattice(BaseFloat word_ins_penalty,
+                                   CompactLattice *clat);
 
 }  // namespace kaldi
 

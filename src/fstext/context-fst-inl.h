@@ -144,11 +144,11 @@ typename ContextFstImpl<Arc, LabelT>::Weight ContextFstImpl<Arc, LabelT>::Final(
   assert(static_cast<size_t>(s) < state_seqs_.size());  // make sure state exists already.
   if (!this->HasFinal(s)) {  // Work out final-state weight.
     const vector<LabelT> &seq = state_seqs_[s];
-
+    
     bool final_ok;
     assert(static_cast<int32>(seq.size()) == N_-1);
 
-    if (P_ < N_-1) {
+    if (P_ < N_ - 1) {
       /* Note that P_ (in zero based indexing) is the "central position", and for arcs out of
          this state the thing at P_ will be the one we expand.  If this is the subsequential symbol,
          it means we will output nothing (and will obviously never output anything).  Thus we make
@@ -169,11 +169,32 @@ typename ContextFstImpl<Arc, LabelT>::Weight ContextFstImpl<Arc, LabelT>::Final(
   return CacheImpl<Arc>::Final(s);
 }
 
+// Warning!  Not tested for correctness.  Does not really matter, the way
+// this function is being used so far.  Note: could possibly be wrong,
 template<class Arc, class LabelT>
 size_t ContextFstImpl<Arc, LabelT>::NumArcs(StateId s) {
-  if (!this->HasArcs(s))
-    Expand(s);
-  return CacheImpl<Arc>::NumArcs(s);
+  if (this->HasArcs(s)) {
+    return CacheImpl<Arc>::NumArcs(s);
+  }
+  KALDI_ASSERT(s >= 0 && s < state_seqs_.size());
+  const vector<LabelT> &seq = state_seqs_[s];
+  KALDI_ASSERT(seq.size() == N_ - 1);
+  if (!seq.empty() && seq.back() == subsequential_symbol_) {
+    // State is not a "normal" state because it just saw the subsequential symbol,
+    // hence it cannot accept phones.
+
+    if (P_ == N_ - 1 || seq[P_] == subsequential_symbol_) { // don't
+      // accept subsequential symbol.. c.f. logic in CreateArc().
+      return disambig_syms_.size();
+    } else {
+      return disambig_syms_.size() + 1; // Accept disambig syms and
+                                        // subsequential symbol.
+    }
+  } else {
+    // For normal states, in general there is potentially an arc for each phone and an arc
+    // for each disambiguation symbol, plus one for the subsequential symbol.
+    return phone_syms_.size() + disambig_syms_.size() + 1; 
+  }  
 }
 
 template<class Arc, class LabelT>
@@ -208,10 +229,10 @@ void ContextFstImpl<Arc, LabelT>::CreateDisambigArc(StateId s,
 
 template<class Arc, class LabelT>
 bool ContextFstImpl<Arc, LabelT>::CreatePhoneOrEpsArc(StateId src,
-                                                     StateId dst,
-                                                     Label olabel,
-                                                     const vector<LabelT> &phone_seq,
-                                                     Arc *oarc) {
+                                                      StateId dst,
+                                                      Label olabel,
+                                                      const vector<LabelT> &phone_seq,
+                                                      Arc *oarc) {
   // called from CreateArc.
   // creates the arc with a phone's state on its input labels (or epsilon).
   // returns true if it created the arc.
@@ -244,11 +265,11 @@ bool ContextFstImpl<Arc, LabelT>::CreatePhoneOrEpsArc(StateId src,
 // otherwise.
 template<class Arc, class LabelT>
 bool ContextFstImpl<Arc, LabelT>::CreateArc(StateId s,
-                                           Label olabel,
-                                           Arc *oarc) {
+                                            Label olabel,
+                                            Arc *oarc) {
   // Returns true to indicate the arc exists.
 
-  if (olabel == 0) return false;  // No epsilon arcs in this FST.
+  if (olabel == 0) return false;  // No epsilon-output arcs in this FST.
 
   const vector<LabelT> &seq = state_seqs_[s];
 
@@ -258,11 +279,13 @@ bool ContextFstImpl<Arc, LabelT>::CreateArc(StateId s,
   } else if (IsPhoneSymbol(olabel) || olabel == subsequential_symbol_) {
     // If all is OK, we shift the old sequence left by 1 and push on the new phone.
 
-    if (olabel != subsequential_symbol_ && N_ > 1 && seq.back() == subsequential_symbol_) {
+    if (olabel != subsequential_symbol_ && !seq.empty() &&
+        seq.back() == subsequential_symbol_) {
       return false;  // Phone not allowed to follow subsequential symbol.
     }
 
-    if (olabel == subsequential_symbol_ && (P_ == N_-1 || seq[P_] == subsequential_symbol_)) {
+    if (olabel == subsequential_symbol_ &&
+        (P_ == N_-1 || seq[P_] == subsequential_symbol_)) {
       // We already had "enough" subsequential symbols in a row and don't want to
       // accept any more, or we'd be making the subsequential symbol the central phone.
       return false;

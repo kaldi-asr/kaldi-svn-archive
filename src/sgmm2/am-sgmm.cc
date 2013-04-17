@@ -1,8 +1,10 @@
 // sgmm2/am-sgmm.cc
 
-// Copyright 2009-2012  Microsoft Corporation;  Lukas Burget;
-//                      Saarland University;  Ondrej Glembek;  Yanmin Qian;
-//                      Johns Hopkins University (author: Daniel Povey)
+// Copyright 2009-2011  Microsoft Corporation;  Lukas Burget;
+//                      Saarland University (Author: Arnab Ghoshal);
+//                      Ondrej Glembek;  Yanmin Qian;
+// Copyright 2012-2013  Johns Hopkins University (Author: Daniel Povey)
+//                      Liang Lu;  Arnab Ghoshal
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,6 +160,19 @@ void AmSgmm2::Read(std::istream &in_stream, bool binary) {
       for (int32 j1 = 0; j1 < num_groups; j1++) {
         n_[j1].Read(in_stream, binary);
       }
+      // The following are the Gaussian prior parameters for MAP adaptation of M
+      // They may be moved to somewhere else eventually.
+    } else if (token == "<M_Prior>") {
+      ExpectToken(in_stream, binary, "<NUMGaussians>");
+      ReadBasicType(in_stream, binary, &num_gauss);
+      M_prior_.resize(num_gauss);
+      for (int32 i = 0; i < num_gauss; i++) {
+        M_prior_[i].Read(in_stream, binary);
+      }
+    } else if (token == "<Row_Cov_Inv>") {
+      row_cov_inv_.Read(in_stream, binary);
+    } else if (token == "<Col_Cov_Inv>") {
+      col_cov_inv_.Read(in_stream, binary);
     } else {
       KALDI_ERR << "Unexpected token '" << token << "' in model file ";
     }
@@ -293,10 +308,10 @@ void AmSgmm2::Check(bool show_properties) {
     for (int32 i = 0; i < num_gauss; i++)
       KALDI_ASSERT(N_[i].NumRows() == feat_dim && N_[i].NumCols() == spk_dim);
     if (u_.NumRows() == 0) {
-      debug_str << "Speaker-weight projections: no.\n";
+      debug_str << "Speaker-weight projections: no.";
     } else {
       KALDI_ASSERT(u_.NumRows() == num_gauss && u_.NumCols() == spk_dim);
-      debug_str << "Speaker-weight projections: yes.\n";
+      debug_str << "Speaker-weight projections: yes.";
     }
   } else {
     KALDI_ASSERT(N_.size() == 0 && u_.NumRows() == 0);

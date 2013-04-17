@@ -15,28 +15,24 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef KALDI_NNET_NNET_NNET_H_
+#define KALDI_NNET_NNET_NNET_H_
 
-
-#ifndef KALDI_NNET_NNET_H
-#define KALDI_NNET_NNET_H
-
+#include <iostream>
+#include <sstream>
+#include <vector>
 
 #include "base/kaldi-common.h"
 #include "util/kaldi-io.h"
 #include "matrix/matrix-lib.h"
 #include "nnet/nnet-component.h"
 
-#include <iostream>
-#include <sstream>
-#include <vector>
-
-
 namespace kaldi {
 
 class Nnet {
  public:
-  Nnet() { }
-  
+  Nnet() {}
+
   ~Nnet(); 
 
  public:
@@ -67,6 +63,20 @@ class Nnet {
     }
     nnet_.push_back(dynamically_allocated_comp);
   }
+
+  /// Concatenate the network
+  /// Warning : this is destructive, the arg src_nnet_will_be_empty
+  ///           will be empty network after calling this method
+  void Concatenate(Nnet* src_nnet_will_be_empty) {
+    if(LayerCount() > 0) {
+      KALDI_ASSERT(OutputDim() == src_nnet_will_be_empty->InputDim());
+    }
+    nnet_.insert(nnet_.end(),
+                 src_nnet_will_be_empty->nnet_.begin(),
+                 src_nnet_will_be_empty->nnet_.end());
+    src_nnet_will_be_empty->nnet_.clear();
+  }
+
 
   /// Remove layer
   void RemoveLayer(int32 index) {
@@ -103,7 +113,7 @@ class Nnet {
   /// Read the MLP from stream (can add layers to exisiting instance of Nnet)
   void Read(std::istream &in, bool binary);  
   /// Write MLP to file
-  void Write(const std::string &file, bool binary); 
+  void Write(const std::string &file, bool binary);
   /// Write MLP to stream 
   void Write(std::ostream &out, bool binary);    
 
@@ -115,7 +125,7 @@ class Nnet {
   void SetLearnRate(BaseFloat lrate, const char *lrate_factors); 
   /// Get the global learning rate value
   BaseFloat GetLearnRate() { 
-    return learn_rate_; 
+    return learn_rate_;
   }
   /// Get the string with real learning rate values
   std::string GetLearnRateString();  
@@ -236,6 +246,6 @@ inline void Nnet::SetL1Penalty(BaseFloat l1) {
 
 } // namespace kaldi
 
-#endif
+#endif  // KALDI_NNET_NNET_NNET_H_
 
 

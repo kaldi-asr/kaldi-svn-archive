@@ -16,6 +16,8 @@
 transform_dir=    # dir to find fMLLR transforms.
 cmd=run.pl
 iter=final
+skip_scoring=false
+scoring_opts=
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -49,7 +51,7 @@ done
 
 nj=`cat $olddir/num_jobs` || exit 1;
 sdata=$data/split$nj;
-gselect_opt="--gselect=ark:gunzip -c $olddir/gselect.JOB.gz|"
+gselect_opt="--gselect=ark,s,cs:gunzip -c $olddir/gselect.JOB.gz|"
 splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
 
 mkdir -p $dir/log
@@ -100,8 +102,10 @@ $cmd JOB=1:$nj $dir/log/rescore.JOB.log \
   $srcdir/$iter.mdl "ark:gunzip -c $olddir/lat.JOB.gz|" "$feats" \
   "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;
 
-[ ! -x local/score.sh ] && \
-  echo "Not scoring because local/score.sh does not exist or not executable." && exit 1;
-local/score.sh --cmd "$cmd" $data $graphdir $dir
+if  ! $skip_scoring  ; then
+  [ ! -x local/score.sh ] && \
+    echo "Not scoring because local/score.sh does not exist or not executable." && exit 1;
+  local/score.sh $scoring_opts --cmd "$cmd" $data $graphdir $dir
+fi
 
 exit 0;

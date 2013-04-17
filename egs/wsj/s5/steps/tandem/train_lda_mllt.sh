@@ -13,7 +13,6 @@ realign_iters="10 20 30";
 mllt_iters="2 4 6 12";
 num_iters=35    # Number of iterations of training
 max_iter_inc=25  # Last iter to increase #Gauss on.
-dim=40
 beam=10
 retry_beam=40
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
@@ -22,8 +21,16 @@ randprune=4.0 # This is approximately the ratio by which we will speed up the
               # LDA and MLLT calculations via randomized pruning.
 splice_opts=
 cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
-normft2=false # typically the tandem features will already be normalized due to pca
-extra_lda=true
+
+dim1=30  # dimension first stream (spectral features)
+dim2=40  # dimension second stream (pasted features, usually bn/posteriors)
+
+# apply CMVN to the second feature stream
+normft2=true
+
+# do an extra LDA after pasting the features?
+extra_lda=false
+
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -38,8 +45,10 @@ if [ $# != 7 ]; then
   echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
   echo "  --config <config-file>                           # config containing options"
   echo "  --stage <stage>                                  # stage to do partial re-run from."
-  echo "  --normft2 (true|false)                           # apply CMVN to second data set?"
-  echo "  --extra-lda (true|false)                         # apply extra LDA after feature paste (lower dim!); default true"
+  echo "  --normft2 (true|false)                           # apply CMVN to second data set (true)"
+  echo "  --extra-lda (true|false)                         # apply extra LDA after feature paste (false)"
+  echo "  --dim1 <n>                                       # dimension of the first feature stream by HLDA"
+  echo "  --dim2 <m>                                       # dimension of of the pasted features after 2nd HLDA"
   exit 1;
 fi
 
@@ -87,7 +96,7 @@ if [ $stage -le -5 ]; then
       weight-silence-post 0.0 $silphonelist $alidir/final.mdl ark:- ark:- \| \
       acc-lda --rand-prune=$randprune $alidir/final.mdl "$feats1" ark,s,cs:- \
        $dir/lda.JOB.acc || exit 1;
-  est-lda --write-full-matrix=$dir/full.mat --dim=$dim $dir/lda.mat $dir/lda.*.acc \
+  est-lda --write-full-matrix=$dir/full.mat --dim=$dim1 $dir/lda.mat $dir/lda.*.acc \
       2>$dir/log/lda_est.log || exit 1;
   rm $dir/lda.*.acc
 fi
@@ -110,26 +119,28 @@ feats="$tandemfeats"
 
 # keep track of splicing/normalization options
 echo $splice_opts > $dir/splice_opts
-echo $feats > $dir/tandem
 echo $normft2 > $dir/normft2
 
 
 # Begin training;  initially, we have no MLLT matrix
 cur_mllt_iter=0
 
-if [ $stage -le -4 -a $extra_lda ]; then
+if [ $stage -le -4 -a $extra_lda == true ]; then
   echo "Accumulating LDA statistics (for tandem features this time)."
   $cmd JOB=1:$nj $dir/log/lda_acc.JOB.log \
     ali-to-post "ark:gunzip -c $alidir/ali.JOB.gz|" ark:- \| \
     weight-silence-post 0.0 $silphonelist $alidir/final.mdl ark:- ark:- \| \
     acc-lda --rand-prune=$randprune $alidir/final.mdl "$tandemfeats" ark,s,cs:- \
     $dir/lda.JOB.acc || exit 1;
-  est-lda --write-full-matrix=$dir/full.mat --dim=$dim $dir/0.mat $dir/lda.*.acc \
+  est-lda --write-full-matrix=$dir/full.mat --dim=$dim2 $dir/0.mat $dir/lda.*.acc \
     2>$dir/log/lda_est.log || exit 1;
   rm $dir/lda.*.acc
   
   feats="$tandemfeats transform-feats $dir/0.mat ark:- ark:- |"
 fi
+
+# keep track of the features
+echo $feats > $dir/tandem
 
 if [ $stage -le -3 ]; then
   echo "Accumulating tree stats"
@@ -207,7 +218,7 @@ while [ $x -lt $num_iters ]; do
         2> $dir/log/transform_means.$x.log || exit 1;
       
       # see if this is the first MLLT iteration and there is no lda;  otherwise compose transforms
-      if [ $cur_mllt_iter == 0 -a ! $extra_lda ]; then
+      if [ $cur_mllt_iter == 0 -a $extra_lda == false ]; then
         mv $dir/$x.mat.new $dir/$x.mat || exit 1;
       else
         compose-transforms --print-args=false $dir/$x.mat.new $dir/$cur_mllt_iter.mat $dir/$x.mat || exit 1;

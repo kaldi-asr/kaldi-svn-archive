@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use Getopt::Long;
+use Data::Dumper;
 
 ###############################################################################
 #
@@ -42,6 +43,8 @@ use Getopt::Long;
        $vocalNoise = "<v-noise>"; # Vocal noise symvol: pronunciation <vns>
        $nVoclNoise = "<noise>";   # Nonvocal noise:     pronunciation <sss>
        $silence    = "<silence>"; # Silence > 1 second: pronunciation $sil
+       $icu_transform = "";
+       $phonemap="";
 #
 #   -  nonsilence_phones.txt: tagged phones from the new lexicon 
 #
@@ -58,7 +61,13 @@ use Getopt::Long;
 #
 ###############################################################################
 
-GetOptions("add=s" => \$nsWordsFile, "oov=s" => \$OOV_symbol, "romanized!" => \$romanized, "sil=s" => \$sil);
+GetOptions("add=s" => \$nsWordsFile,  
+           "oov=s" => \$OOV_symbol, 
+           "romanized!" => \$romanized, 
+           "sil=s" => \$sil, 
+           "icu-transform=s" => \$icu_transform,
+           "phonemap=s" => \$phonemap 
+           );
 
 if ($#ARGV == 1) {
     $inDict = $ARGV[0];
@@ -68,11 +77,17 @@ if ($#ARGV == 1) {
     print STDERR ("\tUnknown words will be represented by \"$OOV_symbol\"\n") unless ($OOV_symbol eq "<unk>");
     print STDERR ("\tRomanized forms of words expected in the dictionary\n") if ($romanized);
     print STDERR ("\tThe optional silence phone will be \"$OOV_symbol\"\n") unless ($sil eq "SIL");
+    print STDERR ("\tThe ICU transform for case-conversion will be: \"$icu_transform\"\n") if ($icu_transform);
 } else {
     print STDERR ("Usage: $0 [--options] BabelDictionary OutputDir\n");
     print STDERR ("\t--add <filename>  Add these nonspeech words to lexicon\n");
     print STDERR ("\t--oov <symbol>    Use this symbol for OOV words (default <unk>)\n");
     print STDERR ("\t--romanized       Dictionary contains (omissible) romanized word-forms\n");
+    print STDERR ("\t--phonemap <maps> During reading the dictionary, perform the specified \n");
+    print STDERR ("\t                  phoneme mapping. The format is: p1=p1' p2' p3';p2=p4'\n");
+    print STDERR ("\t                  where p1 and p2 are existing phonemes and p1'..p4' are\n");
+    print STDERR ("\t                  either new or existing phonemes\n");
+    print STDERR ("\t--icu-transform   ICU transform to be used during the ICU transliteration\n");
     exit(1);
 }
 
@@ -87,9 +102,30 @@ $spFile  = "$outDir/silence_phones.txt";
 $osFile  = "$outDir/optional_silence.txt";
 $exqFile = "$outDir/extra_questions.txt";
 
+
+#The phonemap is in the form of "ph1=a b c;ph2=a f g;...."
+%phonemap_hash;
+if ($phonemap) {
+  $phonemap=join(" ", split(' ', $phonemap));
+  print $phonemap . "\n";
+  @phone_map_instances=split(/;/, $phonemap);
+  foreach $instance (@phone_map_instances) {
+    ($phoneme, $tgt) = split(/=/, $instance);
+    $phoneme =~ s/^\s+|\s+$//g;
+    $tgt =~ s/^\s+|\s+$//g;
+    #print "$phoneme=>$tgt\n";
+    @tgtseq=split(/\s+/,$tgt);
+    $phonemap_hash{$phoneme} = [];
+    push @{$phonemap_hash{$phoneme}}, @tgtseq;
+  }
+}
+
+#print Dumper(\%phonemap_hash);
+
 ###############################################################################
 # Read input lexicon, write output lexicon, and save the set of phones & tags.
 ###############################################################################
+
 
 open (INLEX, $inDict)
     || die "Unable to open input dictionary $inDict";
@@ -107,6 +143,15 @@ while ($line=<INLEX>) {
     if ( ($romanized && ($line =~ m:^([^\t]+)\t\S+((\t[^\t]+)+)$:)) ||
 	 ((!$romanized) && ($line =~ m:^([^\t]+)((\t[^\t]+)+)$:)) ) {
         $word  = $1;
+
+        if ( $icu_transform ) {
+          $xform_word=`echo \"$word\" | uconv -f utf8 -t utf8 -x \"$icu_transform\"`;
+          chop $xform_word;
+          #print $xform_word;
+          #$xform_word="[$word]$xform_word";
+        } else {
+          $xform_word=$word;
+        }
         $prons = $2;
         $prons =~ s:^\s+::;           # Remove leading white-space
         $prons =~ s:\s+$::;           # Remove trailing white-space
@@ -119,6 +164,19 @@ while ($line=<INLEX>) {
                 $syllable =~ s:\s+$::;
                 $syllable =~ s:\s+: :g;
                 @original_phones = split(" ", $syllable);
+                @substituted_original_phones=();
+                
+                foreach $phone (@original_phones) {
+                  if (defined $phonemap_hash{$phone} ) {
+                    #print "Sub: $phone => " . join (' ', @{$phonemap_hash{$phone}}) . "\n";
+                    push @substituted_original_phones, @{$phonemap_hash{$phone}};
+                  } else {
+                    push @substituted_original_phones, $phone;
+                  }
+                }
+                #print join(' ', @original_phones) . "=>" . join(' ',@substituted_original_phones) . "\n";
+                @original_phones = @substituted_original_phones;
+
                 $sylTag = "";
                 $new_phones = "";
                 while ($phone = shift @original_phones) {
@@ -126,24 +184,41 @@ while ($line=<INLEX>) {
                         # It is a tag; save it for later
                         $is_original_tag{$phone} = 1;
                         $sylTag .= $phone;
-		    } elsif ($phone =~ m:^[\"\%]$:) {
+                    } elsif ($phone =~ m:^[\"\%]$:) {
                         # It is a stress marker; save it like a tag
-			$phone = "_$phone";
+                        $phone = "_$phone";
                         $is_original_tag{$phone} = 1;
                         $sylTag .= $phone;
+                    } elsif ( $phone =~ m:_:) {
+                      # It is a phone containing "_" (underscore)
+                      $new_phone=$phone;
+                      $new_phone=~ s/\_//g;
+                      if (( $is_original_phone{$phone} ) and not defined( $substituted_phones{phone}) ) {
+                        die "ERROR, the $new_phone and $phone are both existing phones, so we cannot do automatic map!";
+                      } else {
+                        print STDERR "WARNING, phone $phone was substituted for $new_phone\n" unless $substituted_phones{$phone};
+                       
+                      }
+                      $is_original_phone{$new_phone} = "$new_phone";
+                      $substituted_phones{$phone} = $new_phone;
+                      $new_phones .= " $new_phone";
                     } else {
                         # It is a phone
+                        if ( $substituted_phones{phone} ) {
+                          die "ERROR, the $new_phone and $phone are both existing phones, so we cannot do automatic map!";
+                        }                        
                         $is_original_phone{$phone} = "$phone";
                         $new_phones .= " $phone";
                     }
                 }
                 $new_phones =~ s:(\S+):$1${sylTag}:g;
-                $new_pron .= $new_phones;
+                $new_pron .= $new_phones . "\t"; # the tab added by Dan, to keep track of
+                                                 # syllable boundaries.
                 $is_compound_tag{$sylTag} = 1;
                 while ($new_phones =~ s:^\s*(\S+)::) { $is_new_phone{$1} = 1; }
             }
             $new_pron =~ s:^\s+::;
-            print OUTLEX ("$word\t$new_pron\n");
+            print OUTLEX ("$xform_word\t$new_pron\n");
             $numProns++;
         }
         @pron = ();
@@ -215,6 +290,7 @@ foreach $phone (sort keys %is_new_phone) {
     } else {
         print STDERR ("$0 WARNING: Skipping unexpected tagged phone $phone.\n");
         print STDERR ("\tCheck if original lexicon has phones containing \"\_\"\n");
+        die "Cannot continue";
     }
 }
 

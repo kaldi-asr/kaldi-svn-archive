@@ -111,18 +111,24 @@ void MatrixBase<Real>::AddVecVec(const Real alpha,
                                  const VectorBase<OtherReal> &a,
                                  const VectorBase<OtherReal> &b) {
   KALDI_ASSERT(a.Dim() == num_rows_ && b.Dim() == num_cols_);
-  const OtherReal *a_data = a.Data(), *b_data = b.Data();
-  Real *row_data = data_;
-  for (MatrixIndexT i = 0; i < num_rows_; i++, row_data += stride_) {
-    BaseFloat alpha_ai = alpha * a_data[i];
-    for (MatrixIndexT j = 0; j < num_cols_; j++)
-      row_data[j] += alpha_ai * b_data[j];
+  if (num_rows_ * num_cols_ > 100) { // It's probably worth it to allocate
+    // temporary vectors of the right type and use BLAS.
+    Vector<Real> temp_a(a), temp_b(b);
+    cblas_Xger(num_rows_, num_cols_, alpha, temp_a.Data(), 1,
+               temp_b.Data(), 1, data_, stride_);
+  } else {
+    const OtherReal *a_data = a.Data(), *b_data = b.Data();
+    Real *row_data = data_;
+    for (MatrixIndexT i = 0; i < num_rows_; i++, row_data += stride_) {
+      BaseFloat alpha_ai = alpha * a_data[i];
+      for (MatrixIndexT j = 0; j < num_cols_; j++)
+        row_data[j] += alpha_ai * b_data[j];
+    }
   }
 } 
 
 // instantiate the template above.
-template<>
-template<>
+template
 void MatrixBase<float>::AddVecVec(const float alpha,
                                   const VectorBase<double> &a,
                                   const VectorBase<double> &b);
@@ -463,7 +469,7 @@ void MatrixBase<Real>::CopyFromMat(const MatrixBase<OtherReal> & M,
     const OtherReal *other_data = M.Data();
     for (MatrixIndexT i = 0; i < num_rows_; i++)
       for (MatrixIndexT j = 0; j < num_cols_; j++)
-        this_data[i * this_stride + j] += other_data[j * other_stride + i];
+        this_data[i * this_stride + j] = other_data[j * other_stride + i];
   }
 }
 

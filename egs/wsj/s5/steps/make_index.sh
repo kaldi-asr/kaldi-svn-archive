@@ -9,6 +9,13 @@ cmd=run.pl
 acwt=0.083333
 lmwt=1.0
 max_silence_frames=50
+max_states=1000000
+strict=true
+word_ins_penalty=0
+skip_optimization=false     # If you only search for few thousands of keywords, you probablly
+                            # can skip the optimization; but if you're going to search for 
+                            # millions of keywords, you'd better do set this optimization to 
+                            # false and do the optimization on the final index.
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -53,10 +60,15 @@ for f in $word_boundary $model $decodedir/lat.1.gz; do
   [ ! -f $f ] && echo "make_index.sh: no such file $f" && exit 1;
 done
 
+echo "Using model: $model"
+
 $cmd JOB=1:$nj $kwsdir/log/index.JOB.log \
- lattice-align-words $word_boundary $model "ark:gzip -cdf $decodedir/lat.JOB.gz|" ark:- \| \
-   lattice-scale --acoustic-scale=$acwt --lm-scale=$lmwt ark:- ark:- \| \
-   lattice-to-kws-index ark:$utter_id ark:- ark:- \| \
-   kws-index-union ark:- "ark:|gzip -c > $kwsdir/index.JOB.gz"
+  lattice-add-penalty --word-ins-penalty=$word_ins_penalty "ark:gzip -cdf $decodedir/lat.JOB.gz|" ark:- \| \
+    lattice-align-words $word_boundary $model  ark:- ark:- \| \
+    lattice-scale --acoustic-scale=$acwt --lm-scale=$lmwt ark:- ark:- \| \
+    lattice-to-kws-index --max-silence-frames=$max_silence_frames --strict=$strict ark:$utter_id ark:- ark:- \| \
+    kws-index-union --skip-optimization=$skip_optimization --strict=$strict --max-states=$max_states \
+    ark:- "ark:|gzip -c > $kwsdir/index.JOB.gz"
+    
 
 exit 0;

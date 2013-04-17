@@ -72,6 +72,10 @@ if [ ! -z "$fisher" ]; then
     && exit 1;
   mkdir -p $dir/fisher
 
+## This is more general: need to test
+#   find $fisher -path '*/trans/*fe*.txt' -exec cat {} \; | grep -v ^# | grep -v ^$ | cut -d' ' -f4- \
+#     | gzip -c > $dir/fisher/text0.gz
+
   cat $fisher/data/trans/*/*.txt | grep -v ^# | grep -v ^$ | cut -d' ' -f4- \
     | gzip -c > $dir/fisher/text0.gz
   gunzip -c $dir/fisher/text0.gz | local/fisher_map_words.pl \
@@ -85,7 +89,7 @@ if [ ! -z "$fisher" ]; then
     >& $dir/fisher/ppl2
   compute-best-mix $dir/ppl2 $dir/fisher/ppl2 >& $dir/sw1_fsh_mix.log
   grep 'best lambda' $dir/sw1_fsh_mix.log \
-    | perl -e '$_=<>; s/.*\(//; s/\).*//; split; die "Expecting 2 numbers; found: $_" if($#_!=1); print "$_[0]\n$_[1]\n";' > $dir/sw1_fsh_mix.weights
+    | perl -e '$_=<>; s/.*\(//; s/\).*//; @A = split; die "Expecting 2 numbers; found: $_" if(@A!=2); print "$A[0]\n$A[1]\n";' > $dir/sw1_fsh_mix.weights
   swb1_weight=$(head -1 $dir/sw1_fsh_mix.weights)
   fisher_weight=$(tail -n 1 $dir/sw1_fsh_mix.weights)
   ngram -lm $dir/sw1.o3g.kn.gz -lambda $swb1_weight \

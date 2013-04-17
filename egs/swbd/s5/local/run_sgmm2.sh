@@ -39,4 +39,30 @@ for iter in 1 2 3 4; do
     --transform-dir exp/tri4a/decode_eval2000 data/lang_test data/eval2000 exp/sgmm2_5a/decode_eval2000 \
     exp/sgmm2_5a_mmi_b0.1/decode_eval2000_it$iter &
 done
+
+
+(  # testing zero-if-disjoint.
+ steps/train_mmi_sgmm2.sh --cmd "$decode_cmd" --transform-dir exp/tri4a_ali_100k_nodup --boost 0.1 --zero-if-disjoint true \
+  data/train_100k_nodup data/lang exp/sgmm2_5a_ali_100k_nodup exp/sgmm2_5a_denlats_100k_nodup exp/sgmm2_5a_mmi_b0.1_z
+
+ for iter in 1 2 3 4; do
+  steps/decode_sgmm2_rescore.sh --cmd "$decode_cmd" --iter $iter \
+    --transform-dir exp/tri4a/decode_eval2000 data/lang_test data/eval2000 exp/sgmm2_5a/decode_eval2000 \
+    exp/sgmm2_5a_mmi_b0.1_z/decode_eval2000_it$iter &
+ done
+ wait
+)
+
+( # testing zero-if-disjoint.
+  # The same after a code speedup.
+ steps/train_mmi_sgmm2.sh --cmd "$decode_cmd" --transform-dir exp/tri4a_ali_100k_nodup --boost 0.1 --zero-if-disjoint true \
+  data/train_100k_nodup data/lang exp/sgmm2_5a_ali_100k_nodup exp/sgmm2_5a_denlats_100k_nodup exp/sgmm2_5a_mmi_b0.1_z2
+
+ for iter in 1 2 3 4; do
+  steps/decode_sgmm2_rescore.sh --cmd "$decode_cmd" --iter $iter \
+    --transform-dir exp/tri4a/decode_eval2000 data/lang_test data/eval2000 exp/sgmm2_5a/decode_eval2000 \
+    exp/sgmm2_5a_mmi_b0.1_z2/decode_eval2000_it$iter &
+ done
+ wait
+)
  

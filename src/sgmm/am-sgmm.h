@@ -1,9 +1,10 @@
 // sgmm/am-sgmm.h
 
-// Copyright 2009-2012  Microsoft Corporation;  Lukas Burget;
+// Copyright 2009-2011  Microsoft Corporation;  Lukas Burget;
 //                      Saarland University (Author: Arnab Ghoshal);
 //                      Ondrej Glembek;  Yanmin Qian;
-//                      Johns Hopkins University (author: Daniel Povey)
+// Copyright 2012-2013  Johns Hopkins University (author: Daniel Povey)
+//                      Liang Lu;  Arnab Ghoshal
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -310,6 +311,15 @@ class AmSgmm {
   std::vector< Vector<BaseFloat> > c_;
   /// n_{jim}, per-Gaussian normalizer. Dimension is [J][I][M_{j}]
   std::vector< Matrix<BaseFloat> > n_;
+
+  // Priors for MAP adaptation of M -- keeping them here for now but they may
+  // be moved somewhere else eventually
+  // These are parameters of a matrix-variate normal distribution. The means are
+  // the unadapted M_i, and we have 2 separate covaraince matrices for the rows
+  // and columns of M.
+  std::vector< Matrix<BaseFloat> > M_prior_;  // Matrix-variate Gaussian mean
+  SpMatrix<BaseFloat> row_cov_inv_;
+  SpMatrix<BaseFloat> col_cov_inv_;
 
   KALDI_DISALLOW_COPY_AND_ASSIGN(AmSgmm);
   friend class EbwAmSgmmUpdater;

@@ -29,7 +29,7 @@ max_lmwt=20
 lat_weights=
 #end configuration section.
 
-help_message="Usage: "$(basename $0)" [options] <data-dir> <graph-dir> <decode-dir1> <decode-dir2> [decode-dir3 ... ] <out-dir>
+help_message="Usage: "$(basename $0)" [options] <data-dir> <graph-dir|lang-dir> <decode-dir1> <decode-dir2> [decode-dir3 ... ] <out-dir>
 Options:
   --cmd (run.pl|queue.pl...)      # specify how to run the sub-processes.
   --min-lmwt INT                  # minumum LM-weight for lattice rescoring 
@@ -75,12 +75,12 @@ cat $data/text | sed 's:<NOISE>::g' | sed 's:<SPOKEN_NOISE>::g' \
 
 if [ -z "$lat_weights" ]; then
   $cmd LMWT=$min_lmwt:$max_lmwt $odir/log/combine_lats.LMWT.log \
-    lattice-combine --lm-scale=LMWT ${lats[@]} ark:- \| \
+    lattice-combine --inv-acoustic-scale=LMWT ${lats[@]} ark:- \| \
     lattice-mbr-decode --word-symbol-table=$symtab ark:- \
     ark,t:$odir/scoring/LMWT.tra || exit 1;
 else
   $cmd LMWT=$min_lmwt:$max_lmwt $odir/log/combine_lats.LMWT.log \
-    lattice-combine --lm-scale=LMWT --lat-weights=$lat_weights \
+    lattice-combine --inv-acoustic-scale=LMWT --lat-weights=$lat_weights \
     ${lats[@]} ark:- \| \
     lattice-mbr-decode --word-symbol-table=$symtab ark:- \
     ark,t:$odir/scoring/LMWT.tra || exit 1;

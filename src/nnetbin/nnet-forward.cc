@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     ParseOptions po(usage);
 
     std::string feature_transform;
-    po.Register("feature-transform", &feature_transform, "Feature transform Neural Network");
+    po.Register("feature-transform", &feature_transform, "Feature transform in Nnet format");
 
     std::string class_frame_counts;
     po.Register("class-frame-counts", &class_frame_counts, "Counts of frames for posterior division by class-priors");
@@ -73,7 +73,6 @@ int main(int argc, char *argv[]) {
 
     //Select the GPU
 #if HAVE_CUDA==1
-    if(use_gpu_id > -2)
     CuDevice::Instantiate().SelectGpuId(use_gpu_id);
 #endif
 
@@ -84,6 +83,11 @@ int main(int argc, char *argv[]) {
 
     Nnet nnet;
     nnet.Read(model_filename);
+    //optionally remove softmax
+    if(no_softmax && nnet.Layer(nnet.LayerCount()-1)->GetType() == Component::kSoftmax) {
+      KALDI_LOG << "Removing softmax from the nnet " << model_filename;
+      nnet.RemoveLayer(nnet.LayerCount()-1);
+    }
 
     kaldi::int64 tot_t = 0;
 
