@@ -310,6 +310,63 @@ static void _apply_mask(Real* mat, const char* mask, MatrixDim dmat, MatrixDim d
  */
 template<typename Real>
 __global__
+static void _copy_col_from_mat(Real* v, int col, const Real* mat, MatrixDim dmat, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = col + i * dmat.stride;
+  if (blockIdx.x > 0)
+    return;
+
+  if (i < dim)
+    v[i] = mat[index];
+}
+
+
+template<typename Real>
+__global__
+static void _vec_apply_exp(Real* v, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x > 0) return;
+  
+  if (i < dim) {
+    v[i] = exp(v[i]);
+  } 
+}
+
+
+template<typename Real>
+__global__
+static void _vec_apply_log(Real* v, Real* flag, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x > 0) return;
+  
+  if (i < dim) {
+    if (v[i] < 0) {
+      *flag = 1;
+      return;
+    }
+    v[i] = log(v[i]);
+  }
+}
+
+
+template<typename Real>
+__global__
+static void _vec_sum(Real* v, Real* value, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x > 0) return;
+  
+  if (i < dim) {
+    __shared__ Real row_data[256];
+    row_data[i] = v[i];
+    __syncthreads();
+    
+    *value = _sum_reduce(row_data);
+  }
+}
+
+
+template<typename Real>
+__global__
 static void _trace(const Real* mat, Real* value, int dim) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   if(blockIdx.x > 0) return;
@@ -324,6 +381,31 @@ static void _trace(const Real* mat, Real* value, int dim) {
 
    //get the sum
    *value = _sum_reduce(row_data);
+}
+}
+
+
+template<typename Real>
+__global__
+static void _vec_apply_floor(Real* v, Real floor_val, int* num, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if(blockIdx.x > 0) return;
+
+  if ( i < dim) {
+    __shared__ int row_data[256];
+
+    //copy the input to row_data
+    if ( v[i] < floor_val) {
+      row_data[i] = 1;
+      v[i] = floor_val;
+    } else {
+      row_data[i] = 0;
+    }
+
+    __syncthreads();
+
+    //get the sum
+    *num = _sum_reduce(row_data);
 }
 }
 
@@ -765,6 +847,26 @@ void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim 
 /*
  * CuVector
  */
+void cudaF_copy_col_from_mat(int Gr, int Bl, float* v, int col, const float* mat, MatrixDim dmat, int dim) {
+  _copy_col_from_mat<<<Gr,Bl>>>(v,col,mat,dmat,dim);
+}
+
+void cudaF_vec_sum(int Gr, int Bl, float* v, float* value, int dim) {
+  _vec_sum<<<Gr,Bl>>>(v,value,dim);
+}
+
+void cudaF_vec_apply_floor(int Gr, int Bl, float* v, float floor_val, int* num, int dim) {
+  _vec_apply_floor<<<Gr,Bl>>>(v,floor_val,num,dim);
+}
+
+void cudaF_vec_apply_exp(int Gr, int Bl, float* v, int dim) {
+  _vec_apply_exp<<<Gr,Bl>>>(v,dim);
+}
+
+void cudaF_vec_apply_log(int Gr, int Bl, float* v, float* flag, int dim) {
+  _vec_apply_log<<<Gr,Bl>>>(v,flag,dim);
+}
+
 void cudaF_trace(int Gr, int Bl, float* mat, float* value, int dim) {
 
   _trace<<<Gr,Bl>>>(mat,value,dim);
@@ -938,6 +1040,26 @@ void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim
 /*
  * CuVector
  */
+void cudaD_copy_col_from_mat(int Gr, int Bl, double* v, int col, const double* mat, MatrixDim dmat, int dim) {
+  _copy_col_from_mat<<<Gr,Bl>>>(v,col,mat,dmat,dim);
+}
+
+void cudaD_vec_sum(int Gr, int Bl, double* v, double* value, int dim) {
+  _vec_sum<<<Gr,Bl>>>(v,value,dim);
+}
+
+void cudaD_vec_apply_floor(int Gr, int Bl, double* v, double floor_val, int* num, int dim) {
+  _vec_apply_floor<<<Gr,Bl>>>(v,floor_val,num,dim);
+}
+
+void cudaD_vec_apply_exp(int Gr, int Bl, double* v, int dim) {
+  _vec_apply_exp<<<Gr,Bl>>>(v,dim);
+}
+
+void cudaD_vec_apply_log(int Gr, int Bl, double* v, double* flag, int dim) {
+  _vec_apply_log<<<Gr,Bl>>>(v,flag,dim);
+}
+
 void cudaD_trace(int Gr, int Bl, double* mat, double* value, int dim) {
   _trace<<<Gr,Bl>>>(mat,value,dim);
 }

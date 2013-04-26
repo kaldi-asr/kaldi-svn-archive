@@ -20,7 +20,7 @@
 #include <stdio.h>
 
 
-#define TILE_SIZE 4
+#define TILE_SIZE 16
 
 /***********************************************************************
  * CUDA kernels
@@ -223,12 +223,12 @@ void __lo_update(T* A, int block_offset, int n_blocks, MatrixDim d) {
   __shared__ T upt[TILE_SIZE][TILE_SIZE + 1];
   
   int global_row = global_pos(row,boffy);
-  int global_col = global_pos(col,block_offset);
+  int global_col_src = global_pos(col,block_offset);
 
-  if ((global_row >= d.cols) || (global_col >= d.cols))
+  if ((global_row >= d.cols) || (global_col_src >= d.cols))
     return;
 
-  int idx = lex_index_2D(global_row, global_col, global_row_length);
+  int idx = lex_index_2D(global_row, global_col_src, global_row_length);
   
   upt[row][col] = 0;
   upt[row][col] = A[idx];
@@ -240,7 +240,7 @@ void __lo_update(T* A, int block_offset, int n_blocks, MatrixDim d) {
     if (global_row >= d.cols) 
       return;
 
-    idx = lex_index_2D(global_row, global_col, global_row_length);
+    idx = lex_index_2D(global_row, global_col_src, global_row_length);
     
     left[row][col] = 0;    
     left[row][col] = A[idx];
@@ -257,7 +257,7 @@ void __lo_update(T* A, int block_offset, int n_blocks, MatrixDim d) {
 
     __syncthreads();
 
-    global_col = global_pos(col,boffy);
+    int global_col = global_pos(col,boffy);
     if (global_col >= d.cols)
       return;
         

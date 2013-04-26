@@ -40,7 +40,7 @@ CuDevice::CuDevice()
 
 CuDevice::~CuDevice() {
   if (Enabled()) {
-    cuSafeCall(cublasShutdown());
+    CU_SAFE_CALL(cublasShutdown());
   } else if (active_gpu_id_ == -2) {
     KALDI_WARN << "CUDA was NOT used! No CUDA GPU detected!";
   }
@@ -162,7 +162,7 @@ void CuDevice::SelectGpuId(int32 gpu_id) {
     // Remember the id of active GPU 
     active_gpu_id_ = act_gpu_id; //CuDevice::Enabled() is true from now on
     // Initialize the CUBLAS
-    cuSafeCall(cublasInit());
+    CU_SAFE_CALL(cublasInit());
 
     // Notify user which GPU is finally used
     char name[128];
@@ -296,7 +296,7 @@ void CuDevice::SelectGpuIdAuto() {
 
   //finally select the GPU
   KALDI_LOG << "Selected device: " << max_id << " (automatically)";
-  cuSafeCall(cudaSetDevice(max_id));
+  CU_SAFE_CALL(cudaSetDevice(max_id));
   //create the context
   cudaError_t e;
   e = cudaThreadSynchronize(); //deprecated, but for legacy not cudaDeviceSynchronize

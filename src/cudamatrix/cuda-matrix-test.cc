@@ -583,7 +583,7 @@ static void UnitTestCuSoftmax() {
   Di.CopyFromMat(Hi);
 
   //gpu
-  Do.Softmax(Di);
+  Do.ApplySoftMax(Di);
   //cpu
   Ho.CopyFromMat(Hi);
   for(MatrixIndexT r=0; r<Ho.NumRows(); r++) {

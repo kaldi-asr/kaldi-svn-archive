@@ -1,6 +1,6 @@
 #include <iostream>
 #include "base/kaldi-common.h"
-
+#include <ctime>
 
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-packed-matrix.h"
@@ -33,6 +33,16 @@ static void InitRand(VectorBase<Real> *v) {
 /*
  * ASSERTS
  */
+template<class Real>
+static void AssertEqual(const VectorBase<Real> &A,
+                        const VectorBase<Real> &B,
+                        float tol = 0.001) {
+  KALDI_ASSERT(A.Dim() == B.Dim());
+  for (MatrixIndexT i = 0; i < A.Dim(); i++) {
+    KALDI_ASSERT(std::abs(A(i)-B(i)) < tol * std::max(1.0, (double) (std::abs(A(i)) + std::abs(B(i)))));
+  }
+}
+
 template<class Real>
 static void AssertEqual(const MatrixBase<Real> &A,
                         const MatrixBase<Real> &B,
@@ -82,7 +92,7 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
 }
 
 template<class Real>
-static void SimpleTest() {
+static void UnitTestSimpleTest() {
   // test differnet constructors + CopyFrom* + CopyToMat
   int32 dim = 5 + rand() % 10;
   std::cout << "dim is : " << dim << std::endl;
@@ -166,10 +176,10 @@ static void SimpleTest() {
 }
 
 template<class Real> static void UnitTestCholesky() {
-  for (MatrixIndexT iter = 0; iter < 1; iter++) {
-    //MatrixIndexT dim = 15 + rand() %  40;
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    MatrixIndexT dim = 45 + rand() %  40;
     // set dimension
-    MatrixIndexT dim = 13;
+    //MatrixIndexT dim = 13;
     // computing the matrix for cholesky input
     // CuMatrix is cuda matrix class while Matrix is cpu matrix class
     CuMatrix<Real> A(dim,dim);
@@ -198,6 +208,27 @@ template<class Real> static void UnitTestCholesky() {
     // check if the D'D is eaual to B or not!
     AssertEqual(B,E);
   }
+}
+
+template<class Real> static void UnitTestTrace() {
+  Vector<Real> tim(100);
+  Vector<Real> d(100);
+  for (MatrixIndexT iter = 0; iter < 100; iter++) {
+    MatrixIndexT dim = 10000 + rand() % 400;
+    Matrix<Real> A(dim,dim);
+    A.SetRandn();
+    CuMatrix<Real> B(A);
+    CuSpMatrix<Real> C(B,kTakeLower);
+    clock_t t1 = clock();
+    tim(iter) = C.Trace();
+    clock_t t2 = clock();
+    //tim(iter) = t2 - t1;
+    d(iter) = dim;
+    KALDI_LOG << tim(iter) << iter << '\n';
+    KALDI_LOG << d(iter) << iter << '\n';
+  }
+  KALDI_LOG << "tim is " << tim << '\n';
+  KALDI_LOG << "dim is " << d << '\n';
 }
 
 template<class Real> static void UnitInvert() {
@@ -387,16 +418,52 @@ template<class Real> static void UnitTestCopyFromMat() {
   
   //KALDI_LOG << D << '\n';
 }
+template<class Real> static void UnitTestVector() {
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 15 + rand() % 10;
+    CuMatrix<Real> A(dim,dim);
+    Matrix<Real> B(dim,dim);
+    B.SetRandn();
+    A.CopyFromMat(B);
+    KALDI_LOG << B << '\n';
+    CuVector<Real> C(dim);
+    C.CopyColFromMat(A,1);
+    Vector<Real> D(dim);
+    C.CopyToVec(&D);    
+    KALDI_LOG << D << '\n';
+    C.CopyColFromMat(A,dim-2);
+    C.CopyToVec(&D);    
+    KALDI_LOG << D << '\n';
+    /*
+    KALDI_LOG << iter << '\n';
+    int32 dim = 5 + rand() % 10;
+    Vector<Real> A(dim);
+    InitRand(&A);
+    //for (MatrixIndexT i = 0; i < dim; i++)
+    //  A(i) = i+1;
+    CuVector<Real> B(dim);
+    B.CopyFromVec(A);
+    Vector<Real> C(dim);
+    B.CopyToVec(&C);
+    //AssertEqual(A,C);
+    KALDI_LOG << A.Sum() << '\n';
+    KALDI_LOG << B.Sum() << '\n';
+    */
+  }
+
+}
 
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
-  //SimpleTest<Real>();
-  UnitTestCholesky<Real>();
+  //UnitTestSimpleTest<Real>();
+  //UnitTestTrace<Real>();
+  //UnitTestCholesky<Real>();
   //UnitTestInvert<Real>();
   //UnitInvert<Real>();
   //UnitTestCopyFromMat<Real>();
   //UnitTestCopySp<Real>();
   //UnitTestConstructor<Real>();
+  UnitTestVector<Real>();
 }
 } //namespace
 

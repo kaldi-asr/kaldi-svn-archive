@@ -79,8 +79,24 @@ class CuVectorBase {
   inline VectorBase<Real> &Vec() {
     return *(reinterpret_cast<VectorBase<Real>* >(this));
   }
+  void ApplyExp();
+  void ApplyLog();
+  MatrixIndexT ApplyFloor(Real floor_val);
+  Real Sum();
+  void SetRandn();
+  
+  CuSubVector<Real> Range(const MatrixIndexT o, const MatrixIndexT l) {
+    return CuSubVector<Real>(*this, o, l);
+  }
 
-protected:
+  const CuSubVector<Real> Range(const MatrixIndexT o,
+                                const MatrixIndexT l) const {
+    return CuSubVector<Real>(*this, o, l);
+  }
+
+  void CopyColFromMat(const CuMatrixBase<Real> &mat, MatrixIndexT col);
+
+ protected:
   
   /// Default constructor: make it private so the user cannot
   /// instantiate this class.
@@ -128,7 +144,21 @@ class CuVector: public CuVectorBase<Real> {
 // We'll fill out the following class if it's needed.
 template<class Real>
 class CuSubVector: public CuVectorBase<Real> {
- public:
+ public:  
+  CuSubVector(const CuVectorBase<Real> &t, const MatrixIndexT origin,
+            const MatrixIndexT length) : CuVectorBase<Real>() {
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(origin)+
+                 static_cast<UnsignedMatrixIndexT>(length) <=
+                 static_cast<UnsignedMatrixIndexT>(t.Dim()));
+    CuVectorBase<Real>::data_ = const_cast<Real*>(t.Data()+origin);
+    CuVectorBase<Real>::dim_ = length;
+  }
+  /// Copy constructor
+  /// this constructor needed for Range() to work in base class.
+  CuSubVector(const CuSubVector &other) : CuVectorBase<Real> () {
+    CuVectorBase<Real>::data_ = other.data_;
+    CuVectorBase<Real>::dim_ = other.dim_;
+  }
  private:
 };
 

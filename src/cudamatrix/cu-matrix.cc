@@ -67,7 +67,6 @@ void CuMatrix<Real>::Resize(MatrixIndexT rows, MatrixIndexT cols,
   }
 }
 
-
 template<typename Real>
 void CuMatrix<Real>::Destroy() {
   #if HAVE_CUDA==1
@@ -626,7 +625,7 @@ void CuMatrixBase<Real>::Sigmoid(const CuMatrixBase<Real> &src) {
 
 
 template<typename Real> // Y->this, X->src
-void CuMatrixBase<Real>::Softmax(const CuMatrixBase<Real> &src) {
+void CuMatrixBase<Real>::ApplySoftMax(const CuMatrixBase<Real> &src) {
   KALDI_ASSERT(SameDimAndStride(*this, src));
 #if HAVE_CUDA==1 
   if (CuDevice::Instantiate().Enabled()) {
@@ -832,9 +831,9 @@ void CuMatrixBase<Real>::Cholesky() {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
-    int TILE_SIZE = 4;
+    int TILE_SIZE = 16;
     int n_blocks = (num_rows_ + TILE_SIZE - 1) / TILE_SIZE;
-    int n_rows_padded = n_blocks*TILE_SIZE;
+
 
     dim3 threads(TILE_SIZE,TILE_SIZE);
     KALDI_LOG << "n_blcoks is : " << n_blocks << '\n';
@@ -894,7 +893,7 @@ void CuMatrixBase<Real>::Invert(Real alpha, CuMatrix<Real> &A) {
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
-    Real* device_eye;
+ 
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(NumRows(),CUBLOCK));
     CuMatrix<Real> temp(num_rows_,num_rows_);

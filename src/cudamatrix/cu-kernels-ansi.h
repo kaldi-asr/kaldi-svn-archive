@@ -60,6 +60,11 @@ void cudaF_add_vec_to_rows(dim3 Gr, dim3 Bl, float alpha, const float *row, floa
 /*
  * CuVector
  */
+void cudaF_copy_col_from_mat(int Gr, int Bl, float* v, int col, const float* mat, MatrixDim dmat, int dim);
+void cudaF_vec_sum(int Gr, int Bl, float* v, float* value, int dim);
+void cudaF_vec_apply_floor(int Gr, int Bl, float* v, float floor_val, int* num, int dim);
+void cudaF_vec_apply_exp(int Gr, int Bl, float* v, int dim);
+void cudaF_vec_apply_log(int Gr, int Bl, float* v, float* flag, int dim);
 void cudaF_trace(int Gr, int Bl, float* mat, float* value, int dim);
 void cudaF_add_row_sum_mat(dim3 Gr, dim3 Bl, const float *mat, float *vec_sum, MatrixDim d);
 void cudaF_add_col_sum_mat(dim3 Gr, dim3 Bl, const float *mat, float *vec_sum, MatrixDim d);
@@ -114,6 +119,11 @@ void cudaD_add_vec_to_rows(dim3 Gr, dim3 Bl, double alpha, const double *row, do
 /*
  * CuVector
  */
+void cudaD_copy_col_from_mat(int Gr, int Bl, double* v, int col, const double* mat, MatrixDim dmat, int dim);
+void cudaD_vec_sum(int Gr, int Bl, double* v, double* value, int dim);
+void cudaD_vec_apply_floor(int Gr, int Bl, double* v, double floor_val, int* num, int dim);
+void cudaD_vec_apply_exp(int Gr, int Bl, double* v, int dim);
+void cudaD_vec_apply_log(int Gr, int Bl, double* v, double* flag, int dim);
 void cudaD_trace(int Gr, int Bl, double* mat, double* value, int dim);
 void cudaD_add_row_sum_mat(dim3 Gr, dim3 Bl, const double *mat, double *vec_sum, MatrixDim d);
 void cudaD_add_col_sum_mat(dim3 Gr, dim3 Bl, const double *mat, double *vec_sum, MatrixDim d);
