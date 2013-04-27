@@ -61,6 +61,9 @@ template<typename Real> inline void cuda_add_vec_to_rows(dim3 Gr, dim3 Bl, Real 
 /*
  * CuVector
  */
+template<typename Real> inline void cuda_add_diag_mat_trans(int Gr, int Bl, Real alpha, Real* v, const Real* mat, Real beta, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
+template<typename Real> inline void cuda_add_diag_mat(int Gr, int Bl, Real alpha, Real* v, const Real* mat, Real beta, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
+template<typename Real> inline void cuda_add_vec_vec(int Gr, int Bl, Real alpha, Real* v, const Real* x, const Real* y, Real beta, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_copy_col_from_mat(int Gr, int Bl, Real* v, int col, const Real* mat, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_vec_sum(int Gr, int Bl, Real* v, Real* value, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_vec_apply_floor(int Gr, int Bl, Real* v, Real floor_val, int* num, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
@@ -117,6 +120,9 @@ template<> inline void cuda_add_vec_to_rows<float>(dim3 Gr, dim3 Bl, float alpha
 /*
  * CuVector
  */
+template<> inline void cuda_add_diag_mat_trans<float>(int Gr, int Bl, float alpha, float* v, const float* mat, float beta, MatrixDim dmat, int dim) { cudaF_add_diag_mat_trans(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
+template<> inline void cuda_add_diag_mat<float>(int Gr, int Bl, float alpha, float* v, const float* mat, float beta, MatrixDim dmat, int dim) { cudaF_add_diag_mat(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
+template<> inline void cuda_add_vec_vec<float>(int Gr, int Bl, float alpha, float* v, const float* x, const float* y, float beta, int dim) { cudaF_add_vec_vec(Gr,Bl,alpha,v,x,y,beta,dim); }
 template<> inline void cuda_copy_col_from_mat<float>(int Gr, int Bl, float* v, int col, const float* mat, MatrixDim dmat, int dim) { cudaF_copy_col_from_mat(Gr,Bl,v,col,mat,dmat,dim); }
 template<> inline void cuda_vec_sum<float>(int Gr, int Bl, float* v, float* value, int dim) { cudaF_vec_sum(Gr,Bl,v,value,dim); }
 template<> inline void cuda_vec_apply_floor<float>(int Gr, int Bl, float* v, float floor_val, int* num, int dim) { cudaF_vec_apply_floor(Gr,Bl,v,floor_val,num,dim); }
@@ -177,6 +183,9 @@ template<> inline void cuda_add_vec_to_rows<double>(dim3 Gr, dim3 Bl, double alp
 /*
  * CuVector
  */
+template<> inline void cuda_add_diag_mat_trans<double>(int Gr, int Bl, double alpha, double* v, const double* mat, double beta, MatrixDim dmat, int dim) { cudaD_add_diag_mat_trans(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
+template<> inline void cuda_add_diag_mat<double>(int Gr, int Bl, double alpha, double* v, const double* mat, double beta, MatrixDim dmat, int dim) { cudaD_add_diag_mat(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
+template<> inline void cuda_add_vec_vec<double>(int Gr, int Bl, double alpha, double* v, const double* x, const double* y, double beta, int dim) { cudaD_add_vec_vec(Gr,Bl,alpha,v,x,y,beta,dim); }
 template<> inline void cuda_copy_col_from_mat<double>(int Gr, int Bl, double* v, int col, const double* mat, MatrixDim dmat, int dim) { cudaD_copy_col_from_mat(Gr,Bl,v,col,mat,dmat,dim); }
 template<> inline void cuda_vec_sum<double>(int Gr, int Bl, double* v, double* value, int dim) { cudaD_vec_sum(Gr,Bl,v,value,dim); }
 template<> inline void cuda_vec_apply_floor<double>(int Gr, int Bl, double* v, double floor_val, int* num, int dim) { cudaD_vec_apply_floor(Gr,Bl,v,floor_val,num,dim); }

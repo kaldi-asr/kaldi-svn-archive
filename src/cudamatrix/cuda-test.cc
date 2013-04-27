@@ -204,7 +204,9 @@ template<class Real> static void UnitTestCholesky() {
     }
     KALDI_LOG << D << '\n';
     Matrix<Real> E(dim,dim);
-    E.AddMatMat(1,D,kNoTrans,D,kTrans,0);
+    const Real alpha = 1;
+    const Real beta = 1;
+    //E.AddMatMat(alpha,D,kNoTrans,,beta);
     // check if the D'D is eaual to B or not!
     AssertEqual(B,E);
   }
@@ -421,19 +423,25 @@ template<class Real> static void UnitTestCopyFromMat() {
 template<class Real> static void UnitTestVector() {
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
     int32 dim = 15 + rand() % 10;
-    CuMatrix<Real> A(dim,dim);
-    Matrix<Real> B(dim,dim);
+    CuVector<Real> A(dim);
+    A.SetRandn();
+    Vector<Real> A1(dim);
+    A.CopyToVec(&A1);
+    CuVector<Real> B(dim);
     B.SetRandn();
-    A.CopyFromMat(B);
-    KALDI_LOG << B << '\n';
+    Vector<Real> B1(dim);
+    B.CopyToVec(&B1);
     CuVector<Real> C(dim);
-    C.CopyColFromMat(A,1);
+    C.SetRandn();
+    Vector<Real> C1(dim);
+    C.CopyToVec(&C1);
+    Real alpha = 2;
+    Real beta = 3;
+    A.AddVecVec(alpha, B, C, beta);
+    A1.AddVecVec(alpha,B1,C1,beta);
     Vector<Real> D(dim);
-    C.CopyToVec(&D);    
-    KALDI_LOG << D << '\n';
-    C.CopyColFromMat(A,dim-2);
-    C.CopyToVec(&D);    
-    KALDI_LOG << D << '\n';
+    A.CopyToVec(&D);
+    AssertEqual(D,A1);
     /*
     KALDI_LOG << iter << '\n';
     int32 dim = 5 + rand() % 10;
@@ -450,7 +458,29 @@ template<class Real> static void UnitTestVector() {
     KALDI_LOG << B.Sum() << '\n';
     */
   }
-
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim1 = 15 + rand() % 10;
+    int32 dim2 = 10 + rand() % 10;
+    Matrix<Real> A(dim1,dim2);
+    for (MatrixIndexT i = 0; i < dim1; i++) {
+      for (MatrixIndexT j = 0; j < dim2; j++)
+        A(i,j) = i + 2 * j + 1;
+    }
+    CuMatrix<Real> B(dim1,dim2);
+    B.CopyFromMat(A);
+    CuVector<Real> C(dim1);
+    C.SetZero();
+    Real alpha = 1;
+    Real beta = 1;
+    C.AddDiagMat2(alpha, B, kNoTrans, beta);
+    Vector<Real> D(dim1);
+    C.CopyToVec(&D);
+    KALDI_LOG << D << '\n';
+    Vector<Real> E(dim1);
+    E.AddDiagMat2(alpha, A, kNoTrans, beta);
+    AssertEqual(D,E);
+  }
+  
 }
 
 template<class Real>

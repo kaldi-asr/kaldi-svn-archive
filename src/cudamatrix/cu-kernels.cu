@@ -310,6 +310,64 @@ static void _apply_mask(Real* mat, const char* mask, MatrixDim dmat, MatrixDim d
  */
 template<typename Real>
 __global__
+static void _add_diag_mat(Real alpha, Real* v, const Real* mat, Real beta, MatrixDim dmat, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x > 0)
+    return;
+
+  if (i > dmat.rows)
+    return;
+
+  if (i < dim) {
+    __shared__ Real row_data[256];
+    for (int32_cuda j = 0; j < dmat.cols; j++) {
+      int32_cuda index = j + i * dmat.stride;
+      row_data[j] = mat[index] * mat[index];
+      __syncthreads();    
+    }
+    v[i] = beta * v[i] + alpha * _sum_reduce(row_data);
+  } 
+
+}
+
+
+template<typename Real>
+__global__
+static void _add_diag_mat_trans(Real alpha, Real* v, const Real* mat, Real beta, MatrixDim dmat, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x > 0)
+    return;
+
+  if (i > dmat.cols)
+    return;
+
+  if (i < dim) {
+    __shared__ Real row_data[256];
+    for (int32_cuda j = 0; j < dmat.rows; j++) {
+      int32_cuda index = i + j * dmat.stride;
+      row_data[j] = mat[index] * mat[index];
+      __syncthreads();    
+    }
+    v[i] = beta * v[i] + alpha * _sum_reduce(row_data);
+  } 
+
+}
+
+
+template<typename Real>
+__global__
+static void _add_vec_vec(Real alpha, Real* v, const Real* x, const Real* y, Real beta, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (blockIdx.x > 0)
+    return;
+
+  if (i < dim)
+    v[i] = alpha * x[i] * y[i] + beta * v[i];
+}
+
+
+template<typename Real>
+__global__
 static void _copy_col_from_mat(Real* v, int col, const Real* mat, MatrixDim dmat, int dim) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda index = col + i * dmat.stride;
@@ -847,6 +905,18 @@ void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim 
 /*
  * CuVector
  */
+void cudaF_add_diag_mat_trans(int Gr, int Bl, float alpha, float* v, const float* mat, float beta,  MatrixDim dmat, int dim) {
+  _add_diag_mat_trans<<<Gr,Bl>>>(alpha,v,mat,beta,dmat,dim);
+}
+
+void cudaF_add_diag_mat(int Gr, int Bl, float alpha, float* v, const float* mat, float beta,  MatrixDim dmat, int dim) {
+  _add_diag_mat<<<Gr,Bl>>>(alpha,v,mat,beta,dmat,dim);
+}
+
+void cudaF_add_vec_vec(int Gr, int Bl, float alpha, float* v, const float* x, const float* y, float beta, int dim) {
+  _add_vec_vec<<<Gr,Bl>>>(alpha,v,x,y,beta,dim);
+}
+
 void cudaF_copy_col_from_mat(int Gr, int Bl, float* v, int col, const float* mat, MatrixDim dmat, int dim) {
   _copy_col_from_mat<<<Gr,Bl>>>(v,col,mat,dmat,dim);
 }
@@ -1040,6 +1110,18 @@ void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim
 /*
  * CuVector
  */
+void cudaD_add_diag_mat_trans(int Gr, int Bl, double alpha, double* v, const double* mat, double beta,  MatrixDim dmat, int dim) {
+  _add_diag_mat_trans<<<Gr,Bl>>>(alpha,v,mat,beta,dmat,dim);
+}
+
+void cudaD_add_diag_mat(int Gr, int Bl, double alpha, double* v, const double* mat, double beta,  MatrixDim dmat, int dim) {
+  _add_diag_mat<<<Gr,Bl>>>(alpha,v,mat,beta,dmat,dim);
+}
+
+void cudaD_add_vec_vec(int Gr, int Bl, double alpha, double* v, const double* x, const double* y, double beta, int dim) {
+  _add_vec_vec<<<Gr,Bl>>>(alpha,v,x,y,beta,dim);
+}
+
 void cudaD_copy_col_from_mat(int Gr, int Bl, double* v, int col, const double* mat, MatrixDim dmat, int dim) {
   _copy_col_from_mat<<<Gr,Bl>>>(v,col,mat,dmat,dim);
 }

@@ -95,7 +95,14 @@ class CuVectorBase {
   }
 
   void CopyColFromMat(const CuMatrixBase<Real> &mat, MatrixIndexT col);
+  void AddMatVec(const Real alpha, const CuMatrixBase<Real> &M,
+                 MatrixTransposeType trans, const CuVectorBase<Real> &v,
+                 const Real beta);
+  void AddVecVec(Real alpha, const CuVectorBase<Real> &v,
+                 const CuVectorBase<Real> &r, Real beta);
 
+  void AddDiagMat2(Real alpha, const CuMatrixBase<Real> &M,
+                   MatrixTransposeType trans, Real beta);
  protected:
   
   /// Default constructor: make it private so the user cannot

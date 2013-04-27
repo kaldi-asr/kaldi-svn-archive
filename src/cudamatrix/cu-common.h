@@ -32,6 +32,8 @@
 
 #include "base/kaldi-error.h"
 
+#include <cublas.h>
+#include "matrix/matrix-common.h"
 
 #define CU_SAFE_CALL(fun) \
 { \
@@ -52,6 +54,9 @@ namespace kaldi {
   inline int32 n_blocks(int32 size, int32 block_size) { 
     return size / block_size + ((size % block_size == 0)? 0 : 1); 
   }
+
+  cublasOperation_t KaldiTransToCuTrans(MatrixTransposeType kaldi_trans);
+  
 }
 
 #endif // HAVE_CUDA
