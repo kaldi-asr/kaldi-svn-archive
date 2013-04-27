@@ -921,6 +921,48 @@ void CuMatrixBase<Real>::Invert(Real alpha, CuMatrix<Real> &A) {
 #endif
 }
 
+
+template<class Real>
+Real TraceMatMat(const CuMatrixBase<Real> &A,
+                 const CuMatrixBase<Real> &B,
+                 MatrixTransposeType trans) {
+  Real result = 0;
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimBlock(CUBLOCK);
+    int dimGrid(n_blocks(A.NumRows(), CUBLOCK));
+    Real* device_result;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)));
+    CU_SAFE_CALL(cudaMemset(device_result, 0, sizeof(Real)));
+    if (trans == kNoTrans) {
+      KALDI_ASSERT(A.NumRows() == B.NumCols() && A.NumCols() == B.NumRows());
+      cuda_trace_mat_mat(dimGrid, dimBlock, A.RowData(0), B.RowData(0), A.Dim(), B.Dim(), device_result);
+    } else {
+      KALDI_ASSERT(A.NumRows() == B.NumRows() && A.NumCols() == B.NumCols());
+      cuda_trace_mat_mat_trans(dimGrid, dimBlock, A.RowData(0), B.RowData(0), A.Dim(), B.Dim(), device_result);
+    }
+    CU_SAFE_CALL(cudaGetLastError());
+    CU_SAFE_CALL(cudaMemcpy(&result, device_result, sizeof(Real), cudaMemcpyDeviceToHost));
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    result = TraceMatMat(A.Mat(), B.Mat(), trans);
+  }
+  return result;
+}
+
+template
+float TraceMatMat(const CuMatrixBase<float> &A,
+                  const CuMatrixBase<float> &B,
+                  MatrixTransposeType trans);
+template
+double TraceMatMat(const CuMatrixBase<double> &A,
+                   const CuMatrixBase<double> &B,
+                   MatrixTransposeType trans);
+
+
 // Instantiate classes CuMatrix and CuMatrixBase for float and double.
 template class CuMatrix<float>;
 template class CuMatrix<double>;

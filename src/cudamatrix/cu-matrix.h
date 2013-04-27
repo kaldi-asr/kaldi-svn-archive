@@ -32,7 +32,9 @@
 #include "cudamatrix/cu-sp-matrix.h"
 namespace kaldi {
 
-
+template<typename Real>
+Real TraceMatMat(const CuMatrixBase<Real> &A, const CuMatrixBase<Real> &B,
+                 MatrixTransposeType trans = kNoTrans);
 /**
  * Matrix for CUDA computing.
  * Does the computation on the CUDA card when CUDA is compiled in and
@@ -47,6 +49,7 @@ class CuMatrixBase {
   friend class CuVectorBase<Real>;
   friend class CuSubMatrix<Real>;
   friend class CuRand<Real>;
+  friend class CuSubVector<Real>;
   friend void cu::RegularizeL1<Real>(CuMatrixBase<Real> *weight,
                                      CuMatrixBase<Real> *grad, Real l1, Real lr);
   friend void cu::Splice<Real>(const CuMatrix<Real> &src,
@@ -58,7 +61,10 @@ class CuMatrixBase {
   friend void cu::Randomize<Real>(const CuMatrixBase<Real> &src,
                                   const CuStlVector<int32> &copy_from_idx,
                                   CuMatrixBase<Real> *tgt);
-  
+
+  friend Real TraceMatMat<Real>(const CuMatrixBase<Real> &A,
+                                const CuMatrixBase<Real> &B,
+                                MatrixTransposeType trans);
   /// Dimensions
   MatrixIndexT NumRows() const { return num_rows_;  }
   MatrixIndexT NumCols() const { return num_cols_;  }
@@ -154,7 +160,24 @@ class CuMatrixBase {
   void AddMatMat(Real alpha, const CuMatrixBase<Real>& A, MatrixTransposeType transA,
                  const CuMatrixBase<Real>& B, MatrixTransposeType transB, Real beta);
 
+  /// this <-- beta*this + alpha*A*B
+  void AddMatSp(const Real alpha,
+                const CuMatrixBase<Real>& A, MatrixTransposeType transA,
+                const CuSpMatrix<Real>& B,
+                const Real beta) {
+    CuMatrix<Real> M(B);
+    return AddMatMat(alpha, A, transA, M, kNoTrans, beta);
+  }
 
+  /// this <-- beta*this + alpha*SpA*B
+  void AddSpMat(const Real alpha,
+                const CuSpMatrix<Real>& A,
+                const CuMatrixBase<Real>& B, MatrixTransposeType transB,
+                const Real beta) {
+    CuMatrix<Real> M(A);
+    return AddMatMat(alpha, M, kNoTrans, B, transB, beta);
+  }
+  
   inline CuSubMatrix<Real> Range(const MatrixIndexT row_offset,
                                  const MatrixIndexT num_rows,
                                  const MatrixIndexT col_offset,
@@ -244,6 +267,12 @@ class CuMatrix: public CuMatrixBase<Real> {
   explicit CuMatrix(const MatrixBase<Real> &other) {
     this->Resize(other.NumRows(), other.NumCols(), kUndefined);
     this->CopyFromMat(other);
+  }
+
+  /// Copy constructor taking SpMatrix... 
+  explicit CuMatrix(const CuSpMatrix<Real> &M) : CuMatrixBase<Real>() {
+    Resize(M.NumRows(), M.NumRows(), kUndefined);
+    this->CopyFromSp(M);
   }
   
   CuMatrix<Real> &operator = (const CuMatrixBase<Real> &other) {

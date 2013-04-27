@@ -166,10 +166,18 @@ class CuSubVector: public CuVectorBase<Real> {
     CuVectorBase<Real>::data_ = other.data_;
     CuVectorBase<Real>::dim_ = other.dim_;
   }
- private:
+
+  /// This operation does not preserve const-ness, so be careful.
+  CuSubVector(const CuMatrixBase<Real> &matrix, MatrixIndexT row) {
+    CuVectorBase<Real>::data_ = const_cast<Real*>(matrix.RowData(row));
+    CuVectorBase<Real>::dim_ = matrix.NumCols();
+  }
+  
+
 };
 
-
+template<typename Real>
+Real VecVec(const CuVectorBase<Real> &v1, const CuVectorBase<Real> &v2);
 
 /// I/O
 template<typename Real>

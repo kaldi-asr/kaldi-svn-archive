@@ -67,7 +67,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
 
   void AddVec2(const Real alpha, const CuVectorBase<Real> &v);
 
-  void AddMat2(const Real alpha, const CuMatrix<Real> &M,
+  void AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
                MatrixTransposeType transM, const Real beta);
   
 };

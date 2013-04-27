@@ -118,7 +118,7 @@ template<> inline void cublas_syrk(char uplo, char trans, int n, int k,
 #endif
 
 template<class Real>
-void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrix<Real> &M,
+void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
                                MatrixTransposeType transM, const Real beta) {
   KALDI_ASSERT((transM == kNoTrans && this->NumRows() == M.NumRows())
                || (transM == kTrans && this->NumRows() == M.NumCols()));

@@ -287,7 +287,7 @@ Real CuPackedMatrix<Real>::Trace() const {
     // implementaion using sum_reduce
     
     Real* device_result;
-    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)))
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(Real)));
     CU_SAFE_CALL(cudaMemset(device_result,0, sizeof(Real)));
     cuda_trace(dimGrid, dimBlock, data_, device_result, num_rows_);
     CU_SAFE_CALL(cudaGetLastError());

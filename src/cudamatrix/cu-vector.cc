@@ -17,6 +17,52 @@
 namespace kaldi {
 
 
+#if HAVE_CUDA==1
+template<typename Real> inline Real cublas_dot(int n, const Real* x, int incx,
+                                               const Real* y, int incy) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline float cublas_dot<float>(int n, const float* x, int incx,
+                                         const float* y, int incy) {
+  return cublasSdot(n,x,incx,y,incy);
+}
+template<> inline double cublas_dot<double>(int n, const double* x, int incx,
+                                          const double* y, int incy) {
+  return cublasDdot(n,x,incx,y,incy);
+}
+#endif
+
+
+template<typename Real>
+Real VecVec(const CuVectorBase<Real> &a,
+            const CuVectorBase<Real> &b) {
+  //MatrixIndexT a_dim = a.Dim();
+  KALDI_ASSERT(a.Dim() == b.Dim());
+  Real result = 0;
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    result = cublas_dot(a.Dim(), a.Data(), 1, b.Data(), 1);
+
+    CU_SAFE_CALL(cublasGetError());
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+} else
+#endif
+  {
+    result = VecVec(a.Vec(), b.Vec());
+  }
+  return result;
+}
+
+template
+float VecVec<>(const CuVectorBase<float> &a,
+               const CuVectorBase<float> &b);
+
+template
+double VecVec<>(const CuVectorBase<double> &a,
+                const CuVectorBase<double> &b);
+
 template<typename Real>
 void CuVectorBase<Real>::CopyColFromMat(const CuMatrixBase<Real> &mat, MatrixIndexT col) {
   KALDI_ASSERT(col < mat.NumCols());
@@ -214,6 +260,7 @@ void CuVectorBase<Real>::AddDiagMat2(Real alpha, const CuMatrixBase<Real> &M,
     Timer tim;
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(dim_,CUBLOCK));
+    
     if (trans == kNoTrans) {
       cuda_add_diag_mat(dimGrid, dimBlock, alpha, data_, M.RowData(0), beta, M.Dim(), dim_);
     } else {
