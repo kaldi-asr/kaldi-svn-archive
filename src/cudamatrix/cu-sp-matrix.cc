@@ -27,7 +27,7 @@ void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
     dim3 dimGrid(n_blocks(M.NumCols(),CUBLOCK), n_blocks(M.NumRows(),CUBLOCK));
     switch (copy_type) {
       case kTakeMeanAndCheck:
-        KALDI_LOG << "kTakeMeanAndCheck!" << '/n';
+        KALDI_LOG << "kTakeMeanAndCheck!";
       case kTakeMean:
         {
           cuda_take_mean(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), D);

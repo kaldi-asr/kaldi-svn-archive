@@ -499,6 +499,9 @@ static void CuMatrixUnitTest(bool full_test) {
 
 int main() {
   using namespace kaldi;
+  kaldi::int32 use_gpu_id = -2; // -2 means automatic selection.
+  CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+  
   bool full_test = false;
   kaldi::CuMatrixUnitTest<double>(full_test);
   KALDI_LOG << "Tests succeeded.\n";
