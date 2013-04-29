@@ -103,6 +103,17 @@ class CuVectorBase {
 
   void AddDiagMat2(Real alpha, const CuMatrixBase<Real> &M,
                    MatrixTransposeType trans, Real beta);
+
+  inline Real operator() (MatrixIndexT i) const {
+    KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
+                          static_cast<UnsignedMatrixIndexT>(dim_));
+    Real *value = new Real;
+
+    CU_SAFE_CALL(cudaMemcpy((value), (data_+i),
+               sizeof(Real), cudaMemcpyDeviceToHost));
+    return *value;
+  }
+  
  protected:
   
   /// Default constructor: make it private so the user cannot
@@ -121,9 +132,10 @@ class CuVector: public CuVectorBase<Real> {
  public:
   CuVector() { }
   CuVector(MatrixIndexT dim, MatrixResizeType t = kSetZero) { Resize(dim, t); }
+  
   CuVector(const CuVectorBase<Real> &v);
   CuVector(const VectorBase<Real> &v);  
-
+  
   /// Allocate the memory
   void Resize(MatrixIndexT dim, MatrixResizeType t = kSetZero);
   

@@ -207,7 +207,18 @@ class CuMatrixBase {
   inline MatrixBase<Real> &Mat() {
     return *(reinterpret_cast<MatrixBase<Real>* >(this));
   }
-  
+
+  inline const Real operator() (MatrixIndexT r, MatrixIndexT c) const {
+    KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                          static_cast<UnsignedMatrixIndexT>(num_rows_) &&
+                          static_cast<UnsignedMatrixIndexT>(c) <
+                          static_cast<UnsignedMatrixIndexT>(num_cols_));
+    Real *value = new Real;
+
+    CU_SAFE_CALL(cudaMemcpy(value, RowData(r) + c, sizeof(Real), cudaMemcpyDeviceToHost));
+    return *value;
+  }
+        
  protected:
   /// Get raw row pointer
   inline const Real* RowData(MatrixIndexT r) const { return data_ + r * stride_; }

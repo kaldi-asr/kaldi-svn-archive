@@ -101,6 +101,25 @@ static void UnitTestSimpleTest() {
     Matrix<Real> A1(dim,dim);
     A1.SetRandn();
     A.CopyFromMat(A1);
+    for (MatrixIndexT r = 0; r < dim; r++) {
+      for (MatrixIndexT c = 0; c < dim; c++)
+        std::cout << A(r,c) << ' ';
+      std::cout << '\n';
+    }
+    for (MatrixIndexT r = 0; r < dim; r++) {
+      for (MatrixIndexT c = 0; c < dim; c++)
+        std::cout << A1(r,c) << ' ';
+      std::cout << '\n';
+    }
+  }
+        
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 5 + rand() % 10;
+    KALDI_LOG << "dim is " << dim << '\n';
+    CuMatrix<Real> A(dim,dim);
+    Matrix<Real> A1(dim,dim);
+    A1.SetRandn();
+    A.CopyFromMat(A1);
     CuMatrix<Real> B(dim,dim);
     Matrix<Real> B1(dim,dim);
     B1.SetRandn();
@@ -544,6 +563,17 @@ template<class Real> static void UnitTestVector() {
     dot = VecVec(A1,B1);
     KALDI_LOG << "dot product in cpu: " << dot << '\n';    
   }
+
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 15 + rand() % 10;
+    CuVector<Real> A(dim);
+    Vector<Real> A1(dim);
+    for (MatrixIndexT i = 0; i < dim; i++)
+      A1(i) = i;
+    A.CopyFromVec(A1);
+    KALDI_LOG << A(dim-2) << '\n';
+    KALDI_LOG << A1(dim-2) << '\n';
+  }
 }
 
 template<class Real>
@@ -556,7 +586,7 @@ static void CuMatrixUnitTest(bool full_test) {
   //UnitTestCopyFromMat<Real>();
   //UnitTestCopySp<Real>();
   //UnitTestConstructor<Real>();
-  //UnitTestVector<Real>();
+  UnitTestVector<Real>();
 }
 } //namespace
 
