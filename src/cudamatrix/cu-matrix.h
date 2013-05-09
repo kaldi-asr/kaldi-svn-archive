@@ -30,6 +30,9 @@
 #include "cudamatrix/cu-stlvector.h"
 #include "cudamatrix/cu-math.h"
 #include "cudamatrix/cu-sp-matrix.h"
+#include "cudamatrix/cu-tp-matrix.h"
+#include "cu-rand.h"
+
 namespace kaldi {
 
 template<typename Real>
@@ -45,6 +48,14 @@ Real TraceMatMat(const CuMatrixBase<Real> &A, const CuMatrixBase<Real> &B,
 template<typename Real>
 class CuMatrixBase {
  public:
+
+  //template<typename OtherReal>
+  friend class CuMatrixBase<float>;
+  friend class CuMatrixBase<double>;
+
+  friend class CuVectorBase<float>;
+  friend class CuVectorBase<double>;
+  
   friend class CuSpMatrix<Real>;
   friend class CuVectorBase<Real>;
   friend class CuSubMatrix<Real>;
@@ -85,8 +96,18 @@ class CuMatrixBase {
   void CopyFromMat(const MatrixBase<Real> &src);
   void CopyFromSp(const CuSpMatrix<Real> &M);
 
+  template<typename OtherReal>
+  void CopyFromTp(const CuTpMatrix<OtherReal> &M,
+                  MatrixTransposeType Trans = kNoTrans);
+  
+  template<typename OtherReal>
+  void CopyFromMat(const CuMatrixBase<OtherReal> &M,
+                   MatrixTransposeType Trans = kNoTrans); 
+  
   void CopyToMat(MatrixBase<Real> *dst) const;
-
+  void CopyRowsFromVec(const CuVectorBase<Real> &v);
+  /// Copy vector into specific column of matrix.
+  void CopyColFromVec(const CuVectorBase<Real> &v, const MatrixIndexT col);
   /// Set each element to the sigmoid of the corresponding element of "src":
   /// element by element, *this = 1 / (1 + exp(-src)).
   void Sigmoid(const CuMatrixBase<Real> &src);
@@ -119,6 +140,9 @@ class CuMatrixBase {
 
   void Cholesky();
   void Invert(Real alpha, CuMatrix<Real> &A);
+  void ApplyPow(Real power);
+  void ApplyFloor(Real floor_val);
+  void ApplyExp();
   /// Softmax nonlinearity
   /// Y = Softmax(X) : Yij = e^Xij / sum_k(e^Xik)
   /// for each row, the max value is first subtracted for good numerical stability
@@ -177,6 +201,24 @@ class CuMatrixBase {
     CuMatrix<Real> M(A);
     return AddMatMat(alpha, M, kNoTrans, B, transB, beta);
   }
+
+  /// this <-- beta*this + alpha*A*B.
+  void AddTpMat(const Real alpha,
+                const CuTpMatrix<Real>& A, MatrixTransposeType transA,
+                const CuMatrixBase<Real>& B, MatrixTransposeType transB,
+                const Real beta) {
+    CuMatrix<Real> M(A);
+    return AddMatMat(alpha, M, transA, B, transB, beta);
+  }
+
+  /// this <-- beta*this + alpha*A*B.
+  void AddMatTp(const Real alpha,
+                const CuMatrixBase<Real>& A, MatrixTransposeType transA,
+                const CuTpMatrix<Real>& B, MatrixTransposeType transB,
+                const Real beta) {
+    CuMatrix<Real> M(B);
+    return AddMatMat(alpha, A, transA, M, transB, beta);
+  }
   
   inline CuSubMatrix<Real> Range(const MatrixIndexT row_offset,
                                  const MatrixIndexT num_rows,
@@ -195,6 +237,19 @@ class CuMatrixBase {
     return CuSubMatrix<Real>(*this, 0, num_rows_, col_offset, num_cols); 
   }
 
+  inline const CuSubVector<Real> Row(MatrixIndexT i) const {
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_));
+    return CuSubVector<Real>(data_ + (i * stride_), NumCols());
+  }
+
+  inline CuSubVector<Real> Row(MatrixIndexT i) {
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
+                 static_cast<UnsignedMatrixIndexT>(num_rows_));
+    return CuSubVector<Real>(data_ + (i * stride_), NumCols());
+  }
+
+  
   //Real* Data() { return data_; }
   //const Real* Data() const { return data_; }
   
@@ -208,6 +263,7 @@ class CuMatrixBase {
     return *(reinterpret_cast<MatrixBase<Real>* >(this));
   }
 
+  
   inline const Real operator() (MatrixIndexT r, MatrixIndexT c) const {
     KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
                           static_cast<UnsignedMatrixIndexT>(num_rows_) &&
@@ -218,6 +274,9 @@ class CuMatrixBase {
     CU_SAFE_CALL(cudaMemcpy(value, RowData(r) + c, sizeof(Real), cudaMemcpyDeviceToHost));
     return *value;
   }
+
+  void SetRandn();
+  //Real Sum() const;
         
  protected:
   /// Get raw row pointer
@@ -275,6 +334,11 @@ class CuMatrix: public CuMatrixBase<Real> {
     this->CopyFromMat(other);
   }
 
+  CuMatrix(const CuMatrixBase<Real> &other) {
+    this->Resize(other.NumRows(), other.NumCols(), kUndefined);
+    this->CopyFromMat(other);
+  }
+
   explicit CuMatrix(const MatrixBase<Real> &other) {
     this->Resize(other.NumRows(), other.NumCols(), kUndefined);
     this->CopyFromMat(other);
@@ -285,6 +349,24 @@ class CuMatrix: public CuMatrixBase<Real> {
     Resize(M.NumRows(), M.NumRows(), kUndefined);
     this->CopyFromSp(M);
   }
+
+  /// Copy constructor taking TpMatrix...
+  template <typename OtherReal>
+  explicit CuMatrix(const CuTpMatrix<OtherReal> & M,
+                  MatrixTransposeType trans = kNoTrans) : CuMatrixBase<Real>() {
+    if (trans == kNoTrans) {
+      Resize(M.NumRows(), M.NumCols(), kUndefined);
+      this->CopyFromTp(M);
+    } else {
+      Resize(M.NumCols(), M.NumRows(), kUndefined);
+      this->CopyFromTp(M, kTrans);
+    }
+  }
+  
+  /// Copy constructor: as above, but from another type.
+  template<typename OtherReal>
+  explicit CuMatrix(const CuMatrixBase<OtherReal> &M,
+                    MatrixTransposeType trans = kNoTrans);
   
   CuMatrix<Real> &operator = (const CuMatrixBase<Real> &other) {
     this->Resize(other.NumRows(), other.NumCols(), kUndefined);
@@ -310,6 +392,7 @@ class CuMatrix: public CuMatrixBase<Real> {
   
   
   void Swap(Matrix<Real> *mat);
+  void Swap(CuMatrix<Real> *mat);
   
   /// I/O functions
   void Read(std::istream &is, bool binary);
@@ -317,6 +400,14 @@ class CuMatrix: public CuMatrixBase<Real> {
 
   /// Destructor
   ~CuMatrix() { Destroy(); }
+
+  inline const Matrix<Real> &Mat() const {
+    return *(reinterpret_cast<const Matrix<Real>* >(this));
+  }
+  inline Matrix<Real> &Mat() {
+    return *(reinterpret_cast<Matrix<Real>* >(this));
+  }
+
 
  private:
   void Destroy();

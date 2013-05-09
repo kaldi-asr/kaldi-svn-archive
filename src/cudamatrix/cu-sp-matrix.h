@@ -61,7 +61,17 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   void CopyToSp(SpMatrix<Real> *dst) {
     CuPackedMatrix<Real>::CopyToMat(dst);
   }
-  
+
+  inline Real operator() (MatrixIndexT r, MatrixIndexT c) const {
+    if (static_cast<UnsignedMatrixIndexT>(c) >
+        static_cast<UnsignedMatrixIndexT>(r))
+      std::swap(c, r);
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                 static_cast<UnsignedMatrixIndexT>(this->num_rows_));
+    Real *value = new Real;
+    CU_SAFE_CALL(cudaMemcpy(value, this->data_ + (r * (r+1)) / 2 + c, sizeof(Real), cudaMemcpyDeviceToHost));
+    return *value;
+  }
   void Invert(Real *logdet = NULL, Real *det_sign = NULL,
               bool inverse_needed = true);
 
@@ -70,7 +80,24 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
   void AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
                MatrixTransposeType transM, const Real beta);
   
+  void AddSp(const Real alpha, const CuSpMatrix<Real> &Ma) {
+    this->AddPacked(alpha, Ma);
+  }
+
 };
+
+/// Returns tr(A B)
+template<typename Real, typename OtherReal>
+Real TraceSpSp(const CuSpMatrix<Real> &A, const CuSpMatrix<OtherReal> &B);
+
+template <>
+double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<double> &B);
+template <>
+float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<float> &B);
+template <>
+double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<float> &B);
+template <>
+float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<double> &B);
 
 } // namespace
 

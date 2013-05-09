@@ -35,7 +35,7 @@ namespace kaldi {
 
 template<typename Real>
 CuVector<Real>::CuVector(const CuVectorBase<Real> &v) {
-  this->Resize(v.dim_);
+  this->Resize(v.Dim());
   this->CopyFromVec(v);
 }
 
@@ -122,7 +122,6 @@ void CuVector<Real>::Destroy() {
 }
 
 
-
 template<typename Real>
 void CuVectorBase<Real>::CopyFromVec(const CuVectorBase<Real> &src) {
   KALDI_ASSERT(src.Dim() == dim_);
@@ -138,6 +137,15 @@ void CuVectorBase<Real>::CopyFromVec(const CuVectorBase<Real> &src) {
            dim_ * sizeof(Real));
   }
 }
+
+// declare template specializations.
+template <>
+template <>    
+void CuVectorBase<double>::CopyFromVec<float>(const CuVectorBase<float> &src);
+
+template<>
+template <>
+void CuVectorBase<float>::CopyFromVec<double>(const CuVectorBase<double> &src);
 
 
 
@@ -305,6 +313,7 @@ template<class Real>
 void CuVectorBase<Real>::AddVec(Real alpha, const CuVectorBase<Real> &vec,
                                 Real beta) {
   KALDI_ASSERT(vec.Dim() == Dim());
+
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
@@ -312,6 +321,7 @@ void CuVectorBase<Real>::AddVec(Real alpha, const CuVectorBase<Real> &vec,
     dim3 dimBlock(CUBLOCK);
     dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
     ::MatrixDim d = { 1, Dim(), Dim() };
+
 
     cuda_add_mat(dimGrid, dimBlock, alpha, vec.data_, beta, data_, d);
     CU_SAFE_CALL(cudaGetLastError());
@@ -324,7 +334,6 @@ void CuVectorBase<Real>::AddVec(Real alpha, const CuVectorBase<Real> &vec,
     Vec().AddVec(alpha, vec.Vec());
   }
 }
-
 
 
 template<typename Real>

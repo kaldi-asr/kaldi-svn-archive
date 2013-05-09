@@ -3,6 +3,7 @@
 #include <ctime>
 
 #include "cudamatrix/cu-sp-matrix.h"
+#include "cudamatrix/cu-tp-matrix.h"
 #include "cudamatrix/cu-packed-matrix.h"
 #include "cudamatrix/cu-vector.h"
 #include <numeric>
@@ -94,6 +95,107 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
 template<class Real>
 static void UnitTestSimpleTest() {
   // test differnet constructors + CopyFrom* + CopyToMat
+  // CopyFromTp
+  TpMatrix<Real> A(10);
+  A.SetRandn();
+  KALDI_LOG << A;
+  CuTpMatrix<Real> B(A);
+  CuMatrix<Real> C(B, kTrans);
+  Matrix<Real> D(10,10);
+  C.CopyToMat(&D);
+  KALDI_LOG << D;
+  /*
+  //TraceSpSp
+  for (MatrixIndexT iter = 0; iter < 19; iter++) {
+    //int32 dim = 15 + rand() % 10;
+    int32 dim = iter + 1;
+    KALDI_LOG << "dim is : " << dim << '\n';
+    SpMatrix<float> A1(dim);
+    A1.SetRandn();
+    //A1.SetDiag(1.0);
+    //A1(dim-2,dim-2) = 1;
+    //A1(dim-1,dim-1) = 10;
+    //KALDI_LOG << A1;
+    CuSpMatrix<float> A(A1);
+    SpMatrix<Real> B1(dim);
+    B1.SetRandn();
+    //B1.SetDiag(1.0);
+    //B1(dim-2,dim-2) = 1;
+    //B1(dim-1,dim-1) = 20;
+    //KALDI_LOG << B1;
+    CuSpMatrix<Real> B(B1);
+    KALDI_LOG << TraceSpSp(A1,B1) << '\n';
+    KALDI_LOG << TraceSpSp(A,B) << '\n';
+  }  
+ 
+  // CopyFromMat
+  CuMatrix<float> A(8,10);
+  A.SetRandn();
+  CuMatrix<Real> B(10,8);
+  B.CopyFromMat(A, kTrans);
+  CuMatrix<float> C(8,10);
+  C.CopyFromMat(B, kTrans);
+  Matrix<float> A1(8,10);
+  Matrix<Real> B1(10,8);
+  Matrix<float> C1(8,10);
+  A.CopyToMat(&A1);
+  B.CopyToMat(&B1);
+  C.CopyToMat(&C1);
+  KALDI_LOG << A1;
+  KALDI_LOG << B1;
+  KALDI_LOG << C1;
+  AssertEqual(A1,C1);
+  
+  A.CopyToMat(&A1);
+  //B.CopyToMat(&B1);
+  B1.CopyFromMat(A1);
+  C1.CopyFromMat(B1);
+  KALDI_LOG << A1;
+  KALDI_LOG << C1;
+  
+  //AssertEqual(A1,B1);
+  
+  CuMatrix<Real> A(12,12);
+  A.SetRandn();
+  Matrix<Real> B(12,12);
+  A.CopyToMat(&B);
+  KALDI_LOG << B;
+  Real power = 2.0;
+  A.ApplyPow(power);
+  A.CopyToMat(&B);
+  KALDI_LOG << B;
+  
+  
+  CuVector<Real> v(15);
+  Vector<Real> v1(15);
+  v.SetRandn();
+  v.CopyToVec(&v1);
+  KALDI_LOG << v1;
+  CuMatrix<Real> m(3,15);
+  m.CopyRowsFromVec(v);
+  Matrix<Real> m1(3,15);
+  m.CopyToMat(&m1);
+  KALDI_LOG << m1;
+
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 5 + rand() % 10;
+    CuMatrix<Real> A(dim,dim);
+    Matrix<Real> A1(dim,dim);
+    A1.SetRandn();
+    A.CopyFromMat(A1);
+    CuVector<Real> C(dim);
+    Vector<Real> C1(dim);
+    Vector<Real> D(dim);
+    //KALDI_LOG << A1;
+    for (MatrixIndexT row = 0; row < dim; row++) {
+      C.CopyFromVec(A.Row(row));
+      C1.CopyFromVec(A1.Row(row));
+      C.CopyToVec(&D);
+      AssertEqual(C1,D);
+    } 
+  }
+
+
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
     int32 dim = 5 + rand() % 10;
     KALDI_LOG << "dim is " << dim << '\n';
@@ -130,7 +232,7 @@ static void UnitTestSimpleTest() {
     KALDI_LOG << value << '\n';
   }
   
-  /*
+ 
   SpMatrix<Real> A(dim);
   A.SetRandn();
   
@@ -404,7 +506,7 @@ template<class Real> static void UnitTestCopySp() {
     //E.CopyFromMat(D, kTakeMean);
     //E(D, kTakeMean);
     //KALDI_LOG << E.NumRows() << '\n';
-    /*
+
     E.CopyToMat(&B);
     AssertEqual(A, B);
     B.SetZero();
@@ -467,7 +569,65 @@ template<class Real> static void UnitTestCopyFromMat() {
   
   //KALDI_LOG << D << '\n';
 }
+
+template<class Real> static void UnitTestMatrix() {
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim1 = 15 + rand() % 10;
+    int32 dim2 = dim1;//10 + rand() % 14;
+    KALDI_LOG << "dimension is " << dim1
+              << " " << dim2 << '\n';
+    CuMatrix<Real> A(dim1,dim2);
+    A.SetRandn();
+    Matrix<Real> A1(dim1,dim2);
+    A.CopyToMat(&A1);
+    KALDI_LOG << "gpu sum is: " << A.Sum() << '\n';
+    KALDI_LOG << "cpu sum is: " << A1.Sum() << '\n';
+  }
+}
+
 template<class Real> static void UnitTestVector() {
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 15 + rand() % 10;
+    CuVector<Real> A(dim);
+    CuVector<Real> B(dim);
+    Vector<Real> A1(dim);
+    Vector<Real> B1(dim);
+    A.SetRandn();
+    B.SetRandn();
+    A.CopyToVec(&A1);
+    B.CopyToVec(&B1);
+    A.MulElements(B);
+    A1.MulElements(B1);
+    Vector<Real> A2(dim);
+    A.CopyToVec(&A2);
+    AssertEqual(A1,A2);
+  }
+  /*
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 72;
+    CuVector<Real> A(dim);
+    Vector<Real> A1(dim);
+    CuMatrix<Real> B(9,8);
+    Matrix<Real> B1(9,8);
+    B.SetRandn();
+    B.CopyToMat(&B1);
+    A.CopyRowsFromMat(B);
+    A1.CopyRowsFromMat(B1);
+    Vector<Real> A2(dim);
+    A.CopyToVec(&A2);
+    AssertEqual(A1,A2);
+  }
+
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 15 + rand() % 10;
+    CuVector<Real> A(dim);
+    A.SetRandn();
+    Vector<Real> A1(dim);
+    A.CopyToVec(&A1);
+    KALDI_LOG << "cpu min is : " << A1.Min() << '\n';
+    KALDI_LOG << "gpu min is : " << A.Min() << '\n';    
+  }
+
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
     int32 dim = 15 + rand() % 10;
     CuVector<Real> A(dim);
@@ -489,21 +649,6 @@ template<class Real> static void UnitTestVector() {
     Vector<Real> D(dim);
     A.CopyToVec(&D);
     AssertEqual(D,A1);
-    /*
-    KALDI_LOG << iter << '\n';
-    int32 dim = 5 + rand() % 10;
-    Vector<Real> A(dim);
-    InitRand(&A);
-    //for (MatrixIndexT i = 0; i < dim; i++)
-    //  A(i) = i+1;
-    CuVector<Real> B(dim);
-    B.CopyFromVec(A);
-    Vector<Real> C(dim);
-    B.CopyToVec(&C);
-    //AssertEqual(A,C);
-    KALDI_LOG << A.Sum() << '\n';
-    KALDI_LOG << B.Sum() << '\n';
-    */
   }
   
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
@@ -574,6 +719,7 @@ template<class Real> static void UnitTestVector() {
     KALDI_LOG << A(dim-2) << '\n';
     KALDI_LOG << A1(dim-2) << '\n';
   }
+  */
 }
 
 template<class Real>
@@ -586,7 +732,8 @@ static void CuMatrixUnitTest(bool full_test) {
   //UnitTestCopyFromMat<Real>();
   //UnitTestCopySp<Real>();
   //UnitTestConstructor<Real>();
-  UnitTestVector<Real>();
+  //UnitTestVector<Real>();
+  //UnitTestMatrix<Real>();
 }
 } //namespace
 

@@ -40,8 +40,21 @@ namespace kaldi {
 
 /*
  * CuMatrix
- */  
-template<typename Real> inline void cuda_trace(int Gr, int Bl, Real* mat, Real* value, int dim) { KALDI_ERR << __func__ << " Not implemented"; }
+ */
+template<typename Real> inline void cuda_copy_from_tp_trans(int Gr, int Bl, Real* A, const Real* B, MatrixDim dmat) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_copy_from_tp(int Gr, int Bl, Real* A, const Real* B, MatrixDim dmat) { KALDI_ERR << __func__ << "Not implementde!"; }
+template<typename Real> inline void cuda_trace_sp_sp_fd(int Gr, int Bl, const float* A, const Real* B, float* value, int dim) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_trace_sp_sp_df(int Gr, int Bl, const double* A, const Real* B, double* value, int dim) { KALDI_ERR << __func__ << "Not implemented!"; } 
+template<typename Real> inline void cuda_copy_from_mat_fd(dim3 Gr, dim3 Bl, float* mat_out, const Real* mat_in, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_copy_from_mat_df(dim3 Gr, dim3 Bl, double* mat_out, const Real* mat_in, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_copy_from_mat_fd_trans(dim3 Gr, dim3 Bl, float* mat_out, const Real* mat_in, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_copy_from_mat_df_trans(dim3 Gr, dim3 Bl, double* mat_out, const Real* mat_in, MatrixDim d_out, MatrixDim d_in) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_copy_col_from_vec(int Gr, int Bl, Real* mat, const Real* v, int col, MatrixDim d) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_apply_exp(dim3 Gr, dim3 Bl, Real* mat, MatrixDim d) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_sum(dim3 Gr, dim3 Bl, Real* mat, Real* value, MatrixDim d) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_apply_pow(dim3 Gr, dim3 Bl, Real* mat, Real power, MatrixDim dim) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_apply_floor(dim3 Gr, dim3 Bl, Real* mat, Real floor_val, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_trace(int Gr, int Bl, Real* mat, Real* value, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_set_diag(int Gr, int Bl, Real* mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_set_diag_packed(int Gr, int Bl, Real* mat, Real value, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_set_const(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
@@ -61,12 +74,19 @@ template<typename Real> inline void cuda_add_vec_to_rows(dim3 Gr, dim3 Bl, Real 
 /*
  * CuVector
  */
+template<typename Real> inline void cuda_copy_from_vec_df(int Gr, int Bl, double* v_out, const Real* v_in, int dim) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_copy_from_vec_fd(int Gr, int Bl, float* v_out, const Real* v_in, int dim) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_vec_mul_elements(int Gr, int Bl, Real* v, const Real* a, int dim) { KALDI_ERR << __func__ << "Not implemented!"; }
+template<typename Real> inline void cuda_vec_soft_max(int Gr, int Bl, Real* x, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
+template<typename Real> inline void cuda_min(int Gr, int Bl, const Real* v, Real* value, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_trace_mat_mat_trans(int Gr, int Bl, const Real* A, const Real* B, MatrixDim dA, MatrixDim dB, Real* value) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_trace_mat_mat(int Gr, int Bl, const Real* A, const Real* B, MatrixDim dA, MatrixDim dB, Real* value) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_add_diag_mat_trans(int Gr, int Bl, Real alpha, Real* v, const Real* mat, Real beta, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_add_diag_mat(int Gr, int Bl, Real alpha, Real* v, const Real* mat, Real beta, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_add_vec_vec(int Gr, int Bl, Real alpha, Real* v, const Real* x, const Real* y, Real beta, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_copy_col_from_mat(int Gr, int Bl, Real* v, int col, const Real* mat, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
+template<typename Real> inline void cuda_copy_col_from_mat_df(int Gr, int Bl, double* v, int col, const Real* mat, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
+template<typename Real> inline void cuda_copy_col_from_mat_fd(int Gr, int Bl, float* v, int col, const Real* mat, MatrixDim dmat, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_vec_sum(int Gr, int Bl, Real* v, Real* value, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_vec_apply_floor(int Gr, int Bl, Real* v, Real floor_val, int* num, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
 template<typename Real> inline void cuda_vec_apply_exp(int Gr, int Bl, Real* v, int dim) { KALDI_ERR << __func__ << " Not implemented! "; }
@@ -102,6 +122,19 @@ template<typename Real> inline void cuda_take_mean(dim3 Gr, dim3 Bl, const Real*
 /*
  * CuMatrix 
  */
+template<> inline void cuda_copy_from_tp_trans<float>(int Gr, int Bl, float* A, const float* B, MatrixDim dmat) { cudaF_copy_from_tp_trans(Gr,Bl,A,B,dmat); }
+template<> inline void cuda_copy_from_tp<float>(int Gr, int Bl, float* A, const float* B, MatrixDim dmat) { cudaF_copy_from_tp(Gr,Bl,A,B,dmat); }
+template<> inline void cuda_trace_sp_sp_fd<float>(int Gr, int Bl, const float* A, const float* B, float* value, int dim) { cudaF_trace_sp_sp_fd(Gr,Bl,A,B,value,dim); }
+template<> inline void cuda_trace_sp_sp_df<float>(int Gr, int Bl, const double* A, const float* B, double* value, int dim) { cudaF_trace_sp_sp_df(Gr,Bl,A,B,value,dim); }
+template<> inline void cuda_copy_from_mat_fd<float>(dim3 Gr, dim3 Bl, float* mat_out, const float* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaF_copy_from_mat_fd(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_from_mat_df<float>(dim3 Gr, dim3 Bl, double* mat_out, const float* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaF_copy_from_mat_df(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_from_mat_fd_trans<float>(dim3 Gr, dim3 Bl, float* mat_out, const float* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaF_copy_from_mat_fd_trans(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_from_mat_df_trans<float>(dim3 Gr, dim3 Bl, double* mat_out, const float* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaF_copy_from_mat_df_trans(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_col_from_vec<float>(int Gr, int Bl, float* mat, const float* v, int col, MatrixDim d) { cudaF_copy_col_from_vec(Gr,Bl,mat,v,col,d); }
+template<> inline void cuda_apply_exp<float>(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) { cudaF_apply_exp(Gr,Bl,mat,d); }
+template<> inline void cuda_sum<float>(dim3 Gr, dim3 Bl, float* mat, float* value, MatrixDim d) { cudaF_sum(Gr,Bl,mat,value,d); }
+template<> inline void cuda_apply_pow<float>(dim3 Gr, dim3 Bl, float* mat, float power, MatrixDim dim) { cudaF_apply_pow(Gr,Bl,mat,power,dim); }
+template<> inline void cuda_apply_floor<float>(dim3 Gr, dim3 Bl, float* mat, float floor_val, MatrixDim dim) { cudaF_apply_floor(Gr,Bl,mat,floor_val,dim); }
 template<> inline void cuda_trace<float>(int Gr, int Bl, float* mat, float* value, int dim) { cudaF_trace(Gr,Bl,mat,value,dim); }
 template<> inline void cuda_set_diag<float>(int Gr, int Bl, float* mat, float value, MatrixDim d) { cudaF_set_diag(Gr,Bl,mat,value,d); }
 template<> inline void cuda_set_diag_packed<float>(int Gr, int Bl, float* mat, float value, int dim) { cudaF_set_diag_packed(Gr,Bl,mat,value,dim); }
@@ -122,12 +155,19 @@ template<> inline void cuda_add_vec_to_rows<float>(dim3 Gr, dim3 Bl, float alpha
 /*
  * CuVector
  */
+template<> inline void cuda_copy_from_vec_df<float>(int Gr, int Bl, double* v_out, const float* v_in, int dim) { cudaF_copy_from_vec_df(Gr,Bl,v_out,v_in,dim); }
+template<> inline void cuda_copy_from_vec_fd<float>(int Gr, int Bl, float* v_out, const float* v_in, int dim) { cudaF_copy_from_vec_fd(Gr,Bl,v_out,v_in,dim); }
+template<> inline void cuda_vec_mul_elements<float>(int Gr, int Bl, float* v, const float* a, int dim) { cudaF_vec_mul_elements(Gr,Bl,v,a,dim); }
+template<> inline void cuda_vec_soft_max<float>(int Gr, int Bl, float* v, int dim) { cudaF_vec_soft_max(Gr,Bl,v,dim); }
+template<> inline void cuda_min<float>(int Gr, int Bl, const float* v, float* value, int dim) { cudaF_min(Gr,Bl,v,value,dim); }
 template<> inline void cuda_trace_mat_mat_trans<float>(int Gr, int Bl, const float* A, const float* B, MatrixDim dA, MatrixDim dB, float* value) { cudaF_trace_mat_mat_trans(Gr,Bl,A,B,dA,dB,value); }
 template<> inline void cuda_trace_mat_mat<float>(int Gr, int Bl, const float* A, const float* B, MatrixDim dA, MatrixDim dB, float* value) { cudaF_trace_mat_mat(Gr,Bl,A,B,dA,dB,value); }
 template<> inline void cuda_add_diag_mat_trans<float>(int Gr, int Bl, float alpha, float* v, const float* mat, float beta, MatrixDim dmat, int dim) { cudaF_add_diag_mat_trans(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
 template<> inline void cuda_add_diag_mat<float>(int Gr, int Bl, float alpha, float* v, const float* mat, float beta, MatrixDim dmat, int dim) { cudaF_add_diag_mat(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
 template<> inline void cuda_add_vec_vec<float>(int Gr, int Bl, float alpha, float* v, const float* x, const float* y, float beta, int dim) { cudaF_add_vec_vec(Gr,Bl,alpha,v,x,y,beta,dim); }
 template<> inline void cuda_copy_col_from_mat<float>(int Gr, int Bl, float* v, int col, const float* mat, MatrixDim dmat, int dim) { cudaF_copy_col_from_mat(Gr,Bl,v,col,mat,dmat,dim); }
+template<> inline void cuda_copy_col_from_mat_df<float>(int Gr, int Bl, double* v, int col, const float* mat, MatrixDim dmat, int dim) { cudaF_copy_col_from_mat_df(Gr,Bl,v,col,mat,dmat,dim); }
+template<> inline void cuda_copy_col_from_mat_fd<float>(int Gr, int Bl, float* v, int col, const float* mat, MatrixDim dmat, int dim) { cudaF_copy_col_from_mat_fd(Gr,Bl,v,col,mat,dmat,dim); }
 template<> inline void cuda_vec_sum<float>(int Gr, int Bl, float* v, float* value, int dim) { cudaF_vec_sum(Gr,Bl,v,value,dim); }
 template<> inline void cuda_vec_apply_floor<float>(int Gr, int Bl, float* v, float floor_val, int* num, int dim) { cudaF_vec_apply_floor(Gr,Bl,v,floor_val,num,dim); }
 template<> inline void cuda_vec_apply_exp<float>(int Gr, int Bl, float* v, int dim) { cudaF_vec_apply_exp(Gr,Bl,v,dim); }
@@ -167,6 +207,19 @@ template<> inline void cuda_take_mean(dim3 Gr, dim3 Bl, const float* x, float* y
 /*
  * CuMatrix 
  */
+template<> inline void cuda_copy_from_tp_trans<double>(int Gr, int Bl, double* A, const double* B, MatrixDim dmat) { cudaD_copy_from_tp_trans(Gr,Bl,A,B,dmat); }
+template<> inline void cuda_copy_from_tp<double>(int Gr, int Bl, double* A, const double* B, MatrixDim dmat) { cudaD_copy_from_tp(Gr,Bl,A,B,dmat); }
+template<> inline void cuda_trace_sp_sp_fd<double>(int Gr, int Bl, const float* A, const double* B, float* value, int dim) { cudaD_trace_sp_sp_fd(Gr,Bl,A,B,value,dim); }
+template<> inline void cuda_trace_sp_sp_df<double>(int Gr, int Bl, const double* A, const double* B, double* value, int dim) { cudaD_trace_sp_sp_df(Gr,Bl,A,B,value,dim); }
+template<> inline void cuda_copy_from_mat_fd<double>(dim3 Gr, dim3 Bl, float* mat_out, const double* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaD_copy_from_mat_fd(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_from_mat_df<double>(dim3 Gr, dim3 Bl, double* mat_out, const double* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaD_copy_from_mat_df(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_from_mat_fd_trans<double>(dim3 Gr, dim3 Bl, float* mat_out, const double* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaD_copy_from_mat_fd_trans(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_from_mat_df_trans<double>(dim3 Gr, dim3 Bl, double* mat_out, const double* mat_in, MatrixDim d_out, MatrixDim d_in) { cudaD_copy_from_mat_df_trans(Gr,Bl,mat_out,mat_in,d_out,d_in); }
+template<> inline void cuda_copy_col_from_vec<double>(int Gr, int Bl, double* mat, const double* v, int col, MatrixDim d) { cudaD_copy_col_from_vec(Gr,Bl,mat,v,col,d); }
+template<> inline void cuda_apply_exp<double>(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) { cudaD_apply_exp(Gr,Bl,mat,d); }
+template<> inline void cuda_sum<double>(dim3 Gr, dim3 Bl, double* mat, double* value, MatrixDim d) { cudaD_sum(Gr,Bl,mat,value,d); }
+template<> inline void cuda_apply_pow<double>(dim3 Gr, dim3 Bl, double* mat, double power, MatrixDim dim) { cudaD_apply_pow(Gr,Bl,mat,power,dim); }
+template<> inline void cuda_apply_floor<double>(dim3 Gr, dim3 Bl, double* mat, double floor_val, MatrixDim dim) { cudaD_apply_floor(Gr,Bl,mat,floor_val,dim); }
 template<> inline void cuda_trace<double>(int Gr, int Bl, double* mat, double* value, int dim) { cudaD_trace(Gr,Bl,mat,value,dim); }
 template<> inline void cuda_set_diag<double>(int Gr, int Bl, double* mat, double value, MatrixDim d) { cudaD_set_diag(Gr,Bl,mat,value,d); }
 template<> inline void cuda_set_diag_packed<double>(int Gr, int Bl, double* mat, double value, int dim) { cudaD_set_diag_packed(Gr,Bl,mat,value,dim); }
@@ -187,12 +240,19 @@ template<> inline void cuda_add_vec_to_rows<double>(dim3 Gr, dim3 Bl, double alp
 /*
  * CuVector
  */
+template<> inline void cuda_copy_from_vec_df(int Gr, int Bl, double* v_out, const double* v_in, int dim) { cudaD_copy_from_vec_df(Gr,Bl,v_out,v_in,dim); }
+template<> inline void cuda_copy_from_vec_fd(int Gr, int Bl, float* v_out, const double* v_in, int dim) { cudaD_copy_from_vec_fd(Gr,Bl,v_out,v_in,dim); }
+template<> inline void cuda_vec_mul_elements(int Gr, int Bl, double* v, const double* a, int dim) { cudaD_vec_mul_elements(Gr,Bl,v,a,dim); }
+template<> inline void cuda_vec_soft_max(int Gr, int Bl, double* v, int dim) { cudaD_vec_soft_max(Gr,Bl,v,dim); }
+template<> inline void cuda_min<double>(int Gr, int Bl, const double* v, double* value, int dim) { cudaD_min(Gr,Bl,v,value,dim); }
 template<> inline void cuda_trace_mat_mat_trans<double>(int Gr, int Bl, const double* A, const double* B, MatrixDim dA, MatrixDim dB, double* value) { cudaD_trace_mat_mat_trans(Gr,Bl,A,B,dA,dB,value); }
 template<> inline void cuda_trace_mat_mat<double>(int Gr, int Bl, const double* A, const double* B, MatrixDim dA, MatrixDim dB, double* value) { cudaD_trace_mat_mat(Gr,Bl,A,B,dA,dB,value); }
 template<> inline void cuda_add_diag_mat_trans<double>(int Gr, int Bl, double alpha, double* v, const double* mat, double beta, MatrixDim dmat, int dim) { cudaD_add_diag_mat_trans(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
 template<> inline void cuda_add_diag_mat<double>(int Gr, int Bl, double alpha, double* v, const double* mat, double beta, MatrixDim dmat, int dim) { cudaD_add_diag_mat(Gr,Bl,alpha,v,mat,beta,dmat,dim); }
 template<> inline void cuda_add_vec_vec<double>(int Gr, int Bl, double alpha, double* v, const double* x, const double* y, double beta, int dim) { cudaD_add_vec_vec(Gr,Bl,alpha,v,x,y,beta,dim); }
 template<> inline void cuda_copy_col_from_mat<double>(int Gr, int Bl, double* v, int col, const double* mat, MatrixDim dmat, int dim) { cudaD_copy_col_from_mat(Gr,Bl,v,col,mat,dmat,dim); }
+template<> inline void cuda_copy_col_from_mat_df<double>(int Gr, int Bl, double* v, int col, const double* mat, MatrixDim dmat, int dim) { cudaD_copy_col_from_mat_df(Gr,Bl,v,col,mat,dmat,dim); }
+template<> inline void cuda_copy_col_from_mat_fd<double>(int Gr, int Bl, float* v, int col, const double* mat, MatrixDim dmat, int dim) { cudaD_copy_col_from_mat_fd(Gr,Bl,v,col,mat,dmat,dim); }
 template<> inline void cuda_vec_sum<double>(int Gr, int Bl, double* v, double* value, int dim) { cudaD_vec_sum(Gr,Bl,v,value,dim); }
 template<> inline void cuda_vec_apply_floor<double>(int Gr, int Bl, double* v, double floor_val, int* num, int dim) { cudaD_vec_apply_floor(Gr,Bl,v,floor_val,num,dim); }
 template<> inline void cuda_vec_apply_exp<double>(int Gr, int Bl, double* v, int dim) { cudaD_vec_apply_exp(Gr,Bl,v,dim); }

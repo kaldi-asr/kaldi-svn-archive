@@ -107,7 +107,7 @@ template<typename Real> void CuRand<Real>::RandUniform(CuMatrix<Real> *tgt) {
 
 
 
-template<typename Real> void CuRand<Real>::RandGaussian(CuMatrix<Real> *tgt) {
+template<typename Real> void CuRand<Real>::RandGaussian(CuMatrixBase<Real> *tgt) {
   #if HAVE_CUDA==1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;

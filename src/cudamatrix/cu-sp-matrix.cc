@@ -148,6 +148,154 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
   }
 }
 
+/**
+ * C++ templatd wrapper of ANSI-C CUBLAS function GEMM (matrix multiply)
+ */
+#if HAVE_CUDA==1
+template<typename Real> inline Real cublas_dot(int n, const Real *x, int incx, const Real* y, int incy) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline float cublas_dot<float>(int n, const float *x, int incx, const float *y, int incy) {
+  return cublasSdot(n, x, incx, y, incy);
+}
+template<> inline double cublas_dot<double>(int n, const double *x, int incx, const double *y, int incy) {
+  return cublasDdot(n, x, incx, y, incy);
+}
+#endif
+
+
+template <>
+double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<double> &B) {
+  double result;
+  KALDI_ASSERT(A.NumRows() == B.NumRows());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimGrid = 1;
+    int dimBlock= A.NumRows();
+
+    // copy the diagonal componenets
+
+    size_t nr = static_cast<size_t>(A.NumRows()),
+        num_elems = (nr * (nr+1)) / 2,
+        num_bytes = nr * sizeof(double);
+                     
+    double* diag_A;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&diag_A), num_bytes));
+    cuda_copy_diag(dimGrid, dimBlock, diag_A, A.Data(), A.NumRows());
+
+    double* diag_B;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&diag_B), num_bytes));    
+    cuda_copy_diag(dimGrid, dimBlock, diag_B, B.Data(), B.NumRows());
+
+    double dot_diag = 0.0;
+    dot_diag = cublas_dot(A.NumRows(), diag_A, 1, diag_B, 1);
+    double dot_all = 0.0;
+    dot_all = cublas_dot(num_elems, A.Data(), 1, B.Data(), 1);
+    
+    result = 2 * dot_all - dot_diag;
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::TraceSpSp", tim.Elapsed());
+  } else
+#endif
+  {
+    result = TraceSpSp(A.Mat(), B.Mat());
+  }
+  return result;
+}
+
+template <>
+float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<float> &B) {
+  float result;
+  KALDI_ASSERT(A.NumRows() == B.NumRows());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimGrid = 1;
+    int dimBlock= A.NumRows();
+
+    // copy the diagonal componenets
+
+    size_t nr = static_cast<size_t>(A.NumRows()),
+        num_elems = (nr * (nr+1)) / 2,
+        num_bytes = nr * sizeof(float);
+                     
+    float* diag_A;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&diag_A), num_bytes));
+    cuda_copy_diag(dimGrid, dimBlock, diag_A, A.Data(), A.NumRows());
+
+    float* diag_B;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&diag_B), num_bytes));    
+    cuda_copy_diag(dimGrid, dimBlock, diag_B, B.Data(), B.NumRows());
+
+    float dot_diag = 0.0;
+    dot_diag = cublas_dot(A.NumRows(), diag_A, 1, diag_B, 1);
+    float dot_all = 0.0;
+    dot_all = cublas_dot(num_elems, A.Data(), 1, B.Data(), 1);
+    
+    result = 2 * dot_all - dot_diag;
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::TraceSpSp", tim.Elapsed());
+  } else
+#endif
+  {
+    result = TraceSpSp(A.Mat(), B.Mat());
+  }
+  return result;
+}
+
+
+template <>
+double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<float> &B) {
+  double result;
+  KALDI_ASSERT(A.NumRows() == B.NumRows());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimGrid = 1;
+    int dimBlock = A.NumRows();
+
+    double* device_result;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(double)));
+    CU_SAFE_CALL(cudaMemset(device_result,0, sizeof(double)));
+    cuda_trace_sp_sp_df(dimGrid, dimBlock, A.Data(), B.Data(), device_result, A.NumRows());
+    CU_SAFE_CALL(cudaGetLastError());
+    CU_SAFE_CALL(cudaMemcpy(&result, device_result, sizeof(double), cudaMemcpyDeviceToHost));
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::TraceSpSp", tim.Elapsed());
+  } else
+#endif
+  {
+    result = TraceSpSp(A.Mat(), B.Mat());
+  }
+  return result;
+}
+
+
+template <>
+float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<double> &B) {
+  float result;
+  KALDI_ASSERT(A.NumRows() == B.NumRows());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimGrid = 1;
+    int dimBlock = A.NumRows();
+
+    float* device_result;
+    CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_result), sizeof(float)));
+    CU_SAFE_CALL(cudaMemset(device_result,0, sizeof(float)));
+    cuda_trace_sp_sp_fd(dimGrid, dimBlock, A.Data(), B.Data(), device_result, A.NumRows());
+    CU_SAFE_CALL(cudaGetLastError());
+    CU_SAFE_CALL(cudaMemcpy(&result, device_result, sizeof(float), cudaMemcpyDeviceToHost));
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::TraceSpSp", tim.Elapsed());
+  } else
+#endif
+  {
+    result = TraceSpSp(A.Mat(), B.Mat());
+  }
+  return result;
+}
+
+
+
 /*
 #if HAVE_CUDA==1
 template<typename Real> inline void cublas_trsm(int m, int n, Real alpha,
@@ -167,6 +315,8 @@ template<> inline void cublas_trsm<double>(int m, int n, float alpha,
 }
 #endif
 */
+
+
 template class CuSpMatrix<float>;
 template class CuSpMatrix<double>;
 

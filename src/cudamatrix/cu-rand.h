@@ -44,7 +44,7 @@ class CuRand {
   /// fill with uniform random numbers (0.0-1.0)
   void RandUniform(CuMatrix<Real> *tgt);
   /// fill with normal random numbers
-  void RandGaussian(CuMatrix<Real> *tgt);
+  void RandGaussian(CuMatrixBase<Real> *tgt);
   void RandGaussian(CuVectorBase<Real> *tgt);
 
   /// align probabilities to discrete 0/1 states (use uniform samplig)

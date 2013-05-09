@@ -35,6 +35,10 @@ template<typename Real> class CuMatrixBase;
 template<typename Real>
 class CuVectorBase {
  public:
+
+  friend class CuVectorBase<float>;
+  friend class CuVectorBase<double>;
+  
   friend class CuMatrixBase<Real>;
   friend class CuPackedMatrix<Real>;
   friend void cu::Splice<Real>(const CuMatrix<Real> &src,
@@ -54,20 +58,36 @@ class CuVectorBase {
   /// do not match.  The operator = in class CuVector will
   /// also change the sizes for you.
   void CopyFromVec(const CuVectorBase<Real> &src);
-  void CopyFromVec(const VectorBase<Real> &src);
-  void CopyToVec(VectorBase<Real> *dst) const;
 
+  void CopyFromVec(const VectorBase<Real> &src);
+
+  template<typename OtherReal>
+  void CopyFromVec(const CuVectorBase<OtherReal> &M);
+  
+  void CopyToVec(VectorBase<Real> *dst) const;
+  void CopyRowsFromMat(const CuMatrixBase<Real> &M);
   /// Math operations
   void SetZero();
   void Set(Real value);
   void Add(Real value);
   void Scale(Real value);
-  void AddVec(Real alpha, const CuVectorBase<Real> &vec, Real beta = 1.0);
+  
+  void AddVec(Real alpha, const CuVectorBase<Real> &vec, Real beta = 0.0);
 
   /// Sum the rows of the matrix, add to vector
   void AddRowSumMat(Real alpha, const CuMatrixBase<Real> &mat, Real beta = 1.0);
   /// Sum the columns of the matrix, add to vector
   void AddColSumMat(Real alpha, const CuMatrixBase<Real> &mat, Real beta = 1.0); 
+
+  /// Add triangular matrix times vector: this <-- beta*this + alpha*M*v.
+  /// Works even if rv == *this.
+  void AddTpVec(const Real alpha, const CuTpMatrix<Real>&M,
+                const MatrixTransposeType trans, const CuVectorBase<Real> &v,
+                const Real beta);  // **beta previously defaulted to 0.0**
+  
+  /// Multiplies this vector by lower-triangular marix:  *this <-- *this *M
+  void MulTp(const CuTpMatrix<Real> &M, const MatrixTransposeType trans);
+  
   void InvertElements(); 
 
   // The following two functions should only be called if we did not compile
@@ -79,10 +99,11 @@ class CuVectorBase {
   inline VectorBase<Real> &Vec() {
     return *(reinterpret_cast<VectorBase<Real>* >(this));
   }
+  void ApplySoftMax();
   void ApplyExp();
   void ApplyLog();
   MatrixIndexT ApplyFloor(Real floor_val);
-  Real Sum();
+  Real Sum() const;
   void SetRandn();
   
   CuSubVector<Real> Range(const MatrixIndexT o, const MatrixIndexT l) {
@@ -95,6 +116,10 @@ class CuVectorBase {
   }
 
   void CopyColFromMat(const CuMatrixBase<Real> &mat, MatrixIndexT col);
+
+  template<typename OtherReal>
+  void CopyColFromMat(const CuMatrixBase<OtherReal> &mat, MatrixIndexT col);
+
   void AddMatVec(const Real alpha, const CuMatrixBase<Real> &M,
                  MatrixTransposeType trans, const CuVectorBase<Real> &v,
                  const Real beta);
@@ -113,6 +138,9 @@ class CuVectorBase {
                sizeof(Real), cudaMemcpyDeviceToHost));
     return *value;
   }
+
+  Real Min() const;
+  void MulElements(const CuVectorBase<Real> &v);
   
  protected:
   
@@ -135,7 +163,23 @@ class CuVector: public CuVectorBase<Real> {
   
   CuVector(const CuVectorBase<Real> &v);
   CuVector(const VectorBase<Real> &v);  
-  
+  explicit CuVector(const CuVector<Real> &v) : CuVectorBase<Real>() {
+    Resize(v.Dim(), kUndefined);
+    this->CopyFromVec(v);
+  }
+
+  template<typename OtherReal>
+  explicit CuVector(const CuVectorBase<OtherReal> &v) : CuVectorBase<Real>() {
+    Resize(v.Dim(), kUndefined);
+    this->CopyFromVec(v);
+  }
+
+  template<typename OtherReal>
+  explicit CuVector(const VectorBase<OtherReal> &v) : CuVectorBase<Real>() {
+    Resize(v.Dim(), kUndefined);
+    this->CopyFromVec(Vector<Real>(v));
+  }
+
   /// Allocate the memory
   void Resize(MatrixIndexT dim, MatrixResizeType t = kSetZero);
   
@@ -144,10 +188,18 @@ class CuVector: public CuVectorBase<Real> {
   CuVector<Real> &operator = (const CuVectorBase<Real> &other) {
     Resize(other.Dim());
     CopyFromVec(other);
+    return *this;
+  }
+
+  CuVector<Real> &operator = (const CuVector<Real> &other) {
+    Resize(other.Dim());
+    CopyFromVec(other);
+    return *this;
   }
   CuVector<Real> &operator = (const VectorBase<Real> &other) {
     Resize(other.Dim());
     CopyFromVec(other);
+    return *this;
   }
       
 
@@ -156,6 +208,8 @@ class CuVector: public CuVectorBase<Real> {
   void Write(std::ostream &is, bool binary) const;
 
   void Swap(Vector<Real> *vec);
+
+  
  private:
   void Destroy();
 };
@@ -179,6 +233,11 @@ class CuSubVector: public CuVectorBase<Real> {
     CuVectorBase<Real>::dim_ = other.dim_;
   }
 
+  CuSubVector(Real* data, MatrixIndexT length) : CuVectorBase<Real> () {
+    CuVectorBase<Real>::data_ = data;
+    CuVectorBase<Real>::dim_ = length;
+  }
+    
   /// This operation does not preserve const-ness, so be careful.
   CuSubVector(const CuMatrixBase<Real> &matrix, MatrixIndexT row) {
     CuVectorBase<Real>::data_ = const_cast<Real*>(matrix.RowData(row));

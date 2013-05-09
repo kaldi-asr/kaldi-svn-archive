@@ -268,8 +268,8 @@ Real CuPackedMatrix<Real>::Trace() const {
     Timer tim;
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(NumRows(), CUBLOCK));
-    size_t nr = static_cast<size_t>(num_rows_),
-        num_bytes = nr * sizeof(Real);
+    //size_t nr = static_cast<size_t>(num_rows_),
+    //    num_bytes = nr * sizeof(Real);
 
     //this is the cublas implementation
     /*
@@ -363,6 +363,35 @@ void CuPackedMatrix<Real>::ScaleDiag(Real alpha) {
 #endif
   {
     Mat().ScaleDiag(alpha);
+  }
+}
+
+#if HAVE_CUDA==1
+template<typename Real> inline void cublas_axpy(int n, Real alpha, const Real* x, int incx, Real* y, int incy) {
+  KALDI_ERR << __func__ << " Not implemented!";
+}
+template<> inline void cublas_axpy<float>(int n, float alpha, const float* x, int incx, float* y, int incy) {
+  cublasSaxpy(n, alpha, x, incx, y, incy);
+}
+template<> inline void cublas_axpy<double>(int n, double alpha, const double* x, int incx, double* y, int incy) {
+  cublasDaxpy(n, alpha, x, incx, y, incy);
+}
+#endif
+
+template<typename Real>
+void CuPackedMatrix<Real>::AddPacked(const Real alpha, const CuPackedMatrix<Real> &M) {
+  KALDI_ASSERT(num_rows_ == M.NumRows());
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    size_t nr = num_rows_,
+        sz = (nr * (nr + 1)) / 2;
+    cublas_axpy(sz, alpha, M.Data(), 1, data_, 1);
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::AddPacked", tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().AddPacked(alpha, M.Mat());
   }
 }
 
