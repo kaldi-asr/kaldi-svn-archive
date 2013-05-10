@@ -80,6 +80,7 @@ mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 sdata=$data/split$nj;
 splice_opts=`cat $alidir/splice_opts 2>/dev/null`
+ciphonelist=`cat $lang/phones/context_indep.csl` || exit 1;
 cp $alidir/splice_opts $dir 2>/dev/null
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
