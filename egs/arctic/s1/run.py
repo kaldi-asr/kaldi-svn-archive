@@ -209,11 +209,12 @@ def kaldidata(datadir, force=False):
 # Command line running
 #
 def main():
+    force = False
     from optparse import OptionParser
 
     # Default input/output directory
     cwd = os.getcwd()
-    usage="Usage: %prog [-h] tpdb_file\n\nDownload and segment arctic speaker bdl."
+    usage="Usage: %prog [-h]\n\nDownload and segment arctic speaker bdl."
     parser = OptionParser(usage=usage)
 
     # set up directories
@@ -231,14 +232,47 @@ def main():
     # kaldi input data
     kaldidata(datadir)
 
+    # update path for kaldi scripts
+    pathlist = ['./utils', '../../../src/featbin', '../../../src/bin', '../../../src/fstbin', '../../../src/gmmbin' ]
+    os.environ["PATH"] += os.pathsep + os.pathsep.join(pathlist)
+
+    # create lang directory using kaldi script
+    if force or not os.path.isdir(os.path.join(datadir, 'lang')):
+        com = "utils/prepare_lang.sh data '<OOV>' %s/lang %s/lang" % (datadir, datadir)
+        print com
+        os.system(com)
+
+    # extract mfccs
+    if force or not os.path.isdir(os.path.join(datadir, 'mfcc')):
+        com = "steps/make_mfcc.sh --nj 1 %s/train %s/mfcc_log %s/mfcc" % (datadir, datadir, datadir)
+        print com
+        os.system(com)
+        
+    # compute feature statistics
+    if force or not os.path.isfile(os.path.join(datadir, 'train', 'cmvn.scp')):
+        com = "utils/utt2spk_to_spk2utt.pl %s/train/utt2spk > %s/train/spk2utt" % (datadir, datadir)
+        print com
+        os.system(com)
+        com = "steps/compute_cmvn_stats.sh %s/train %s/mfcc_log %s/mfcc" % (datadir, datadir, datadir)
+        print com
+        os.system(com)
+        
     # build a mono model
-    os.system('steps/train_mono.sh --nj 1 data/train data/lang exp')
+    if force or not os.path.isdir(os.path.join(datadir, 'htsmono_output')):
+        com = 'steps/train_mono.sh --nj 1 %s/train %s/lang %s/htsmono_output' % (datadir, datadir, datadir)
+        print com
+        os.system(com)
 
     # extract the alignment
-    os.system('../../../src/bin/show-alignments data/lang/phones.txt exp/40.mdl "ark:gunzip -c exp/ali.1.gz|" > align.dat')
-
-    # convert alignment into individual lab files that can be checked by wavesurfer etc.
-    os.system('cat align.dat | python align2lab.py labs')
+    if force or not os.path.isdir(os.path.join(datadir, 'labs')):
+        com = '../../../src/bin/show-alignments %s/lang/phones.txt %s/htsmono_output/40.mdl "ark:gunzip -c %s/htsmono_output/ali.1.gz|" > %s/align.dat' % (datadir, datadir, datadir, datadir)
+        print com
+        os.system(com)
+        # convert alignment into individual lab files that can be checked by wavesurfer etc.
+        os.mkdir('%s/labs' % (datadir))
+        com = 'cat %s/align.dat | python align2lab.py %s/labs' % (datadir, datadir)
+        print com
+        os.system(com)
     
 if __name__ == '__main__':
     main()
