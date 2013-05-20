@@ -362,6 +362,16 @@ template<class Real> static void UnitTestCholesky() {
 }
 
 template<class Real> static void UnitTestTrace() {
+  for (MatrixIndexT iter = 1; iter < 18; iter++) {
+    MatrixIndexT dim = iter;
+    KALDI_LOG << "dim is : " << iter;
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    CuSpMatrix<Real> B(A);
+    KALDI_LOG << "cpu trace is : " << A.Trace();
+    KALDI_LOG << "gpu trace is : " << B.Trace();
+  }
+  /*
   Vector<Real> tim(100);
   Vector<Real> d(100);
   for (MatrixIndexT iter = 0; iter < 100; iter++) {
@@ -380,6 +390,7 @@ template<class Real> static void UnitTestTrace() {
   }
   KALDI_LOG << "tim is " << tim << '\n';
   KALDI_LOG << "dim is " << d << '\n';
+  */
 }
 
 template<class Real> static void UnitInvert() {
@@ -571,17 +582,43 @@ template<class Real> static void UnitTestCopyFromMat() {
 }
 
 template<class Real> static void UnitTestMatrix() {
+  //AddMatMatDivMatElements
+  for (MatrixIndexT iter = 0; iter < 1; iter++) {
+    int32 dim = 6;//15 + rand() % 10;
+    CuMatrix<Real> A(dim,dim);
+    CuMatrix<Real> B(dim,dim);
+    CuMatrix<Real> C(dim,dim);
+    CuMatrix<Real> D(dim,dim);
+    A.SetRandn();
+    B.SetRandn();
+    C.SetRandn();
+    D.SetRandn();
+    Matrix<Real> tmp(dim,dim);
+    A.CopyToMat(&tmp);
+    KALDI_LOG << tmp;
+    B.CopyToMat(&tmp);
+    KALDI_LOG << tmp;
+    C.CopyToMat(&tmp);
+    KALDI_LOG << tmp;
+    D.CopyToMat(&tmp);
+    KALDI_LOG << tmp;
+    A.AddMatMatDivMatElements(1.0,B,kNoTrans,C,kNoTrans,D,kNoTrans,1.0);
+
+    A.CopyToMat(&tmp);
+    KALDI_LOG << tmp;
+  }
+  //SetRandn
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
     int32 dim1 = 15 + rand() % 10;
     int32 dim2 = dim1;//10 + rand() % 14;
-    KALDI_LOG << "dimension is " << dim1
-              << " " << dim2 << '\n';
+    //KALDI_LOG << "dimension is " << dim1
+    //          << " " << dim2 << '\n';
     CuMatrix<Real> A(dim1,dim2);
     A.SetRandn();
     Matrix<Real> A1(dim1,dim2);
     A.CopyToMat(&A1);
-    KALDI_LOG << "gpu sum is: " << A.Sum() << '\n';
-    KALDI_LOG << "cpu sum is: " << A1.Sum() << '\n';
+    //KALDI_LOG << "gpu sum is: " << A.Sum() << '\n';
+    //KALDI_LOG << "cpu sum is: " << A1.Sum() << '\n';
   }
 }
 
@@ -724,8 +761,8 @@ template<class Real> static void UnitTestVector() {
 
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
-  UnitTestSimpleTest<Real>();
-  //UnitTestTrace<Real>();
+  //UnitTestSimpleTest<Real>();
+  UnitTestTrace<Real>();
   //UnitTestCholesky<Real>();
   //UnitTestInvert<Real>();
   //UnitInvert<Real>();

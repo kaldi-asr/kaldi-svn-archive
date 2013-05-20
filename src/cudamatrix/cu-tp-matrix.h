@@ -28,6 +28,9 @@ class CuTpMatrix : public CuPackedMatrix<Real> {
   
   ~CuTpMatrix() {}
 
+  void CopyFromMat(CuMatrixBase<Real> &M,
+                   MatrixTransposeType Trans = kNoTrans);
+
   inline const TpMatrix<Real> &Mat() const {
     return *(reinterpret_cast<const TpMatrix<Real>* >(this));
   }

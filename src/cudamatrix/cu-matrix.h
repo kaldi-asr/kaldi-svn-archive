@@ -57,6 +57,7 @@ class CuMatrixBase {
   friend class CuVectorBase<double>;
   
   friend class CuSpMatrix<Real>;
+  friend class CuTpMatrix<Real>;
   friend class CuVectorBase<Real>;
   friend class CuSubMatrix<Real>;
   friend class CuRand<Real>;
@@ -184,6 +185,14 @@ class CuMatrixBase {
   void AddMatMat(Real alpha, const CuMatrixBase<Real>& A, MatrixTransposeType transA,
                  const CuMatrixBase<Real>& B, MatrixTransposeType transB, Real beta);
 
+  /// Element-wise, does (*this) += alpha + A * B / C.
+  /// In the special case that C == 0, adds nothing.
+  void AddMatMatDivMatElements(Real alpha,
+                               const CuMatrixBase<Real> &A, MatrixTransposeType transA,
+                               const CuMatrixBase<Real> &B, MatrixTransposeType transB,
+                               const CuMatrixBase<Real> &C, MatrixTransposeType transC,
+                               Real beta);
+  
   /// this <-- beta*this + alpha*A*B
   void AddMatSp(const Real alpha,
                 const CuMatrixBase<Real>& A, MatrixTransposeType transA,
@@ -344,6 +353,11 @@ class CuMatrix: public CuMatrixBase<Real> {
     this->CopyFromMat(other);
   }
 
+  explicit CuMatrix(const Matrix<Real> &other) {
+    this->Resize(other.NumRows(), other.NumCols(), kUndefined);
+    this->CopyFromMat(other);
+  }
+  
   /// Copy constructor taking SpMatrix... 
   explicit CuMatrix(const CuSpMatrix<Real> &M) : CuMatrixBase<Real>() {
     Resize(M.NumRows(), M.NumRows(), kUndefined);

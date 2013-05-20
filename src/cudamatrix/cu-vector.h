@@ -141,6 +141,9 @@ class CuVectorBase {
 
   Real Min() const;
   void MulElements(const CuVectorBase<Real> &v);
+  void SetBiasParams(const CuVectorBase<Real> &deriv_sum,
+                     Real min_average_deriv, Real parameter_factor,
+                     Real param);
   
  protected:
   
@@ -209,7 +212,6 @@ class CuVector: public CuVectorBase<Real> {
 
   void Swap(Vector<Real> *vec);
 
-  
  private:
   void Destroy();
 };

@@ -145,6 +145,23 @@ static int32_cuda _max_id_reduce(Real val[], int32_cuda idx[]) {
  */
 template<typename Real>
 __global__
+static void _ammdm_elements(Real alpha, Real* mat, const Real* A, const Real* B,
+       	    	            const Real* C, Real beta, MatrixDim d) {
+  int32_cuda i = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda j = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = i + j * d.stride;
+  if ( i < d.cols && j < d.rows) {
+    if ( C[index] != 0) {
+      mat[index] = alpha * A[index] * B[index] / C[index] + beta * mat[index];
+    } else {
+      mat[index] = alpha * A[index] * B[index] + beta * mat[index];
+    }
+  }
+}
+
+
+template<typename Real>
+__global__
 static void _copy_from_tp_trans(Real* A, const Real* B, MatrixDim dmat) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda index = i * (i+1) / 2;
@@ -327,6 +344,17 @@ static void _set_diag_packed(Real* mat, Real value, int dim) {
 
 template<typename Real>
 __global__
+static void _add_diag_packed(Real* mat, Real value, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda index = ((i+1)*(i+2)/2) - 1;
+  if ( i < dim ) {
+    mat[index] = mat[index] + value;
+  }
+}
+
+
+template<typename Real>
+__global__
 static void _set_const(Real* mat, Real value, MatrixDim d) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -494,6 +522,28 @@ static void _apply_mask(Real* mat, const char* mask, MatrixDim dmat, MatrixDim d
 /*
  * CuVector
  */
+// very limited application!
+template<typename Real>
+__global__
+static void _set_bias_params(Real* v, const Real* a, Real param_1, Real param_2, Real param_3, int* flag, int dim) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  if ( i < dim ) {
+    Real ratio = a[i] / param_3;
+    if ( ( ratio < 0.0 ) || ( ratio >= 1.01 )) {
+      *flag = 1;
+      return;
+    }
+    if ( ratio < param_1 ) {
+      Real factor = ((param_1/ratio) > param_2) ? param_2 : (param_1/ratio);
+      v[i] = v[i] / factor;
+    } else if ( ratio > param_1 ) {
+      Real factor = ((ratio/param_1) > param_2) ? param_2 : (ratio/param_1);
+      v[i] = v[i] * factor; 
+    }
+  }
+}
+
+
 template<typename Real>
 __global__
 static void _copy_from_vec_df(double* v_out, const Real* v_in, int dim) {
@@ -746,7 +796,6 @@ template<typename Real>
 __global__
 static void _trace(const Real* mat, Real* value, int dim) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
-  if(blockIdx.x > 0) return;
 
   if ( i < dim) {
     int32_cuda index = ((i+1) * (i+2) / 2) - 1;
@@ -1216,6 +1265,10 @@ void cudaI32_set_const(dim3 Gr, dim3 Bl, int32_cuda* mat, int32_cuda value, Matr
 /*
  * CuMatrix
  */
+void cudaF_ammdm_elements(dim3 Gr, dim3 Bl, float alpha, float* mat, const float* A, const float* B, const float* C, float beta, MatrixDim d) {
+  _ammdm_elements<<<Gr,Bl>>>(alpha,mat,A,B,C,beta,d);
+}
+
 void cudaF_copy_from_tp_trans(int Gr, int Bl, float* A, const float* B, MatrixDim dmat) {
   _copy_from_tp_trans<<<Gr,Bl>>>(A,B,dmat);
 }
@@ -1274,6 +1327,10 @@ void cudaF_set_diag(int Gr, int Bl, float* mat, float value, MatrixDim d) {
 
 void cudaF_set_diag_packed(int Gr, int Bl, float* mat, float value, int dim) {
   _set_diag_packed<<<Gr,Bl>>>(mat,value,dim);
+}
+
+void cudaF_add_diag_packed(int Gr, int Bl, float* mat, float value, int dim) {
+  _add_diag_packed<<<Gr,Bl>>>(mat,value,dim);
 }
 
 void cudaF_set_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
@@ -1338,6 +1395,10 @@ void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim 
 /*
  * CuVector
  */
+void cudaF_set_bias_params(int Gr, int Bl, float* v, const float* a, float param_1, float param_2, float param_3, int* flag, int dim) {
+  _set_bias_params<<<Gr,Bl>>>(v,a,param_1,param_2,param_3,flag,dim);
+}
+
 void cudaF_copy_from_vec_df(int Gr, int Bl, double* v_out, const float* v_in, int dim) {
   _copy_from_vec_df<<<Gr,Bl>>>(v_out,v_in,dim);
 }
@@ -1509,6 +1570,10 @@ void cudaF_diff_xent(dim3 Gr, dim3 Bl, const int32_cuda* vec_tgt, float* mat_net
 /*
  * CuMatrix
  */
+void cudaD_ammdm_elements(dim3 Gr, dim3 Bl, double alpha, double* mat, const double* A, const double* B, const double* C, double beta, MatrixDim d) {
+  _ammdm_elements<<<Gr,Bl>>>(alpha,mat,A,B,C,beta,d);
+}
+
 void cudaD_copy_from_tp_trans(int Gr, int Bl, double* A, const double* B, MatrixDim dmat) {
   _copy_from_tp_trans<<<Gr,Bl>>>(A,B,dmat);
 }
@@ -1568,6 +1633,10 @@ void cudaD_set_diag(int Gr, int Bl, double* mat, double value, MatrixDim d) {
 
 void cudaD_set_diag_packed(int Gr, int Bl, double* mat, double value, int dim) {
   _set_diag_packed<<<Gr,Bl>>>(mat,value,dim);
+}
+
+void cudaD_add_diag_packed(int Gr, int Bl, double* mat, double value, int dim) {
+  _add_diag_packed<<<Gr,Bl>>>(mat,value,dim);
 }
 
 void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
@@ -1632,6 +1701,10 @@ void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim
 /*
  * CuVector
  */
+void cudaD_set_bias_params(int Gr, int Bl, double* v, const double* a, double param_1, double param_2, double param_3, int* flag, int dim) {
+  _set_bias_params<<<Gr,Bl>>>(v,a,param_1,param_2,param_3,flag,dim);
+}
+
 void cudaD_copy_from_vec_df(int Gr, int Bl, double* v_out, const double* v_in, int dim) {
   _copy_from_vec_df<<<Gr,Bl>>>(v_out,v_in,dim);
 }

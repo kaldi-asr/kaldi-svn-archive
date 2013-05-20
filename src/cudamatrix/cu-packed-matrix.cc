@@ -268,14 +268,15 @@ Real CuPackedMatrix<Real>::Trace() const {
     Timer tim;
     int dimBlock(CUBLOCK);
     int dimGrid(n_blocks(NumRows(), CUBLOCK));
-    //size_t nr = static_cast<size_t>(num_rows_),
-    //    num_bytes = nr * sizeof(Real);
-
+    //int dimBlock(NumRows());
+    //int dimGrid(1);
     //this is the cublas implementation
     /*
+    size_t nr = static_cast<size_t>(num_rows_),
+        num_bytes = nr * sizeof(Real);
+
     Real *device_ones = 0;
     CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&device_ones), num_bytes));
-    //CU_SAFE_CALL(cudaMemcpy(device_ones, host_ones, num_bytes, cudaMemcpyHostToDevice));
     cuda_one(dimGrid,dimBlock,device_ones,num_rows_);
     
     Real* device_array;
@@ -293,7 +294,7 @@ Real CuPackedMatrix<Real>::Trace() const {
     CU_SAFE_CALL(cudaGetLastError());
     CU_SAFE_CALL(cudaMemcpy(&result, device_result, sizeof(Real), cudaMemcpyDeviceToHost));
        
-    
+   
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
 #endif
@@ -393,6 +394,33 @@ void CuPackedMatrix<Real>::AddPacked(const Real alpha, const CuPackedMatrix<Real
   {
     Mat().AddPacked(alpha, M.Mat());
   }
+}
+
+template<typename Real>
+void CuPackedMatrix<Real>::AddToDiag(Real r) {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimGrid(1);
+    int dimBlock(NumRows());
+    cuda_add_diag_packed(dimGrid,dimBlock,data_,r,num_rows_);
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::AddToDiag", tim.Elapsed());
+  }
+#endif
+}
+
+template<typename Real>
+void CuPackedMatrix<Real>::SetUnit() {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int dimGrid(1);
+    int dimBlock(NumRows());
+    Real alpha = 1;
+    cuda_set_diag_packed(dimGrid,dimBlock,data_,alpha,num_rows_);
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrix::SetUnit", tim.Elapsed());
+  }
+#endif
 }
 
 /**

@@ -28,6 +28,7 @@
 #include "cu-device.h"
 #include "cu-kernels.h"
 #include "cu-randkernels.h"
+#include "cu-rand-inl.h"
 #include "cu-choleskykernels.h"
 #include "cu-stlvector.h"
 #include "cu-math.h"
@@ -727,7 +728,34 @@ void CuMatrixBase<Real>::AddMatMat(
   }
 }
 
+/// Element-wise, does (*this) += alpha + A * B / C.
+/// In the special case that C == 0, adds nothing.
+/// we have implemented the first version which all trans* = kNoTrans
+template<typename Real>
+void CuMatrixBase<Real>::AddMatMatDivMatElements(
+    Real alpha, const CuMatrixBase<Real> &A, MatrixTransposeType transA,
+    const CuMatrixBase<Real> &B, MatrixTransposeType transB,
+    const CuMatrixBase<Real> &C, MatrixTransposeType transC,
+    Real beta) {
+  KALDI_ASSERT(num_rows_ == num_cols_ &&
+               A.NumRows() == num_rows_ && A.NumCols() == num_cols_ &&
+               B.NumRows() == num_rows_ && B.NumCols() == num_cols_ &&
+               C.NumRows() == num_rows_ && C.NumCols() == num_cols_);
 
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(num_cols_, CUBLOCK), n_blocks(num_rows_, CUBLOCK));
+    cuda_ammdm_elements(dimGrid, dimBlock, alpha, data_, A.RowData(0),
+                        B.RowData(0), C.RowData(0), beta, Dim());
+    CU_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+  }
+}
 template<typename Real>
 void CuMatrixBase<Real>::Sigmoid(const CuMatrixBase<Real> &src) {
   KALDI_ASSERT(SameDimAndStride(*this, src));
@@ -1247,7 +1275,21 @@ template
 CuMatrix<double>::CuMatrix(const CuMatrixBase<float> & M,
                            MatrixTransposeType trans);
 
+/*
+template<typename Real>
+CuMatrix<Real>::DeriveLastLayerComponent(int32 i, int32 label,
+                                         Real weight, Real this_prob) {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    cuda_derive_last_layer_component(i, label, weight, this_prob);
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }
+#endif
+  {
 
+  }
+}
+*/
 
 // Instantiate classes CuMatrix and CuMatrixBase for float and double.
 template class CuMatrix<float>;
