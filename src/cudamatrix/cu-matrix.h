@@ -284,7 +284,7 @@ class CuMatrixBase {
     return *value;
   }
 
-  void SetRandn();
+  // void SetRandn();
   //Real Sum() const;
         
  protected:
@@ -404,6 +404,7 @@ class CuMatrix: public CuMatrixBase<Real> {
   void Resize(MatrixIndexT rows, MatrixIndexT cols,
               MatrixResizeType resize_type = kSetZero);
   
+  void SetRandn();
   
   void Swap(Matrix<Real> *mat);
   void Swap(CuMatrix<Real> *mat);

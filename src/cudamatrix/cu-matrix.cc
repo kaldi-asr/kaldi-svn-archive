@@ -419,12 +419,6 @@ void CuMatrixBase<Real>::Set(Real value) {
 }
 
 
-template<typename Real>
-void CuMatrixBase<Real>::SetRandn() {
-  CuRand<Real> tmp;
-  tmp.RandGaussian(this);
-}
-
 template<typename Real> 
 void CuMatrixBase<Real>::Add(Real value) { 
 #if HAVE_CUDA==1 
@@ -1250,6 +1244,16 @@ Real CuMatrixBase<Real>::Sum() const {
   return result;
 }
 */
+
+template<typename Real>
+void CuMatrix<Real>::SetRandn() {
+#if HAVE_CUDA==1
+  if (CuDevice::Instantiate().Enabled()) {
+    CuRand<Real> tmp;
+    tmp.RandGaussian(this);
+  }
+#endif
+}
 
 /// Copy constructor from another type.
 template<typename Real>
