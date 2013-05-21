@@ -21,6 +21,7 @@
 #include "nnet-cpu/nnet-nnet.h"
 #include "util/table-types.h"
 
+
 namespace kaldi {
 
 /* This header provides functionality for sample-by-sample stochastic
@@ -45,7 +46,7 @@ struct NnetTrainingExample {
   // (nnet.LeftContext() + 1 + nnet.RightContext()) of raw features, not
   // necessarily contiguous.
 
-  Vector<BaseFloat> spk_info; // The speaker-specific input, if any;
+  CuVector<BaseFloat> spk_info; // The speaker-specific input, if any;
   // a vector of possibly zero length.  We'll append this to each of the
   // input frames.
   

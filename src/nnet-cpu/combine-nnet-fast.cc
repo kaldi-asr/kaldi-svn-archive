@@ -153,7 +153,7 @@ class FastNnetCombiner {
   void ComputeCurrentNnet(
       Nnet *dest, bool debug = false);
 
-  static void CombineNnets(const Vector<double> &scale_params,
+  static void CombineNnets(const CuVector<double> &scale_params,
                            const std::vector<Nnet> &nnets,
                            Nnet *dest);
 
@@ -176,7 +176,7 @@ class FastNnetCombiner {
 
 
 // static
-void FastNnetCombiner::CombineNnets(const Vector<double> &scale_params,
+void FastNnetCombiner::CombineNnets(const CuVector<double> &scale_params,
                                     const std::vector<Nnet> &nnets,
                                     Nnet *dest) {
   int32 num_nnets = nnets.size();
@@ -186,11 +186,11 @@ void FastNnetCombiner::CombineNnets(const Vector<double> &scale_params,
   
   
   *dest = nnets[0];
-  SubVector<double> scale_params0(scale_params, 0, num_uc);
-  dest->ScaleComponents(Vector<BaseFloat>(scale_params0));
+  CuSubVector<double> scale_params0(scale_params, 0, num_uc);
+  dest->ScaleComponents(CuVector<BaseFloat>(scale_params0));
   for (int32 n = 1; n < num_nnets; n++) {
-    SubVector<double> scale_params_n(scale_params, n * num_uc, num_uc);
-    dest->AddNnet(Vector<BaseFloat>(scale_params_n), nnets[n]);
+    CuSubVector<double> scale_params_n(scale_params, n * num_uc, num_uc);
+    dest->AddNnet(CuVector<BaseFloat>(scale_params_n), nnets[n]);
   }
 }
 
@@ -217,7 +217,7 @@ void FastNnetCombiner::ComputePreconditioner() {
   F.Scale(F.NumRows() / F.Trace()); // same scale as unit matrix.
   // Make zero diagonal elements of F non-zero.  Relates to updatable
   // components that have no effect, e.g. MixtureProbComponents that have
-  // no real free parameters.
+  // no real free parameters.  
   for (int32 i = 0; i < F.NumRows(); i++)
     if (F(i, i) < 1.0e-20) F(i, i) = 1.0e-20;
   // We next smooth the diagonal elements of F by a small amount.
@@ -261,7 +261,8 @@ void FastNnetCombiner::GetInitialParams() {
     raw_params.Set(1.0 / num_nnets);
   }
   KALDI_ASSERT(C_.NumRows() == 0); // Assume this not set up yet.
-  params_ = raw_params; // this is in non-preconditioned space.  
+  params_ = raw_params; // this is in non-preconditioned space.
+  //params_.CopyFromVec(raw_params);
 }
 
 /// Computes objf at point "params_".
@@ -351,7 +352,7 @@ int32 FastNnetCombiner::GetInitialModel(
   int32 num_uc = nnets[0].NumUpdatableComponents();
 
   { // Now try a version where all the neural nets have the same weight.
-    Vector<double> scale_params(num_uc * num_nnets);
+    CuVector<double> scale_params(num_uc * num_nnets);
     scale_params.Set(1.0 / num_nnets);
     Nnet average_nnet;
     CombineNnets(scale_params, nnets, &average_nnet);

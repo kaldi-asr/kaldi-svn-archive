@@ -127,6 +127,7 @@ void SoftmaxComponent::MixUp(int32 num_mixtures,
   
   // "counts" is derived from this->counts_ by summing.
   Vector<BaseFloat> counts(mc->params_.size());
+
   int32 old_dim = 0;
   for (size_t i = 0; i < mc->params_.size(); i++) {
     int32 this_input_dim = mc->params_[i].NumCols();
@@ -154,40 +155,48 @@ void SoftmaxComponent::MixUp(int32 num_mixtures,
   KALDI_ASSERT(new_dim >= old_dim);
   
   // bias and linear terms from affine component:
-  const Vector<BaseFloat> &old_bias_term(ac->bias_params_);
-  const Matrix<BaseFloat> &old_linear_term(ac->linear_params_);
+  const CuVector<BaseFloat> &old_bias_term(ac->bias_params_);
+  const CuMatrix<BaseFloat> &old_linear_term(ac->linear_params_);
   
-  Vector<BaseFloat> new_bias_term(new_dim);
-  Matrix<BaseFloat> new_linear_term(new_dim, affine_input_dim);
-  Vector<BaseFloat> new_counts(new_dim);
+  CuVector<BaseFloat> new_bias_term(new_dim);
+  CuMatrix<BaseFloat> new_linear_term(new_dim, affine_input_dim);
+  CuVector<BaseFloat> new_counts(new_dim);
 
   // old_offset and new_offset are offsets into the dimension at the
   // input/output of the softmax component, before and after mixing up
   // respectively.  They get incremented in the following loop.
   int32 old_offset = 0, new_offset = 0;
-  Vector<BaseFloat> old_counts(this->value_sum_);
+  
+  // Ehsan: I did the following!
+  //Vector<BaseFloat> tmp((this->value_sum_).Dim());
+  //(this->value_sum_).CopyToVec(&tmp);
+  //Vector<BaseFloat> old_counts(tmp);
+  CuVector<BaseFloat> old_counts(this->value_sum_);
+
+  
   for (size_t i = 0; i < mc->params_.size(); i++) {
-    const Matrix<BaseFloat> &this_old_params(mc->params_[i]);
+    
+    const CuMatrix<BaseFloat> &this_old_params(mc->params_[i]);
     int32 this_old_dim = this_old_params.NumCols(),
         this_new_dim = targets[i],
         this_cur_dim = this_old_dim; // this_cur_dim is loop variable.
     
-    SubMatrix<BaseFloat> this_old_linear_term(old_linear_term,
+    CuSubMatrix<BaseFloat> this_old_linear_term(old_linear_term,
                                               old_offset, this_old_dim,
                                               0, affine_input_dim),
         this_new_linear_term(new_linear_term,
                              new_offset, this_new_dim,
                              0, affine_input_dim);
-    SubVector<BaseFloat> this_old_bias_term(old_bias_term,
+    CuSubVector<BaseFloat> this_old_bias_term(old_bias_term,
                                             old_offset, this_old_dim),
         this_new_bias_term(new_bias_term, new_offset, this_new_dim),
         this_old_counts(old_counts,
                         old_offset, this_old_dim),
         this_new_counts(new_counts,
                         new_offset, this_new_dim);
-    Matrix<BaseFloat> this_new_params(this_old_params.NumRows(),
+    CuMatrix<BaseFloat> this_new_params(this_old_params.NumRows(),
                                       this_new_dim);
-    
+
     // Copy the same-dimensional part of the parameters and counts.
     this_new_linear_term.Range(0, this_old_dim, 0, affine_input_dim).
         CopyFromMat(this_old_linear_term);
@@ -198,7 +207,12 @@ void SoftmaxComponent::MixUp(int32 num_mixtures,
     // this_new_params is the mixture weights.
     this_new_params.Range(0, this_old_params.NumRows(), 0, this_old_dim).
         CopyFromMat(this_old_params);
+
     // Add the new components...
+    
+    Vector<BaseFloat> this_new_bias_term_tmp(this_new_bias_term.Dim());
+    this_new_bias_term.CopyToVec(&this_new_bias_term_tmp);
+    Matrix<BaseFloat> this_new_params_tmp(this_new_params.Mat());
     for (; this_cur_dim < this_new_dim; this_cur_dim++) {
       BaseFloat *count_begin = this_new_counts.Data(),
           *count_end  = count_begin + this_cur_dim,
@@ -208,19 +222,21 @@ void SoftmaxComponent::MixUp(int32 num_mixtures,
       *count_end = *count_max; // count for the element we're adding.
       int32 max_index = static_cast<int32>(count_max - count_begin),
           new_index = this_cur_dim;
-      SubVector<BaseFloat> cur_vec(this_new_linear_term, max_index),
+      CuSubVector<BaseFloat> cur_vec(this_new_linear_term, max_index),
           new_vec(this_new_linear_term, new_index);
       new_vec.CopyFromVec(cur_vec);
-      Vector<BaseFloat> rand(affine_input_dim);
+      CuVector<BaseFloat> rand(affine_input_dim);
       rand.SetRandn();
       cur_vec.AddVec(perturb_stddev, rand);
       new_vec.AddVec(-perturb_stddev, rand);
-      this_new_bias_term(max_index) += log(0.5);
-      this_new_bias_term(new_index) = this_new_bias_term(max_index);
+      this_new_bias_term_tmp(max_index) += log(0.5);
+      this_new_bias_term_tmp(new_index) = this_new_bias_term_tmp(max_index);
       // now copy the column of the MixtureProbComponent parameters.
       for (int32 j = 0; j < this_new_params.NumRows(); j++)
-        this_new_params(j, new_index) = this_new_params(j, max_index);
+        this_new_params_tmp(j, new_index) = this_new_params_tmp(j, max_index);
     }
+    this_new_bias_term.CopyFromVec(this_new_bias_term_tmp);
+    this_new_params.CopyFromMat(this_new_params_tmp);
     old_offset += this_old_dim;
     new_offset += this_new_dim;
     mc->params_[i] = this_new_params;

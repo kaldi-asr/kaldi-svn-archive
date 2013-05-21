@@ -1,5 +1,4 @@
 // nnet/combine-nnet.cc
-
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +21,7 @@ namespace kaldi {
 
 // Here, "scale_params" is in blocks, with the first block
 // corresponding to nnets[0].
-static void CombineNnets(const Vector<BaseFloat> &scale_params,
+static void CombineNnets(const CuVector<BaseFloat> &scale_params,
                          const std::vector<Nnet> &nnets,
                          Nnet *dest) {
   int32 num_nnets = nnets.size();
@@ -32,10 +31,10 @@ static void CombineNnets(const Vector<BaseFloat> &scale_params,
   
   
   *dest = nnets[0];
-  SubVector<BaseFloat> scale_params0(scale_params, 0, num_uc);
+  CuSubVector<BaseFloat> scale_params0(scale_params, 0, num_uc);
   dest->ScaleComponents(scale_params0);
   for (int32 n = 1; n < num_nnets; n++) {
-    SubVector<BaseFloat> scale_params_n(scale_params, n * num_uc, num_uc);
+    CuSubVector<BaseFloat> scale_params_n(scale_params, n * num_uc, num_uc);
     dest->AddNnet(scale_params_n, nnets[n]);
   }
 }
@@ -68,7 +67,7 @@ static int32 GetInitialModel(
   int32 num_uc = nnets[0].NumUpdatableComponents();
 
   { // Now try a version where all the neural nets have the same weight.
-    Vector<BaseFloat> scale_params(num_uc * num_nnets);
+    CuVector<BaseFloat> scale_params(num_uc * num_nnets);
     scale_params.Set(1.0 / num_nnets);
     Nnet average_nnet;
     CombineNnets(scale_params, nnets, &average_nnet);

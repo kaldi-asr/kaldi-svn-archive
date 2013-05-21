@@ -28,11 +28,11 @@ void UnitTestGenericComponentInternal(const Component &component) {
 
   KALDI_LOG << component.Info();
 
-  Vector<BaseFloat> objf_vec(output_dim); // objective function is linear function of output.
+  CuVector<BaseFloat> objf_vec(output_dim); // objective function is linear function of output.
   objf_vec.SetRandn(); // set to Gaussian noise.
   
   int32 num_egs = 10 + rand() % 5;
-  Matrix<BaseFloat> input(num_egs, input_dim),
+  CuMatrix<BaseFloat> input(num_egs, input_dim),
       output(num_egs, output_dim);
   input.SetRandn();
   
@@ -50,18 +50,18 @@ void UnitTestGenericComponentInternal(const Component &component) {
   }
   
   { // Test backward derivative is correct.
-    Vector<BaseFloat> output_objfs(num_egs);
+    CuVector<BaseFloat> output_objfs(num_egs);
     output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec, 0.0);
     BaseFloat objf = output_objfs.Sum();
 
-    Matrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
+    CuMatrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
     for (int32 i = 0; i < output_deriv.NumRows(); i++)
       output_deriv.Row(i).CopyFromVec(objf_vec);
 
-    Matrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
+    CuMatrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
 
-    Matrix<BaseFloat> empty_mat;
-    Matrix<BaseFloat> &input_ref =
+    CuMatrix<BaseFloat> empty_mat;
+    CuMatrix<BaseFloat> &input_ref =
         (component_copy->BackpropNeedsInput() ? input : empty_mat),
         &output_ref =
         (component_copy->BackpropNeedsOutput() ? output : empty_mat);
@@ -72,16 +72,16 @@ void UnitTestGenericComponentInternal(const Component &component) {
     int32 num_ok = 0, num_bad = 0, num_tries = 7;
     KALDI_LOG << "Comparing feature gradients " << num_tries << " times.";
     for (int32 i = 0; i < num_tries; i++) {
-      Matrix<BaseFloat> perturbed_input(input.NumRows(), input.NumCols());
+      CuMatrix<BaseFloat> perturbed_input(input.NumRows(), input.NumCols());
       perturbed_input.SetRandn();
       perturbed_input.Scale(1.0e-04); // scale by a small amount so it's like a delta.
       BaseFloat predicted_difference = TraceMatMat(perturbed_input,
                                                    input_deriv, kTrans);
       perturbed_input.AddMat(1.0, input); // now it's the input + a delta.
       { // Compute objf with perturbed input and make sure it matches prediction.
-        Matrix<BaseFloat> perturbed_output(output.NumRows(), output.NumCols());
+        CuMatrix<BaseFloat> perturbed_output(output.NumRows(), output.NumCols());
         component.Propagate(perturbed_input, 1, &perturbed_output);
-        Vector<BaseFloat> perturbed_output_objfs(num_egs);
+        CuVector<BaseFloat> perturbed_output_objfs(num_egs);
         perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
                                          objf_vec, 0.0);
         BaseFloat perturbed_objf = perturbed_output_objfs.Sum(),
@@ -119,14 +119,14 @@ void UnitTestGenericComponentInternal(const Component &component) {
       BaseFloat perturb_stddev = 1.0e-04;
       perturbed_ucomponent->PerturbParams(perturb_stddev);
 
-      Vector<BaseFloat> output_objfs(num_egs);
+      CuVector<BaseFloat> output_objfs(num_egs);
       output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec, 0.0);
       BaseFloat objf = output_objfs.Sum();
 
-      Matrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
+      CuMatrix<BaseFloat> output_deriv(output.NumRows(), output.NumCols());
       for (int32 i = 0; i < output_deriv.NumRows(); i++)
         output_deriv.Row(i).CopyFromVec(objf_vec);
-      Matrix<BaseFloat> input_deriv; // (input.NumRows(), input.NumCols());
+      CuMatrix<BaseFloat> input_deriv; // (input.NumRows(), input.NumCols());
 
       int32 num_chunks = 1;
 
@@ -137,9 +137,9 @@ void UnitTestGenericComponentInternal(const Component &component) {
       // Now compute the perturbed objf.
       BaseFloat objf_perturbed;
       {
-        Matrix<BaseFloat> output_perturbed; // (num_egs, output_dim);
+        CuMatrix<BaseFloat> output_perturbed; // (num_egs, output_dim);
         perturbed_ucomponent->Propagate(input, 1, &output_perturbed);
-        Vector<BaseFloat> output_objfs_perturbed(num_egs);
+        CuVector<BaseFloat> output_objfs_perturbed(num_egs);
         output_objfs_perturbed.AddMatVec(1.0, output_perturbed,
                                          kNoTrans, objf_vec, 0.0);
         objf_perturbed = output_objfs_perturbed.Sum();
@@ -367,7 +367,7 @@ void UnitTestDctComponent() {
 void UnitTestFixedLinearComponent() {
   int32 m = 1 + rand() % 4, n = 1 + rand() % 4;
   {
-    Matrix<BaseFloat> mat(m, n);
+    CuMatrix<BaseFloat> mat(m, n);
     FixedLinearComponent component;
     component.Init(mat);
     UnitTestGenericComponentInternal(component);
@@ -434,8 +434,8 @@ int BasicDebugTestForSplice (bool output=false) {
  
   SpliceComponent *c = new SpliceComponent();
   c->Init(C, contextLen, contextLen, K);
-  Matrix<BaseFloat> in(R, C);
-  Matrix<BaseFloat> out(R, c->OutputDim());
+  CuMatrix<BaseFloat> in(R, C);
+  CuMatrix<BaseFloat> out(R, c->OutputDim());
 
   in.SetRandn();
   if (output)
@@ -449,7 +449,7 @@ int BasicDebugTestForSplice (bool output=false) {
   out.Set(1);
   
   if (K > 0) {
-    SubMatrix<BaseFloat> k(out, 0, out.NumRows(), c->OutputDim() - K, K);
+    CuSubMatrix<BaseFloat> k(out, 0, out.NumRows(), c->OutputDim() - K, K);
     k.Set(-2);
   }
 

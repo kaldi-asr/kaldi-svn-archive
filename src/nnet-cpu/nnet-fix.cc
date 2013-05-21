@@ -43,14 +43,17 @@ void FixNnet(const NnetFixConfig &config, Nnet *nnet) {
       else continue; // E.g. SoftmaxComponent; we don't handle this.
     }
     double count = nc->Count();
-    const Vector<double> &deriv_sum = nc->DerivSum();
+    const CuVector<float> &deriv_sum = nc->DerivSum();
     if (count == 0.0 || deriv_sum.Dim() == 0) {
       KALDI_WARN << "Cannot fix neural net because no statistics are stored.";
       continue;
     }
-    Vector<BaseFloat> bias_params(ac->BiasParams());
-    Matrix<BaseFloat> linear_params(ac->LinearParams());
+    CuVector<BaseFloat> bias_params(ac->BiasParams());
+    CuMatrix<BaseFloat> linear_params(ac->LinearParams());
     int32 dim = nc->InputDim(), num_reduced = 0, num_increased = 0;
+
+    bias_params.SetBiasParams(deriv_sum, config.min_average_deriv,
+                              config.parameter_factor, count * max_deriv);
     for (int32 d = 0; d < dim; d++) {
       // deriv ratio is the ratio of the computed average derivative to the
       // maximum derivative of that nonlinear function.
@@ -64,7 +67,7 @@ void FixNnet(const NnetFixConfig &config, Nnet *nnet) {
                                               deriv_ratio,
                                               config.parameter_factor);
         // we need to reduce the parameters, so multiply by 1/parameter factor.
-        bias_params(d) *= 1.0 / parameter_factor;
+        //bias_params(d) = (bias_params(d) * 1.0 / parameter_factor);
         linear_params.Row(d).Scale(1.0 / parameter_factor);
         num_reduced++;
       } else if (deriv_ratio > config.max_average_deriv) { // derivative is too large,
@@ -72,11 +75,14 @@ void FixNnet(const NnetFixConfig &config, Nnet *nnet) {
         BaseFloat parameter_factor = std::min(deriv_ratio / config.max_average_deriv,
                                               config.parameter_factor);
         // we need to increase the factors, so multiply by parameter_factor.
-        bias_params(d) *= parameter_factor;
+        //bias_params(d) = (bias_params(d) * parameter_factor);
         linear_params.Row(d).Scale(parameter_factor);
         num_increased++;
       }
     }
+    /// SetCondition(CuVector<Real> deriv_ratio, Real min_average_deriv, Real parameter_factor)
+    //(*this)(i) = ...
+        
     KALDI_LOG << "For layer " << c << ", decreased parameters for "
               << num_reduced << " indexes, and increased them for "
               << num_increased << " out of a total of " << dim;

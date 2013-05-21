@@ -31,7 +31,9 @@ class LimitRankClass {
     KALDI_ASSERT(ac != NULL);
 
     // We'll limit the rank of just the linear part, keeping the bias vector full.
-    Matrix<BaseFloat> M (ac->LinearParams());
+    //Matrix<BaseFloat> M (ac->LinearParams());
+    Matrix<BaseFloat> M((ac->LinearParams()).NumRows(), (ac->LinearParams()).NumCols());
+    (ac->LinearParams()).CopyToMat(&M);
     int32 rows = M.NumRows(), cols = M.NumCols(), rc_min = std::min(rows, cols);
     Vector<BaseFloat> s(rc_min);
     Matrix<BaseFloat> U(rows, rc_min), Vt(rc_min, cols);
@@ -52,8 +54,10 @@ class LimitRankClass {
     Vt.MulRowsVec(s); // Vt <-- diag(s) Vt.
     M.AddMatMat(1.0, U, kNoTrans, Vt, kNoTrans, 0.0); // Reconstruct with reduced
     // rank.
-    Vector<BaseFloat> bias_params(ac->BiasParams());
-    ac->SetParams(bias_params, M);
+    CuVector<BaseFloat> bias_params(ac->BiasParams());
+    //Vector<BaseFloat> bias_params((ac->BiasParams()).Dim());
+    //(ac->BiasParams()).CopyToVec(&bias_params);
+    ac->SetParams(bias_params, CuMatrix<BaseFloat>(M));
   }
 
   int32 GetRetainedDim(int32 rows, int32 cols) {

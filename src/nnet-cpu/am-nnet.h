@@ -35,6 +35,7 @@ namespace kaldi {
 
 class AmNnet {
  public:
+
   AmNnet() { }
 
   AmNnet(const AmNnet &other): nnet_(other.nnet_), priors_(other.priors_) { }
@@ -60,16 +61,16 @@ class AmNnet {
   
   Nnet &GetNnet() { return nnet_; }
 
-  void SetPriors(const VectorBase<BaseFloat> &priors);
+  void SetPriors(const CuVectorBase<BaseFloat> &priors);
   
-  const VectorBase<BaseFloat> &Priors() const { return priors_; }
+  const CuVectorBase<BaseFloat> &Priors() const { return priors_; }
 
   std::string Info() const;
 
  private:
   const AmNnet &operator = (const AmNnet &other); // Disallow.
   Nnet nnet_;
-  Vector<BaseFloat> priors_;
+  CuVector<BaseFloat> priors_;
 };
 
 

@@ -27,7 +27,7 @@ static BaseFloat ComputeObjfAndGradient(
   Vector<BaseFloat> scale_params(log_scale_params);
   scale_params.ApplyExp();
   Nnet nnet_scaled(nnet);
-  nnet_scaled.ScaleComponents(scale_params);
+  nnet_scaled.ScaleComponents(CuVector<BaseFloat>(scale_params));
   
   Nnet nnet_gradient(nnet);
   bool is_gradient = true;
@@ -101,7 +101,7 @@ void ShrinkNnet(const NnetShrinkConfig &shrink_config,
   KALDI_LOG << "Shrinking nnet, validation objf per frame changed from "
             << initial_objf << " to " << objf << ", scale factors per layer are "
             << scale;
-  nnet->ScaleComponents(scale);
+  nnet->ScaleComponents(CuVector<BaseFloat>(scale));
 }
  
   

@@ -65,13 +65,13 @@ void NnetRescaler::FormatInput(const std::vector<NnetTrainingExample> &data,
   input->Resize(num_splice * num_chunks,
                 tot_dim);
   for (int32 chunk = 0; chunk < num_chunks; chunk++) {
-    SubMatrix<BaseFloat> dest(*input,
+    CuSubMatrix<BaseFloat> dest(CuMatrix<BaseFloat>(*input),
                               chunk * num_splice, num_splice,
                               0, feat_dim);
     const Matrix<BaseFloat> &src(data[chunk].input_frames);
     dest.CopyFromMat(src);
     if (spk_dim != 0) {
-      SubMatrix<BaseFloat> spk_dest(*input,
+      CuSubMatrix<BaseFloat> spk_dest(CuMatrix<BaseFloat>(*input),
                                     chunk * num_splice, num_splice,
                                     feat_dim, spk_dim);
       spk_dest.CopyRowsFromVec(data[chunk].spk_info);
@@ -133,8 +133,12 @@ void NnetRescaler::RescaleComponent(
       ones(rows, cols), in_deriv(rows, cols);
       
   ones.Set(1.0);
-  nc.Propagate(cur_data, num_chunks, next_data);
-  nc.Backprop(cur_data, *next_data, ones, num_chunks, NULL, &in_deriv);
+  CuMatrix<BaseFloat> next_data_tmp(*next_data);
+  nc.Propagate(CuMatrix<BaseFloat>(cur_data), num_chunks, &next_data_tmp);
+  next_data_tmp.CopyToMat(next_data);
+  CuMatrix<BaseFloat> in_deriv_tmp(in_deriv);
+  nc.Backprop(CuMatrix<BaseFloat>(cur_data), CuMatrix<BaseFloat>(*next_data), CuMatrix<BaseFloat>(ones), num_chunks, NULL, &in_deriv_tmp);
+  in_deriv_tmp.CopyToMat(&in_deriv);
   BaseFloat cur_avg_deriv;
   cur_avg_deriv = in_deriv.Sum() / (rows * cols);
   orig_avg_deriv = cur_avg_deriv;
@@ -143,8 +147,16 @@ void NnetRescaler::RescaleComponent(
     // the next avg_deriv, so we can see how it changes with the scale.
     cur_data.CopyFromMat(*cur_data_in);
     cur_data.Scale(cur_scaling + config_.delta);
-    nc.Propagate(cur_data, num_chunks, next_data);
-    nc.Backprop(cur_data, *next_data, ones, num_chunks, NULL, &in_deriv);
+
+    CuMatrix<BaseFloat> next_data_tmp(*next_data);
+    nc.Propagate(CuMatrix<BaseFloat>(cur_data), num_chunks, &next_data_tmp);
+    next_data_tmp.CopyToMat(next_data);
+    //nc.Propagate(cur_data, num_chunks, next_data);
+
+    CuMatrix<BaseFloat> in_deriv_tmp(in_deriv);
+    nc.Backprop(CuMatrix<BaseFloat>(cur_data), CuMatrix<BaseFloat>(*next_data), CuMatrix<BaseFloat>(ones), num_chunks, NULL, &in_deriv_tmp);
+    in_deriv_tmp.CopyToMat(&in_deriv);
+    //nc.Backprop(CuMatrix<BaseFloat>(cur_data), CuMatrix<BaseFloat>(*next_data), ones, num_chunks, NULL, &in_deriv);
     BaseFloat next_avg_deriv = in_deriv.Sum() / (rows * cols);
     KALDI_ASSERT(next_avg_deriv < cur_avg_deriv);
     // "gradient" is how avg_deriv changes as we change the scale.
@@ -163,8 +175,20 @@ void NnetRescaler::RescaleComponent(
     
     cur_data.CopyFromMat(*cur_data_in);
     cur_data.Scale(cur_scaling);
-    nc.Propagate(cur_data, num_chunks, next_data);
-    nc.Backprop(cur_data, *next_data, ones, num_chunks, NULL, &in_deriv);
+
+
+    //CuMatrix<BaseFloat> next_data_tmp(*next_data);
+    next_data_tmp.CopyFromMat(*next_data);
+    nc.Propagate(CuMatrix<BaseFloat>(cur_data), num_chunks, &next_data_tmp);
+    next_data_tmp.CopyToMat(next_data);    
+    //nc.Propagate(cur_data, num_chunks, next_data);
+
+    
+    //CuMatrix<BaseFloat> in_deriv_tmp(in_deriv);
+    in_deriv_tmp.CopyFromMat(in_deriv);
+    nc.Backprop(CuMatrix<BaseFloat>(cur_data), CuMatrix<BaseFloat>(*next_data), CuMatrix<BaseFloat>(ones), num_chunks, NULL, &in_deriv_tmp);
+    in_deriv_tmp.CopyToMat(&in_deriv);
+    //nc.Backprop(cur_data, *next_data, ones, num_chunks, NULL, &in_deriv);
     cur_avg_deriv = in_deriv.Sum() / (rows * cols);
     if (fabs(proposed_change) < config_.min_change) break; // Terminate the
     // optimization
@@ -195,7 +219,9 @@ void NnetRescaler::Rescale() {
       // after doing the rescaling
       RescaleComponent(c - 1, num_chunks, &cur_data, &next_data);
     } else {
-      component.Propagate(cur_data, num_chunks, &next_data);
+      CuMatrix<BaseFloat> next_data_tmp(next_data);
+      component.Propagate(CuMatrix<BaseFloat>(cur_data), num_chunks, &next_data_tmp);
+      next_data_tmp.CopyToMat(&next_data);
     }
     cur_data.Swap(&next_data);
   }

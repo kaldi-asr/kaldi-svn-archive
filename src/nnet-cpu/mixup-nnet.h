@@ -20,6 +20,7 @@
 
 #include "nnet-cpu/nnet-update.h"
 #include "nnet-cpu/nnet-compute.h"
+#include "cudamatrix/cu-rand.h"
 #include "util/parse-options.h"
 
 namespace kaldi {

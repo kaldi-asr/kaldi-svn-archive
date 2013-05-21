@@ -19,14 +19,15 @@
 #ifndef KALDI_NNET_CPU_NNET_NNET_H_
 #define KALDI_NNET_CPU_NNET_NNET_H_
 
+#include <iostream>
+#include <sstream>
+#include <vector>
+
 #include "base/kaldi-common.h"
 #include "util/kaldi-io.h"
 #include "matrix/matrix-lib.h"
 #include "nnet-cpu/nnet-component.h"
-
-#include <iostream>
-#include <sstream>
-#include <vector>
+#include "cudamatrix/cu-common.h"
 
 
 namespace kaldi {
@@ -100,7 +101,7 @@ class Nnet {
   /// Scales the parameters of each of the updatable components.
   /// Here, scale_params is a vector of size equal to
   /// NumUpdatableComponents()
-  void ScaleComponents(const VectorBase<BaseFloat> &scales);
+  void ScaleComponents(const CuVectorBase<BaseFloat> &scales);
 
   /// Excise any components of type DropoutComponent.
   void RemoveDropout();
@@ -114,7 +115,7 @@ class Nnet {
   /// appropriate element of "scales" (which has the
   /// same format as for ScaleComponents(), i.e.
   /// one entry for each updatable component).
-  void AddNnet(const VectorBase<BaseFloat> &scales,
+  void AddNnet(const CuVectorBase<BaseFloat> &scales,
                const Nnet &other);
 
   /// Scales all the Components with the same scale.  This applies to
@@ -217,7 +218,7 @@ class Nnet {
 
   /// Set all the learning rates in the neural net to these values
   /// (one for each updatable layer).
-  void SetLearningRates(const VectorBase<BaseFloat> &learning_rates);
+  void SetLearningRates(const CuVectorBase<BaseFloat> &learning_rates);
   
 
   

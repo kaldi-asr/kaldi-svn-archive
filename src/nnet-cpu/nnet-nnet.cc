@@ -122,9 +122,9 @@ void Nnet::ComponentDotProducts(
         &(other.GetComponent(i)));
     KALDI_ASSERT((uc1 != NULL) == (uc2 != NULL));
     if (uc1 != NULL)
-      (*dot_prod)(i) = uc1->DotProduct(*uc2);
+      (*dot_prod)(i) = (uc1->DotProduct(*uc2));
     else
-      (*dot_prod)(i) = 0.0;
+      (*dot_prod)(i) = (0.0);
   }    
 }
 
@@ -242,6 +242,7 @@ void Nnet::AdjustLearningRates(
   for (int32 c = 0; c < NumComponents(); c++) {
     UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[c]);
     if (uc == NULL) { // Non-updatable component.
+      //XKALDI_ASSERT(old_model_old_gradient(c) == 0.0);
       KALDI_ASSERT(old_model_old_gradient(c) == 0.0);
       continue; 
     }
@@ -282,7 +283,7 @@ int32 Nnet::NumUpdatableComponents() const {
   return ans;
 }
 
-void Nnet::ScaleComponents(const VectorBase<BaseFloat> &scale_params) {
+void Nnet::ScaleComponents(const CuVectorBase<BaseFloat> &scale_params) {
   KALDI_ASSERT(scale_params.Dim() == this->NumUpdatableComponents());
   int32 i = 0;
   for (int32 j = 0; j < NumComponents(); j++) {
@@ -322,7 +323,7 @@ void Nnet::CopyStatsFrom(const Nnet &other) {
   }
 }
 
-void Nnet::SetLearningRates(const VectorBase<BaseFloat> &learning_rates) {
+void Nnet::SetLearningRates(const CuVectorBase<BaseFloat> &learning_rates) {
   KALDI_ASSERT(learning_rates.Dim() == this->NumUpdatableComponents());
   KALDI_ASSERT(learning_rates.Min() >= 0.0); // we allow zero learning rate.
   int32 i = 0;
@@ -372,7 +373,7 @@ void Nnet::RemovePreconditioning() {
   }
 }
 
-void Nnet::AddNnet(const VectorBase<BaseFloat> &scale_params,
+void Nnet::AddNnet(const CuVectorBase<BaseFloat> &scale_params,
                    const Nnet &other) {
   KALDI_ASSERT(scale_params.Dim() == this->NumUpdatableComponents());
   int32 i = 0;

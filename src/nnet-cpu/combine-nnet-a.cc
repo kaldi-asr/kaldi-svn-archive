@@ -29,7 +29,7 @@ static void GetUpdateDirection(const std::vector<Nnet> &nnets,
                                Nnet *direction) {
   KALDI_ASSERT(nnets.size() > 1);
   int32 num_new_nnets = nnets.size() - 1;
-  Vector<BaseFloat> scales(nnets[0].NumUpdatableComponents());
+  CuVector<BaseFloat> scales(nnets[0].NumUpdatableComponents());
 
   scales.Set(1.0 / num_new_nnets);
   
@@ -48,7 +48,7 @@ static void GetUpdateDirection(const std::vector<Nnet> &nnets,
 /// the appropriate scale.
 static void AddDirection(const Nnet &orig_nnet,
                          const Nnet &direction,
-                         const VectorBase<BaseFloat> &scales,
+                         const CuVectorBase<BaseFloat> &scales,
                          Nnet *dest) {
   *dest = orig_nnet;
   dest->AddNnet(scales, direction);
@@ -65,7 +65,8 @@ static BaseFloat ComputeObjfAndGradient(
   Vector<BaseFloat> scale_params_float(scale_params);
 
   Nnet nnet_combined;
-  AddDirection(orig_nnet, direction, scale_params_float, &nnet_combined);
+  CuVector<BaseFloat> scale_params_float_tmp(scale_params_float);
+  AddDirection(orig_nnet, direction, scale_params_float_tmp, &nnet_combined);
   
   Nnet nnet_gradient(nnet_combined);
   bool is_gradient = true;
@@ -192,7 +193,7 @@ void CombineNnetsA(const NnetCombineAconfig &config,
     }
   } // Else don't do the "overshoot" stuff.
   
-  Vector<BaseFloat> scale_params_float(scale_params);
+  CuVector<BaseFloat> scale_params_float(scale_params);
   // Output to "nnet_out":
   AddDirection(nnets[0], direction, scale_params_float, nnet_out);
 
