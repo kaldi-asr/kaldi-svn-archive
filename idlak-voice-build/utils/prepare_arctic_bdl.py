@@ -23,22 +23,25 @@
 
 # By default it will copy data into idlak-data/en/ga/bdl
 
-# Idlak filenames ahve the form <spk>_<g>nnnn_nnn[_nnn].ext
+# Idlak filenames have the form <spk>_<g>nnnn_nnn[_nnn].ext
 # where:
 # spk - a three letter lower case speaker name
 # g - a single lower case ascii character which indicates a genre of utterances
-# nnnn - a four digit number which can be used for paragraph or utterance set etc. (start at 001)
-# nnn - a three digit utterance number (start at 001)
-# for utterenaces that have been further split (i.e by extra pauses) an optional three digit 'spurt' number
-#     (start at 001)
+# nnnn - a four digit number which can be used for paragraph or utterance set etc.
+#    (start at 001)
+# nnn - a three digit utterance number
+#    (start at 001)
+# for utterenaces that have been further split (i.e by extra pauses) an optional
+# three digit 'spurt' number (start at 001)
 
-# arctic have the form arctic_a0nnn and arctic_b0nnn which will be remapped to bdl_a0001_nnn and bdl_b0001_nnn
+# arctic have the form arctic_a0nnn and arctic_b0nnn which will be remapped to
+# bdl_a0001_nnn and bdl_b0001_nnn
 
-# audio is 16khz and copied to wavdir/16000_orig In general all original corpus audio shoukld
-# be copied to such a directory name reflecting sample rate etc.
-# a symbolic link is then made between this directory and wavdir/16000 which is always the true
-# input to the kaldi voice build system. If audio preprocessing is carreid out then remove this link and
-# create copies as appropriate.
+# audio is 16khz and copied to wavdir/16000_orig In general all original corpus audio
+# should be copied to such a directory name reflecting sample rate etc.
+# a symbolic link is then made between this directory and wavdir/16000 which is always
+# the true input to the kaldi voice build system. If audio preprocessing is carried out
+# then remove this link and create copies as appropriate.
 
 import os, glob
 
