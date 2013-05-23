@@ -582,6 +582,16 @@ template<class Real> static void UnitTestCopyFromMat() {
 }
 
 template<class Real> static void UnitTestMatrix() {
+  //operator()
+  for (MatrixIndexT iter = 0; iter < 2; iter++) {
+    int32 dim1 = 6 + rand() % 10;
+    int32 dim2 = 8 + rand() % 10;
+    Matrix<Real> A(dim1,dim2);
+    A.SetRandn();
+    CuMatrix<Real> B(A);
+    KALDI_LOG << A(0,0) << '\n';
+    KALDI_LOG << B(0,0) << '\n';
+  }
   //AddMatMatDivMatElements
   for (MatrixIndexT iter = 0; iter < 1; iter++) {
     int32 dim = 6;//15 + rand() % 10;
@@ -762,7 +772,7 @@ template<class Real> static void UnitTestVector() {
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
   //UnitTestSimpleTest<Real>();
-  UnitTestTrace<Real>();
+  //UnitTestTrace<Real>();
   //UnitTestCholesky<Real>();
   //UnitTestInvert<Real>();
   //UnitInvert<Real>();
@@ -770,7 +780,7 @@ static void CuMatrixUnitTest(bool full_test) {
   //UnitTestCopySp<Real>();
   //UnitTestConstructor<Real>();
   //UnitTestVector<Real>();
-  //UnitTestMatrix<Real>();
+  UnitTestMatrix<Real>();
 }
 } //namespace
 

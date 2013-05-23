@@ -22,7 +22,7 @@
 
 
 #include "cudamatrix/cu-matrix.h"
-
+#include "base/kaldi-math.h"
 
 namespace kaldi {
 
@@ -76,7 +76,11 @@ class CuRand {
   CuMatrix<Real> tmp_;
 };
 
-
+/*
+template<typename Real> void CuRand<Real>::SeedBuffer(uint32* *tgt, MatrixIndexT state_size) {KALDI_ERR << __func__ << " Not implemented!"; }
+template<> inline void CuRand<float>::SeedBuffer(uint32* *tgt, MatrixIndexT state_size);
+template<> inline void CuRand<double>::SeedBuffer(uint32* *tgt, MatrixIndexT state_size);
+*/
 
 } // namsepace
 

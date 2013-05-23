@@ -31,7 +31,7 @@
 #include "cudamatrix/cu-math.h"
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-tp-matrix.h"
-#include "cu-rand.h"
+#include "cudamatrix/cu-rand.h"
 
 namespace kaldi {
 
@@ -278,10 +278,10 @@ class CuMatrixBase {
                           static_cast<UnsignedMatrixIndexT>(num_rows_) &&
                           static_cast<UnsignedMatrixIndexT>(c) <
                           static_cast<UnsignedMatrixIndexT>(num_cols_));
-    Real *value = new Real;
+    Real value = 0;
 
-    CU_SAFE_CALL(cudaMemcpy(value, RowData(r) + c, sizeof(Real), cudaMemcpyDeviceToHost));
-    return *value;
+    CU_SAFE_CALL(cudaMemcpy(&value, RowData(r) + c, sizeof(Real), cudaMemcpyDeviceToHost));
+    return value;
   }
 
   // void SetRandn();
