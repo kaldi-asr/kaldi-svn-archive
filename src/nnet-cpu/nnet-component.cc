@@ -70,9 +70,9 @@ Component* Component::NewComponentOfType(const std::string &component_type) {
     ans = new DctComponent();
   } else if (component_type == "FixedLinearComponent") {
     ans = new FixedLinearComponent();
-  } //else if (component_type == "SpliceComponent") {
-  //ans = new SpliceComponent();
-  //}
+  } else if (component_type == "SpliceComponent") {
+  ans = new SpliceComponent();
+  }
   else if (component_type == "DropoutComponent") {
     ans = new DropoutComponent();
   } else if (component_type == "AdditiveNoiseComponent") {
