@@ -21,6 +21,7 @@
 #include "nnet-cpu/am-nnet.h"
 #include "hmm/transition-model.h"
 #include "tree/context-dep.h"
+#include "cudamatrix/cu-common.h"
 
 namespace kaldi {
 void SetPriors(const TransitionModel &tmodel,
@@ -41,7 +42,7 @@ void SetPriors(const TransitionModel &tmodel,
   pdf_counts.Scale(1.0 / sum);
   pdf_counts.ApplyFloor(prior_floor);
   pdf_counts.Scale(1.0 / pdf_counts.Sum()); // normalize again.
-  am_nnet->SetPriors(pdf_counts);
+  am_nnet->SetPriors(CuVector<BaseFloat>(pdf_counts));
 }               
 }
 

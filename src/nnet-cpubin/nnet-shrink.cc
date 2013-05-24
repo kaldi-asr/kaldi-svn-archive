@@ -21,7 +21,7 @@
 #include "nnet-cpu/nnet-randomize.h"
 #include "nnet-cpu/shrink-nnet.h"
 #include "nnet-cpu/am-nnet.h"
-
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {

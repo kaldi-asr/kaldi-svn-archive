@@ -21,6 +21,7 @@
 #include "nnet-cpu/nnet-randomize.h"
 #include "nnet-cpu/nnet-lbfgs.h"
 #include "nnet-cpu/am-nnet.h"
+#include "cudamatrix/cu-common.h"
 
 namespace kaldi {
 void NormalizeNnet(Nnet *nnet) {
@@ -114,7 +115,7 @@ int main(int argc, char *argv[]) {
       KALDI_LOG << "Scaling neural net parameters by " << scale;
       Vector<BaseFloat> scales(am_nnet.GetNnet().NumUpdatableComponents());
       scales.Set(scale);
-      am_nnet.GetNnet().ScaleComponents(scales);
+      am_nnet.GetNnet().ScaleComponents(CuVector<BaseFloat>(scales));
     }
 
     if (normalize) {

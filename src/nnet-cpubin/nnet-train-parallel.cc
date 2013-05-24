@@ -21,10 +21,14 @@
 #include "nnet-cpu/nnet-randomize.h"
 #include "nnet-cpu/nnet-update-parallel.h"
 #include "nnet-cpu/am-nnet.h"
+#include "cudamatrix/cu-device.h"
+#include "cudamatrix/cu-common.h"
 
 
 int main(int argc, char *argv[]) {
   try {
+    kaldi::int32 use_gpu_id = -2; // -2 means automatic selection.
+    kaldi::CuDevice::Instantiate().SelectGpuId(use_gpu_id);
     using namespace kaldi;
     typedef kaldi::int32 int32;
     typedef kaldi::int64 int64;

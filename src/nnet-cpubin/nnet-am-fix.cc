@@ -22,6 +22,7 @@
 #include "nnet-cpu/am-nnet.h"
 #include "hmm/transition-model.h"
 #include "tree/context-dep.h"
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {

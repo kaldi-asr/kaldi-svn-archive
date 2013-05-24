@@ -21,7 +21,7 @@
 #include "nnet-cpu/nnet-randomize.h"
 #include "nnet-cpu/train-nnet.h"
 #include "nnet-cpu/am-nnet.h"
-
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -89,7 +89,9 @@ int main(int argc, char *argv[]) {
         continue;
       }
       Matrix<BaseFloat> output(output_frames, output_dim);
-      NnetComputation(nnet, feats, spk_info, pad_input, &output);
+      CuMatrix<BaseFloat> output_tmp(output);
+      NnetComputation(nnet, CuMatrix<BaseFloat>(feats), CuVector<BaseFloat>(spk_info), pad_input, &output_tmp);
+      output_tmp.CopyToMat(&output);
 
       if (apply_log) {
         output.ApplyFloor(1.0e-20);

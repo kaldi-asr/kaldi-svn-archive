@@ -21,7 +21,7 @@
 #include "nnet-cpu/nnet-randomize.h"
 #include "nnet-cpu/nnet-update-parallel.h"
 #include "nnet-cpu/am-nnet.h"
-
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 
     int64 num_done = 0, num_err = 0;
 
-    Vector<BaseFloat> inv_priors(am_nnet.Priors());
+    Vector<BaseFloat> inv_priors(am_nnet.Priors().Vec());
     KALDI_ASSERT(inv_priors.Dim() == am_nnet.NumPdfs() &&
                  "Priors in neural network not set up.");
     inv_priors.ApplyPow(-1.0);
@@ -101,7 +101,9 @@ int main(int argc, char *argv[]) {
       }
       
       Matrix<BaseFloat> log_probs(feats.NumRows(), am_nnet.NumPdfs());
-      NnetComputation(am_nnet.GetNnet(), feats, spk_vec, pad_input, &log_probs);
+      CuMatrix<BaseFloat> log_probs_tmp(log_probs);
+      NnetComputation(am_nnet.GetNnet(), CuMatrix<BaseFloat>(feats), CuVector<BaseFloat>(spk_vec), pad_input, &log_probs_tmp);
+      log_probs_tmp.CopyToMat(&log_probs);
       // at this point "log_probs" contains actual probabilities, not logs.
 
       if (divide_by_priors) {

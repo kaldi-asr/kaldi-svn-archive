@@ -21,6 +21,7 @@
 #include "nnet-cpu/am-nnet.h"
 #include "hmm/transition-model.h"
 #include "tree/context-dep.h"
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -108,7 +109,7 @@ int main(int argc, char *argv[]) {
       }
       SubVector<BaseFloat> learning_rates_vector(&(learning_rates_vec[0]),
                                                  learning_rates_vec.size());
-      am_nnet.GetNnet().SetLearningRates(learning_rates_vector);
+      am_nnet.GetNnet().SetLearningRates(CuVector<BaseFloat>(learning_rates_vector));
     }
 
     if (scales != "") {
@@ -123,14 +124,14 @@ int main(int argc, char *argv[]) {
       }
       SubVector<BaseFloat> scales_vector(&(scales_vec[0]),
                                          scales_vec.size());
-      am_nnet.GetNnet().ScaleComponents(scales_vector);
+      am_nnet.GetNnet().ScaleComponents(CuVector<BaseFloat>(scales_vector));
     }
 
     if (truncate >= 0) {
       am_nnet.GetNnet().Resize(truncate);
       if (am_nnet.GetNnet().OutputDim() != am_nnet.Priors().Dim()) {
         Vector<BaseFloat> empty_priors;
-        am_nnet.SetPriors(empty_priors); // so dims don't disagree.
+        am_nnet.SetPriors(CuVector<BaseFloat>(empty_priors)); // so dims don't disagree.
       }
     }
 

@@ -24,7 +24,7 @@ all:  $(BINFILES)
 TESTFILES =
 
 
-$(BINFILES): ../nnet-cpu/kaldi-nnet-cpu.a ../gmm/kaldi-gmm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a ../thread/kaldi-thread.a ../matrix/kaldi-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a 
+$(BINFILES): ../nnet-cpu/kaldi-nnet-cpu.a ../gmm/kaldi-gmm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a ../thread/kaldi-thread.a ../matrix/kaldi-matrix.a ../cudamatrix/cuda-matrix.a ../util/kaldi-util.a ../base/kaldi-base.a
 
 
 

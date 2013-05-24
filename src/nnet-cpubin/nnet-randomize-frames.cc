@@ -15,10 +15,12 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
 #include "nnet-cpu/nnet-randomize.h"
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {

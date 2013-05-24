@@ -22,6 +22,7 @@
 #include "nnet-cpu/nnet-update-parallel.h"
 #include "nnet-cpu/am-nnet.h"
 #include "thread/kaldi-task-sequence.h"
+#include "cudamatrix/cu-common.h"
 
 namespace kaldi {
 
@@ -37,8 +38,10 @@ struct NnetLogprobTask {
   void operator () () {
     log_probs_.Resize(feats_.NumRows(), am_nnet_.NumPdfs());
     bool pad_input = true;
-    NnetComputation(am_nnet_.GetNnet(), feats_, spk_vec_, pad_input,
-                    &log_probs_);
+    CuMatrix<BaseFloat> log_probs_tmp(log_probs_);
+    NnetComputation(am_nnet_.GetNnet(), CuMatrix<BaseFloat>(feats_), CuVector<BaseFloat>(spk_vec_), pad_input,
+                    &log_probs_tmp);
+    log_probs_tmp.CopyToMat(&log_probs_);
   }
 
   ~NnetLogprobTask() { // Produces output.  Run sequentially.
@@ -124,7 +127,7 @@ int main(int argc, char *argv[]) {
 
     int64 num_done = 0, num_err = 0;
 
-    Vector<BaseFloat> inv_priors(am_nnet.Priors());
+    Vector<BaseFloat> inv_priors(am_nnet.Priors().Vec());
     KALDI_ASSERT(inv_priors.Dim() == am_nnet.NumPdfs() &&
                  "Priors in neural network not set up.");
     inv_priors.ApplyPow(-1.0);

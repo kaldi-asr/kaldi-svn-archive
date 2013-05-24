@@ -25,7 +25,7 @@
 #include "decoder/lattice-faster-decoder.h"
 #include "nnet-cpu/decodable-am-nnet.h"
 #include "util/timer.h"
-
+#include "cudamatrix/cu-common.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -137,8 +137,8 @@ int main(int argc, char *argv[]) {
           bool pad_input = true;
           DecodableAmNnet nnet_decodable(trans_model,
                                          am_nnet,
-                                         features,
-                                         spk_info,
+                                         CuMatrix<BaseFloat>(features),
+                                         CuVector<BaseFloat>(spk_info),
                                          pad_input,
                                          acoustic_scale);
           double like;
@@ -186,8 +186,8 @@ int main(int argc, char *argv[]) {
         bool pad_input = true;
         DecodableAmNnet nnet_decodable(trans_model,
                                        am_nnet,
-                                       features,
-                                       spk_info,
+                                       CuMatrix<BaseFloat>(features),
+                                       CuVector<BaseFloat>(spk_info),
                                        pad_input,
                                        acoustic_scale);
         double like;

@@ -19,6 +19,7 @@
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
 #include "nnet-cpu/nnet-randomize.h"
+#include "cudamatrix/cu-common.h"
 
 namespace kaldi {
 
