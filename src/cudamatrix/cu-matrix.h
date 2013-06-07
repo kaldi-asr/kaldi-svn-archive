@@ -279,8 +279,18 @@ class CuMatrixBase {
                           static_cast<UnsignedMatrixIndexT>(c) <
                           static_cast<UnsignedMatrixIndexT>(num_cols_));
     Real value = 0;
-
-    CU_SAFE_CALL(cudaMemcpy(&value, RowData(r) + c, sizeof(Real), cudaMemcpyDeviceToHost));
+   #if HAVE_CUDA==1
+    if (CuDevice::Instantiate().Enabled()) {
+      Timer tim;
+      
+      CU_SAFE_CALL(cudaMemcpy(&value, RowData(r) + c, sizeof(Real), cudaMemcpyDeviceToHost));
+      CU_SAFE_CALL(cudaGetLastError());
+      CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+    } else
+   #endif
+    {
+      value = Mat()(r,c);
+    }
     return value;
   }
 
