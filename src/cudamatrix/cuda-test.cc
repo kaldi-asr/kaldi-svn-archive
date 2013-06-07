@@ -64,8 +64,7 @@ static void AssertEqual(const SpMatrix<Real> &A,
   KALDI_ASSERT(A.NumRows() == B.NumRows());
   for (MatrixIndexT i = 0;i < A.NumRows();i++) {
     for (MatrixIndexT j = 0;j <= i;j++) {
-      KALDI_ASSERT(std::abs(A(i, j)-B(i, j)) < tol*std::max(1.0, (double) (std::abs(A(\
-          i, j))+std::abs(B(i, j)))));
+      KALDI_ASSERT(std::abs(A(i, j)-B(i, j)) < tol*std::max(1.0, (double) (std::abs(A(          i, j))+std::abs(B(i, j)))));
     }
   }
 }
@@ -633,6 +632,23 @@ template<class Real> static void UnitTestMatrix() {
 }
 
 template<class Real> static void UnitTestVector() {
+  // Scale
+  for (MatrixIndexT iter = 0; iter < 10; iter++) {
+    int32 dim = 24 + rand() % 10;
+    Vector<Real> A(dim);
+    A.SetRandn();
+    CuVector<Real> B(A);
+    Vector<Real> C(dim);
+    Real r = 1.43;
+    B.Scale(r);
+    B.CopyToVec(&C);
+    A.Scale(r);
+    //KALDI_LOG << A;
+    //KALDI_LOG << (A.Scale(r));
+    //KALDI_LOG << C;
+    AssertEqual(A, C);
+  }
+  
   for (MatrixIndexT iter = 0; iter < 10; iter++) {
     int32 dim = 15 + rand() % 10;
     CuVector<Real> A(dim);
@@ -779,8 +795,8 @@ static void CuMatrixUnitTest(bool full_test) {
   //UnitTestCopyFromMat<Real>();
   //UnitTestCopySp<Real>();
   //UnitTestConstructor<Real>();
-  //UnitTestVector<Real>();
-  UnitTestMatrix<Real>();
+  UnitTestVector<Real>();
+  //UnitTestMatrix<Real>();
 }
 } //namespace
 

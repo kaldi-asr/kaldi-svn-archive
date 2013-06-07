@@ -30,6 +30,8 @@
 #include "cudamatrix/cu-device.h"
 #include "cudamatrix/cu-kernels.h"
 
+#include "base/kaldi-common.h"
+
 namespace kaldi {
 
 
@@ -296,7 +298,12 @@ void CuVectorBase<Real>::Scale(Real value) {
     dim3 dimBlock(CUBLOCK);
     dim3 dimGrid(n_blocks(Dim(), CUBLOCK));
     ::MatrixDim d = { 1, Dim(), Dim() };
-
+    if (Dim() == 0 ) return;
+    KALDI_LOG << "dimension is : " << Dim() << '\n';
+    KALDI_LOG << "value is : " << value << '\n';
+    KALDI_LOG << "dimBlock is : " << CUBLOCK << '\n';
+    KALDI_LOG << "dimGrid is : " << n_blocks(Dim(), CUBLOCK) << '\n';
+    
     cuda_scale(dimGrid, dimBlock, data_, value, d);
     CU_SAFE_CALL(cudaGetLastError());
 
