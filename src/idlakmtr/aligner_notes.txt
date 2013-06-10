@@ -18,8 +18,11 @@ utt2spk
 spk2utt
 utils/utt2spk_to_spk2utt.pl data/train/utt2spk > data/train/spk2utt
 
+# using tutorial from wsj/s5
+# needs path to src/featbin to run compute-mfcc-feats
+# need steps, utils and conf linked into current directory 
 feats.scp
-steps/make_mfcc.sh --nj 20 --cmd "$train_cmd" data/train exp/make_mfcc/train $mfccdir 
+steps/make_mfcc.sh --nj 1 --cmd "$train_cmd" data/train exp/make_mfcc/train $mfccdir 
 
 cmvn.scp
 steps/compute_cmvn_stats.sh data/train exp/make_mfcc/train $mfccdir
@@ -36,11 +39,27 @@ silence_phones.txt - silence phones
 
 utils/prepare_lang.sh 
 
+#Has to be run from here with support scripts in utils
+# needs path to src/fstbin to run fstaddselfloops ???!??
+# multiplies up phones by word position
+# script is horrible and unreadable
+# ./utils/prepare_lang.sh data '<OOV>' /tmp/matthew data/lang
 #This also generates the HMM prototype
 
 
 #Then
-steps/train_mono.sh
+# requires src/gmmbin src/bin on path
+# also script runs utils/*.pl so that also should be on path
+steps/train_mono.sh --nj 1 data/train data/lang exp
 
 #Then get alignnents
-show-alignments data/lang/phones.txt $dir/30.mdl "ark:gunzip -c $dir/ali.0.gz|" | head -4
+show-alignments data/lang/phones.txt exp/30.mdl "ark:gunzip -c exp/ali.0.gz|" | head -4
+
+export PATH=/home/matthewa/kaldi/matthewa/kaldi-idlak/egs/arctic/s1/utils:$PATH
+export PATH=/home/matthewa/kaldi/matthewa/kaldi-idlak/src/bin:$PATH
+export PATH=/home/matthewa/kaldi/matthewa/kaldi-idlak/src/fstbin:$PATH
+export PATH=/home/matthewa/kaldi/matthewa/kaldi-idlak/src/gmmbin:$PATH
+utils/utt2spk_to_spk2utt.pl data/train/utt2spk > data/train/spk2utt
+steps/make_mfcc.sh --nj 1 data/train exp/make_mfcc/train data/mfcc
+steps/compute_cmvn_stats.sh data/train exp/make_mfcc/train data/mfcc
+steps/train_mono.sh --nj 1 data/train data/lang exp

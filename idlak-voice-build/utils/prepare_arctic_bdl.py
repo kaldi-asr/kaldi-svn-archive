@@ -116,7 +116,7 @@ def process_transcription(scratchdir, datadir):
         text = text.replace('Mrs ', ' Missus ')
         text = text.replace(' etc.', ' etcetera.')
         text = text.replace(' -- ', ', ')
-        fpx.write("<fileid id='%s'>\n%s\n</fileid>\n" % (id, text))
+        fpx.write("<fileid id='%s'>\n%s\n</fileid>\n" % (idlakid, text))
         print "%s %s" % (idlakid, text)
     fpx.write("</document>\n")
     fpx.close()
@@ -148,7 +148,7 @@ def main():
     #create directories as required
     create_dirs()
 
-    # Downlaod corpus
+    # Download corpus
     download(SCRATCH_DATA_DIR)
 
     # Process transcription

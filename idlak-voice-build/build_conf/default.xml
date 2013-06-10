@@ -1,56 +1,62 @@
 <build_config>
-  <!-- language, accent, speaker filled in by speaker config -->
-  <!-- working directories relative to idlak-voice-build directory 
-       or with absolute paths -->
+  <!-- language, accent, speaker, region filled in by speaker config -->
+  <!-- if working directories are not set they default to
+       (relative to idlak-voice-build directory)
+       idlakdata="../idlak-data"
+       idlakscratch="./idlak-scratch"
+       idlakwav="../idlak-data"
+       kaldidir=".."
+       otherwise relative to curdir -->
   <!-- all general and log options can overridden on the comand line -->
   <general
-      options="idlak-data,idlak-scratch,idlak-wav,flist,keepall,spkconf,bldconf,depend,force"
-      lang=""
-      lang_desc="Lower case two letter iso language code e.g. 'en'"
-      acc=""
-      acc_desc="Lower case two letter iso code e.g. 'ga' - General American"
-      spk=""
-      spk_desc="Lower case three letter speaker code e.g. 'bdl' - Arctic bdl speaker"
-      idlak-data="../idlak-data"
-      idlak-scratch="./idlak-scratch"
-      idlak-wav="../idlak-data"
+      options="idlakdata,idlakscratch,idlakwav,kaldisrc,flist,clean,spkconf,bldconf,depend,force,buildid"
+      lang="xx"
+      lang_desc="SPK CONF: Lower case two letter iso language code e.g. 'en'"
+      acc="xx"
+      acc_desc="SPK CONF: Lower case two letter iso code e.g. 'ga' - General American"
+      reg="xx"
+      reg_desc="SPK CONF: Lower case two letter region iso code e.g. 'us' - United States"
+      spk="xxx"
+      spk_desc="SPK CONF: Lower case three letter speaker code e.g. 'bdl' - Arctic bdl speaker"
+      idlakdata=""
+      idlakscratch=""
+      idlakwav=""
+      kaldidir=""
       buildid="000000"
+      buildid_desc="Unique id for this build (typically YYMMDD)"
       flist=""
       flist_desc="File containing one file name stem per line either with or without spk value e.g. bdl_a0001_001 or a0001_001. If set uses only these files to build a voice."
-      keepall="True"
-      keepall_desc="If set keeps all data generated in idlak-scratch"
+      clean="False"
+      clean_desc="If set keeps all data generated in idlak-scratch"
       spkconf=""
-      splconf_desc="Speaker configuration file"
+      splconf_desc="REQUIRED: Speaker configuration file"
       bldconf=""
       bldconf_desc="Custom build configuration file"
       depend="False"
-      depend_desc="Build dependent modules if out of date"
-      force="False"
-      force_desc="Force rebuild of all dependent modules" 
+      depend_desc="Build dependent modules if no present"
       />
   <!-- log level one of None, Critical, Error, Warn, Info, Debug -->
   <logging
-      options = "log,logdir,logname,loglevel,logtofile,logtostdout"
-      log="True"
-      log_desc="If set log messages to file or screen or both"
+      options = "nolog,logdir,logname,loglevel,logtofile,logtostderr"
+      nolog="False"
+      nolog_desc="Switch off log messages to file or screen or both"
       logdir="."
       logdir_desc="Directory to write log file if writing to file"
-      logname="idlak-build.log"
+      logname=""
       logname_desc="Log filename"
       loglevel="Debug"
       loglevel_desc="one of None, Critical, Error, Warn, Info, Debug"
       logtofile="False"
       logtofile_desc="If set log messages to file"
-      logtostdout="True"
-      logtostdout_desc="If set log messages to screen"
+      logtostderr="True"
+      logtostderr_desc="If set log messages to screen on stderr"
       />
-  <!-- build master will run this module(s) in order with dependencies -->
-  <master
-      run="align_def"
-      />
-  <!-- When a module runs if dependencies are switched on it will check
-       to see if lex has been rerun. If rebuild is true it will rerun it
-       else it will only rerun it if it is later than the module -->
+  <!-- When a module runs: if dependencies are switched on it will check
+       to see if dependent modules have been run if not it will run the the
+       dependent module. -->
+  <!-- WARNING: if a dependent module is run out of sequence later modules
+       will not detect the module data has changed and rerun to rebuild all 
+       remove all files connected with the buildid or choose a new buildid -->
   <!-- Modules may have module specific options, if they are set in module
        with a dependency or in the master build they will override
        defaults and user build conf file values -->
@@ -58,14 +64,14 @@
       depend="align_def"
       />     
   <align_def
-      depend="sslex_def"
+      depend="alignsetup_def"
       options="opt1,opt2"
       opt1="DummyDefaultValue"
       opt1_desc="Test module specific option 1" 
       opt2="DummyDefaultValue"
       opt2_desc="Test module specific option 2" 
       />     
-  <sslex_def 
+  <alignsetup_def 
       />
 </build_config>
     

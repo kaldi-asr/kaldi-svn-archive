@@ -132,9 +132,10 @@ def textnorm(datadir, force = False):
         print com
         os.system(com)
 
-def kaldidata(datadir, force=False):
+def kaldidata(datadir, wavdir, force=False):
     if force or not os.path.isdir(os.path.join(datadir, "train")):
-        os.mkdir(os.path.join(datadir, "train"))
+        if not os.path.isdir(os.path.join(datadir, "train")):
+            os.mkdir(os.path.join(datadir, "train"))
         # load into XML
         p = xml.sax.make_parser()
         handler = saxhandler()
@@ -148,7 +149,7 @@ def kaldidata(datadir, force=False):
         fp = open(os.path.join(datadir, "train", "wav.scp"), 'w')
         fputt2spk = open(os.path.join(datadir, "train", "utt2spk"), 'w')
         for uttid in handler.ids:
-            fp.write("%s %s\n" % (uttid, os.path.join(datadir, WAVDIR, uttid + '.wav')))
+            fp.write("%s %s\n" % (uttid, os.path.join(datadir, wavdir, uttid + '.wav')))
             fputt2spk.write("%s bdl\n" % (uttid))
         fp.close()
         fputt2spk.close()
@@ -216,6 +217,7 @@ def main():
     cwd = os.getcwd()
     usage="Usage: %prog [-h]\n\nDownload and segment arctic speaker bdl."
     parser = OptionParser(usage=usage)
+    opts, args = parser.parse_args()
 
     # set up directories
     datadir = os.path.join(cwd, "data")
@@ -230,7 +232,7 @@ def main():
     textnorm(datadir)
 
     # kaldi input data
-    kaldidata(datadir)
+    kaldidata(datadir, WAVDIR)
 
     # update path for kaldi scripts
     pathlist = ['./utils', '../../../src/featbin', '../../../src/bin', '../../../src/fstbin', '../../../src/gmmbin' ]
