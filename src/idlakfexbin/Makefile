@@ -5,7 +5,7 @@ EXTRA_CXXFLAGS = -Wno-sign-compare
 include ../kaldi.mk
 
 ifeq ($(IDLAK),true)
-	BINFILES = idlakfex
+	BINFILES = idlakfex, wavinfo
 	OBJFILES =
 else
 	BINFILES =
@@ -18,7 +18,7 @@ all:  $(BINFILES)
 TESTFILES =
 
 
-$(BINFILES): ../idlakfex/idlakfex.a ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a 
+$(BINFILES): ../idlakfex/idlakfex.a ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a ../matrix/kaldi-matrix.a ../feat/kaldi-feature.a
 
 # Rule below would expand to, e.g.:
 # ../base/kaldi-base.a:
