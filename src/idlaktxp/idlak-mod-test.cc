@@ -58,8 +58,8 @@ int main(int argc, char *argv[]) {
       "Test IDLAK Module\n"
       "Usage:  idlak-mod-test xml_input_dir xml_output_dir\n";
 
-  std::string dirin = ".";
-  std::string dirout = ".";
+  std::string dirin = "test_data";
+  std::string dirout = "test_data";
   std::string filein;
   std::string fileout;
   std::string filereg;

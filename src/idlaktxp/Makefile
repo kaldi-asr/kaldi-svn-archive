@@ -2,22 +2,18 @@
 
 all:
 
-OPENFST_CXXFLAGS = 
-OPENFST_LDLIBS =
+EXTRA_CXXFLAGS = -I$(PCREROOT)/include -I$(EXPATROOT)/include -I$(PUJIXMLROOT)/src
+EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLROOT)/scripts/libpugixml.a
 
 include ../kaldi.mk
 
-ifeq ($(IDLAK),true)
-	TESTFILES = idlak-mod-test
+TESTFILES = idlak-mod-test
 
-	OBJFILES = txpconfig.o txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o mod-tokenise.o mod-postag.o mod-pauses.o mod-phrasing.o mod-pronounce.o mod-syllabify.o
+OBJFILES = txpconfig.o txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o \
+	   txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o mod-tokenise.o \
+	   mod-postag.o mod-pauses.o mod-phrasing.o mod-pronounce.o mod-syllabify.o
 
-	LIBFILE = idlaktxp.a
-else
-	TESTFILES =
-	OBJJFILES =
-	LIBFILE =
-endif
+LIBFILE = idlaktxp.a
 
 all:  $(LIBFILE)
 
@@ -39,9 +35,11 @@ $(TESTFILES): $(LIBFILE) ../util/kaldi-util.a ../base/kaldi-base.a
 clean:
 	-rm -f *.o *.a $(TESTFILES) tmp* *.tmp
 
-test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || (echo "***test $$x failed***"; exit 1); done  
-	echo Tests succeeded
+test_compile: $(TESTFILES)
+
+test: test_compile
+	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
+
 
 .valgrind: $(TESTFILES)
 

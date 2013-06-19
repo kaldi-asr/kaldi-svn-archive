@@ -1,23 +1,14 @@
 
-
 all:
 
-OPENFST_CXXFLAGS = 
-OPENFST_LDLIBS =
+EXTRA_CXXFLAGS = -I$(PCREROOT)/include -I$(EXPATROOT)/include -I$(PUJIXMLROOT)/src
+EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLROOT)/scripts/libpugixml.a
 
 include ../kaldi.mk
 
-ifeq ($(IDLAK),true)
-	TESTFILES = 
-
-	OBJFILES = fex.o fexfunctions.o fexfunctionscatalog.o 
-
-	LIBFILE = idlakfex.a
-else
-	TESTFILES =
-	OBJJFILES =
-	LIBFILE =
-endif
+TESTFILES = 
+OBJFILES = fex.o fexfunctions.o fexfunctionscatalog.o 
+LIBFILE = idlakfex.a
 
 all:  $(LIBFILE)
 

@@ -1,22 +1,17 @@
 
 all:
 
-EXTRA_CXXFLAGS = -Wno-sign-compare
+EXTRA_CXXFLAGS = -I$(PCREROOT)/include -I$(EXPATROOT)/include -I$(PUJIXMLROOT)/src
+EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLROOT)/scripts/libpugixml.a
+
 include ../kaldi.mk
 
-ifeq ($(IDLAK),true)
-	BINFILES = idlakfex, wavinfo
-	OBJFILES =
-else
-	BINFILES =
-	OBJFILES =
-endif
+BINFILES = idlakfex, wavinfo
+OBJFILES =
 
 all:  $(BINFILES)
 
-
 TESTFILES =
-
 
 $(BINFILES): ../idlakfex/idlakfex.a ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a ../matrix/kaldi-matrix.a ../feat/kaldi-feature.a
 

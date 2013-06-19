@@ -1,22 +1,17 @@
 
 all:
 
-EXTRA_CXXFLAGS = -Wno-sign-compare
+EXTRA_CXXFLAGS = -I$(PCREROOT)/include -I$(EXPATROOT)/include -I$(PUJIXMLROOT)/src
+EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLROOT)/scripts/libpugixml.a
+
 include ../kaldi.mk
 
-ifeq ($(IDLAK),true)
-	BINFILES = idlaktxp
-	OBJFILES =
-else
-	BINFILES =
-	OBJFILES =
-endif
+BINFILES = idlaktxp
+OBJFILES =
 
 all:  $(BINFILES)
 
-
 TESTFILES =
-
 
 $(BINFILES): ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a 
 
@@ -32,9 +27,10 @@ $(BINFILES): ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a
 clean:
 	-rm -f *.o *.a $(TESTFILES) $(BINFILES)
 
-test: $(TESTFILES)
-	for x in $(TESTFILES); do ./$$x >/dev/null 2>&1 || (echo "***test $$x failed***"; exit 1); done  
-	echo Tests succeeded
+test_compile: $(TESTFILES)
+
+test: test_compile
+	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
 
 .valgrind: $(TESTFILES)
 
