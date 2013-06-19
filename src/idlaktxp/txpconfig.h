@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPCONFIG_H_
-#define SRC_IDLAKTXP_TXPCONFIG_H_
+#ifndef KALDI_IDLAKTXP_TXPCONFIG_H_
+#define KALDI_IDLAKTXP_TXPCONFIG_H_
 
 #include <string>
 #include "pugixml.hpp"
@@ -72,4 +72,4 @@ class TxpConfig {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPCONFIG_H_
+#endif  // KALDI_IDLAKTXP_TXPCONFIG_H_

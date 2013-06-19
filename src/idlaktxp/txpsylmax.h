@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPSYLMAX_H_
-#define SRC_IDLAKTXP_TXPSYLMAX_H_
+#ifndef KALDI_IDLAKTXP_TXPSYLMAX_H_
+#define KALDI_IDLAKTXP_TXPSYLMAX_H_
 
 // This file contains functions which carry out maximal onset
 // syllabification
@@ -128,4 +128,4 @@ struct TxpSylItem {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPSYLMAX_H_
+#endif  // KALDI_IDLAKTXP_TXPSYLMAX_H_

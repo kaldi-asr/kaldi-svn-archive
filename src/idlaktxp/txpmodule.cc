@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-#include "./txpmodule.h"
+#include "idlaktxp/txpmodule.h"
 
 namespace kaldi {
 

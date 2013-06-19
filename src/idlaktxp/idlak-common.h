@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_IDLAK_COMMON_H_
-#define SRC_IDLAKTXP_IDLAK_COMMON_H_
+#ifndef KALDI_IDLAKTXP_IDLAK_COMMON_H_
+#define KALDI_IDLAKTXP_IDLAK_COMMON_H_
 
 // This file defines items used across the whole of idlak
 
@@ -51,4 +51,4 @@ typedef std::set<std::string> StringSet;
 typedef std::vector<char * > CharPtrVector;
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_IDLAK_COMMON_H__
+#endif  // KALDI_IDLAKTXP_IDLAK_COMMON_H__

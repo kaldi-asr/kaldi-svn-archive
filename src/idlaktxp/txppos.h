@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPPOS_H_
-#define SRC_IDLAKTXP_TXPPOS_H_
+#ifndef KALDI_IDLAKTXP_TXPPOS_H_
+#define KALDI_IDLAKTXP_TXPPOS_H_
 
 // This file defines greedy part of speech tagger class which
 // determines pos tags for each normalised word and the tag set 
@@ -101,4 +101,4 @@ class TxpPosSet: public TxpXmlData {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPPOS_H_
+#endif  // KALDI_IDLAKTXP_TXPPOS_H_

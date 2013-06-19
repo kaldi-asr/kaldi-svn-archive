@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPLEXICON_H_
-#define SRC_IDLAKTXP_TXPLEXICON_H_
+#ifndef KALDI_IDLAKTXP_TXPLEXICON_H_
+#define KALDI_IDLAKTXP_TXPLEXICON_H_
 
 // This file defines the lexicon class to hold pronunciation dictionaries
 
@@ -107,4 +107,4 @@ struct TxpLexiconLkp {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPLEXICON_H_
+#endif  // KALDI_IDLAKTXP_TXPLEXICON_H_

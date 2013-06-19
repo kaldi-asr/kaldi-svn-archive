@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPUTF8_H_
-#define SRC_IDLAKTXP_TXPUTF8_H_
+#ifndef KALDI_IDLAKTXP_TXPUTF8_H_
+#define KALDI_IDLAKTXP_TXPUTF8_H_
 
 // This class offers some limited utf8 functionality
 
@@ -51,4 +51,4 @@ class TxpUtf8 {
 /// @} end of \addtogroup idlak_utils
 
 
-#endif  // SRC_IDLAKTXP_TXPUTF8_H_
+#endif  // KALDI_IDLAKTXP_TXPUTF8_H_

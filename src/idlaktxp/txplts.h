@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPLTS_H_
-#define SRC_IDLAKTXP_TXPLTS_H_
+#ifndef KALDI_IDLAKTXP_TXPLTS_H_
+#define KALDI_IDLAKTXP_TXPLTS_H_
 
 // This file defines the cart letter to sound system
 
@@ -89,4 +89,4 @@ struct TxpLtsNode {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPLTS_H_
+#endif  // KALDI_IDLAKTXP_TXPLTS_H_

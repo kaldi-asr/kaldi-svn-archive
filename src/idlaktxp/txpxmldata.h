@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPXMLDATA_H_
-#define SRC_IDLAKTXP_TXPXMLDATA_H_
+#ifndef KALDI_IDLAKTXP_TXPXMLDATA_H_
+#define KALDI_IDLAKTXP_TXPXMLDATA_H_
 
 // This file wraps expat into a class
 #include <expat.h>
@@ -97,4 +97,4 @@ class TxpXmlData {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPXMLDATA_H_
+#endif  // KALDI_IDLAKTXP_TXPXMLDATA_H_

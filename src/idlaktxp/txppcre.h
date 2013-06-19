@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPPCRE_H_
-#define SRC_IDLAKTXP_TXPPCRE_H_
+#ifndef KALDI_IDLAKTXP_TXPPCRE_H_
+#define KALDI_IDLAKTXP_TXPPCRE_H_
 
 // This file wraps pcre into a class which holds match information
 
@@ -61,4 +61,4 @@ class TxpPcre {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPPCRE_H_
+#endif  // KALDI_IDLAKTXP_TXPPCRE_H_

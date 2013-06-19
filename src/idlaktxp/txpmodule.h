@@ -16,8 +16,8 @@
 // limitations under the License.
 //
 
-#ifndef SRC_IDLAKTXP_TXPMODULE_H_
-#define SRC_IDLAKTXP_TXPMODULE_H_
+#ifndef KALDI_IDLAKTXP_TXPMODULE_H_
+#define KALDI_IDLAKTXP_TXPMODULE_H_
 
 // This file defines the basic txp module which incrementally parses
 // either text, tox (token oriented xml) tokens, or spurts (phrases)
@@ -25,15 +25,16 @@
 
 #include <string>
 #include "pugixml.hpp"
+
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpconfig.h"
-#include "./txpnrules.h"
-#include "./txppos.h"
-#include "./txppbreak.h"
-#include "./txplexicon.h"
-#include "./txplts.h"
-#include "./txpsylmax.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpconfig.h"
+#include "idlaktxp/txpnrules.h"
+#include "idlaktxp/txppos.h"
+#include "idlaktxp/txppbreak.h"
+#include "idlaktxp/txplexicon.h"
+#include "idlaktxp/txplts.h"
+#include "idlaktxp/txpsylmax.h"
 
 namespace kaldi {
 
@@ -184,4 +185,4 @@ class TxpSyllabify : public TxpModule {
 
 }  // namespace kaldi
 
-#endif  // SRC_IDLAKTXP_TXPMODULE_H_
+#endif  // KALDI_IDLAKTXP_TXPMODULE_H_
