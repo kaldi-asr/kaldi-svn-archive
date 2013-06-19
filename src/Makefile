@@ -20,7 +20,7 @@ kaldi.mk:
 	@[ -f kaldi.mk ] || { echo "kaldi.mk does not exist; you have to run ./configure"; exit 1; }
 
 # Compile optional stuff 
-ext: test_install check_portaudio $(SUBDIRS) $(EXT_SUBDIRS)
+ext: test_install ext_depend $(SUBDIRS) $(EXT_SUBDIRS)
 
 # Note: if you have put the OpenFst installation somewhere else, you can just
 # delete or comment out the lines below.
@@ -32,7 +32,7 @@ check_portaudio:
 	@[ -d ../tools/portaudio ] || ( cd ../tools;  ./install_portaudio.sh )
 
 clean: 
-	-for x in $(SUBDIRS); do $(MAKE) -C $$x clean; done
+	-for x in $(SUBDIRS) $(EXT_SUBDIRS); do $(MAKE) -C $$x clean; done
 
 # the part after the expands to "base/test matrix/test util/test ...."
 test: $(addsuffix /test, $(SUBDIRS))
@@ -48,6 +48,9 @@ valgrind:
 
 depend: 
 	-for x in $(SUBDIRS); do $(MAKE) -C $$x depend; done
+
+ext_depend: check_portaudio
+	-for x in $(EXT_SUBDIRS); do $(MAKE) -C $$x depend; done
 
 
 .PHONY: $(SUBDIRS)

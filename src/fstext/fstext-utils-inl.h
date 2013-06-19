@@ -91,7 +91,7 @@ void GetInputSymbols(const Fst<Arc> &fst,
                      bool include_eps,
                      vector<I> *symbols) {
   KALDI_ASSERT_IS_INTEGER_TYPE(I);
-  std::set<I> all_syms;
+  unordered_set<I> all_syms;
   for (StateIterator<Fst<Arc> > siter(fst); !siter.Done(); siter.Next()) {
     typename Arc::StateId s = siter.Value();
     for (ArcIterator<Fst<Arc> > aiter(fst, s); !aiter.Done();  aiter.Next()) {
@@ -100,7 +100,7 @@ void GetInputSymbols(const Fst<Arc> &fst,
     }
   }
   // Remove epsilon, if instructed.
-  if (!include_eps && !all_syms.empty() && *(all_syms.begin()) == 0)
+  if (!include_eps && all_syms.count(0) != 0)
     all_syms.erase(0);
   assert(symbols != NULL);
   kaldi::CopySetToVector(all_syms, symbols);
@@ -1139,6 +1139,36 @@ void PropagateFinal(typename Arc::Label phi_label,
   StateId num_states = fst->NumStates();
   for (StateId s = 0; s < num_states; s++)
     PropagateFinalInternal(phi_label, s, fst);
+}
+
+template<class Arc>
+void RhoCompose(const Fst<Arc> &fst1,
+                const Fst<Arc> &fst2,
+                typename Arc::Label rho_label,
+                MutableFst<Arc> *ofst) {
+  KALDI_ASSERT(rho_label != kNoLabel); // just use regular compose in this case.
+  typedef Fst<Arc> F;
+  typedef RhoMatcher<SortedMatcher<F> > RM;
+  CacheOptions base_opts;
+  base_opts.gc_limit = 0; // Cache only the last state for fastest copy.
+  // ComposeFstImplOptions templated on matcher for fst1, matcher for fst2.
+  // The matcher for fst1 doesn't matter; we'll use fst2's matcher.
+  ComposeFstImplOptions<SortedMatcher<F>, RM> impl_opts(base_opts);
+
+  // the false below is something called rho_loop which is something I don't
+  // fully understand, but I don't think we want it.
+
+  // These pointers are taken ownership of, by ComposeFst.
+  RM *rho_matcher =
+      new RM(fst2, MATCH_INPUT, rho_label);
+  SortedMatcher<F> *sorted_matcher =
+      new SortedMatcher<F>(fst1, MATCH_NONE); // tell it
+  // not to use this matcher, as this would mean we would
+  // not follow rho transitions.
+  impl_opts.matcher1 = sorted_matcher;
+  impl_opts.matcher2 = rho_matcher;
+  *ofst = ComposeFst<Arc>(fst1, fst2, impl_opts);
+  Connect(ofst);
 }
 
 

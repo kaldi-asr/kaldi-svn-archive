@@ -196,9 +196,7 @@ int main(int argc, char *argv[]) {
     CompactLatticeWriter compact_lattice_writer;
     LatticeWriter lattice_writer;
 
-    bool write_lattices = false;
     if (lattice_wspecifier != "") {
-      write_lattices = true;
       if (! (determinize ? compact_lattice_writer.Open(lattice_wspecifier)
              : lattice_writer.Open(lattice_wspecifier)))
         KALDI_ERR << "Could not open table for writing lattices: "
@@ -221,16 +219,7 @@ int main(int argc, char *argv[]) {
 
     if (ClassifyRspecifier(fst_in_filename, NULL, NULL) == kNoRspecifier) {
       // Input FST is just one FST, not a table of FSTs.
-      VectorFst<StdArc> *decode_fst = NULL;
-      {
-        std::ifstream is(fst_in_filename.c_str(), std::ifstream::binary);
-        if (!is.good()) KALDI_ERR << "Could not open decoding-graph FST "
-                                  << fst_in_filename;
-        decode_fst =
-            VectorFst<StdArc>::Read(is, fst::FstReadOptions(fst_in_filename));
-        if (decode_fst == NULL) // fst code will warn.
-          exit(1);
-      }
+      VectorFst<StdArc> *decode_fst = fst::ReadFstKaldi(fst_in_filename);
 
       SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
       for (; !feature_reader.Done(); feature_reader.Next()) {

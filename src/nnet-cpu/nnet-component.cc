@@ -47,6 +47,14 @@ Component* Component::NewComponentOfType(const std::string &component_type) {
     ans = new TanhComponent();
   } else if (component_type == "SoftmaxComponent") {
     ans = new SoftmaxComponent();
+  } else if (component_type == "RectifiedLinearComponent") {
+    ans = new RectifiedLinearComponent();
+  } else if (component_type == "SoftHingeComponent") {
+    ans = new SoftHingeComponent();
+  } else if (component_type == "SqrtSoftHingeComponent") {
+    ans = new SqrtSoftHingeComponent();
+  } else if (component_type == "PowerExpandComponent") {
+    ans = new PowerExpandComponent();
   } else if (component_type == "ReduceComponent") {
     ans = new ReduceComponent();
   } else if (component_type == "AffineComponent") {
@@ -69,6 +77,8 @@ Component* Component::NewComponentOfType(const std::string &component_type) {
     ans = new FixedLinearComponent();
   } else if (component_type == "SpliceComponent") {
     ans = new SpliceComponent();
+  } else if (component_type == "SpliceMaxComponent") {
+    ans = new SpliceMaxComponent();
   } else if (component_type == "DropoutComponent") {
     ans = new DropoutComponent();
   } else if (component_type == "AdditiveNoiseComponent") {
@@ -266,6 +276,100 @@ std::string Component::Info() const {
 }
 
 
+void PowerExpandComponent::Init(int32 dim,
+                                int32 max_power,
+                                BaseFloat higher_power_scale) {
+  input_dim_ = dim;
+  max_power_ = max_power;
+  higher_power_scale_ = higher_power_scale;
+  KALDI_ASSERT(input_dim_ > 0 && max_power >= 1 && higher_power_scale > 0.0);
+}
+
+void PowerExpandComponent::InitFromString(std::string args) {
+  std::string orig_args(args);
+  int32 dim, max_power = 2;
+  BaseFloat higher_power_scale = 1.0;
+  ParseFromString("max-power", &args, &max_power); // Optional.
+  ParseFromString("higher-power-scale", &args, &higher_power_scale); // Optional.
+  // Accept either "dim" or "input-dim" to specify the input dim.
+  // "input-dim" is the canonical one; "dim" simplifies the testing code.
+  bool ok = (ParseFromString("dim", &args, &dim) ||
+             ParseFromString("input-dim", &args, &dim));
+  if (!ok || !args.empty() || dim <= 0)
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
+  Init(dim, max_power, higher_power_scale);
+}
+
+
+void PowerExpandComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                                     int32 num_chunks,
+                                     Matrix<BaseFloat> *out) const {
+  out->Resize(in.NumRows(), in.NumCols() * max_power_, kUndefined);
+  for (int32 p = 1; p <= max_power_; p++) {
+    SubMatrix<BaseFloat> out_part(*out, 0, in.NumRows(),
+                                  in.NumCols() * (p - 1), in.NumCols());
+    out_part.CopyFromMat(in);
+    if (p != 1) {
+      out_part.ApplyPow(p);
+      if (higher_power_scale_ != 1.0)
+        out_part.Scale(higher_power_scale_);
+    }
+  }
+}
+
+void PowerExpandComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
+                                    const MatrixBase<BaseFloat> &,// out_value,
+                                    const MatrixBase<BaseFloat> &out_deriv,
+                                    int32, // num_chunks
+                                    Component *, // to_update
+                                    Matrix<BaseFloat> *in_deriv) const {
+  in_deriv->Resize(in_value.NumRows(), in_value.NumCols(), kUndefined);
+  Matrix<BaseFloat> temp(in_value.NumRows(), in_value.NumCols(), kUndefined);
+  for (int32 p = 1; p <= max_power_; p++) {
+    const SubMatrix<BaseFloat> out_deriv_part(out_deriv, 0, in_value.NumRows(),
+                                              in_value.NumCols() * (p - 1),
+                                              in_value.NumCols());
+    if (p == 1) {
+      in_deriv->CopyFromMat(out_deriv_part);
+    } else {
+      // in scalar terms: in_deriv += p * in_value^(p-1) * [out_deriv w.r.t. this power]
+      temp.CopyFromMat(in_value);
+      if (p > 2) temp.ApplyPow(p - 1);
+      temp.MulElements(out_deriv_part);
+      in_deriv->AddMat(p * higher_power_scale_, temp);
+    }
+  }
+}
+
+void PowerExpandComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<PowerExpandComponent>", "<InputDim>");
+  ReadBasicType(is, binary, &input_dim_);
+  ExpectToken(is, binary, "<MaxPower>");
+  ReadBasicType(is, binary, &max_power_);
+  ExpectToken(is, binary, "<HigherPowerScale>");
+  ReadBasicType(is, binary, &higher_power_scale_);
+  ExpectToken(is, binary, "</PowerExpandComponent>");
+}
+
+void PowerExpandComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<PowerExpandComponent>");
+  WriteToken(os, binary, "<InputDim>");
+  WriteBasicType(os, binary, input_dim_);
+  WriteToken(os, binary, "<MaxPower>");
+  WriteBasicType(os, binary, max_power_);
+  WriteToken(os, binary, "<HigherPowerScale>");
+  WriteBasicType(os, binary, higher_power_scale_);
+  WriteToken(os, binary, "</PowerExpandComponent>");
+}
+
+std::string PowerExpandComponent::Info() const {
+  std::stringstream stream;
+  stream << Type() << ", input-dim = " << input_dim_
+         << ", max-power = " << max_power_;
+  return stream.str();
+}
+
 void NonlinearComponent::UpdateStats(const MatrixBase<BaseFloat> &out_value,
                                      const MatrixBase<BaseFloat> *deriv) {
   KALDI_ASSERT(out_value.NumCols() == InputDim());
@@ -410,7 +514,6 @@ void TanhComponent::Propagate(const MatrixBase<BaseFloat> &in,
   // Apply tanh function to each element of the output...
   // the tanh function may be written as -1 + ( 2 / (1 + e^{-2 x})),
   // which is a scaled and shifted sigmoid.
-  *out = in;
   out->Resize(in.NumRows(), in.NumCols(), kUndefined);
   out->Tanh(in);
 }
@@ -441,6 +544,132 @@ void TanhComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
                                                               in_deriv);
   in_deriv->MulElements(out_deriv);
 }  
+
+void RectifiedLinearComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                              int32, // num_chunks
+                              Matrix<BaseFloat> *out) const {
+  // Apply rectified linear function (x >= 0 ? 1.0 : 0.0) 
+  *out = in;
+  out->ApplyFloor(0.0);
+}
+
+void RectifiedLinearComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
+                                        const MatrixBase<BaseFloat> &out_value,
+                                        const MatrixBase<BaseFloat> &out_deriv,
+                                        int32, // num_chunks
+                                        Component *to_update,
+                                        Matrix<BaseFloat> *in_deriv) const {
+
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols(),
+                   kUndefined);
+  in_deriv->CopyFromMat(out_value);
+  in_deriv->ApplyHeaviside();
+  // Now in_deriv(i, j) equals (out_value(i, j) > 0.0 ? 1.0 : 0.0),
+  // which is the derivative of the nonlinearity (well, except at zero
+  // where it's undefined).
+  if (to_update != NULL)
+    dynamic_cast<NonlinearComponent*>(to_update)->UpdateStats(out_value,
+                                                              in_deriv);
+  in_deriv->MulElements(out_deriv);
+}  
+
+void SoftHingeComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                                   int32, // num_chunks
+                                   Matrix<BaseFloat> *out) const {
+  // Apply function x = log(1 + exp(x))
+  *out = in;
+  for (int32 i = 0; i < out->NumRows(); i++) {
+    BaseFloat *data = out->RowData(i);
+    int32 cols = out->NumCols();
+    for (int32 j = 0; j < cols; j++)
+      if (data[j] < 10.0) data[j] = log1p(exp(data[j]));
+  }
+}
+
+void SoftHingeComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
+                                  const MatrixBase<BaseFloat> &out_value,
+                                  const MatrixBase<BaseFloat> &out_deriv,
+                                  int32, // num_chunks
+                                  Component *to_update,
+                                  Matrix<BaseFloat> *in_deriv) const {
+
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols(),
+                   kUndefined);
+  in_deriv->CopyFromMat(out_value);
+  // note: d/dx: log(1 + exp(x)) = (exp(x) / (1 + exp(x))
+  // if the output is y, then dy/dx =  (exp(x) / (1 + exp(x)),
+  // and using y = log(1 + exp(x)) -> exp(x) = exp(y) - 1, we have
+  // dy/dx = (exp(y) - 1) / exp(y)
+  
+  for (int32 i = 0; i < in_deriv->NumRows(); i++) {
+    BaseFloat *data = in_deriv->RowData(i);
+    int32 cols = in_deriv->NumCols();
+    for (int32 j = 0; j < cols; j++) {
+      if (data[j] > 10.0) data[j] = 1.0;
+      else {
+        BaseFloat expy = exp(data[j]);
+        data[j] = (expy - 1) / expy;
+      }
+    }
+  }
+  // now in_deriv is the derivative of the nonlinearity (well, except at zero
+  // where it's undefined).
+  if (to_update != NULL)
+    dynamic_cast<NonlinearComponent*>(to_update)->UpdateStats(out_value,
+                                                              in_deriv);
+  in_deriv->MulElements(out_deriv);
+}  
+
+
+void SqrtSoftHingeComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                                       int32, // num_chunks
+                                       Matrix<BaseFloat> *out) const {
+  // Apply function x = log(1 + exp(x))
+  *out = in;
+  for (int32 i = 0; i < out->NumRows(); i++) {
+    BaseFloat *data = out->RowData(i);
+    int32 cols = out->NumCols();
+    for (int32 j = 0; j < cols; j++)
+      if (data[j] < 10.0) data[j] = std::sqrt(log1p(exp(data[j])));
+      else data[j] = std::sqrt(data[j]);
+  }
+}
+
+void SqrtSoftHingeComponent::Backprop(const MatrixBase<BaseFloat> &, // in_value
+                                      const MatrixBase<BaseFloat> &out_value,
+                                      const MatrixBase<BaseFloat> &out_deriv,
+                                      int32, // num_chunks
+                                      Component *to_update,
+                                      Matrix<BaseFloat> *in_deriv) const {
+
+  in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols(),
+                   kUndefined);
+  in_deriv->CopyFromMat(out_value);
+  // note: d/dx: sqrt(log(1 + exp(x))) = 0.5 (exp(x) / (1 + exp(x))) / sqrt(log(1 + exp(x)))
+  // if the output is y, then dy/dx = 0.5 (exp(x) / (1 + exp(x)) / y
+  // and using y^2 = log(1 + exp(x)) -> exp(x) = exp(y^2) - 1, we have
+  // dy/dx = 0.5 * (exp(y^2) - 1) / (exp(y^2) * y)
+  
+  for (int32 i = 0; i < in_deriv->NumRows(); i++) {
+    BaseFloat *data = in_deriv->RowData(i);
+    int32 cols = in_deriv->NumCols();
+    for (int32 j = 0; j < cols; j++) {
+      if (data[j] > 3.5) data[j] = 0.5 / std::sqrt(data[j]); 
+      else { // 3.5 chosen so exp(3.5*3.5) will not give NaN.
+        BaseFloat y = data[j], expy2 = exp(y * y);
+        if (y > 0.0) data[j] = 0.5 * (expy2 - 1.0) / (expy2 * y);
+        else data[j] = 0.0;
+      }
+    }
+  }
+  // now in_deriv is the derivative of the nonlinearity (well, except at zero
+  // where it's undefined).
+  if (to_update != NULL)
+    dynamic_cast<NonlinearComponent*>(to_update)->UpdateStats(out_value,
+                                                              in_deriv);
+  in_deriv->MulElements(out_deriv);
+}  
+
 
 void SoftmaxComponent::Propagate(const MatrixBase<BaseFloat> &in,
                                  int32, // num_chunks
@@ -785,28 +1014,20 @@ void AffineComponentPreconditioned::Read(std::istream &is, bool binary) {
   linear_params_.Read(is, binary);
   ExpectToken(is, binary, "<BiasParams>");
   bias_params_.Read(is, binary);
-  // todo: remove back-compat code.
+  ExpectToken(is, binary, "<Alpha>");
+  ReadBasicType(is, binary, &alpha_);
+  // todo: remove back-compat code.  Will just be:
+  // ExpectToken(is, binary, "<MaxChange>");
+  // ReadBasicType(is, binary, &max_change_);
+  // ExpectToken(is, binary, ostr_end);
+  // [end of function]
   std::string tok;
   ReadToken(is, binary, &tok);
-  if (tok == "<AvgInput>") {
-    Vector<BaseFloat> avg_input;
-    avg_input.Read(is, binary);
-    ExpectToken(is, binary, "<AvgInputCount>");
-    BaseFloat avg_input_count;
-    ReadBasicType(is, binary, &avg_input_count);
-    ExpectToken(is, binary, "<Alpha>");
-  } else {
-    KALDI_ASSERT(tok == "<Alpha>");
-  }
-  ReadBasicType(is, binary, &alpha_);
-
-  // TODO: remove backward-compatibility code.
-  ReadToken(is, binary, &tok);
-  if (tok == "<L2Penalty>") {
-    BaseFloat l2_penalty;
-    ReadBasicType(is, binary, &l2_penalty);
+  if (tok == "<MaxChange>") {
+    ReadBasicType(is, binary, &max_change_);
     ExpectToken(is, binary, ostr_end.str());
   } else {
+    max_change_ = 0.0;
     KALDI_ASSERT(tok == ostr_end.str());
   }
 }
@@ -821,9 +1042,10 @@ void AffineComponentPreconditioned::InitFromString(std::string args) {
   ok = ok && ParseFromString("input-dim", &args, &input_dim);
   ok = ok && ParseFromString("output-dim", &args, &output_dim);
   BaseFloat param_stddev = 1.0 / std::sqrt(input_dim),
-      bias_stddev = 1.0, alpha = 0.1;
+      bias_stddev = 1.0, alpha = 0.1, max_change = 0.0;
   ParseFromString("param-stddev", &args, &param_stddev);
   ParseFromString("bias-stddev", &args, &bias_stddev);
+  ParseFromString("max-change", &args, &max_change);
   ParseFromString("precondition", &args, &precondition);
   ParseFromString("alpha", &args, &alpha);
   if (!args.empty())
@@ -831,15 +1053,16 @@ void AffineComponentPreconditioned::InitFromString(std::string args) {
               << args;
   if (!ok)
     KALDI_ERR << "Bad initializer " << orig_args;
-  Init(learning_rate, input_dim, output_dim,
-       param_stddev, bias_stddev, precondition, alpha);
+  Init(learning_rate, input_dim, output_dim, param_stddev,
+       bias_stddev, precondition, alpha, max_change);
 }
 
 void AffineComponentPreconditioned::Init(
     BaseFloat learning_rate, 
     int32 input_dim, int32 output_dim,
     BaseFloat param_stddev, BaseFloat bias_stddev,
-    bool precondition, BaseFloat alpha) {
+    bool precondition, BaseFloat alpha,
+    BaseFloat max_change) {
   UpdatableComponent::Init(learning_rate);
   linear_params_.Resize(output_dim, input_dim);
   bias_params_.Resize(output_dim);
@@ -849,7 +1072,9 @@ void AffineComponentPreconditioned::Init(
   bias_params_.SetRandn();
   bias_params_.Scale(bias_stddev);
   alpha_ = alpha;
-  KALDI_ASSERT(alpha > 0.0);
+  KALDI_ASSERT(alpha_ > 0.0);
+  max_change_ = max_change; // Note: any value of max_change_is valid, but
+  // only values > 0.0 will actually activate the code.
 }
 
 
@@ -866,6 +1091,8 @@ void AffineComponentPreconditioned::Write(std::ostream &os, bool binary) const {
   bias_params_.Write(os, binary);
   WriteToken(os, binary, "<Alpha>");
   WriteBasicType(os, binary, alpha_);
+  WriteToken(os, binary, "<MaxChange>");
+  WriteBasicType(os, binary, max_change_);
   WriteToken(os, binary, ostr_end.str());
 }
 
@@ -883,7 +1110,8 @@ std::string AffineComponentPreconditioned::Info() const {
          << ", linear-params stddev = " << linear_stddev
          << ", bias-params stddev = " << bias_stddev
          << ", learning rate = " << LearningRate()
-         << ", alpha = " << alpha_;
+         << ", alpha = " << alpha_
+         << ", max-change = " << max_change_;
   return stream.str();
 }
 
@@ -893,8 +1121,41 @@ Component* AffineComponentPreconditioned::Copy() const {
   ans->linear_params_ = linear_params_;
   ans->bias_params_ = bias_params_;
   ans->alpha_ = alpha_;
+  ans->max_change_ = max_change_;
   ans->is_gradient_ = is_gradient_;
   return ans;
+}
+
+
+BaseFloat AffineComponentPreconditioned::GetScalingFactor(
+    const Matrix<BaseFloat> &in_value_precon,
+    const Matrix<BaseFloat> &out_deriv_precon) {
+  static int scaling_factor_printed = 0;
+
+  KALDI_ASSERT(in_value_precon.NumRows() == out_deriv_precon.NumRows());
+  Vector<BaseFloat> in_norm(in_value_precon.NumRows()),
+      out_deriv_norm(in_value_precon.NumRows());
+  in_norm.AddDiagMat2(1.0, in_value_precon, kNoTrans, 0.0);
+  out_deriv_norm.AddDiagMat2(1.0, out_deriv_precon, kNoTrans, 0.0);
+  // Get the actual l2 norms, not the squared l2 norm.
+  in_norm.ApplyPow(0.5);
+  out_deriv_norm.ApplyPow(0.5);
+  BaseFloat sum = learning_rate_ * VecVec(in_norm, out_deriv_norm);
+  // sum is the product of norms that we are trying to limit
+  // to max_value_.
+  KALDI_ASSERT(sum == sum && sum - sum == 0.0 &&
+               "NaN in backprop");
+  KALDI_ASSERT(sum >= 0.0);
+  if (sum <= max_change_) return 1.0;
+  else {
+    BaseFloat ans = max_change_ / sum;
+    if (scaling_factor_printed < 10) {
+      KALDI_LOG << "Limiting step size to " << max_change_
+                << " using scaling factor " << ans;
+      scaling_factor_printed++;
+    }
+    return ans;
+  }
 }
 
 void AffineComponentPreconditioned::Update(
@@ -923,6 +1184,12 @@ void AffineComponentPreconditioned::Update(
   PreconditionDirectionsAlphaRescaled(in_value_temp, alpha_, &in_value_precon);
   PreconditionDirectionsAlphaRescaled(out_deriv, alpha_, &out_deriv_precon);
 
+  BaseFloat minibatch_scale = 1.0;
+
+  if (max_change_ > 0.0)
+    minibatch_scale = GetScalingFactor(in_value_precon, out_deriv_precon);
+  
+  
   SubMatrix<BaseFloat> in_value_precon_part(in_value_precon,
                                             0, in_value_precon.NumRows(),
                                             0, in_value_precon.NumCols() - 1);
@@ -931,10 +1198,11 @@ void AffineComponentPreconditioned::Update(
   Vector<BaseFloat> precon_ones(in_value_precon.NumRows());
   
   precon_ones.CopyColFromMat(in_value_precon, in_value_precon.NumCols() - 1);
-  
-  bias_params_.AddMatVec(learning_rate_, out_deriv_precon, kTrans,
+
+  BaseFloat local_lrate = minibatch_scale * learning_rate_;
+  bias_params_.AddMatVec(local_lrate, out_deriv_precon, kTrans,
                          precon_ones, 1.0);
-  linear_params_.AddMatMat(learning_rate_, out_deriv_precon, kTrans,
+  linear_params_.AddMatMat(local_lrate, out_deriv_precon, kTrans,
                            in_value_precon_part, kNoTrans, 1.0);
 }
 
@@ -1363,85 +1631,63 @@ void PermuteComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
 }
 
 
-void MixtureProbComponent::PerturbParams(BaseFloat stddev) {
-  // We need to preserve the sum-to-one constraint when
-  // perturbing these parameters.
+void MixtureProbComponent::Refresh() {
+  KALDI_ASSERT(params_.size() == log_params_.size());
   for (size_t i = 0; i < params_.size(); i++) {
-    Matrix<BaseFloat> params(params_[i]);
-    params.ApplyFloor(1.0e-20);
-    params.ApplyLog();
-    Matrix<BaseFloat> rand(params.NumRows(), params.NumCols());
-    rand.SetRandn();
-    params.AddMat(stddev, rand);
-    params.ApplyExp();
-    NormalizeMatrix(&params);
-    params_[i].CopyFromMat(params);
+    // Make it so each column of params_ sums to one
+    Vector<BaseFloat> col(params_[i].NumRows());
+    for (int32 c = 0; c < params_[i].NumCols(); c++) {
+      col.CopyColFromMat(log_params_[i], c);
+      col.ApplyExp();
+      KALDI_ASSERT(col.Sum() > 0.0);
+      col.Scale(1.0 / col.Sum()); // make it sum to one.
+      params_[i].CopyColFromVec(col, c);
+    }
   }
+}
+
+void MixtureProbComponent::PerturbParams(BaseFloat stddev) {
+  for (size_t i = 0; i < log_params_.size(); i++) {
+    Matrix<BaseFloat> &log_params(log_params_[i]);
+    Matrix<BaseFloat> rand(log_params.NumRows(), log_params.NumCols());
+    rand.SetRandn();
+    log_params.AddMat(stddev, rand);
+  }
+  Refresh();
 }
 
 
 Component* MixtureProbComponent::Copy() const {
   MixtureProbComponent *ans = new MixtureProbComponent();
   ans->learning_rate_ = learning_rate_;
+  ans->log_params_ = log_params_;
   ans->params_ = params_;
   ans->input_dim_ = input_dim_;
   ans->output_dim_ = output_dim_;
-  ans->is_gradient_ = is_gradient_;
   return ans;
 }
 
-/// we interpret any parameters in log space before doing
-/// dot product.
 BaseFloat MixtureProbComponent::DotProduct(
     const UpdatableComponent &other_in) const {
   const MixtureProbComponent *other =
       dynamic_cast<const MixtureProbComponent*>(&other_in);
   BaseFloat ans = 0.0;
-  KALDI_ASSERT(params_.size() == other->params_.size());
+  KALDI_ASSERT(log_params_.size() == other->log_params_.size());
 
   for (size_t i = 0; i < params_.size(); i++) {
-    Matrix<BaseFloat> log_params(params_[i]),
-        other_log_params(other->params_[i]);
-    if (!this->is_gradient_) {
-      log_params.ApplyFloor(1.0e-20);
-      log_params.ApplyLog();
-    }
-    if (!other->is_gradient_) {
-      other_log_params.ApplyFloor(1.0e-20);
-      other_log_params.ApplyLog();
-    }
+    const Matrix<BaseFloat> &log_params(log_params_[i]),
+        &other_log_params(other->log_params_[i]);
     ans += TraceMatMat(log_params, other_log_params, kTrans);
   }
   return ans;
 }
 
-//static
-void MixtureProbComponent::NormalizeMatrix(MatrixBase<BaseFloat> *mat) {
-  // Make it so each column sums to one.
-  Vector<BaseFloat> col(mat->NumRows());
-  for (int32 c = 0; c < mat->NumCols(); c++) {
-    col.CopyColFromMat(*mat, c);
-    KALDI_ASSERT(col.Sum() > 0.0);
-    col.Scale(1.0 / col.Sum()); // make it sum to one.
-    mat->CopyColFromVec(col, c);
-  }
-}
-
 void MixtureProbComponent::Scale(BaseFloat scale) {
   for (size_t i = 0; i < params_.size(); i++) {
-    Matrix<BaseFloat> log_params(params_[i]);
-    if (!this->is_gradient_) {
-      log_params.ApplyFloor(1.0e-20);
-      log_params.ApplyLog();
-    }
-    log_params.Scale(scale); // This is the key line.
-    if (!this->is_gradient_) {
-      log_params.ApplyExp();
-      // Now re-normalize each column to sum to one.
-      NormalizeMatrix(&log_params);
-    }
-    params_[i].CopyFromMat(log_params);
+    Matrix<BaseFloat> &log_params(log_params_[i]);
+    log_params.Scale(scale);
   }
+  Refresh();
 }
 
 void MixtureProbComponent::Add(BaseFloat alpha, const UpdatableComponent &other_in) {
@@ -1450,23 +1696,11 @@ void MixtureProbComponent::Add(BaseFloat alpha, const UpdatableComponent &other_
   KALDI_ASSERT(other != NULL && other->params_.size() == params_.size());
   
   for (size_t i = 0; i < params_.size(); i++) {
-    Matrix<BaseFloat> log_params(params_[i]),
-        other_log_params(other->params_[i]);
-    if (!this->is_gradient_) {
-      log_params.ApplyFloor(1.0e-20);
-      log_params.ApplyLog();
-    }
-    if (!other->is_gradient_) {
-      other_log_params.ApplyFloor(1.0e-20);
-      other_log_params.ApplyLog();
-    }
+    Matrix<BaseFloat> log_params(log_params_[i]),
+        other_log_params(other->log_params_[i]);
     log_params.AddMat(alpha, other_log_params); // <- This is the key line.
-    if (!this->is_gradient_) {
-      log_params.ApplyExp();
-      NormalizeMatrix(&log_params);
-    }
-    params_[i].CopyFromMat(log_params);
   }
+  Refresh();
 }
 
 
@@ -1474,11 +1708,11 @@ void MixtureProbComponent::Init(BaseFloat learning_rate,
                                 BaseFloat diag_element,
                                 const std::vector<int32> &sizes) {
   UpdatableComponent::Init(learning_rate);
-  is_gradient_ = false;
   input_dim_ = 0;
   output_dim_ = 0;
   params_.resize(sizes.size());
-  KALDI_ASSERT(diag_element > 0.0 && diag_element <= 1.0);
+  log_params_.resize(sizes.size());
+  KALDI_ASSERT(diag_element > 0.0 && diag_element < 1.0);
   // Initialize to a block-diagonal matrix consisting of a series of square
   // blocks, with sizes specified in "sizes".  Note: each block will typically
   // correspond to a number of clustered states, so this whole thing implements
@@ -1497,6 +1731,9 @@ void MixtureProbComponent::Init(BaseFloat learning_rate,
       for (int32 j = 0; j < size; j++)
         params_[i](j, j) = diag_element;
     }
+    log_params_[i] = params_[i];
+    log_params_[i].ApplyLog(); // From now, log_params_ will be the
+    // "primary" parameters, with params_ treated as derived quantities.
   }
 }  
 
@@ -1518,7 +1755,7 @@ void MixtureProbComponent::InitFromString(std::string args) {
   Init(learning_rate, diag_element, dims);
 }
 
-
+// For back-compatibility, we read and write the "params".
 void MixtureProbComponent::Read(std::istream &is, bool binary) {
   ExpectOneOrTwoTokens(is, binary, "<MixtureProbComponent>", "<LearningRate>");
   ReadBasicType(is, binary, &learning_rate_);
@@ -1529,14 +1766,28 @@ void MixtureProbComponent::Read(std::istream &is, bool binary) {
   output_dim_ = 0;
   KALDI_ASSERT(size >= 0);
   params_.resize(size);
+  log_params_.resize(size);
   for (int32 i = 0; i < size; i++) {
     params_[i].Read(is, binary);
     input_dim_ += params_[i].NumCols();
     output_dim_ += params_[i].NumRows();
-  }        
-  ExpectToken(is, binary, "<IsGradient>");
-  ReadBasicType(is, binary, &is_gradient_);
-  ExpectToken(is, binary, "</MixtureProbComponent>");  
+    log_params_[i] = params_[i];
+    log_params_[i].ApplyLog();
+  }
+
+  // TODO: after a decent interval we can replace all the code below
+  // with:  ExpectToken(is, binary, "</MixtureProbComponent>");  
+  
+  std::string token;
+  ReadToken(is, binary, &token);
+  if (token == "<IsGradient>") { // Back-compatibility code,
+    // remove this later.
+    bool tmp;
+    ReadBasicType(is, binary, &tmp);
+    ExpectToken(is, binary, "</MixtureProbComponent>");  
+  } else {
+    KALDI_ASSERT(token == "</MixtureProbComponent>");
+  }
 }
 
 void MixtureProbComponent::Write(std::ostream &os, bool binary) const {
@@ -1548,18 +1799,16 @@ void MixtureProbComponent::Write(std::ostream &os, bool binary) const {
   WriteBasicType(os, binary, size);
   for (int32 i = 0; i < size; i++)
     params_[i].Write(os, binary);
-  WriteToken(os, binary, "<IsGradient>");
-  WriteBasicType(os, binary, is_gradient_);
   WriteToken(os, binary, "</MixtureProbComponent>");  
 }
 
 void MixtureProbComponent::SetZero(bool treat_as_gradient) {
   if (treat_as_gradient) {
     SetLearningRate(1.0);
-    is_gradient_ = true;
   }
   for (size_t i = 0; i < params_.size(); i++)
-    params_[i].SetZero();
+    log_params_[i].SetZero();
+  Refresh();
 }
 
 void MixtureProbComponent::Propagate(const MatrixBase<BaseFloat> &in,
@@ -1605,7 +1854,7 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
   
   for (size_t i = 0; i < params_.size(); i++) {
     int32 this_input_dim = params_[i].NumCols(), // input dim of this block.
-         this_output_dim = params_[i].NumRows();   
+        this_output_dim = params_[i].NumRows();   
     KALDI_ASSERT(this_input_dim > 0 && this_output_dim > 0);
     SubMatrix<BaseFloat> in_value_block(in_value, 0, num_frames,
                                         input_offset, this_input_dim),
@@ -1620,91 +1869,44 @@ void MixtureProbComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
                              kNoTrans, 0.0);
     
     if (to_update != NULL) {
-      Matrix<BaseFloat> &param_block_to_update(to_update->params_[i]);
-      if (to_update->is_gradient_) { // We're just storing
-        // the gradient there-- w.r.t. the unnormalized log params.
-        KALDI_ASSERT(to_update->learning_rate_ == 1.0);
-        // tmp_mat will be d/d(probs).  We want to store d/d(unnormalized
-        // log-probs).
-        Matrix<BaseFloat> tmp_mat(param_block_to_update.NumRows(),
-                                  param_block_to_update.NumCols());
-        tmp_mat.AddMatMat(1.0, out_deriv_block, kTrans, in_value_block,
-                          kNoTrans, 0.0);
-        // we want param_block_to_update to be d/d(unnormalized log-probs).
-        // First multiply each element by the corresponding parameter
-        // (which is a probability).  This comes from differentiating the exp.
-        tmp_mat.MulElements(this->params_[i]);
-        // Now, the sum-to-one constraint is per column of the params.
-        // We normalize from the unnormalized log-probs, e.g.
-        // p_i = exp(l_i) / \sum_j exp(l_j)
-        // and this translates into invariance w.r.t. a constant aded
-        // factor on the log-probs, which means there should be no
-        // gradient w.r.t. adding to a given column of the matrix,
-        // or the sum of the gradients over the column should be zero.
-        // So we subtract the average from each column.
-        Vector<BaseFloat> tmp_col(param_block_to_update.NumRows()),
-            param_col(param_block_to_update.NumRows());
-        for (int32 j = 0; j < param_block_to_update.NumCols(); j++) {
-          tmp_col.CopyColFromMat(tmp_mat, j);
-          param_col.CopyColFromMat(this->params_[i], j);
-          // The next line relates to the sum-to-one constraint.
-          tmp_col.AddVec(-1.0 * tmp_col.Sum(), param_col);
-          tmp_mat.CopyColFromVec(tmp_col, j);
-        }
-        param_block_to_update.AddMat(1.0, tmp_mat);
-      } else {
-        /*
-          We do gradient descent in the space of log probabilities.  We enforce the
-          sum-to-one constraint; this affects the gradient (I think you can derive
-          this using lagrangian multipliers).
-          
-          For a column c of the matrix, we have a gradient g.
-          Let l be the vector of unnormalized log-probs of that row; it has an arbitrary
-          offset, but we just choose the point where it coincides with correctly normalized
-          log-probs, so for each element:
-          l_i = log(c_i).
-          The functional relationship between l_i and c_i is:
-          c_i = exp(l_i) / sum_j exp(l_j) . [softmax function from l to c.]
-          Let h_i be the gradient w.r.t l_i.  We can compute this as follows.  The softmax function
-          has a Jacobian equal to diag(c) - c c^T.  We have:
-          h = (diag(c) - c c^T)  g
-          We do the gradient-descent step on h, and when we convert back to c, we renormalize.
-          [note: the renormalization would not even be necessary if the step size were infinitesimal;
-          it's only needed due to second-order effects which slightly unnormalize each column.]
-        */        
-        int32 num_rows = this_output_dim, num_cols = this_input_dim;
-        Matrix<BaseFloat> gradient(num_rows, num_cols);
-        gradient.AddMatMat(1.0, out_deriv_block, kTrans, in_value_block, kNoTrans,
-                           0.0);
-        for (int32 col = 0; col < num_cols; col++) {
-          Vector<BaseFloat> param_col(num_rows);
-          param_col.CopyColFromMat(param_block_to_update, col);
-          Vector<BaseFloat> log_param_col(param_col);
-          log_param_col.ApplyLog(); // note: works even for zero, but may have -inf
-          log_param_col.Scale(1.0); // relates to l2 regularization-- applied at log
-          // parameter level.
-          for (int32 i = 0; i < num_rows; i++)
-            if (log_param_col(i) < -1.0e+20)
-              log_param_col(i) = -1.0e+20; // get rid of -inf's,as
-          // as we're not sure exactly how BLAS will deal with them.
-          Vector<BaseFloat> gradient_col(num_rows);
-          gradient_col.CopyColFromMat(gradient, col);
-          Vector<BaseFloat> log_gradient(num_rows);
-          log_gradient.AddVecVec(1.0, param_col, gradient_col, 0.0); // h <-- diag(c) g.
-          BaseFloat cT_g = VecVec(param_col, gradient_col);
-          log_gradient.AddVec(-cT_g, param_col); // h -= (c^T g) c .
-          log_param_col.AddVec(learning_rate_, log_gradient); // Gradient step,
-          // in unnormalized log-prob space.      
-          log_param_col.ApplySoftMax(); // Go back to probabilities, renormalizing.
-          param_block_to_update.CopyColFromVec(log_param_col, col); // Write back.
-        }
+      Matrix<BaseFloat> &log_param_block_to_update(to_update->log_params_[i]);
+      const Matrix<BaseFloat> &param_block(this->params_[i]);
+
+      int32 num_rows = this_output_dim, num_cols = this_input_dim;
+
+      Matrix<BaseFloat> gradient(num_rows, num_cols); // gradient 
+      // in space of derived params "params_".
+      gradient.AddMatMat(1.0, out_deriv_block,
+                         kTrans, in_value_block, kNoTrans,
+                         0.0);
+      
+      Vector<BaseFloat> param_col(num_rows),
+          gradient_col(num_rows),
+          log_gradient_col(num_rows),
+          log_param_col(num_rows);
+      for (int32 col = 0; col < num_cols; col++) {
+        param_col.CopyColFromMat(param_block, col);
+        gradient_col.CopyColFromMat(gradient, col);
+        BaseFloat cT_g = VecVec(param_col, gradient_col);
+
+        log_gradient_col.AddVecVec(1.0, param_col, gradient_col, 0.0); // h <-- diag(c) g.
+        log_gradient_col.AddVec(-cT_g, param_col); // h -= (c^T g) c .  This is the
+        // effect on the derivative of the sum-to-one constraint.
+        log_param_col.CopyColFromMat(log_param_block_to_update, col);
+        log_param_col.AddVec(to_update->learning_rate_,
+                             log_gradient_col);
+        // Gradient step in unnormalized log-prob space.
+        log_param_block_to_update.CopyColFromVec(log_param_col, col); // Write back.
       }
     }
     input_offset += this_input_dim;
     output_offset += this_output_dim;   
   }
+  if (to_update != NULL)
+    to_update->Refresh();
   KALDI_ASSERT(input_offset == InputDim() && output_offset == OutputDim());
 }
+        
 
 int32 MixtureProbComponent::GetParameterDim() const {
   int32 ans = 0;
@@ -1912,6 +2114,149 @@ void SpliceComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<ConstComponentDim>");
   WriteBasicType(os, binary, const_component_dim_);
   WriteToken(os, binary, "</SpliceComponent>");  
+}
+
+
+std::string SpliceMaxComponent::Info() const {
+  std::stringstream stream;
+  stream << Component::Info() << ", context=" << left_context_
+         << "/" << right_context_;
+  return stream.str();
+}
+
+void SpliceMaxComponent::Init(int32 dim, int32 left_context,
+                              int32 right_context) {
+  dim_ = dim;
+  left_context_ = left_context;
+  right_context_ = right_context;
+  KALDI_ASSERT(dim_ > 0 && left_context >= 0 && right_context >= 0);
+}
+
+
+// e.g. args == "dim=10 left-context=2 right-context=2
+void SpliceMaxComponent::InitFromString(std::string args) {
+  std::string orig_args(args);
+  int32 dim, left_context, right_context;
+  bool ok = ParseFromString("dim", &args, &dim) &&
+            ParseFromString("left-context", &args, &left_context) &&
+            ParseFromString("right-context", &args, &right_context);
+  
+  if (!ok || !args.empty() || dim <= 0)
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
+  Init(dim, left_context, right_context);
+}
+
+void SpliceMaxComponent::Propagate(const MatrixBase<BaseFloat> &in,
+                                   int32 num_chunks,
+                                   Matrix<BaseFloat> *out) const {
+  KALDI_ASSERT(in.NumRows() > 0 && in.NumCols() == InputDim());
+  if (in.NumRows() % num_chunks != 0)
+    KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
+              << "number of frames " << in.NumRows();
+  int32 input_chunk_size = in.NumRows() / num_chunks,
+       output_chunk_size = input_chunk_size - left_context_ - right_context_,
+                     dim = in.NumCols();
+  if (output_chunk_size <= 0)
+    KALDI_ERR << "Splicing features: output will have zero dimension. "
+              << "Probably a code error.";
+  out->Resize(num_chunks * output_chunk_size, dim);
+  for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+    SubMatrix<BaseFloat> input_chunk(in,
+                                     chunk * input_chunk_size, input_chunk_size,
+                                     0, dim),
+                        output_chunk(*out,
+                                     chunk * output_chunk_size, output_chunk_size,
+                                     0, dim);
+    for (int32 offset = 0;
+         offset < 1 + left_context_ + right_context_;
+         offset++) {
+      SubMatrix<BaseFloat> input_chunk_part(input_chunk,
+                                            offset, output_chunk_size, 0, dim);
+      if (offset == 0) output_chunk.CopyFromMat(input_chunk_part);
+      else {
+        output_chunk.Max(input_chunk_part);
+      }
+    }
+  }  
+}
+
+void SpliceMaxComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
+                                  const MatrixBase<BaseFloat> &, // out_value,
+                                  const MatrixBase<BaseFloat> &out_deriv,
+                                  int32 num_chunks,
+                                  Component *to_update, // may == "this".
+                                  Matrix<BaseFloat> *in_deriv) const {
+ KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
+
+  if (out_deriv.NumRows() % num_chunks != 0)
+    KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
+              << "number of frames " << out_deriv.NumRows();
+  
+  int32 output_chunk_size = out_deriv.NumRows() / num_chunks,
+         input_chunk_size = output_chunk_size + left_context_ + right_context_,
+                      dim = out_deriv.NumCols();
+
+  KALDI_ASSERT(dim == InputDim());
+
+  in_deriv->Resize(num_chunks * input_chunk_size, dim); // Will zero it.
+  for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+    SubMatrix<BaseFloat> in_deriv_chunk(*in_deriv, 
+                                        chunk * input_chunk_size,
+                                        input_chunk_size, 
+                                        0, dim),
+                         in_value_chunk(in_value,
+                                        chunk * input_chunk_size,
+                                        input_chunk_size, 
+                                        0, dim),
+                        out_deriv_chunk(out_deriv,
+                                        chunk * output_chunk_size,
+                                        output_chunk_size,
+                                        0, dim);
+    for (int32 r = 0; r < out_deriv_chunk.NumRows(); r++) {
+      for (int32 c = 0; c < dim; c++) {
+        int32 in_r_begin = r, in_r_end = r + left_context_ + right_context_ + 1;
+        int32 in_r_max = -1;
+        BaseFloat max_input = -std::numeric_limits<BaseFloat>::infinity();
+        for (int32 in_r = in_r_begin; in_r < in_r_end; in_r++) {
+          BaseFloat input = in_value_chunk(in_r, c);
+          if (input > max_input) {
+            max_input = input;
+            in_r_max = in_r;
+          }
+        }
+        KALDI_ASSERT(in_r_max != -1);
+        (*in_deriv)(in_r_max, c) += out_deriv_chunk(r, c);
+      }
+    }
+  }
+}
+
+Component *SpliceMaxComponent::Copy() const {
+  SpliceMaxComponent *ans = new SpliceMaxComponent();
+  ans->Init(dim_, left_context_, right_context_);
+  return ans;
+}
+
+void SpliceMaxComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<SpliceMaxComponent>", "<Dim>");
+  ReadBasicType(is, binary, &dim_);
+  ExpectToken(is, binary, "<LeftContext>");
+  ReadBasicType(is, binary, &left_context_);
+  ExpectToken(is, binary, "<RightContext>");
+  ReadBasicType(is, binary, &right_context_);
+  ExpectToken(is, binary, "</SpliceMaxComponent>");
+}
+
+void SpliceMaxComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<SpliceMaxComponent>");
+  WriteToken(os, binary, "<Dim>");
+  WriteBasicType(os, binary, dim_);
+  WriteToken(os, binary, "<LeftContext>");
+  WriteBasicType(os, binary, left_context_);
+  WriteToken(os, binary, "<RightContext>");
+  WriteBasicType(os, binary, right_context_);
+  WriteToken(os, binary, "</SpliceMaxComponent>");  
 }
 
 std::string DctComponent::Info() const {
@@ -2160,22 +2505,35 @@ void FixedLinearComponent::Read(std::istream &is, bool binary) {
   ExpectToken(is, binary, "</FixedLinearComponent>");
 }
 
+
+
+std::string DropoutComponent::Info() const {
+  std::stringstream stream;
+  stream << Component::Info() << ", dropout_proportion = "
+         << dropout_proportion_ << ", dropout_scale = "
+         << dropout_scale_;
+  return stream.str();
+}
+
 void DropoutComponent::InitFromString(std::string args) {
   std::string orig_args(args);
   int32 dim;
-  BaseFloat dropout_proportion = 0.5;
+  BaseFloat dropout_proportion = 0.5, dropout_scale = 0.0;
   bool ok = ParseFromString("dim", &args, &dim);
-  ParseFromString("dropout-proportion", &args, &dropout_proportion);  
+  ParseFromString("dropout-proportion", &args, &dropout_proportion);
+  ParseFromString("dropout-scale", &args, &dropout_scale);
   
   if (!ok || !args.empty() || dim <= 0)
     KALDI_ERR << "Invalid initializer for layer of type DropoutComponent: \""
               << orig_args << "\"";
-  Init(dim, dropout_proportion);
+  Init(dim, dropout_proportion, dropout_scale);
 }
 
 void DropoutComponent::Read(std::istream &is, bool binary) {
   ExpectOneOrTwoTokens(is, binary, "<DropoutComponent>", "<Dim>");
   ReadBasicType(is, binary, &dim_);
+  ExpectToken(is, binary, "<DropoutScale>");
+  ReadBasicType(is, binary, &dropout_scale_);
   ExpectToken(is, binary, "<DropoutProportion>");
   ReadBasicType(is, binary, &dropout_proportion_);
   ExpectToken(is, binary, "</DropoutComponent>");
@@ -2185,15 +2543,20 @@ void DropoutComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<DropoutComponent>");
   WriteToken(os, binary, "<Dim>");
   WriteBasicType(os, binary, dim_);
+  WriteToken(os, binary, "<DropoutScale>");
+  WriteBasicType(os, binary, dropout_scale_);
   WriteToken(os, binary, "<DropoutProportion>");
   WriteBasicType(os, binary, dropout_proportion_);
   WriteToken(os, binary, "</DropoutComponent>");  
 }
 
 
-void DropoutComponent::Init(int32 dim, BaseFloat dropout_proportion){
+void DropoutComponent::Init(int32 dim,
+                            BaseFloat dropout_proportion,
+                            BaseFloat dropout_scale){
   dim_ = dim;
   dropout_proportion_ = dropout_proportion;
+  dropout_scale_ = dropout_scale;
 }
   
 void DropoutComponent::Propagate(
@@ -2204,19 +2567,27 @@ void DropoutComponent::Propagate(
   out->Resize(in.NumRows(), in.NumCols());
 
   KALDI_ASSERT(dropout_proportion_ < 1.0 && dropout_proportion_ >= 0.0);
-  int32 dim = InputDim(), num_keep = static_cast<int32>(dim * dropout_proportion_);
-  KALDI_ASSERT(num_keep > 0);
-  BaseFloat scale = dim / static_cast<BaseFloat>(num_keep); // scale on the
-  // dimensions that we keep.
-  Vector<BaseFloat> scales(dim);
-  BaseFloat *begin = scales.Data(), *end = begin + dim;
-  std::fill(begin, begin + num_keep, scale);
-  std::fill(begin + num_keep, end, 0.0);
+  int32 dim = InputDim(), num_high = static_cast<int32>(dim * dropout_proportion_);
+  KALDI_ASSERT(num_high > 0);
 
+  int32 num_low = dim - num_high;
+  BaseFloat low_scale = dropout_scale_,
+      high_scale = (dim - low_scale * num_low) / num_high,
+      average = (num_low * low_scale + num_high * high_scale) / dim;
+  KALDI_ASSERT(fabs(average - 1.0) < 0.01);
+  
+
+  Vector<BaseFloat> scales(dim);
+  BaseFloat *begin = scales.Data(), *mid = begin + num_low,
+      *end = begin + dim;
+  std::fill(begin, mid, low_scale);
+  std::fill(mid, end, high_scale);
+  
   out->CopyFromMat(in);
   for (int32 r = 0; r < out->NumRows(); r++) {
     SubVector<BaseFloat> out_row(*out, r);
     std::random_shuffle(begin, end); // get new random ordering of kept components.
+    // depends on rand().
     out_row.MulElements(scales);
   }
 }
@@ -2243,6 +2614,12 @@ void DropoutComponent::Backprop(const MatrixBase<BaseFloat> &in_value,
       (*in_deriv)(r, c) = id;
     }
   }
+}
+
+Component* DropoutComponent::Copy() const {
+  return new DropoutComponent(dim_,
+                              dropout_proportion_,
+                              dropout_scale_);
 }
 
 

@@ -8,7 +8,8 @@ EXTRA_CXXFLAGS = -Wno-sign-compare
 TESTFILES = kaldi-lattice-test
 
 OBJFILES = kaldi-lattice.o lattice-functions.o word-align-lattice.o \
-	       phone-align-lattice.o sausages.o kws-functions.o 
+	   phone-align-lattice.o word-align-lattice-lexicon.o sausages.o \
+           kws-functions.o push-lattice.o
 
 LIBFILE = kaldi-lat.a
 

@@ -164,6 +164,82 @@ void MatrixBase<Real>::AddMatMat(const Real alpha,
 
 }
 
+
+template<typename Real>
+void MatrixBase<Real>::AddMatSmat(const Real alpha,
+                                  const MatrixBase<Real> &A,
+                                  MatrixTransposeType transA,
+                                  const MatrixBase<Real> &B,
+                                  MatrixTransposeType transB,
+                                  const Real beta) {
+  KALDI_ASSERT((transA == kNoTrans && transB == kNoTrans && A.num_cols_ == B.num_rows_ && A.num_rows_ == num_rows_ && B.num_cols_ == num_cols_)
+               || (transA == kTrans && transB == kNoTrans && A.num_rows_ == B.num_rows_ && A.num_cols_ == num_rows_ && B.num_cols_ == num_cols_)
+               || (transA == kNoTrans && transB == kTrans && A.num_cols_ == B.num_cols_ && A.num_rows_ == num_rows_ && B.num_rows_ == num_cols_)
+               || (transA == kTrans && transB == kTrans && A.num_rows_ == B.num_cols_ && A.num_cols_ == num_rows_ && B.num_rows_ == num_cols_));
+  KALDI_ASSERT(&A !=  this && &B != this);
+
+  // We iterate over the columns of B.
+
+  MatrixIndexT Astride = A.stride_, Bstride = B.stride_, stride = this->stride_,
+      Arows = A.num_rows_, Acols = A.num_cols_;
+  Real *data = this->data_, *Adata = A.data_, *Bdata = B.data_;
+  MatrixIndexT num_cols = this->num_cols_; 
+  if (transB == kNoTrans) {
+    // Iterate over the columns of *this and of B.
+    for (MatrixIndexT c = 0; c < num_cols; c++) {
+      // for each column of *this, do
+      // [this column] = [alpha * A * this column of B] + [beta * this column]
+      Xgemv_sparsevec(transA, Arows, Acols, alpha, Adata, Astride,
+                      Bdata + c, Bstride, beta, data + c, stride);
+    }
+  } else {
+    // Iterate over the columns of *this and the rows of B.
+    for (MatrixIndexT c = 0; c < num_cols; c++) {
+      // for each column of *this, do
+      // [this column] = [alpha * A * this row of B] + [beta * this column]
+      Xgemv_sparsevec(transA, Arows, Acols, alpha, Adata, Astride,
+                      Bdata + (c * Bstride), 1, beta, data + c, stride);
+    }    
+  }
+}
+
+template<typename Real>
+void MatrixBase<Real>::AddSmatMat(const Real alpha,
+                                  const MatrixBase<Real> &A,
+                                  MatrixTransposeType transA,
+                                  const MatrixBase<Real> &B,
+                                  MatrixTransposeType transB,
+                                  const Real beta) {
+  KALDI_ASSERT((transA == kNoTrans && transB == kNoTrans && A.num_cols_ == B.num_rows_ && A.num_rows_ == num_rows_ && B.num_cols_ == num_cols_)
+               || (transA == kTrans && transB == kNoTrans && A.num_rows_ == B.num_rows_ && A.num_cols_ == num_rows_ && B.num_cols_ == num_cols_)
+               || (transA == kNoTrans && transB == kTrans && A.num_cols_ == B.num_cols_ && A.num_rows_ == num_rows_ && B.num_rows_ == num_cols_)
+               || (transA == kTrans && transB == kTrans && A.num_rows_ == B.num_cols_ && A.num_cols_ == num_rows_ && B.num_rows_ == num_cols_));
+  KALDI_ASSERT(&A !=  this && &B != this);
+
+  MatrixIndexT Astride = A.stride_, Bstride = B.stride_, stride = this->stride_,
+      Brows = B.num_rows_, Bcols = B.num_cols_;
+  MatrixTransposeType invTransB = (transB == kTrans ? kNoTrans : kTrans);
+  Real *data = this->data_, *Adata = A.data_, *Bdata = B.data_;
+  MatrixIndexT num_rows = this->num_rows_;
+  if (transA == kNoTrans) {
+    // Iterate over the rows of *this and of A.
+    for (MatrixIndexT r = 0; r < num_rows; r++) {
+      // for each row of *this, do
+      // [this row] = [alpha * (this row of A) * B^T] + [beta * this row]
+      Xgemv_sparsevec(invTransB, Brows, Bcols, alpha, Bdata, Bstride,
+                      Adata + (r * Astride), 1, beta, data + (r * stride), 1);
+    }
+  } else {
+    // Iterate over the rows of *this and the columns of A.
+    for (MatrixIndexT r = 0; r < num_rows; r++) {
+      // for each row of *this, do
+      // [this row] = [alpha * (this column of A) * B^T] + [beta * this row]
+      Xgemv_sparsevec(invTransB, Brows, Bcols, alpha, Bdata, Bstride,
+                      Adata + r, Astride, beta, data + (r * stride), 1);
+    }    
+  }
+}
+
 template<typename Real>
 void MatrixBase<Real>::AddSpSp(const Real alpha, const SpMatrix<Real> &A_in,
                                 const SpMatrix<Real> &B_in, const Real beta) {
@@ -469,7 +545,7 @@ void MatrixBase<Real>::CopyFromMat(const MatrixBase<OtherReal> & M,
     const OtherReal *other_data = M.Data();
     for (MatrixIndexT i = 0; i < num_rows_; i++)
       for (MatrixIndexT j = 0; j < num_cols_; j++)
-        this_data[i * this_stride + j] += other_data[j * other_stride + i];
+        this_data[i * this_stride + j] = other_data[j * other_stride + i];
   }
 }
 
@@ -771,6 +847,20 @@ Real MatrixBase<Real>::Sum() const {
 
   return (Real)sum;
 }
+
+template<typename Real> void MatrixBase<Real>::Max(const MatrixBase<Real> &A) {
+  KALDI_ASSERT(A.NumRows() == NumRows() && A.NumCols() == NumCols());
+  for (MatrixIndexT row = 0; row < num_rows_; row++) {
+    Real *row_data = RowData(row);
+    const Real *other_row_data = A.RowData(row);
+    MatrixIndexT num_cols = num_cols_;
+    for (MatrixIndexT col = 0; col < num_cols; col++) {
+      row_data[col] = std::max(row_data[col],
+                               other_row_data[col]);
+    }
+  }
+}
+           
 
 template<typename Real> void MatrixBase<Real>::Scale(Real alpha) {
   if (alpha == 1.0) return;
@@ -1521,11 +1611,12 @@ void Matrix<Real>::Transpose() {
 
 template<class Real>
 void MatrixBase<Real>::ApplyFloor(Real floor_val) {
-  for (MatrixIndexT i = 0; i < num_rows_; i++) {
-    for (MatrixIndexT j = 0; j < num_cols_; j++) {
-      if ((*this)(i, j) < floor_val) {
-        (*this)(i, j) = floor_val;
-      }}}
+  MatrixIndexT num_rows = num_rows_, num_cols = num_cols_;
+  for (MatrixIndexT i = 0; i < num_rows; i++) {
+    Real *data = this->RowData(i);
+    for (MatrixIndexT j = 0; j < num_cols; j++)
+      data[j] = (data[j] < floor_val ? floor_val : data[j]);
+  }
 }
 
 template<class Real>
@@ -1546,6 +1637,16 @@ template<class Real>
 void MatrixBase<Real>::ApplyPow(Real power) {
   for (MatrixIndexT i = 0; i < num_rows_; i++) {
     Row(i).ApplyPow(power);
+  }
+}
+
+template<class Real>
+void MatrixBase<Real>::ApplyHeaviside() {
+  MatrixIndexT num_rows = num_rows_, num_cols = num_cols_;
+  for (MatrixIndexT i = 0; i < num_rows; i++) {
+    Real *data = this->RowData(i);
+    for (MatrixIndexT j = 0; j < num_cols; j++)
+      data[j] = (data[j] > 0 ? 1.0 : 0.0);
   }
 }
 

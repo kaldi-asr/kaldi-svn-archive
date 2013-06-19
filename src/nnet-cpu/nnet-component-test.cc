@@ -23,7 +23,7 @@ namespace kaldi {
 
 void UnitTestGenericComponentInternal(const Component &component) {
   int32 input_dim = component.InputDim(),
-       output_dim = component.OutputDim();
+      output_dim = component.OutputDim();
 
 
   KALDI_LOG << component.Info();
@@ -78,7 +78,8 @@ void UnitTestGenericComponentInternal(const Component &component) {
       BaseFloat predicted_difference = TraceMatMat(perturbed_input,
                                                    input_deriv, kTrans);
       perturbed_input.AddMat(1.0, input); // now it's the input + a delta.
-      { // Compute objf with perturbed input and make sure it matches prediction.
+      { // Compute objf with perturbed input and make sure it matches
+        // prediction.
         Matrix<BaseFloat> perturbed_output(output.NumRows(), output.NumCols());
         component.Propagate(perturbed_input, 1, &perturbed_output);
         Vector<BaseFloat> perturbed_output_objfs(num_egs);
@@ -201,7 +202,8 @@ void UnitTestReduceComponent() {
 
 
 template<class T>
-void UnitTestGenericComponent() { // works if it has an initializer from int,
+void UnitTestGenericComponent(std::string extra_str = "") {
+  // works if it has an initializer from int,
   // e.g. tanh, sigmoid.
   
   // We're testing that the gradients are computed correctly:
@@ -214,7 +216,7 @@ void UnitTestGenericComponent() { // works if it has an initializer from int,
   }
   {
     T component;
-    component.InitFromString("dim=15");
+    component.InitFromString(static_cast<std::string>("dim=15 ") + extra_str);
     UnitTestGenericComponentInternal(component);
   }
 }
@@ -240,14 +242,15 @@ void UnitTestAffineComponent() {
 
 void UnitTestAffineComponentPreconditioned() {
   BaseFloat learning_rate = 0.01,
-             param_stddev = 0.1, bias_stddev = 1.0, alpha = 0.01;
+      param_stddev = 0.1, bias_stddev = 1.0, alpha = 0.01,
+      max_change = 100.0;
   int32 input_dim = 5 + rand() % 10, output_dim = 5 + rand() % 10;
   bool precondition = (rand() % 2 == 1);
   {
     AffineComponentPreconditioned component;
     component.Init(learning_rate, input_dim, output_dim,
                    param_stddev, bias_stddev, precondition,
-                   alpha);
+                   alpha, max_change);
     UnitTestGenericComponentInternal(component);
   }
   {
@@ -427,24 +430,24 @@ void UnitTestParsing() {
 
 }
 
-int BasicDebugTestForSplice (bool output=false) {
+void BasicDebugTestForSplice(bool output=false) {
   int32 C=5;
   int32 K=4, contextLen=1;
   int32 R=3+2 * contextLen;
  
   SpliceComponent *c = new SpliceComponent();
   c->Init(C, contextLen, contextLen, K);
-  Matrix<BaseFloat> in(R, C);
+  Matrix<BaseFloat> in(R, C), in_deriv(R, C);
   Matrix<BaseFloat> out(R, c->OutputDim());
 
   in.SetRandn();
   if (output)
-    KALDI_WARN << in;
+    KALDI_LOG << in;
 
   c->Propagate(in, 1, &out);
   
   if (output) 
-    KALDI_WARN << out;
+    KALDI_LOG << out;
 
   out.Set(1);
   
@@ -454,16 +457,49 @@ int BasicDebugTestForSplice (bool output=false) {
   }
 
   if (output)
-    KALDI_WARN << out;
+    KALDI_LOG << out;
   
   int32 num_chunks = 1;
-  c->Backprop(in, in, out, num_chunks, c, &in);
+  c->Backprop(in, in, out, num_chunks, c, &in_deriv);
   
   if (output)
-    KALDI_WARN << in ;
-
-  return 0;
+    KALDI_LOG << in_deriv;
+  delete c;
 }
+
+void BasicDebugTestForSpliceMax(bool output=false) {
+  int32 C=5;
+  int32 contextLen=2;
+  int32 R= 3 + 2*contextLen;
+ 
+  SpliceMaxComponent *c = new SpliceMaxComponent();
+  c->Init(C, contextLen, contextLen);
+  Matrix<BaseFloat> in(R, C), in_deriv(R, C);
+  Matrix<BaseFloat> out(R, c->OutputDim());
+  
+  in.SetRandn();
+  if (output)
+    KALDI_LOG << in;
+
+  c->Propagate(in, 1, &out);
+  
+  if (output) 
+    KALDI_LOG << out;
+
+  out.Set(5.0);
+  
+  if (output)
+    KALDI_LOG << out;
+  
+  int32 num_chunks = 1;
+  c->Backprop(in, in, out, num_chunks, c, &in_deriv);
+  
+  if (output)
+    KALDI_LOG << in_deriv;
+
+  delete c;
+}
+
 
 } // namespace kaldi
 
@@ -474,12 +510,17 @@ int main() {
   using namespace kaldi;
 
   BasicDebugTestForSplice(true);
+  BasicDebugTestForSpliceMax(true);
 
   for (int32 i = 0; i < 5; i++) {
     UnitTestGenericComponent<SigmoidComponent>();
     UnitTestGenericComponent<TanhComponent>();
     UnitTestGenericComponent<PermuteComponent>();
     UnitTestGenericComponent<SoftmaxComponent>();
+    UnitTestGenericComponent<RectifiedLinearComponent>();
+    UnitTestGenericComponent<SoftHingeComponent>();
+    UnitTestGenericComponent<SqrtSoftHingeComponent>();
+    UnitTestGenericComponent<PowerExpandComponent>("higher-power-scale=0.1");
     UnitTestSigmoidComponent();
     UnitTestReduceComponent();
     UnitTestAffineComponent();

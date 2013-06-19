@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
     Timer timer;
     bool allow_partial = false;
     BaseFloat acoustic_scale = 0.1;
+    BaseFloat log_sum_exp_prune = 0.0;
     LatticeFasterDecoderConfig latgen_config;
     TaskSequencerConfig sequencer_config; // has --num-threads option
     
@@ -55,6 +56,9 @@ int main(int argc, char *argv[]) {
     sequencer_config.Register(&po);
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoods");
+    po.Register("log-sum-exp-prune", &log_sum_exp_prune,
+                "If >0, pruning parameter to minimize exp()'s.  Suggest 3 to 5; "
+                "larger is more exact.");
     po.Register("word-symbol-table", &word_syms_filename,
                 "Symbol table for words [for debug output]");
     po.Register("allow-partial", &allow_partial,
@@ -113,16 +117,8 @@ int main(int argc, char *argv[]) {
       SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
       // Input FST is just one FST, not a table of FSTs.
 
-      {
-        std::ifstream is(fst_in_str.c_str(), std::ifstream::binary);
-        if (!is.good()) KALDI_ERR << "Could not open decoding-graph FST "
-                                  << fst_in_str;
-        decode_fst =
-            VectorFst<StdArc>::Read(is, fst::FstReadOptions(fst_in_str));
-        if (decode_fst == NULL) // fst code will warn.
-          exit(1);
-      }
-
+      decode_fst = fst::ReadFstKaldi(fst_in_str);
+      
       {    
         for (; !feature_reader.Done(); feature_reader.Next()) {
           std::string utt = feature_reader.Key();
@@ -142,6 +138,7 @@ int main(int argc, char *argv[]) {
           DecodableAmDiagGmmScaled *gmm_decodable =
               new DecodableAmDiagGmmScaled(am_gmm, trans_model, 
                                            acoustic_scale,
+                                           log_sum_exp_prune,
                                            features);
 
           DecodeUtteranceLatticeFasterClass *task =
@@ -184,7 +181,7 @@ int main(int argc, char *argv[]) {
         // The "decodable" object takes ownership of the features.
         DecodableAmDiagGmmScaled *gmm_decodable =
             new DecodableAmDiagGmmScaled(am_gmm, trans_model, acoustic_scale,
-                                         features);
+                                         log_sum_exp_prune, features);
 
         DecodeUtteranceLatticeFasterClass *task =
             new DecodeUtteranceLatticeFasterClass(

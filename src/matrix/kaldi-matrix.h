@@ -201,13 +201,16 @@ class MatrixBase {
   Real Min() const;
 
   /// Element by element multiplication with a given matrix.
-  void MulElements(const MatrixBase<Real> &a);
+  void MulElements(const MatrixBase<Real> &A);
 
   /// Divide each element by the corresponding element of a given matrix.
-  void DivElements(const MatrixBase<Real> &a);
+  void DivElements(const MatrixBase<Real> &A);
 
   /// Multiply each element with a scalar value.
   void Scale(Real alpha);
+
+  /// Set, element-by-element, *this = max(*this, A)
+  void Max(const MatrixBase<Real> &A);
 
   /// Equivalent to (*this) = (*this) * diag(scale).  Scaling
   /// each column by a scalar taken from that dimension of the vector.
@@ -252,6 +255,12 @@ class MatrixBase {
   /// Applies power to all matrix elements
   void ApplyPow(Real power);
 
+  /// Applies the Heaviside step function (x > 0 ? 1 : 0) to all matrix elements
+  /// Note: in general you can make different choices for x = 0, but for now
+  /// please leave it as it (i.e. returning zero) because it affects the
+  /// RectifiedLinearComponent in the neural net code.
+  void ApplyHeaviside();
+  
   /// Eigenvalue Decomposition of a square NxN matrix into the form (*this) = P D
   /// P^{-1}.  Be careful: the relationship of D to the eigenvalues we output is
   /// slightly complicated, due to the need for P to be real.  In the symmetric
@@ -345,13 +354,15 @@ class MatrixBase {
 
   /// Returns log(sum(exp())) without exp overflow
   /// If prune > 0.0, it uses a pruning beam, discarding
-  /// terms less than (max - prune).
-  Real LogSumExp(Real prune = 0.0) const;
+  /// terms less than (max - prune).  Note: in future
+  /// we may change this so that if prune = 0.0, it takes
+  /// the max, so use -1 if you don't want to prune.
+  Real LogSumExp(Real prune = -1.0) const;
 
   /// Apply soft-max to the collection of all elements of the
   /// matrix and return normalizer (log sum of exponentials).
   Real ApplySoftMax();
-
+  
   /// Set each element to the sigmoid of the corresponding element of "src".
   void Sigmoid(const MatrixBase<Real> &src);
 
@@ -408,11 +419,24 @@ class MatrixBase {
   template<class OtherReal>
   void AddSp(const Real alpha, const SpMatrix<OtherReal> &S);
 
-  /// this <-- beta*this + alpha*A*B.
   void AddMatMat(const Real alpha,
                  const MatrixBase<Real>& A, MatrixTransposeType transA,
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
+
+  /// A version of AddMatMat specialized for when the second argument
+  /// contains a lot of zeroes.
+  void AddMatSmat(const Real alpha,
+                  const MatrixBase<Real>& A, MatrixTransposeType transA,
+                  const MatrixBase<Real>& B, MatrixTransposeType transB,
+                  const Real beta);
+
+  /// A version of AddMatMat specialized for when the first argument
+  /// contains a lot of zeroes.  
+  void AddSmatMat(const Real alpha,
+                  const MatrixBase<Real>& A, MatrixTransposeType transA,
+                  const MatrixBase<Real>& B, MatrixTransposeType transB,
+                  const Real beta);
 
   /// this <-- beta*this + alpha*A*B*C.
   void AddMatMatMat(const Real alpha,

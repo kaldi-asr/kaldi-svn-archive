@@ -55,18 +55,25 @@ int main(int argc, char *argv[]) {
         "scp:wav.scp model HCLG.fst words.txt '1:2:3:4:5' ark,t:trans.txt ark,t:ali.txt";
     ParseOptions po(usage);
     BaseFloat acoustic_scale = 0.1;
-    int32 cmn_window = 600;
+    int32 cmn_window = 600,
+      min_cmn_window = 100; // adds 1 second latency, only at utterance start.
     int32 channel = -1;
     int32 right_context = 4, left_context = 4;
 
     OnlineFasterDecoderOpts decoder_opts;
     decoder_opts.Register(&po, true);
+    OnlineFeatureMatrixOptions feature_reading_opts;
+    feature_reading_opts.Register(&po);
+    
     po.Register("left-context", &left_context, "Number of frames of left context");
     po.Register("right-context", &right_context, "Number of frames of right context");
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoods");
     po.Register("cmn-window", &cmn_window,
         "Number of feat. vectors used in the running average CMN calculation");
+    po.Register("min-cmn-window", &min_cmn_window,
+                "Minumum CMN window used at start of decoding (adds "
+                "latency only at start)");
     po.Register("channel", &channel,
         "Channel to extract (-1 -> expect mono, 0 -> left, 1 -> right)");
     po.Read(argc, argv);
@@ -127,7 +134,6 @@ int main(int argc, char *argv[]) {
     int32 frame_length = mfcc_opts.frame_opts.frame_length_ms = 25;
     int32 frame_shift = mfcc_opts.frame_opts.frame_shift_ms = 10;
 
-    int32 feat_dim;
     int32 window_size = right_context + left_context + 1;
     decoder_opts.batch_size = std::max(decoder_opts.batch_size, window_size);
 
@@ -164,21 +170,28 @@ int main(int argc, char *argv[]) {
       FeInput fe_input(&au_src, &mfcc,
                        frame_length*(wav_data.SampFreq()/1000),
                        frame_shift*(wav_data.SampFreq()/1000));
-      OnlineCmvnInput cmvn_input(&fe_input, mfcc_opts.num_ceps, cmn_window);
+      OnlineCmnInput cmn_input(&fe_input, cmn_window, min_cmn_window);
       OnlineFeatInputItf *feat_transform = 0;
       if (lda_mat_rspecifier != "") {
         feat_transform = new OnlineLdaInput(
-                                 &cmvn_input, mfcc_opts.num_ceps, lda_transform,
-                                 left_context, right_context);
-        feat_dim = lda_transform.NumRows();
+            &cmn_input, lda_transform,
+            left_context, right_context);
       } else {
-        feat_transform = new OnlineDeltaInput(&cmvn_input, mfcc_opts.num_ceps,
-                                              kDeltaOrder, left_context / 2);
-        feat_dim = (kDeltaOrder + 1) * mfcc_opts.num_ceps;
+        DeltaFeaturesOptions opts;
+        opts.order = kDeltaOrder;
+        // Note from Dan: keeping the next statement for back-compatibility,
+        // but I don't think this is really the right way to set the window-size
+        // in the delta computation: it should be a separate config.
+        opts.window = left_context / 2;
+        feat_transform = new OnlineDeltaInput(opts, &cmn_input);
       }
-      OnlineDecodableDiagGmmScaled decodable(feat_transform, am_gmm, trans_model,
-                                             acoustic_scale, decoder_opts.batch_size,
-                                             feat_dim, -1);
+
+      // feature_reading_opts contains timeout, batch size.
+      OnlineFeatureMatrix feature_matrix(feature_reading_opts,
+                                         feat_transform);
+
+      OnlineDecodableDiagGmmScaled decodable(am_gmm, trans_model, acoustic_scale,
+                                             &feature_matrix);
       int32 start_frame = 0;
       bool partial_res = false;
       while (1) {

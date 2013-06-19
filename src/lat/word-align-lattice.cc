@@ -33,14 +33,16 @@ class LatticeWordAligner {
    public:
     
     /// Advance the computation state by adding the symbols and weights
-    /// from this arc.
-    void Advance(const CompactLatticeArc &arc) {
+    /// from this arc.  We'll put the weight on the output arc; this helps
+    /// keep the state-space smaller.
+    void Advance(const CompactLatticeArc &arc, LatticeWeight *weight) {
       const std::vector<int32> &string = arc.weight.String();
       transition_ids_.insert(transition_ids_.end(),
                              string.begin(), string.end());
       if (arc.ilabel != 0) // note: arc.ilabel==arc.olabel (acceptor)
         word_labels_.push_back(arc.ilabel);
-      weight_ = Times(weight_, arc.weight.Weight());      
+      *weight = Times(weight_, arc.weight.Weight());
+      weight_ = LatticeWeight::One();
     }
 
     /// If it can output a whole word, it will do so, will put it in arc_out,
@@ -229,7 +231,8 @@ class LatticeWordAligner {
           !aiter.Done(); aiter.Next()) {
         const CompactLatticeArc &arc = aiter.Value();
         Tuple next_tuple(tuple);
-        next_tuple.comp_state.Advance(arc);
+        LatticeWeight weight;
+        next_tuple.comp_state.Advance(arc, &weight);
         next_tuple.input_state = arc.nextstate;
         StateId next_output_state = GetStateForTuple(next_tuple, true); // true == add to queue,
         // if not already present.
@@ -238,8 +241,8 @@ class LatticeWordAligner {
         KALDI_ASSERT(next_output_state != output_state);
         lat_out_->AddArc(output_state,
                          CompactLatticeArc(0, 0,
-                                           CompactLatticeWeight::One(),
-                                           next_output_state));
+                             CompactLatticeWeight(weight, std::vector<int32>()),
+                             next_output_state));
       }
     }
   }
@@ -247,8 +250,10 @@ class LatticeWordAligner {
   LatticeWordAligner(const CompactLattice &lat,
                      const TransitionModel &tmodel,
                      const WordBoundaryInfo &info,
+                     int32 max_states,
                      CompactLattice *lat_out):
-      lat_(lat), tmodel_(tmodel), info_in_(info), info_(info), lat_out_(lat_out),
+      lat_(lat), tmodel_(tmodel), info_in_(info), info_(info),
+      max_states_(max_states), lat_out_(lat_out),
       error_(false) {
     fst::CreateSuperFinal(&lat_); // Creates a super-final state, so the
     // only final-probs are One().
@@ -297,8 +302,16 @@ class LatticeWordAligner {
     StateId start_state = GetStateForTuple(initial_tuple, true); // True = add this to queue.
     lat_out_->SetStart(start_state);
     
-    while (!queue_.empty())
+    while (!queue_.empty()) {
+      if (max_states_ > 0 && lat_out_->NumStates() > max_states_) {
+        KALDI_WARN << "Number of states in lattice exceeded max-states of "
+                   << max_states_ << ", original lattice had "
+                   << lat_.NumStates() << " states.  Returning empty lattice.";
+        lat_out_->DeleteStates();
+        return false;
+      }
       ProcessQueueElement();
+    }
 
     RemoveEpsilonsFromLattice();
     
@@ -309,6 +322,7 @@ class LatticeWordAligner {
   const TransitionModel &tmodel_;
   const WordBoundaryInfo &info_in_;
   WordBoundaryInfo info_;
+  int32 max_states_;
   CompactLattice *lat_out_;
 
   std::vector<std::pair<Tuple, StateId> > queue_;
@@ -678,8 +692,9 @@ WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
 bool WordAlignLattice(const CompactLattice &lat,
                       const TransitionModel &tmodel,
                       const WordBoundaryInfo &info,
+                      int32 max_states,
                       CompactLattice *lat_out) {
-  LatticeWordAligner aligner(lat, tmodel, info, lat_out);
+  LatticeWordAligner aligner(lat, tmodel, info, max_states, lat_out);
   return aligner.AlignLattice();
 }
 

@@ -1,6 +1,6 @@
 // nnet-cpu/nnet-component.h
 
-// Copyright 2011-2012  Karel Vesely
+// Copyright 2011-2013  Karel Vesely
 //                      Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -201,6 +201,51 @@ class UpdatableComponent: public Component {
   const UpdatableComponent &operator = (const UpdatableComponent &other); // Disallow.
 };
 
+/// Augments a scalar variable with powers of itself, e.g. x => {x, x^2}.
+class PowerExpandComponent: public Component {
+ public:
+  void Init(int32 dim, int32 max_power = 2, BaseFloat higher_power_scale = 1.0);
+  
+  explicit PowerExpandComponent(int32 dim, int32 max_power = 2,
+                                BaseFloat higher_power_scale = 1.0) {
+    Init(dim, max_power, higher_power_scale);
+  }
+  PowerExpandComponent(): input_dim_(0), max_power_(2),
+                          higher_power_scale_(1.0) { }
+  virtual std::string Type() const { return "PowerExpandComponent"; }
+  virtual void InitFromString(std::string args); 
+  virtual int32 InputDim() const { return input_dim_; }
+  virtual int32 OutputDim() const { return max_power_ * input_dim_; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const;
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &, // out_value
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+  virtual bool BackpropNeedsInput() const { return true; }
+  virtual bool BackpropNeedsOutput() const { return false; }
+  virtual Component* Copy() const { return new PowerExpandComponent(input_dim_,
+                                                                    max_power_,
+                                                                    higher_power_scale_); }
+  
+  virtual void Read(std::istream &is, bool binary); // This Read function
+  // requires that the Component has the correct type.
+  
+  /// Write component to stream
+  virtual void Write(std::ostream &os, bool binary) const;
+
+  virtual std::string Info() const;
+ private:
+  int32 input_dim_;
+  int32 max_power_;
+  BaseFloat higher_power_scale_; // Scale put on all powers
+  // except the first one.
+};
+
+
 /// This kind of Component is a base-class for things like
 /// sigmoid and softmax.
 class NonlinearComponent: public Component {
@@ -221,9 +266,10 @@ class NonlinearComponent: public Component {
   
   /// Write component to stream.
   virtual void Write(std::ostream &os, bool binary) const;
-
-  void Scale(BaseFloat scale);
-  void Add(BaseFloat alpha, const NonlinearComponent &other);
+  
+  void Scale(BaseFloat scale); // relates to scaling stats, not parameters.
+  void Add(BaseFloat alpha, const NonlinearComponent &other); // relates to
+                                                              // adding stats
 
   // The following functions are unique to NonlinearComponent.
   // They mostly relate to diagnostics.
@@ -234,6 +280,9 @@ class NonlinearComponent: public Component {
   friend class SigmoidComponent;
   friend class TanhComponent;
   friend class SoftmaxComponent;
+  friend class RectifiedLinearComponent;
+  friend class SoftHingeComponent;
+  friend class SqrtSoftHingeComponent;
   
   // This function updates the stats "value_sum_", "deriv_sum_", and
   // count_. (If deriv == NULL, it won't update "deriv_sum_").
@@ -283,7 +332,7 @@ class TanhComponent: public NonlinearComponent {
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
                          int32 num_chunks,
                          Matrix<BaseFloat> *out) const; 
-  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+  virtual void Backprop(const MatrixBase<BaseFloat> &, // in_value
                         const MatrixBase<BaseFloat> &out_value,
                         const MatrixBase<BaseFloat> &out_deriv,
                         int32 num_chunks,
@@ -291,6 +340,72 @@ class TanhComponent: public NonlinearComponent {
                         Matrix<BaseFloat> *in_deriv) const;
  private:
   TanhComponent &operator = (const TanhComponent &other); // Disallow.
+};
+
+class RectifiedLinearComponent: public NonlinearComponent {
+ public:
+  explicit RectifiedLinearComponent(int32 dim): NonlinearComponent(dim) { }
+  explicit RectifiedLinearComponent(const RectifiedLinearComponent &other): NonlinearComponent(other) { }
+  RectifiedLinearComponent() { }
+  virtual std::string Type() const { return "RectifiedLinearComponent"; }
+  virtual Component* Copy() const { return new RectifiedLinearComponent(*this); }
+  virtual bool BackpropNeedsInput() { return false; }
+  virtual bool BackpropNeedsOutput() { return true; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+ private:
+  RectifiedLinearComponent &operator = (const RectifiedLinearComponent &other); // Disallow.
+};
+
+class SoftHingeComponent: public NonlinearComponent {
+ public:
+  explicit SoftHingeComponent(int32 dim): NonlinearComponent(dim) { }
+  explicit SoftHingeComponent(const SoftHingeComponent &other): NonlinearComponent(other) { }
+  SoftHingeComponent() { }
+  virtual std::string Type() const { return "SoftHingeComponent"; }
+  virtual Component* Copy() const { return new SoftHingeComponent(*this); }
+  virtual bool BackpropNeedsInput() { return false; }
+  virtual bool BackpropNeedsOutput() { return true; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+ private:
+  SoftHingeComponent &operator = (const SoftHingeComponent &other); // Disallow.
+};
+
+class SqrtSoftHingeComponent: public NonlinearComponent {
+ public:
+  explicit SqrtSoftHingeComponent(int32 dim): NonlinearComponent(dim) { }
+  explicit SqrtSoftHingeComponent(const SqrtSoftHingeComponent &other): NonlinearComponent(other) { }
+  SqrtSoftHingeComponent() { }
+  virtual std::string Type() const { return "SqrtSoftHingeComponent"; }
+  virtual Component* Copy() const { return new SqrtSoftHingeComponent(*this); }
+  virtual bool BackpropNeedsInput() { return false; }
+  virtual bool BackpropNeedsOutput() { return true; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const; 
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+ private:
+  SqrtSoftHingeComponent &operator = (const SqrtSoftHingeComponent &other); // Disallow.
 };
 
 class MixtureProbComponent; // Forward declaration.
@@ -439,7 +554,8 @@ class AffineComponentPreconditioned: public AffineComponent {
   void Init(BaseFloat learning_rate,
             int32 input_dim, int32 output_dim,
             BaseFloat param_stddev, BaseFloat bias_stddev,
-            bool precondition, BaseFloat alpha);
+            bool precondition, BaseFloat alpha,
+            BaseFloat max_change);
   virtual void InitFromString(std::string args);
   virtual std::string Info() const;
   virtual Component* Copy() const;
@@ -448,6 +564,22 @@ class AffineComponentPreconditioned: public AffineComponent {
  private:
   KALDI_DISALLOW_COPY_AND_ASSIGN(AffineComponentPreconditioned);
   BaseFloat alpha_;
+  BaseFloat max_change_; // If > 0, this is the maximum amount of parameter change (in L2 norm)
+                         // that we allow per minibatch.  This was introduced in order to
+                         // control instability.  Instead of the exact L2 parameter change,
+                         // for efficiency purposes we limit a bound on the exact change.
+                         // The limit is applied via a constant <= 1.0 for each minibatch,
+                         // A suitable value might be, for example, 100 or so; larger if there are
+                         // more parameters.
+
+  /// The following function is only called if max_change_ > 0.  It returns the
+  /// greatest value alpha <= 1.0 such that (alpha times the sum over the
+  /// rows-index the two matrices of the product the l2 norms of the two rows
+  /// times learning_rate_)
+  /// is <= max_change.
+  BaseFloat GetScalingFactor(const Matrix<BaseFloat> &in_value_precon,
+                             const Matrix<BaseFloat> &out_deriv_precon);
+
   virtual void Update(
       const MatrixBase<BaseFloat> &in_value,
       const MatrixBase<BaseFloat> &out_deriv);
@@ -586,7 +718,7 @@ class AffineComponentA: public AffineComponent {
 };
 
 
-/// Splices a context window of frames together.
+/// Splices a context window of frames together [over time]
 class SpliceComponent: public Component {
  public:
   SpliceComponent() { }  // called only prior to Read() or Init().
@@ -621,6 +753,43 @@ class SpliceComponent: public Component {
   int32 left_context_;
   int32 right_context_;
   int32 const_component_dim_;
+};
+
+
+/// This is as SpliceComponent but outputs the max of
+/// any of the inputs (taking the max across time).
+class SpliceMaxComponent: public Component {
+ public:
+  SpliceMaxComponent() { }  // called only prior to Read() or Init().
+  void Init(int32 dim,
+            int32 left_context,
+            int32 right_context);
+  virtual std::string Type() const { return "SpliceMaxComponent"; }
+  virtual std::string Info() const;
+  virtual void InitFromString(std::string args);
+  virtual int32 InputDim() const { return dim_; }
+  virtual int32 OutputDim() const { return dim_; }
+  virtual int32 LeftContext() { return left_context_; }
+  virtual int32 RightContext() { return right_context_; }
+  virtual void Propagate(const MatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         Matrix<BaseFloat> *out) const;
+  virtual void Backprop(const MatrixBase<BaseFloat> &in_value,
+                        const MatrixBase<BaseFloat> &out_value,
+                        const MatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        Matrix<BaseFloat> *in_deriv) const;
+  virtual bool BackpropNeedsInput() const { return true; }
+  virtual bool BackpropNeedsOutput() const { return false; }
+  virtual Component* Copy() const;
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+ private:
+  KALDI_DISALLOW_COPY_AND_ASSIGN(SpliceMaxComponent);
+  int32 dim_;
+  int32 left_context_;
+  int32 right_context_;
 };
 
 
@@ -728,11 +897,11 @@ class BlockAffineComponent: public UpdatableComponent {
 //
 // From its external interface, i.e. DotProduct(), Scale(), and Backprop(), if
 // you use this class in the expected way (e.g. only calling DotProduct()
-// between a gradient and the parameters), it behaves as if the parameters
-// were stored as unnormalized log-prob and the gradients were taken
-// w.r.t. that representation.  This is the only way for the Scale() function
-// to make sense.  In reality, the parameters are stored as actual
-// probabilities (normalized to sum to one for each row).
+// between a gradient and the parameters), it behaves as if the parameters were
+// stored as unnormalized log-prob and the gradients were taken w.r.t. that
+// representation.  This is the only way for the Scale() function to make sense.
+// In reality, the parameters are stored as probabilities (normalized to sum to
+// one for each row).
 
 class MixtureProbComponent: public UpdatableComponent {
   friend class SoftmaxComponent; // Mixing-up done by a function
@@ -772,12 +941,15 @@ class MixtureProbComponent: public UpdatableComponent {
   virtual void Vectorize(VectorBase<BaseFloat> *params) const;
   virtual void UnVectorize(const VectorBase<BaseFloat> &params);
  private:
+  void Refresh(); // Refreshes params_ from log_params_.
   KALDI_DISALLOW_COPY_AND_ASSIGN(MixtureProbComponent);
-  static void NormalizeMatrix(MatrixBase<BaseFloat> *mat);
-  std::vector<Matrix<BaseFloat> > params_;
+
+  std::vector<Matrix<BaseFloat> > log_params_; // these are the
+  // underlying parameters that are subject to gradient descent.
+  std::vector<Matrix<BaseFloat> > params_; // these are derived from
+  // log_params_.
   int32 input_dim_;
   int32 output_dim_;
-  bool is_gradient_; // true if we're treating this as just a store for the gradient.
 };
 
 /// PermuteComponent does a random permutation of the dimensions.  Useful in
@@ -906,8 +1078,12 @@ class FixedLinearComponent: public Component {
 /// test or when computing validation-set objective functions.
 class DropoutComponent: public Component {
  public:
-  void Init(int32 dim, BaseFloat dropout_proportion = 0.5);
-  DropoutComponent(int32 dim, BaseFloat dp = 0.5) { Init(dim, dp); }
+  void Init(int32 dim,
+            BaseFloat dropout_proportion = 0.5,
+            BaseFloat dropout_scale = 0.0);
+  DropoutComponent(int32 dim, BaseFloat dp = 0.5, BaseFloat sc = 0.0) {
+    Init(dim, dp, sc);
+  }
   DropoutComponent(): dim_(0), dropout_proportion_(0.5) { }
   virtual int32 InputDim() const { return dim_; }
   virtual int32 OutputDim() const { return dim_; }
@@ -919,9 +1095,10 @@ class DropoutComponent: public Component {
       
   virtual std::string Type() const { return "DropoutComponent"; }
 
+  void SetDropoutScale(BaseFloat scale) { dropout_scale_ = scale; }
   virtual bool BackpropNeedsInput() const { return true; }
   virtual bool BackpropNeedsOutput() const { return true; }  
-  virtual Component* Copy() const { return new DropoutComponent(dim_); }
+  virtual Component* Copy() const;
   virtual void Propagate(const MatrixBase<BaseFloat> &in,
                          int32 num_chunks,
                          Matrix<BaseFloat> *out) const; 
@@ -931,9 +1108,12 @@ class DropoutComponent: public Component {
                         int32 num_chunks,
                         Component *to_update, // may be identical to "this".
                         Matrix<BaseFloat> *in_deriv) const;
+  virtual std::string Info() const;
  private:
   int32 dim_;  
   BaseFloat dropout_proportion_;
+  BaseFloat dropout_scale_; // Set the scale that we scale "dropout_proportion_"
+  // of the neurons by (default 0.0, but can be set arbitrarily close to 1.0).
 };
 
 /// This is a bit similar to dropout but adding (not multiplying) Gaussian

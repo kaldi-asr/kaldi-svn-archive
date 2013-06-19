@@ -3,6 +3,7 @@
 // Copyright 2009-2012   Saarland University (author: Arnab Ghoshal)
 //           2012-2013   Johns Hopkins University (Author: Daniel Povey);
 //                       Bagher BabaAli
+
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,6 +29,7 @@
 #include "fstext/fstext-lib.h"
 #include "hmm/transition-model.h"
 #include "lat/kaldi-lattice.h"
+#include "itf/decodable-itf.h"
 
 namespace kaldi {
 
@@ -148,10 +150,28 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
 void CompactLatticeShortestPath(const CompactLattice &clat,
                                 CompactLattice *shortest_path);
 
-/// This function add the word insertion penalty to garph score of each word
+/// This function add the word insertion penalty to graph score of each word
 /// in the compact lattice
 void AddWordInsPenToCompactLattice(BaseFloat word_ins_penalty,
                                    CompactLattice *clat);
+
+/// This function *adds* the negated scores obtained from the Decodable object,
+/// to the acoustic scores on the arcs.  If you want to replace them, you should
+/// use ScaleCompactLattice to first set the acoustic scores to zero.  Returns
+/// true on success, false on error (typically some kind of mismatched inputs).
+bool RescoreCompactLattice(DecodableInterface *decodable,
+                           CompactLattice *clat);
+
+
+/// This function *adds* the negated scores obtained from the Decodable object,
+/// to the acoustic scores on the arcs.  If you want to replace them, you should
+/// use ScaleCompactLattice to first set the acoustic scores to zero.  Returns
+/// true on success, false on error (typically some kind of mismatched inputs).
+/// The input labels, if nonzero, are interpreted as transition-ids or whatever
+/// other index the Decodable object expects.
+bool RescoreLattice(DecodableInterface *decodable,
+                    Lattice *lat);
+
 
 }  // namespace kaldi
 

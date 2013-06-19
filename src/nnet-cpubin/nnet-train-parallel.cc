@@ -43,18 +43,26 @@ int main(int argc, char *argv[]) {
     bool binary_write = true;
     bool zero_stats = true;
     int32 minibatch_size = 1024;
+    int32 srand_seed = 0;
+    BaseFloat momentum_minibatches = 0.0;
     
     ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
     po.Register("zero-stats", &zero_stats, "If true, zero stats "
                 "stored with the neural net (only affects mixing up).");
+    po.Register("srand", &srand_seed,
+                "Seed for random number generator (e.g., for dropout)");
     po.Register("num-threads", &g_num_threads, "Number of training threads to use "
                 "in the parallel update. [Note: if you use a parallel "
                 "implementation of BLAS, the actual number of threads may be larger.]");
     po.Register("minibatch-size", &minibatch_size, "Number of examples to use for "
                 "each minibatch during training.");
+    po.Register("momentum-minibatches", &momentum_minibatches, "Number of minibatches, "
+                "representing a time constant for momentum-type update.  Should be more "
+                "than num-threads, if set.");
     
     po.Read(argc, argv);
+    srand(srand_seed);
     
     if (po.NumArgs() != 3) {
       po.PrintUsage();
@@ -83,15 +91,19 @@ int main(int argc, char *argv[]) {
     int64 num_examples = 0;
     SequentialNnetTrainingExampleReader example_reader(examples_rspecifier);
     
-    // BaseFloat tot_loglike =
-    DoBackpropParallel(am_nnet.GetNnet(),
-                       minibatch_size,
-                       &example_reader,
-                       &num_examples,
-                       &(am_nnet.GetNnet()));
-    // This function will have produced logging output, so we have no
-    // need for that here.
-    
+
+    if (momentum_minibatches == 0.0)
+      DoBackpropParallel(am_nnet.GetNnet(),
+                         minibatch_size,
+                         &example_reader,
+                         &num_examples,
+                         &(am_nnet.GetNnet()));
+    else
+      DoBackpropParallelMomentum(minibatch_size,
+                                 momentum_minibatches,
+                                 &example_reader,
+                                 &num_examples,
+                                 &(am_nnet.GetNnet()));
     {
       Output ko(nnet_wxfilename, binary_write);
       trans_model.Write(ko.Stream(), binary_write);
