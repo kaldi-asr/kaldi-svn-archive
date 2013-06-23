@@ -26,6 +26,8 @@
 #include "online/online-faster-decoder.h"
 #include "online/onlinebin-util.h"
 #include "matrix/kaldi-vector.h"
+#include "lat/word-align-lattice.h"
+#include "lat/lattice-functions.h"
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -35,6 +37,10 @@
 using namespace kaldi;
 using namespace fst;
 
+/*
+ * This class is for a very simple TCP server implementation
+ * in UNIX sockets.
+ */
 class TCPServer
 {
 private:
@@ -46,13 +52,17 @@ public:
 	TCPServer();
 	~TCPServer();
 
-	bool listen(int port);
-	int accept();
+	bool listen(int port); //start listening on a given port
+	int accept(); //accept a client and return its descriptor
 };
 
 //write a line of text to socket
 bool write_line(int32 socket, std::string line);
 
+/*
+ * This class implements a VectorSource that reads
+ * audio data in a special format from a socket descriptor.
+ */
 class OnlineTCPVectorSource
 {
 public:
@@ -62,9 +72,12 @@ public:
 	// Implementation of the OnlineAudioSource "interface"
 	bool Read(Vector<BaseFloat> *data, int32 timeout);
 
+	//returns if the socket is still connected
 	bool isConnected();
 
+	//returns the number of samples read since the last reset
 	size_t samplesProcessed();
+	//resets the number of samples
 	void resetSamples();
 
 private:
@@ -79,15 +92,18 @@ private:
 
 	size_t samples_processed;
 
+	//runs the builtin "read" method as many times as needed to fill "buf" with "len" bytes
 	bool read_full(char* buf, int len);
-
+	//gets the next packet of bytes and returns its size
 	int getNextPack();
+	//runs "getNextPack" enough times to fill the frame with "size" bytes
 	int fillFrame(int size);
 
 	KALDI_DISALLOW_COPY_AND_ASSIGN(OnlineTCPVectorSource);
 };
 
-const float FRAMES_PER_SECOND = 100;
+//constant allowing to convert frame count to time
+const float FRAMES_PER_SECOND = 100.0f;
 
 int main(int argc, char *argv[])
 {
@@ -102,7 +118,7 @@ int main(int argc, char *argv[])
 
 		const char *usage =
 				"Usage: ./online-audio-server-decode-faster [options] model-in"
-						"fst-in word-symbol-table silence-phones tcp-port lda-matrix-in\n\n";
+						"fst-in word-symbol-table silence-phones tcp-port word-boundary-file lda-matrix-in\n\n";
 
 		ParseOptions po(usage);
 		BaseFloat acoustic_scale = 0.1;
@@ -125,8 +141,12 @@ int main(int argc, char *argv[])
 		po.Register("min-cmn-window", &min_cmn_window,
 				"Minumum CMN window used at start of decoding (adds "
 						"latency only at start)");
+
+		WordBoundaryInfoNewOpts opts;
+		opts.Register(&po);
+
 		po.Read(argc, argv);
-		if (po.NumArgs() != 6)
+		if (po.NumArgs() != 7)
 		{
 			po.PrintUsage();
 			return 1;
@@ -137,7 +157,8 @@ int main(int argc, char *argv[])
 
 		std::string model_rspecifier = po.GetArg(1), fst_rspecifier = po.GetArg(
 				2), word_syms_filename = po.GetArg(3), silence_phones_str =
-				po.GetArg(4), lda_mat_rspecifier = po.GetOptArg(6);
+				po.GetArg(4), word_boundary_filename = po.GetOptArg(6),
+				lda_mat_rspecifier = po.GetOptArg(7);
 
 		int port = strtol(po.GetArg(5).c_str(), 0, 10);
 
@@ -179,6 +200,10 @@ int main(int argc, char *argv[])
 			KALDI_ERR<< "Could not read symbol table from file "
 			<< word_syms_filename;
 
+		std::cout << "Reading word boundary file: " << word_boundary_filename
+				<< "..." << std::endl;
+		WordBoundaryInfo info(opts, word_boundary_filename);
+
 		std::cout << "Reading FST: " << fst_rspecifier << "..." << std::endl;
 		fst::Fst < fst::StdArc > *decode_fst = ReadDecodeGraph(fst_rspecifier);
 
@@ -195,6 +220,7 @@ int main(int argc, char *argv[])
 				window_size);
 
 		VectorFst<LatticeArc> out_fst;
+		CompactLattice out_lat, aligned_lat;
 		OnlineTCPVectorSource* au_src = NULL;
 		int32 client_socket = -1;
 
@@ -246,6 +272,7 @@ int main(int argc, char *argv[])
 					acoustic_scale, &feature_matrix);
 
 			clock_t start = clock();
+			int decoder_offset = 0;
 
 			while (1)
 			{
@@ -262,22 +289,26 @@ int main(int argc, char *argv[])
 
 				if (dstate & (decoder.kEndFeats | decoder.kEndUtt))
 				{
-					std::vector<int32> word_ids, trans_ids, phone_ids,
-							alignment;
+					std::vector<int32> word_ids, times, lengths;
+
 					decoder.FinishTraceBack(&out_fst);
 					decoder.GetBestPath(&out_fst);
-					fst::GetLinearSymbolSequence(out_fst, &trans_ids, &word_ids,
-							static_cast<LatticeArc::Weight*>(0));
 
-					phone_ids.clear();
-					for (size_t i = 0; i < trans_ids.size(); i++)
-					{
-						int32 tid = trans_ids[i];
-						phone_ids.push_back(
-								trans_model.TransitionIdToPhone(tid));
-					}
+					ConvertLattice(out_fst, &out_lat);
 
-					if (word_ids.size() > 0)
+					WordAlignLattice(out_lat, trans_model, info, 0,
+							&aligned_lat);
+
+					CompactLatticeToWordAlignment(aligned_lat, &word_ids,
+							&times, &lengths);
+
+					//count number of non-sil words
+					int words_num = 0;
+					for (size_t i = 0; i < word_ids.size(); i++)
+						if (word_ids[i] != 0)
+							words_num++;
+
+					if (words_num > 0)
 					{
 
 						float dur = (clock() - start) / (float) CLOCKS_PER_SEC;
@@ -287,19 +318,30 @@ int main(int argc, char *argv[])
 						au_src->resetSamples();
 
 						std::stringstream sstr;
-						sstr << "RESULT:NUM=" << word_ids.size()
-								<< ",FORMAT=W,RECO-DUR=" << dur << ",INPUT-DUR="
-								<< input_dur;
+						sstr << "RESULT:NUM=" << words_num
+								<< ",FORMAT=WSE,RECO-DUR=" << dur
+								<< ",INPUT-DUR=" << input_dur;
 
 						write_line(client_socket, sstr.str());
 
 						for (size_t i = 0; i < word_ids.size(); i++)
 						{
+							if (word_ids[i] == 0)
+								continue; //skip silences...
+
 							std::string word = word_syms->Find(word_ids[i]);
 							if (word.empty())
 								word = "???";
 
-							write_line(client_socket, word);
+							float start = (times[i] + decoder_offset)
+									/ FRAMES_PER_SECOND;
+							float len = lengths[i] / FRAMES_PER_SECOND;
+
+							std::stringstream wstr;
+							wstr << word << "," << start << ","
+									<< (start + len);
+
+							write_line(client_socket, wstr.str());
 						}
 					}
 
@@ -308,6 +350,8 @@ int main(int argc, char *argv[])
 						write_line(client_socket, "RESULT:DONE");
 						break;
 					}
+
+					decoder_offset = decoder.frame();
 				}
 				else
 				{
@@ -332,6 +376,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 } // main()
+
+// IMPLEMENTATION OF THE CLASSES/METHODS ABOVE MAIN
 
 OnlineTCPVectorSource::OnlineTCPVectorSource(int32 socket) :
 		socket_desc(socket), connected(true), pack_size(512), frame_size(512), last_pack_size(
