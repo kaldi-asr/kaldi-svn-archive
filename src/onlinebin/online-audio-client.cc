@@ -1,9 +1,10 @@
 // onlinebin/online-audio-client.cc
 
+// Copyright 2012 Cisco Systems (author: Matthias Paulik)
 // Copyright 2013 Polish-Japanese Institute of Information Technology (author: Danijel Korzinek)
 
 //   Modifications to the original contribution by Cisco Systems made by:
-//   Matthias Paulik
+//   Vassil Panayotov
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,31 +32,35 @@
 #include "feat/wave-reader.h"
 #include "online/online-audio-source.h"
 
-bool write_full(int desc, char* data, int size);
-bool read_line(int desc, std::string* str);
-std::string timeToTimecode(float time);
+using namespace kaldi;
+typedef kaldi::int32 int32;
 
-class DecodedWord {
+namespace kaldi {
+
+bool WriteFull(int32 desc, char* data, int32 size);
+bool ReadLine(int32 desc, std::string* str);
+std::string TimeToTimecode(float time);
+
+class RecognizedWord {
  public:
   std::string word;
   float start, end;
 };
 
+}  //namespace kaldi
+
 int main(int argc, char** argv) {
   try {
-    using namespace kaldi;
-
-    typedef kaldi::int32 int32;
 
     const char *usage =
-        "Sends an audio file to the KALDI audio server and prints the result\n"
-            "optionally saving it to an HTK label file or WebVTT subtitles file\n\n"
-            "Usage: ./online-audio-client server-address server-port wav-file-specifier\n\n";
+        "Sends an audio file to the KALDI audio server (onlinebin/online-audio-server-decode-faster)\n"
+            "and prints the result optionally saving it to an HTK label file or WebVTT subtitles file\n\n"
+            "e.g.: ./online-audio-client 192.168.50.12 9012 'scp:wav_files.scp'\n\n";
     ParseOptions po(usage);
 
     bool htk = false, vtt = false, silent = false;
-    int channel = -1;
-    int packet_size = 1024;
+    int32 channel = -1;
+    int32 packet_size = 1024;
 
     po.Register("htk", &htk, "Save the result to an HTK label file");
     po.Register("vtt", &vtt, "Save the result to a WebVTT subtitle file");
@@ -74,10 +79,10 @@ int main(int argc, char** argv) {
 
     std::string server_addr_str = po.GetArg(1);
     std::string server_port_str = po.GetArg(2);
-    int server_port = strtol(server_port_str.c_str(), 0, 10);
+    int32 server_port = strtol(server_port_str.c_str(), 0, 10);
     std::string wav_rspecifier = po.GetArg(3);
 
-    int client_desc = socket(AF_INET, SOCK_STREAM, 0);
+    int32 client_desc = socket(AF_INET, SOCK_STREAM, 0);
     if (client_desc == -1) {
       std::cerr << "ERROR: couldn't create socket!" << std::endl;
       return -1;
@@ -111,7 +116,7 @@ int main(int argc, char** argv) {
 
     if (!silent) {
       std::cout << "Connected to KALDI server at host " << server_addr_str
-                << " port " << server_port << std::endl;
+          << " port " << server_port << std::endl;
     }
 
     char* pack_buffer = new char[packet_size];
@@ -149,31 +154,32 @@ int main(int argc, char** argv) {
             }
           }
         }
+
       OnlineVectorSource au_src(wav_data.Data().Row(this_chan));
       Vector<BaseFloat> data(packet_size / 2);
       while (au_src.Read(&data, 0)) {
-        for (int i = 0; i < data.Dim(); i++) {
+        for (int32 i = 0; i < data.Dim(); i++) {
           short sample = (short) data(i);
           memcpy(&pack_buffer[i * 2], (char*) &sample, 2);
         }
 
-        int size = data.Dim() * 2;
-        write_full(client_desc, (char*) &size, 4);
+        int32 size = data.Dim() * 2;
+        WriteFull(client_desc, (char*) &size, 4);
 
-        write_full(client_desc, pack_buffer, size);
+        WriteFull(client_desc, pack_buffer, size);
       }
 
       //send last packet
-      int size = 0;
-      write_full(client_desc, (char*) &size, 4);
+      int32 size = 0;
+      WriteFull(client_desc, (char*) &size, 4);
 
       std::string reco_output;
-      std::vector<DecodedWord> results;
+      std::vector<RecognizedWord> results;
       float total_input_dur = 0.0f, total_reco_dur = 0.0f;
 
       while (true) {
         std::string line;
-        if (!read_line(client_desc, &line))
+        if (!ReadLine(client_desc, &line))
           KALDI_ERR<<"Server disconnected!";
 
         if (line.substr(0, 7) != "RESULT:")
@@ -182,7 +188,7 @@ int main(int argc, char** argv) {
         if (line == "RESULT:DONE")
           break;
 
-        int res_num = 0;
+        int32 res_num = 0;
         float input_dur = 0;
         float reco_dur = 0;
 
@@ -226,9 +232,9 @@ int main(int argc, char** argv) {
         total_input_dur += input_dur;
         total_reco_dur += reco_dur;
 
-        for (int i = 0; i < res_num; i++) {
+        for (int32 i = 0; i < res_num; i++) {
           std::string line;
-          if (!read_line(client_desc, &line))
+          if (!ReadLine(client_desc, &line))
             KALDI_ERR<<"Server disconnected!";
 
           std::string word_str, start_str, end_str;
@@ -241,7 +247,7 @@ int main(int argc, char** argv) {
           beg = end + 1;
           end_str = line.substr(beg);
 
-          DecodedWord word;
+          RecognizedWord word;
           word.word = word_str;
           word.start = strtof(start_str.c_str(), 0);
           word.end = strtof(end_str.c_str(), 0);
@@ -269,8 +275,8 @@ int main(int argc, char** argv) {
       }
 
       if (vtt && !results.empty()) {
-        std::vector<DecodedWord> subtitles;
-        DecodedWord subtitle_cue;
+        std::vector<RecognizedWord> subtitles;
+        RecognizedWord subtitle_cue;
 
         subtitle_cue.start = -1;
         subtitle_cue.end = -1;
@@ -310,8 +316,8 @@ int main(int argc, char** argv) {
         vtt_file << "WEBVTT FILE" << std::endl << std::endl;
 
         for (size_t i = 0; i < subtitles.size(); i++)
-          vtt_file << (i + 1) << std::endl << timeToTimecode(subtitles[i].start)
-                   << " --> " << timeToTimecode(subtitles[i].end) << std::endl
+          vtt_file << (i + 1) << std::endl << TimeToTimecode(subtitles[i].start)
+                   << " --> " << TimeToTimecode(subtitles[i].end) << std::endl
                    << subtitles[i].word << std::endl << std::endl;
 
         vtt_file.close();
@@ -330,11 +336,13 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-bool write_full(int desc, char* data, int size) {
-  int to_write = size;
-  int wrote = 0;
+namespace kaldi {
+
+bool WriteFull(int32 desc, char* data, int32 size) {
+  int32 to_write = size;
+  int32 wrote = 0;
   while (to_write > 0) {
-    int ret = write(desc, data + wrote, to_write);
+    int32 ret = write(desc, data + wrote, to_write);
     if (ret <= 0)
       return false;
 
@@ -345,11 +353,11 @@ bool write_full(int desc, char* data, int size) {
   return true;
 }
 
-int buffer_offset = 0;
-int buffer_fill = 0;
+int32 buffer_offset = 0;
+int32 buffer_fill = 0;
 char read_buffer[1025];
 
-bool read_line(int desc, std::string* str) {
+bool ReadLine(int32 desc, std::string* str) {
   *str = "";
 
   while (true) {
@@ -357,12 +365,12 @@ bool read_line(int desc, std::string* str) {
       buffer_fill = read(desc, read_buffer, 1024);
 
       if (buffer_fill <= 0)
-        return false;
+        break;
 
       buffer_offset = 0;
     }
 
-    for (int i = buffer_offset; i < buffer_fill; i++) {
+    for (int32 i = buffer_offset; i < buffer_fill; i++) {
       if (read_buffer[i] == '\r' || read_buffer[i] == '\n') {
         read_buffer[i] = 0;
         *str += (read_buffer + buffer_offset);
@@ -388,15 +396,17 @@ bool read_line(int desc, std::string* str) {
     *str += (read_buffer + buffer_offset);
     buffer_offset = buffer_fill;
   }
+
+  return false;
 }
 
-std::string timeToTimecode(float time) {
+std::string TimeToTimecode(float time) {
 
   char buf[64];
 
-  int h, m, s, ms;
-  s = (int) time;
-  ms = (int) ((time - (float) s) * 1000.0f);
+  int32 h, m, s, ms;
+  s = (int32) time;
+  ms = (int32) ((time - (float) s) * 1000.0f);
   m = s / 60;
   s %= 60;
   h = m / 60;
@@ -406,3 +416,5 @@ std::string timeToTimecode(float time) {
 
   return buf;
 }
+
+}  //namespace kaldi

@@ -1,9 +1,10 @@
 // onlinebin/online-audio-server-decode-faster.cc
 
+// Copyright 2012 Cisco Systems (author: Matthias Paulik)
 // Copyright 2013 Polish-Japanese Institute of Information Technology (author: Danijel Korzinek)
 
 //   Modifications to the original contribution by Cisco Systems made by:
-//   Matthias Paulik
+//   Vassil Panayotov
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +21,7 @@
 
 #include "feat/feature-mfcc.h"
 #include "feat/wave-reader.h"
-#include "online/online-audio-source.h"
+#include "online/online-tcp-source.h"
 #include "online/online-feat-input.h"
 #include "online/online-decodable.h"
 #include "online/online-faster-decoder.h"
@@ -43,67 +44,24 @@ using namespace fst;
  */
 class TCPServer {
  private:
-
   struct sockaddr_in h_addr;
-  int server_desc;
+  int32 server_desc;
 
  public:
   TCPServer();
   ~TCPServer();
 
-  bool listen(int port);  //start listening on a given port
-  int accept();  //accept a client and return its descriptor
+  bool Listen(int32 port);  //start listening on a given port
+  int32 Accept();  //accept a client and return its descriptor
 };
 
 //write a line of text to socket
-bool write_line(int32 socket, std::string line);
-
-/*
- * This class implements a VectorSource that reads
- * audio data in a special format from a socket descriptor.
- */
-class OnlineTCPVectorSource {
- public:
-  OnlineTCPVectorSource(int32 socket);
-  ~OnlineTCPVectorSource();
-
-  // Implementation of the OnlineAudioSource "interface"
-  bool Read(Vector<BaseFloat> *data, int32 timeout);
-
-  //returns if the socket is still connected
-  bool isConnected();
-
-  //returns the number of samples read since the last reset
-  size_t samplesProcessed();
-  //resets the number of samples
-  void resetSamples();
-
- private:
-  int32 socket_desc;
-  bool connected;
-  char* pack;
-  int pack_size;
-  char* frame;
-  int frame_size;
-
-  int last_pack_size, last_pack_rem;
-
-  size_t samples_processed;
-
-  //runs the builtin "read" method as many times as needed to fill "buf" with "len" bytes
-  bool read_full(char* buf, int len);
-  //gets the next packet of bytes and returns its size
-  int getNextPack();
-  //runs "getNextPack" enough times to fill the frame with "size" bytes
-  int fillFrame(int size);
-
-  KALDI_DISALLOW_COPY_AND_ASSIGN(OnlineTCPVectorSource);
-};
+bool WriteLine(int32 socket, std::string line);
 
 //constant allowing to convert frame count to time
 const float kFramesPerSecond = 100.0f;
 
-int main(int argc, char *argv[]) {
+int32 main(int argc, char *argv[]) {
   try {
     typedef kaldi::int32 int32;
     typedef OnlineFeInput<OnlineTCPVectorSource, Mfcc> FeInput;
@@ -113,7 +71,8 @@ int main(int argc, char *argv[]) {
     const int32 kDeltaOrder = 2;
 
     const char *usage =
-        "Starts a TCP server that receives RAW audio and outputs aligned words.\n\n"
+        "Starts a TCP server that receives RAW audio and outputs aligned words.\n"
+            "A sample client can be found in: onlinebin/online-audio-client\n\n"
             "Usage: ./online-audio-server-decode-faster [options] model-in"
             "fst-in word-symbol-table silence-phones tcp-port word-boundary-file lda-matrix-in\n\n"
             "word-boundary file is a file that maps phoneme ids to one of (nonword|begin|end|internal|single)\n\n"
@@ -161,7 +120,7 @@ int main(int argc, char *argv[]) {
         word_boundary_filename = po.GetOptArg(6), lda_mat_rspecifier = po
             .GetOptArg(7);
 
-    int port = strtol(po.GetArg(5).c_str(), 0, 10);
+    int32 port = strtol(po.GetArg(5).c_str(), 0, 10);
 
     std::vector<int32> silence_phones;
     if (!SplitStringToIntegers(silence_phones_str, ":", false, &silence_phones))
@@ -169,7 +128,7 @@ int main(int argc, char *argv[]) {
     if (silence_phones.empty())
       KALDI_ERR<< "No silence phones given!";
 
-    if (!tcp_server.listen(port))
+    if (!tcp_server.Listen(port))
       return 0;
 
     std::cout << "Reading LDA matrix: " << lda_mat_rspecifier << "..."
@@ -223,20 +182,18 @@ int main(int argc, char *argv[]) {
     int32 client_socket = -1;
 
     while (true) {
-      if (au_src == NULL || !au_src->isConnected()) {
+      if (au_src == NULL || !au_src->IsConnected()) {
         if (au_src) {
           std::cout << "Client disconnected!" << std::endl;
           delete au_src;
         }
-        client_socket = tcp_server.accept();
+        client_socket = tcp_server.Accept();
         au_src = new OnlineTCPVectorSource(client_socket);
       }
 
-      std::cout << "Initializing decoder..." << std::endl;
+      //re-initalizing decoder for each utterance
       OnlineFasterDecoder decoder(*decode_fst, decoder_opts, silence_phones,
                                   trans_model);
-
-      std::cout << "Decoding..." << std::endl;
 
       Mfcc mfcc(mfcc_opts);
       FeInput fe_input(au_src, &mfcc, frame_length * (16000 / 1000),
@@ -263,15 +220,15 @@ int main(int argc, char *argv[]) {
                                              acoustic_scale, &feature_matrix);
 
       clock_t start = clock();
-      int decoder_offset = 0;
+      int32 decoder_offset = 0;
 
       while (1) {
-        if (!au_src->isConnected())
+        if (!au_src->IsConnected())
           break;
 
         OnlineFasterDecoder::DecodeState dstate = decoder.Decode(&decodable);
 
-        if (!au_src->isConnected()) {
+        if (!au_src->IsConnected()) {
           break;
         }
 
@@ -289,7 +246,7 @@ int main(int argc, char *argv[]) {
                                         &lengths);
 
           //count number of non-sil words
-          int words_num = 0;
+          int32 words_num = 0;
           for (size_t i = 0; i < word_ids.size(); i++)
             if (word_ids[i] != 0)
               words_num++;
@@ -297,16 +254,16 @@ int main(int argc, char *argv[]) {
           if (words_num > 0) {
 
             float dur = (clock() - start) / (float) CLOCKS_PER_SEC;
-            float input_dur = au_src->samplesProcessed() / 16000.0;
+            float input_dur = au_src->SamplesProcessed() / 16000.0;
 
             start = clock();
-            au_src->resetSamples();
+            au_src->ResetSamples();
 
             std::stringstream sstr;
             sstr << "RESULT:NUM=" << words_num << ",FORMAT=WSE,RECO-DUR=" << dur
-                 << ",INPUT-DUR=" << input_dur;
+                                               << ",INPUT-DUR=" << input_dur;
 
-            write_line(client_socket, sstr.str());
+            WriteLine(client_socket, sstr.str());
 
             for (size_t i = 0; i < word_ids.size(); i++) {
               if (word_ids[i] == 0)
@@ -322,12 +279,12 @@ int main(int argc, char *argv[]) {
               std::stringstream wstr;
               wstr << word << "," << start << "," << (start + len);
 
-              write_line(client_socket, wstr.str());
+              WriteLine(client_socket, wstr.str());
             }
           }
 
           if (dstate == decoder.kEndFeats) {
-            write_line(client_socket, "RESULT:DONE");
+            WriteLine(client_socket, "RESULT:DONE");
             break;
           }
 
@@ -353,138 +310,11 @@ int main(int argc, char *argv[]) {
 }  // main()
 
 // IMPLEMENTATION OF THE CLASSES/METHODS ABOVE MAIN
-
-OnlineTCPVectorSource::OnlineTCPVectorSource(int32 socket)
-    : socket_desc(socket),
-      connected(true),
-      pack_size(512),
-      frame_size(512),
-      last_pack_size(0),
-      last_pack_rem(0),
-      samples_processed(0) {
-  pack = new char[pack_size];
-  frame = new char[frame_size];
-}
-
-OnlineTCPVectorSource::~OnlineTCPVectorSource() {
-  delete[] pack;
-  delete[] frame;
-}
-
-size_t OnlineTCPVectorSource::samplesProcessed() {
-  return samples_processed;
-}
-void OnlineTCPVectorSource::resetSamples() {
-  samples_processed = 0;
-}
-
-bool OnlineTCPVectorSource::read_full(char* buf, int len) {
-  int to_read = len;
-  int has_read = 0;
-  int ret;
-
-  while (to_read > 0) {
-    ret = read(socket_desc, buf + has_read, to_read);
-    if (ret <= 0) {
-      connected = false;
-      return false;
-    }
-    to_read -= ret;
-    has_read += ret;
-  }
-
-  return true;
-}
-
-int OnlineTCPVectorSource::getNextPack() {
-  int size = 0;
-  if (!read_full((char*) &size, 4))
-    return 0;
-
-  if (size % 2 != 0) {
-    KALDI_ERR<<"TCPVectorSource: Pack size must be even!";
-    return 0;
-  }
-
-  if (pack_size < size) {
-    pack_size = size;
-    delete[] pack;
-    pack = new char[pack_size];
-  }
-
-  if (!read_full(pack, size))
-    return 0;
-
-  return size;
-}
-
-int OnlineTCPVectorSource::fillFrame(int get_size) {
-  int frame_offset = 0;
-  if (last_pack_rem > 0) {
-    int pack_offset = last_pack_size - last_pack_rem;
-    int size = last_pack_rem < get_size ? last_pack_rem : get_size;
-
-    memcpy(frame, pack + pack_offset, size);
-
-    last_pack_rem -= size;
-    get_size -= size;
-    frame_offset += size;
-  }
-
-  while (get_size > 0) {
-    int ret = getNextPack();
-
-    if (ret == 0)
-      return frame_offset;
-
-    int size = ret < get_size ? ret : get_size;
-
-    memcpy(frame + frame_offset, pack, size);
-
-    last_pack_size = ret;
-    last_pack_rem = last_pack_size - size;
-    get_size -= size;
-    frame_offset += size;
-  }
-
-  return frame_offset;
-}
-
-bool OnlineTCPVectorSource::Read(Vector<BaseFloat> *data, int32 timeout) {
-  if (!connected)
-    return false;
-
-  int32 n_elem = static_cast<uint32>(data->Dim());
-
-  int n_bytes = n_elem * 2;
-
-  if (frame_size < n_bytes) {
-    frame_size = n_bytes;
-    delete[] frame;
-    frame = new char[frame_size];
-  }
-
-  int b_read = fillFrame(n_bytes);
-  int n_read = b_read / 2;
-
-  short* s_frame = (short*) frame;
-  for (int i = 0; i < n_read; i++)
-    (*data)(i) = s_frame[i];
-
-  samples_processed += n_read;
-
-  return (n_read == n_elem);
-}
-
-bool OnlineTCPVectorSource::isConnected() {
-  return connected;
-}
-
 TCPServer::TCPServer() {
   server_desc = -1;
 }
 
-bool TCPServer::listen(int port) {
+bool TCPServer::Listen(int32 port) {
   h_addr.sin_addr.s_addr = INADDR_ANY;
   h_addr.sin_port = htons(port);
   h_addr.sin_family = AF_INET;
@@ -501,7 +331,7 @@ bool TCPServer::listen(int port) {
     return false;
   }
 
-  if (::listen(server_desc, 1) == -1) {
+  if (listen(server_desc, 1) == -1) {
     KALDI_ERR<< "Cannot listen on port!";
     return false;
   }
@@ -517,12 +347,12 @@ TCPServer::~TCPServer() {
     close(server_desc);
 }
 
-int TCPServer::accept() {
+int32 TCPServer::Accept() {
   std::cout << "Waiting for client..." << std::endl;
 
   socklen_t len;
 
-  int client_desc = ::accept(server_desc, (struct sockaddr*) &h_addr, &len);
+  int32 client_desc = accept(server_desc, (struct sockaddr*) &h_addr, &len);
 
   struct sockaddr_storage addr;
   char ipstr[20];
@@ -538,14 +368,14 @@ int TCPServer::accept() {
   return client_desc;
 }
 
-bool write_line(int32 socket, std::string line) {
+bool WriteLine(int32 socket, std::string line) {
   line = line + "\n";
 
   const char* p = line.c_str();
-  int to_write = line.size();
-  int wrote = 0;
+  int32 to_write = line.size();
+  int32 wrote = 0;
   while (to_write > 0) {
-    int ret = write(socket, p + wrote, to_write);
+    int32 ret = write(socket, p + wrote, to_write);
     if (ret <= 0)
       return false;
 
