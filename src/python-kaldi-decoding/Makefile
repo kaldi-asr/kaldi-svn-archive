@@ -89,7 +89,7 @@ test_dyn: $(LDLIBFILE) $(TESTFILES)
 		if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  \
 		done; exit $$result
 
-python_online_test: decoding_pipeline_example.py $(LDLIBFILE) 
+python_online_test: run_online.py $(LDLIBFILE) 
 	LD_LIBRARY_PATH=$(OBLAS_LDD):$(FST_LDD):`pwd` python $<
 	echo $?
 
