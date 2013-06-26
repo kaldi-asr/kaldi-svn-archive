@@ -17,7 +17,7 @@
 
 # Marshals the build options and configuration files for a module
 
-import sys, os.path, xml.sax, time, glob
+import sys, os.path, xml.sax, time, glob, re
 from optparse import OptionParser
 from optparse import OptionGroup
 
@@ -53,8 +53,10 @@ class BuildConfig(xml.sax.ContentHandler):
         self.acc = None
         self.spk = None
         self.buildid = None
+        self.srate = None
         self.module = None
         self.outdir = None
+        self.flist = {}
     # parse a configuration file
     def parse(self, filename):
         if not os.path.split(filename)[0]:
@@ -191,12 +193,25 @@ class BuildConfig(xml.sax.ContentHandler):
         self.acc = self.data['general']['acc']
         self.spk = self.data['general']['spk']
         self.buildid = self.data['general']['buildid']
+        self.srate = self.data['general']['srate']
+        self.module = module
         # check idlak-scratch and create if required
         self.outdir = os.path.join(self.idlakscratch, self.lang, self.acc, self.spk, module, self.buildid)
         if not os.path.isdir(self.outdir):
             os.makedirs(self.outdir)
         if not os.path.isdir(os.path.join(self.outdir, 'output')):
             os.mkdir(os.path.join(self.outdir, 'output'))
+        if self.data['general']['flist']:
+            if not os.path.isfile(self.data['general']['flist']):
+                self.logger.log("error", "Filelist not found: %s" % (self.data['general']['flist']))
+            lines = open(self.data['general']['flist']).readlines()
+            for l in lines:
+                l = l.strip()
+                pat = re.match('([a-z][a-z][a-z]_)?([a-z][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9])', l)
+                if not pat:
+                    self.logger.log("error", "Filelist has wrong format: %s should be of form [sss]_gNNNN_NNN e.g. bdl_a0001_001" % (l))
+                else:
+                    self.flist[pat.group(2)] = 1
         # if building dependent modules recursively call them
         if self.data['general']['depend'] == 'True':
             dep_modules = self.dependent_modules(module).keys()
@@ -223,6 +238,15 @@ class BuildConfig(xml.sax.ContentHandler):
                     os.system(com)
         fp = open(os.path.join(self.outdir, 'complete'), 'w')
         fp.write(time.asctime() + '\n')
+    # return input directory from dependent module
+    def get_input_dir(self, dep_module):
+        # check it is listed as a dependent module
+        dep_modules = self.dependent_modules(self.module)
+        if dep_modules.has_key(dep_module):
+            return os.path.join(self.idlakscratch, self.lang, self.acc, self.spk, dep_module, self.buildid, 'output')
+        else:
+            self.logger.log('error', '%s is not dependent on %s: update configuration' % (self.module, dep_module))
+            return None
          
 class Logger:
     loglevels = {'none':5, 'critical':4, 'error':3, 'warn':2, 'info':1, 'debug':0}

@@ -17,7 +17,7 @@
 
 # Takes corpora information and creates input files for kaldi aligner
 
-import sys, os, xml.sax
+import sys, os, xml.sax, glob
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
@@ -63,27 +63,45 @@ class saxhandler(xml.sax.ContentHandler):
             for p in prons:
                 self.lex[word][p] = 1
 
-def kaldidata(datadir, wavdir, force=False):
+def kaldidata(datadir, wavdir, flist, force=False):
     if force or not os.path.isdir(os.path.join(datadir, "train")):
         if not os.path.isdir(os.path.join(datadir, "train")):
             os.mkdir(os.path.join(datadir, "train"))
+        # setup lookup for wav files in wavdir and in flist if
+        # not empty
+        valid_ids = {}
+        wavs = glob.glob(wavdir + '/*.wav')
+        for w in wavs:
+            stem = os.path.splitext(os.path.split(w)[1])[0]
+            # stem[4:] removes speaker to get utt id
+            if len(flist):
+                if flist.has_key(stem[4:]):
+                    valid_ids[stem[4:]] = 1
+            else:
+                valid_ids[stem[4:]] = 1
+        # get the speaker id from the lastr file
+        spk = stem[:3]
         # load into XML
         p = xml.sax.make_parser()
         handler = saxhandler()
         p.setContentHandler(handler)
         p.parse(open( os.path.join(datadir, "text_norm.xml"),"r"))
-        fp = open(os.path.join(datadir, "train", "text"), 'w')
+        fp = open(os.path.join(datadir, "train", "text"), 'w') 
         for i in range(len(handler.ids)):
-            fp.write("%s %s\n" % (handler.ids[i], ' '.join(handler.data[i])))
+            if valid_ids.has_key(handler.ids[i]):
+                fp.write("%s %s\n" % (spk + '_' + handler.ids[i], ' '.join(handler.data[i])))
         fp.close()
         #write wav list and utt 2 spk mapping (all same speaker)
         fp = open(os.path.join(datadir, "train", "wav.scp"), 'w')
         fputt2spk = open(os.path.join(datadir, "train", "utt2spk"), 'w')
         for uttid in handler.ids:
-            fp.write("%s %s\n" % (uttid, os.path.join(datadir, wavdir, uttid + '.wav')))
-            fputt2spk.write("%s bdl\n" % (uttid))
+            if valid_ids.has_key(uttid):
+                fp.write("%s %s\n" % (spk + '_' + uttid, os.path.join(datadir, wavdir, spk + '_' + uttid + '.wav')))
+                fputt2spk.write("%s %s\n" % (spk + '_' + uttid, spk))
         fp.close()
         fputt2spk.close()
+        # lexicon and oov have all words for the corpus
+        # whether selected or not by flist
         fpoov = open(os.path.join(datadir, "oov.txt"), 'w')
         fplex = open(os.path.join(datadir, "lexicon.txt"), 'w')
         # add oov word and phone (should never be required!
@@ -163,8 +181,8 @@ def main():
     outdir = build_conf.outdir
     # get required directories from dependent modules
     # NONE
-    # examine general settings and set as appropriate
-    # NO OPTIONS
+    # examine module settings and set as appropriate
+    # NO MODULE OPTIONS
     # process data
     #run text through the idlak text processing module
     com = '%s/idlaktxpbin/idlaktxp --pretty --tpdb=%s %s %s\n' % (kaldisrcdir,
@@ -173,9 +191,10 @@ def main():
                                                                   os.path.join(outdir, "output", "text_norm.xml"))
     logger.log('Info', 'Running normalisation on input xml text')
     os.system(com)
-    # create kaldi required inout files (taken from egs/arctic/s1/run.py
+    # create kaldi required input files (modified from egs/arctic/s1/run.py
     logger.log('Info', 'Creating kaldi input files and train dir')
-    kaldidata(os.path.join(outdir, "output"), build_conf.idlakwav, True)
+    wavdir = os.path.join(build_conf.idlakwav, build_conf.lang, build_conf.acc, build_conf.spk, build_conf.srate)
+    kaldidata(os.path.join(outdir, "output"), wavdir, build_conf.flist, True)
     # END OF MODULE SPECIFIC CODE
     
     build_conf.end_processing(SCRIPT_NAME)

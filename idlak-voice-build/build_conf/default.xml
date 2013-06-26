@@ -18,6 +18,8 @@
       reg_desc="SPK CONF: Lower case two letter region iso code e.g. 'us' - United States"
       spk="xxx"
       spk_desc="SPK CONF: Lower case three letter speaker code e.g. 'bdl' - Arctic bdl speaker"
+      srate="16000"
+      srate_desc="Sample rate to build voice in Hz i.e. 16000 or 22050"
       idlakdata=""
       idlakscratch=""
       idlakwav=""
@@ -65,11 +67,11 @@
       />     
   <align_def
       depend="alignsetup_def"
-      options="opt1,opt2"
-      opt1="DummyDefaultValue"
-      opt1_desc="Test module specific option 1" 
-      opt2="DummyDefaultValue"
-      opt2_desc="Test module specific option 2" 
+      options="break2,break3,breakdef"
+      break="2:0.03,3:0.2"
+      break_desc="Assign break type 2 if pause less 0.03 sec, Assign break type 3 if pause less 0.2 sec"
+      breakdef="4"
+      breakdef_desc="Default break to break type 4" 
       />     
   <alignsetup_def 
       />
