@@ -8,6 +8,11 @@ However, I needed also to build shared libraries
 and maybe you will face some of my problems too.
 So this is the reasons for writing my building procedure down.
 
+Please note than I committed changes which enables much easier installation to `sandbox/oplatek`.
+The changes is not merged into trunk at the time of writing (Let me know if this is obsoleted!).
+The mark 'deprecated' on the line bellow marks the changes which I did and that you need to do *ONLY FOR THE TRUNK VERSION OF KALDI*.
+*[DEPRECATED BY `sandbox/oplatek`]*
+
 Installing external dependencies
 ================================
 See `kaldi-trunk/tools/INSTALL` for info.
@@ -15,13 +20,17 @@ Basically it telss you to use `kaldi-trunk/tools/Makefile`, which I used also.
 
 How have I installed OpenBlas?
 ----------------------
-Simple enough:
 ```bash
 make openblas
 ```
 
 How have I installed Openfst?
 ----------------------
+```bash
+make openfst_tgt
+```
+
+*[DEPRECATED BY `sandbox/oplatek`]*
 In order to install also shared libraries
 I changed the line 37 in 
 `kaldi-trunk/tools/Makefile`
@@ -50,7 +59,11 @@ make openfst_tgt
 How have I installed PortAudio?
 --------------------------
 NOTE: Necessary only for Kaldi online decoder
+```bash
+extras/install_portaudio.sh
+```
 
+*[DEPRECATED BY `sandbox/oplatek`]* 
 In kaldi-trunk/tools/extras/install_portaudio.sh
 I changed line
 ```
@@ -73,8 +86,8 @@ How have I built Kaldi?
 ./configure --openblas-root=`pwd`/../tools/OpenBLAS/install --fst-root=`pwd`/../tools/openfst --static-math=no
 ```
 
+*[DEPRECATED BY `sandbox/oplatek`]* 
 Edit the `kaldi.mk` and add the `-fPIC` flag.
-TODO It would be nice to do something like
 ```bash
 EXTRA_CXXFLAGS=-fPIC make
 EXTRA_CXXFLAGS=-fPIC make ext
@@ -120,22 +133,14 @@ None. I received built LM in Arpa format.
 NOTE: Probably, I should build my own LM. 
 
 
-How have I installed Atlas?
+How have I installed Atlas the complicated way?
 --------------------
-NOTE: I decided NOT to use Atlas, I USE OpenBlas INSTEAD. It is open source and it allows me to compile both shared and static libraries at one run.
-
-Nevertheless how I install Atlas:
-
- * I installed version atlas3.10.1.tar.bz2 (available at sourceforge)
- * I unpackaged it under `kaldi-trunk/tools` which created `kaldi-trunk/tools/ATLAS`
- * The main problem with building ATLAS was for me disabling CPU throtling.
- * I solved it by 
-
+ * The main problem with building ATLAS was for me disabling CPU throtling. I solved it by :
 ```bash
 # running following command under root in my Ubuntu 12.10
 # It does not turn off CPU throttling in fact, but I do not need the things optimaze on my local machine
 # I ran it for all of my 4 cores
-# for n in 0 1 2 3 ; do echo 'performance' > /sys/devices/system/cpu/cpu${n}/cpufreq/scaling_governor ; done
+for n in 0 1 2 3 ; do echo 'performance' > /sys/devices/system/cpu/cpu${n}/cpufreq/scaling_governor ; done
 ```
 
  * Then I needed to install Fortran compiler (The error from configure was little bit covered by consequent errors) by 
