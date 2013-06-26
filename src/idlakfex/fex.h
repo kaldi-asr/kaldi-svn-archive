@@ -90,7 +90,7 @@ typedef std::vector<FexFeat> FexFeatVector;
 
 class Fex: public TxpXmlData {
  public:
-  explicit Fex(const char * tpdb, const char * architecture);
+  explicit Fex(const char * tpdb, const char * architecture, const char * configf);
   ~Fex() {}
   // calculate biggest buffer required for feature output
   int32 MaxFeatSz();
@@ -112,6 +112,9 @@ class Fex: public TxpXmlData {
   // return feature specific mapping between fex value and desired value
   const char * Mapping(const FexFeat &feat, const char * instr) const;
  private:
+  // configuration file object
+  TxpConfig config_;
+  // Parser for tpdb xml fex setup
   void StartElement(const char * name, const char ** atts);
   // return index of a feature function by name
   int32 GetFeatIndex(const std::string &name);

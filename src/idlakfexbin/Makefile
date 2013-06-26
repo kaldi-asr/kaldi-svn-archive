@@ -6,8 +6,13 @@ EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLRO
 
 include ../kaldi.mk
 
-BINFILES = idlakfex, wavinfo
-OBJFILES =
+ifeq ($(IDLAK),true)
+	BINFILES = idlakfex wavinfo
+	OBJFILES =
+else
+	BINFILES =
+	OBJFILES =
+endif
 
 all:  $(BINFILES)
 

@@ -52,8 +52,11 @@ class TxpXmlData {
   static void EndCDataCB(void *userData);
 
   explicit TxpXmlData(TxpConfig * config, const char * type, const char * name);
+  explicit TxpXmlData() : parser_(NULL) {};
   virtual ~TxpXmlData();
 
+  /// Initialise the data structure by processing a tpdb file
+  virtual void Init(TxpConfig * config, const char * type, const char * name);
   /// Inherited class for bespoke start element handling
   virtual void StartElement(const char * name, const char ** atts) {}
   /// Inherited class for bespoke end element handling

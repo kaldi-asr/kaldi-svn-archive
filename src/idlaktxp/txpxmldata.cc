@@ -20,18 +20,28 @@
 
 namespace kaldi {
 
-TxpXmlData::TxpXmlData(TxpConfig * config, const char * type, const char * name)
-    : config_(config), type_(type), name_(name) {
+TxpXmlData::TxpXmlData(TxpConfig * config, const char * type,
+                       const char * name) {
+  Init(config, type, name);
+}
+
+TxpXmlData::~TxpXmlData() {
+  if (parser_) {
+    XML_ParserFree(parser_);
+  }
+}
+
+void TxpXmlData::Init(TxpConfig * config, const char * type,
+                      const char * name) {
+  config_ = config;
+  type_ = type;
+  name_ = name;
   parser_ = XML_ParserCreate("UTF-8");
   ::XML_SetUserData(parser_, this);
   ::XML_SetElementHandler(parser_, StartElementCB, EndElementCB);
   ::XML_SetCharacterDataHandler(parser_, CharHandlerCB);
   ::XML_SetStartCdataSectionHandler(parser_, StartCDataCB);
   ::XML_SetEndCdataSectionHandler(parser_, EndCDataCB);
-}
-
-TxpXmlData::~TxpXmlData() {
-  XML_ParserFree(parser_);
 }
 
 void TxpXmlData::StartElementCB(void *userData, const char *name,

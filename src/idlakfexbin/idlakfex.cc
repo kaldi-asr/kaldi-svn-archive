@@ -43,6 +43,8 @@ int main(int argc, char *argv[]) {
     kaldi::ParseOptions po(usage);
     po.Register("tpdb", &tpdb,
                 "Text processing database (directory XML language/speaker files)"); //NOLINT
+    po.Register("txpconfig", &configf,
+                "XML configuration file");
     po.Read(argc, argv);
     // Must have inpout and output filenames for XML
     if (po.NumArgs() != 2) {
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]) {
     kaldi::Input ki(filein, &binary);
     kaldi::Output kio(fileout, binary);
     // Setup feature extraction
-    kaldi::Fex fex(tpdb.c_str(), "default");
+    kaldi::Fex fex(tpdb.c_str(), "default", configf.c_str());
     kaldi::FexModels models(&fex);
     // Use pujiXMl to read input file
     pugi::xml_document doc;

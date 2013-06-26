@@ -21,14 +21,25 @@
 
 namespace kaldi {
 
-// constructor takes tpdb loads and sets up features
-Fex::Fex(const char * tpdb, const char * architecture)
-    : TxpXmlData("fex", architecture),
+// constructor takes tpdb, loads and sets up features
+Fex::Fex(const char * tpdb, const char * architecture, const char * configf)
+    : TxpXmlData(),
       fex_maxfieldlen_(FEX_MAXFIELDLEN),
       pauhand_(FEXPAU_HAND_SPT) {
+  if (strlen(configf)) config_.Parse(TXPCONFIG_LVL_SYSTEM, configf);
+  TxpXmlData::Init(&config_, "fex", architecture);
   if (!strcmp(FEX_PAUSEHANDLING, "UTT")) pauhand_ = FEXPAU_HAND_UTT;
   Parse(tpdb);
 }
+
+// // constructor takes tpdb, loads and sets up features
+// Fex::Fex(TxpConfig * config, const char * tpdb, const char * architecture)
+//     : TxpXmlData("fex", architecture),
+//       fex_maxfieldlen_(FEX_MAXFIELDLEN),
+//       pauhand_(FEXPAU_HAND_SPT) {
+//   if (!strcmp(FEX_PAUSEHANDLING, "UTT")) pauhand_ = FEXPAU_HAND_UTT;
+//   Parse(tpdb);
+// }
 
 // parse file into Fex class adding feature specification and
 // feature functions to architecture
