@@ -16,7 +16,8 @@ Apart the Kaldi stuff (OpenFST, OpenBLAS, PortAudio) you need to install obvious
 In the `sanbox/oplatek/tools/extras/` you can find `install_cffi.sh` installation script.
 
 I recommend to install `cffi` via you system package manager and use it for other stuff too.
-Hoever, you can always install it by running `install_cffi.sh` from `tools` directory.
+However, you can always install it by running `install_cffi.sh` from `tools` directory.
+
 
 
 Running and building examples
