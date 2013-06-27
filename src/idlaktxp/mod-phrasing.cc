@@ -59,10 +59,12 @@ bool TxpPhrasing::Process(pugi::xml_document * input) {
     phrasenode.append_attribute("no_wrds").set_value(wordid - 1);
     if (_is_utt_final(phrasenode)) {
 	uttnode.append_attribute("no_phrases").set_value(phraseid);
-	uttnode = rootnode.append_child("utt");
-	uttid++;
-	uttnode.append_attribute("uttid").set_value(uttid);
-	phraseid = 1;
+        if (!final) {
+          uttnode = rootnode.append_child("utt");
+          uttid++;
+          uttnode.append_attribute("uttid").set_value(uttid);
+          phraseid = 1;
+        }
     }
     phraseid++;
   }
