@@ -50,6 +50,8 @@ bool TxpPauses::Process(pugi::xml_document * input) {
        ++it) {
     pugi::xml_node tk = (*it).node();
     if (!strcmp(tk.name(), "break")) {
+      if (!tk.attribute("type")) tk.append_attribute("type");
+      if (!tk.attribute("time")) tk.append_attribute("time");
       if (!tk.attribute("strength").empty()) {
         pbreak = pbreak_.GetPbreakPst(tk.attribute("strength").value());
         if (pbreak) {
@@ -59,13 +61,14 @@ bool TxpPauses::Process(pugi::xml_document * input) {
       }
       // break tags override punctuation so keep a record of what happened
       // before tk
-      if (!tk.attribute("type").empty()) {
+      if (!*tk.attribute("type").value()) {
         tk.attribute("type").set_value(pbreak_.get_default_type());
       }
-      if (!tk.attribute("time").empty()) {
+      if (!*tk.attribute("time").value()) {
         tk.attribute("time").set_value(pbreak_.get_default_time());
       }
       breakitem = &tk;
+      // tk.print(std::cout);
     } else if (!strcmp(tk.name(), "ws")) {
       pbreak_.GetWhitespaceBreaks(tk.first_child().value(),
                                   tk.attribute("col").as_int(0),
