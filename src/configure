@@ -70,13 +70,25 @@ function usage {
 threaded_atlas=false #  By default, use the un-threaded version of ATLAS.
 threaded_math=${threaded_atlas}
 static_math=false
-static_fst=true
+static_fst=false
 use_cuda=true
+dynamic_kaldi=false
 
 while [ $# -gt 0 ];
 do
   case "$1" in
   --help) usage; exit 0 ;;
+  --static)
+    # FIXME depends on order of options first--static/--shared then --static-math -> it will override it
+  dynamic_kaldi=false; 
+  static_math=true;
+  static_fst=true;
+  shift ;;  
+  --shared)
+  dynamic_kaldi=true; 
+  static_math=false;
+  static_fst=false;
+  shift ;;  
   --atlas-root=*) 
   ATLASROOT=`read_dirname $1`; shift ;;
   --threaded-atlas=yes)
@@ -484,6 +496,9 @@ if [ -f kaldi.mk ]; then
 fi
 
 cp makefiles/common.mk kaldi.mk
+if $dynamic_kaldi ; then
+echo "KALDI_FLAVOR = dynamic" >> kaldi.mk
+fi
 
 # Most of the OS-specific steps below will append to kaldi.mk
 echo "Doing OS specific configurations ..."
@@ -548,9 +563,9 @@ if [ "`uname`" == "Linux" ]; then
   if [ ! -f "$FSTROOT/lib/libfst.${fst_type}" ]; then
     failure "Static=[$static_fst] OpenFST library not found:  See ../tools/INSTALL"
   fi
-  echo OPENFSTLIBS = "$OPENFSTLIBS" >> kaldi.mk
-  echo OPENFSTLDFLAGS = "$OPENFSTLDFLAGS" >> kaldi.mk
-  echo FSTROOT = "$FSTROOT" >> kaldi.mk
+  echo OPENFSTLIBS = $OPENFSTLIBS >> kaldi.mk
+  echo OPENFSTLDFLAGS = $OPENFSTLDFLAGS >> kaldi.mk
+  echo FSTROOT = $FSTROOT >> kaldi.mk
 
   echo "On Linux: Checking for linear algebra header files ..."
   if [ "$MATHLIB" == "ATLAS" ]; then
