@@ -132,11 +132,15 @@ class CuVectorBase {
   inline Real operator() (MatrixIndexT i) const {
     KALDI_PARANOID_ASSERT(static_cast<UnsignedMatrixIndexT>(i) <
                           static_cast<UnsignedMatrixIndexT>(dim_));
-    Real *value = new Real;
-
-    CU_SAFE_CALL(cudaMemcpy((value), (data_+i),
-               sizeof(Real), cudaMemcpyDeviceToHost));
-    return *value;
+#if HAVE_CUDA == 1
+    if (CuDevice::Instantiate().Enabled()) {
+      Real value;
+      CU_SAFE_CALL(cudaMemcpy(&value, (data_+i),
+                              sizeof(Real), cudaMemcpyDeviceToHost));
+      return *value;
+    } else
+#endif
+    return this->data_[i];
   }
 
   Real Min() const;

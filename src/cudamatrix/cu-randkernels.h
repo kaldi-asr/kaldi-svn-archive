@@ -20,7 +20,7 @@
 #ifndef KALDI_CUDAMATRIX_CU_RANDKERNELS_H_
 #define KALDI_CUDAMATRIX_CU_RANDKERNELS_H_
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 
 #include "base/kaldi-error.h"
 #include "cudamatrix/cu-randkernels-ansi.h"

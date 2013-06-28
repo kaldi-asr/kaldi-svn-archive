@@ -20,7 +20,7 @@
 #ifndef KALDI_CUDAMATRIX_CUVECTOR_INL_H_
 #define KALDI_CUDAMATRIX_CUVECTOR_INL_H_
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   #include <cuda_runtime_api.h>
 #endif
 
@@ -58,7 +58,7 @@ void CuVector<Real>::Resize(MatrixIndexT dim, MatrixResizeType t) {
   if (this->dim_ != 0)
     this->Destroy();
   if (dim == 0) return;
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     CU_SAFE_CALL(cudaMalloc(reinterpret_cast<void**>(&this->data_), dim * sizeof(Real)));
     this->dim_ = dim;
@@ -73,7 +73,7 @@ void CuVector<Real>::Resize(MatrixIndexT dim, MatrixResizeType t) {
 
 template<typename Real>
 void CuVector<Real>::Swap(Vector<Real> *vec) {
-#if HAVE_CUDA==1 
+#if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) {
     if (this->dim_ == 0) {
       if (vec->dim_ != 0) {
@@ -109,7 +109,7 @@ void CuVector<Real>::Swap(Vector<Real> *vec) {
 
 template<typename Real>
 void CuVector<Real>::Destroy() {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     if (this->data_ != NULL) {
       CU_SAFE_CALL(cudaFree(this->data_));
@@ -127,7 +127,7 @@ void CuVector<Real>::Destroy() {
 template<typename Real>
 void CuVectorBase<Real>::CopyFromVec(const CuVectorBase<Real> &src) {
   KALDI_ASSERT(src.Dim() == dim_);
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     CU_SAFE_CALL(cudaMemcpy(data_, src.data_, src.dim_ * sizeof(Real), cudaMemcpyDeviceToDevice));
@@ -154,7 +154,7 @@ void CuVectorBase<float>::CopyFromVec<double>(const CuVectorBase<double> &src);
 template<typename Real>
 void CuVectorBase<Real>::CopyFromVec(const VectorBase<Real> &src) {
   KALDI_ASSERT(src.Dim() == dim_);
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -174,7 +174,7 @@ void CuVectorBase<Real>::CopyFromVec(const VectorBase<Real> &src) {
 template<typename Real>
 void CuVectorBase<Real>::CopyToVec(VectorBase<Real> *dst) const {
   KALDI_ASSERT(dst->Dim() == dim_);
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     CU_SAFE_CALL(cudaMemcpy(dst->Data(), this->data_,
@@ -210,7 +210,7 @@ void CuVector<Real>::Write(std::ostream &os, bool binary) const {
 
 template<typename Real>
 void CuVectorBase<Real>::SetZero() {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     KALDI_ASSERT(dim_>0);
     KALDI_ASSERT(data_!=NULL);
@@ -245,7 +245,7 @@ std::ostream &operator << (std::ostream &out, const CuVectorBase<Real> &vec) {
  */
 template<typename Real>
 void CuVectorBase<Real>::Set(Real value) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     
@@ -268,7 +268,7 @@ void CuVectorBase<Real>::Set(Real value) {
 
 template<typename Real>
 void CuVectorBase<Real>::Add(Real value) {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -291,7 +291,7 @@ void CuVectorBase<Real>::Add(Real value) {
 
 template<typename Real>
 void CuVectorBase<Real>::Scale(Real value) {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -321,7 +321,7 @@ void CuVectorBase<Real>::AddVec(Real alpha, const CuVectorBase<Real> &vec,
                                 Real beta) {
   KALDI_ASSERT(vec.Dim() == Dim());
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -347,7 +347,7 @@ template<typename Real>
 void CuVectorBase<Real>::AddRowSumMat(Real alpha, const CuMatrixBase<Real> &mat,
                                       Real beta) {
   KALDI_ASSERT(mat.NumCols() == Dim());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
    
@@ -397,7 +397,7 @@ void CuVectorBase<Real>::AddColSumMat(Real alpha,
                                       const CuMatrixBase<Real> &mat,
                                       Real beta) {
   KALDI_ASSERT(mat.NumRows() == Dim());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -443,7 +443,7 @@ void CuVectorBase<Real>::AddColSumMat(Real alpha,
  
 template<typename Real> 
 void CuVectorBase<Real>::InvertElements() {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     

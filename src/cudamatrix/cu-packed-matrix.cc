@@ -18,7 +18,7 @@
 
 
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 #include <cuda_runtime_api.h>
 #include <cublas.h>
 #endif
@@ -47,7 +47,7 @@ void CuPackedMatrix<Real>::Resize(MatrixIndexT rows,
   if (this->num_rows_ != 0)
     this->Destroy();
   if (rows == 0) return;  
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     this->num_rows_ = rows;
     size_t nr = static_cast<size_t>(num_rows_),
@@ -68,7 +68,7 @@ void CuPackedMatrix<Real>::Resize(MatrixIndexT rows,
 
 template<typename Real>
 void CuPackedMatrix<Real>::Destroy() {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     if (this->data_ != NULL) {
       CU_SAFE_CALL(cudaFree(this->data_));
@@ -84,7 +84,7 @@ void CuPackedMatrix<Real>::Destroy() {
 
 template<typename Real>
 void CuPackedMatrix<Real>::Swap(PackedMatrix<Real> *mat) {
-#if HAVE_CUDA==1 
+#if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) {
     if (this->num_rows_ == 0) {
       if (mat->num_rows_ != 0) {
@@ -121,7 +121,7 @@ void CuPackedMatrix<Real>::Swap(PackedMatrix<Real> *mat) {
 template<typename Real>
 void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
   KALDI_ASSERT(src.NumRows() == num_rows_);
-#if HAVE_CUDA==1 
+#if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
@@ -142,7 +142,7 @@ void CuPackedMatrix<Real>::CopyFromPacked(const CuPackedMatrix<Real> &src) {
 template<typename Real>
 void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
   KALDI_ASSERT(src.NumRows() == num_rows_);
-#if HAVE_CUDA==1 
+#if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
@@ -163,7 +163,7 @@ template<typename Real>
 void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
   KALDI_ASSERT(dst->NumRows() == NumRows() && dst->NumCols() == NumCols());
   
-#if HAVE_CUDA==1 
+#if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
 
     Timer tim;
@@ -188,7 +188,7 @@ void CuPackedMatrix<Real>::CopyRowsFromPacked(int32 r, const CuPackedMatrix<Real
   KALDI_ASSERT(r+dst_ro <= NumRows());
   KALDI_ASSERT(NumCols() == src.NumCols());
    
-  #if HAVE_CUDA==1 
+  #if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -228,7 +228,7 @@ void CuPackedMatrix<Real>::Write(std::ostream &os, bool binary) const {
 
 template<typename Real>
 void CuPackedMatrix<Real>::SetZero() {
-  #if HAVE_CUDA==1 
+  #if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
@@ -247,7 +247,7 @@ void CuPackedMatrix<Real>::SetZero() {
 /**
  * C++ templatd wrapper of ANSI-C CUBLAS function GEMM (matrix multiply)
  */
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 template<typename Real> inline Real cublas_dot(int n, const Real *x, int incx, const Real *y, int incy) {
   KALDI_ERR << __func__ << " Not implemented!";
 }
@@ -263,7 +263,7 @@ template<> inline double cublas_dot<double>(int n, const double *x, int incx, co
 template<class Real>
 Real CuPackedMatrix<Real>::Trace() const {
   Real result = 0.0;
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     //int dimBlock(CUBLOCK);
@@ -306,7 +306,7 @@ Real CuPackedMatrix<Real>::Trace() const {
 
 template<typename Real>
 void CuPackedMatrix<Real>::SetDiag(Real alpha) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimBlock(CUBLOCK);
@@ -321,7 +321,7 @@ void CuPackedMatrix<Real>::SetDiag(Real alpha) {
   }
 }
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 template<typename Real> inline void cublas_scal(int n, Real alpha, Real* mat, int incx) {
   KALDI_ERR << __func__ << " Not implemented!";
 }
@@ -335,7 +335,7 @@ template<> inline void cublas_scal<double>(int n, double alpha, double* mat, int
 
 template<typename Real>
 void CuPackedMatrix<Real>::Scale(Real alpha) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     size_t nr = static_cast<size_t>(num_rows_),
@@ -352,7 +352,7 @@ void CuPackedMatrix<Real>::Scale(Real alpha) {
 
 template<typename Real>
 void CuPackedMatrix<Real>::ScaleDiag(Real alpha) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimBlock(CUBLOCK);
@@ -367,7 +367,7 @@ void CuPackedMatrix<Real>::ScaleDiag(Real alpha) {
   }
 }
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 template<typename Real> inline void cublas_axpy(int n, Real alpha, const Real* x, int incx, Real* y, int incy) {
   KALDI_ERR << __func__ << " Not implemented!";
 }
@@ -382,7 +382,7 @@ template<> inline void cublas_axpy<double>(int n, double alpha, const double* x,
 template<typename Real>
 void CuPackedMatrix<Real>::AddPacked(const Real alpha, const CuPackedMatrix<Real> &M) {
   KALDI_ASSERT(num_rows_ == M.NumRows());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     size_t nr = num_rows_,
@@ -398,7 +398,7 @@ void CuPackedMatrix<Real>::AddPacked(const Real alpha, const CuPackedMatrix<Real
 
 template<typename Real>
 void CuPackedMatrix<Real>::AddToDiag(Real r) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimGrid(1);
@@ -411,7 +411,7 @@ void CuPackedMatrix<Real>::AddToDiag(Real r) {
 
 template<typename Real>
 void CuPackedMatrix<Real>::SetUnit() {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimGrid(1);

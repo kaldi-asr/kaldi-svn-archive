@@ -1,4 +1,4 @@
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 #include <cuda_runtime_api.h>
 #include <cublas.h>
 #endif
@@ -19,7 +19,7 @@ template<typename Real>
 void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
                                    SpCopyType copy_type) {
   KALDI_ASSERT(this->NumRows() == M.NumRows() && M.NumRows() == M.NumCols());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     MatrixIndexT D = this->NumRows();
@@ -60,7 +60,7 @@ void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
 template<class Real>
 void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
                               bool inverse_needed) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     SpMatrix<Real> mat(this->num_rows_);
@@ -79,7 +79,7 @@ void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
 template<class Real>
 void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
   KALDI_ASSERT(v.Dim() == this->NumRows());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     size_t nr = this->num_rows_;
@@ -99,7 +99,7 @@ void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
   }
 }
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 template<typename Real> inline void cublas_syrk(char uplo, char trans, int n, int k,
                                                 Real alpha, const Real *A, int lda,
                                                 Real beta, Real *C, int ldc) {
@@ -123,7 +123,7 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
   KALDI_ASSERT((transM == kNoTrans && this->NumRows() == M.NumRows())
                || (transM == kTrans && this->NumRows() == M.NumCols()));
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     MatrixIndexT this_dim = this->NumRows(),
@@ -151,7 +151,7 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
 /**
  * C++ templatd wrapper of ANSI-C CUBLAS function GEMM (matrix multiply)
  */
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 template<typename Real> inline Real cublas_dot(int n, const Real *x, int incx, const Real* y, int incy) {
   KALDI_ERR << __func__ << " Not implemented!";
 }
@@ -168,7 +168,7 @@ template <>
 double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<double> &B) {
   double result;
   KALDI_ASSERT(A.NumRows() == B.NumRows());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimGrid = 1;
@@ -207,7 +207,7 @@ template <>
 float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<float> &B) {
   float result;
   KALDI_ASSERT(A.NumRows() == B.NumRows());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimGrid = 1;
@@ -247,7 +247,7 @@ template <>
 double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<float> &B) {
   double result;
   KALDI_ASSERT(A.NumRows() == B.NumRows());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimGrid = 1;
@@ -273,7 +273,7 @@ template <>
 float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<double> &B) {
   float result;
   KALDI_ASSERT(A.NumRows() == B.NumRows());
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     int dimGrid = 1;
@@ -297,7 +297,7 @@ float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<double> &B) {
 
 
 /*
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 template<typename Real> inline void cublas_trsm(int m, int n, Real alpha,
                                                 const Real *A, int lda, Real *B,
                                                 int ldb) { 

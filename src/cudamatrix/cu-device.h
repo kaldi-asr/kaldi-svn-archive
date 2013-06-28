@@ -20,7 +20,7 @@
 #ifndef KALDI_CUDAMATRIX_CUDEVICE_H_
 #define KALDI_CUDAMATRIX_CUDEVICE_H_
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 
 #include <map>
 #include <string>

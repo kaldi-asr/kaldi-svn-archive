@@ -19,7 +19,7 @@
 #ifndef KALDI_CUDAMATRIX_CU_CHOLESKYKERNELS_H_
 #define KALDI_CUDAMATRIX_CU_CHOLESKYKERNELS_H_
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 
 #include "base/kaldi-error.h"
 #include "cudamatrix/cu-choleskykernels-ansi.h"

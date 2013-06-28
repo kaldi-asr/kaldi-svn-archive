@@ -25,7 +25,7 @@
 
 namespace kaldi {
 
-class Softmax : public Component {
+class Softmax: public Component {
  public:
   Softmax(int32 dim_in, int32 dim_out, Nnet *nnet) 
     : Component(dim_in, dim_out, nnet)
@@ -39,7 +39,7 @@ class Softmax : public Component {
 
   void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
     // y = e^x_j/sum_j(e^x_j)
-    out->Softmax(in);
+    out->ApplySoftMax(in);
   }
 
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in, const CuMatrix<BaseFloat> &out,

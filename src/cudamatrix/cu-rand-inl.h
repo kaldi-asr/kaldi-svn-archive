@@ -54,7 +54,7 @@ void CuRand<Real>::SeedBuffer(uint32* *tgt, MatrixIndexT state_size) {
   for(MatrixIndexT i=0; i<host_size_; i++) {
     host_[i] = RandInt(128, RAND_MAX);
   }
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   // push it to the GPU
   if (CuDevice::Instantiate().Enabled()) {
     int32 state_size_in_bytes = state_size*sizeof(uint32);
@@ -80,7 +80,7 @@ void CuRand<Real>::SeedBuffer(uint32* *tgt, MatrixIndexT state_size) {
 
 
 template<typename Real> void CuRand<Real>::RandUniform(CuMatrix<Real> *tgt) {
-  #if HAVE_CUDA==1 
+  #if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -108,7 +108,7 @@ template<typename Real> void CuRand<Real>::RandUniform(CuMatrix<Real> *tgt) {
 
 
 template<typename Real> void CuRand<Real>::RandGaussian(CuMatrixBase<Real> *tgt) {
-  #if HAVE_CUDA==1 
+  #if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -135,7 +135,7 @@ template<typename Real> void CuRand<Real>::RandGaussian(CuMatrixBase<Real> *tgt)
 
 
 template<typename Real> void CuRand<Real>::RandGaussian(CuVectorBase<Real> *tgt) {
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
 
@@ -160,7 +160,7 @@ template<typename Real> void CuRand<Real>::RandGaussian(CuVectorBase<Real> *tgt)
 
 
 template<typename Real> void CuRand<Real>::BinarizeProbs(const CuMatrix<Real> &probs, CuMatrix<Real> *states) {
-  #if HAVE_CUDA==1 
+  #if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 

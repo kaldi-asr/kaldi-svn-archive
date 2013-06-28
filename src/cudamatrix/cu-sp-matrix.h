@@ -68,9 +68,15 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
       std::swap(c, r);
     KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
                  static_cast<UnsignedMatrixIndexT>(this->num_rows_));
-    Real *value = new Real;
-    CU_SAFE_CALL(cudaMemcpy(value, this->data_ + (r * (r+1)) / 2 + c, sizeof(Real), cudaMemcpyDeviceToHost));
-    return *value;
+#if HAVE_CUDA == 1
+    if (CuDevice::Instantiate().Enabled()) {    
+      Real value;
+      CU_SAFE_CALL(cudaMemcpy(&value, this->data_ + (r * (r+1)) / 2 + c,
+                              sizeof(Real), cudaMemcpyDeviceToHost));
+      return value;
+    } else
+#endif
+    return this->data_[(r * (r+1)) / 2 + c];
   }
   void Invert(Real *logdet = NULL, Real *det_sign = NULL,
               bool inverse_needed = true);

@@ -279,7 +279,7 @@ class CuMatrixBase {
                           static_cast<UnsignedMatrixIndexT>(c) <
                           static_cast<UnsignedMatrixIndexT>(num_cols_));
     Real value = 0;
-   #if HAVE_CUDA==1
+   #if HAVE_CUDA == 1
     if (CuDevice::Instantiate().Enabled()) {
       Timer tim;
       

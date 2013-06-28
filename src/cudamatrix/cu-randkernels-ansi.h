@@ -23,7 +23,7 @@
 #include "cudamatrix/cu-matrixdim.h"
 #include "cudamatrix/cu-kernels-ansi.h"
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 
 extern "C" {
 

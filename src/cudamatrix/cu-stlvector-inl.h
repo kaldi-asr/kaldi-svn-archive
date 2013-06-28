@@ -20,7 +20,7 @@
 #ifndef KALDI_CUDAMATRIX_CUSTLVECTOR_INL_H_
 #define KALDI_CUDAMATRIX_CUSTLVECTOR_INL_H_
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
   #include <cuda_runtime_api.h>
   #include "cudamatrix/cu-common.h"
   #include "cudamatrix/cu-device.h"
@@ -34,7 +34,7 @@ namespace kaldi {
 
 template<typename IntType>
 const IntType* CuStlVector<IntType>::Data() const {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     return data_; 
   } else
@@ -48,7 +48,7 @@ const IntType* CuStlVector<IntType>::Data() const {
 
 template<typename IntType>
 IntType* CuStlVector<IntType>::Data() { 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     return data_; 
   } else
@@ -69,7 +69,7 @@ CuStlVector<IntType>& CuStlVector<IntType>::Resize(MatrixIndexT dim) {
 
   Destroy();
 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     CU_SAFE_CALL(cudaMalloc((void**)&data_, dim*sizeof(IntType)));
   } else
@@ -88,7 +88,7 @@ CuStlVector<IntType>& CuStlVector<IntType>::Resize(MatrixIndexT dim) {
 
 template<typename IntType>
 void CuStlVector<IntType>::Destroy() {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     if (NULL != data_) {
       CU_SAFE_CALL(cudaFree(data_));
@@ -109,7 +109,7 @@ template<typename IntType>
 CuStlVector<IntType>& CuStlVector<IntType>::CopyFromVec(const std::vector<IntType> &src) {
   Resize(src.size());
 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -132,7 +132,7 @@ void CuStlVector<IntType>::CopyToVec(std::vector<IntType> *dst) const {
     dst->resize(dim_);
   }
 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     CU_SAFE_CALL(cudaMemcpy(&dst->front(), Data(), dim_*sizeof(IntType), cudaMemcpyDeviceToHost));
@@ -148,7 +148,7 @@ void CuStlVector<IntType>::CopyToVec(std::vector<IntType> *dst) const {
 
 template<typename IntType>
 void CuStlVector<IntType>::SetZero() {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
     CU_SAFE_CALL(cudaMemset(data_, 0, dim_*sizeof(IntType)));
@@ -184,7 +184,7 @@ std::ostream &operator << (std::ostream &out, const CuStlVector<IntType> &vec) {
  */
 template<> 
 inline void CuStlVector<int32>::Set(int32 value) {
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 

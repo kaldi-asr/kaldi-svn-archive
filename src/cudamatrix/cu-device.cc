@@ -17,7 +17,7 @@
 
 
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 
 #include <cublas.h>
 #include <cuda.h>

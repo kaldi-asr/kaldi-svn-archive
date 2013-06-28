@@ -34,7 +34,7 @@ namespace cu {
 template<typename Real>
 void RegularizeL1(CuMatrixBase<Real> *weight, CuMatrixBase<Real> *grad, Real l1, Real lr) {
   KALDI_ASSERT(SameDim(*weight, *grad));
-#if HAVE_CUDA==1 
+#if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
@@ -82,7 +82,7 @@ void Randomize(const CuMatrixBase<Real> &src,
   KALDI_ASSERT(src.NumRows() == tgt->NumRows());
   KALDI_ASSERT(copy_from_idx.Dim() <= tgt->NumRows());
 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     
@@ -117,7 +117,7 @@ void Splice(const CuMatrix<Real> &src, const CuStlVector<int32> &frame_offsets, 
   KALDI_ASSERT(src.NumCols()*frame_offsets.Dim() == tgt->NumCols());
   KALDI_ASSERT(src.NumRows() == tgt->NumRows());
 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     
@@ -155,7 +155,7 @@ void Copy(const CuMatrix<Real> &src, const CuStlVector<int32> &copy_from_indices
   KALDI_ASSERT(copy_from_indices.Dim() == tgt->NumCols());
   KALDI_ASSERT(src.NumRows() == tgt->NumRows());
 
-  #if HAVE_CUDA==1
+  #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     

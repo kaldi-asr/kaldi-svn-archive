@@ -22,7 +22,7 @@
 #define KALDI_CUDAMATRIX_CUCOMMON_H_
 
 
-#if HAVE_CUDA==1
+#if HAVE_CUDA == 1
 
 
 #include <iostream>
