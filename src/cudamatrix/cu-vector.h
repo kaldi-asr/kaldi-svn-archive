@@ -137,7 +137,7 @@ class CuVectorBase {
       Real value;
       CU_SAFE_CALL(cudaMemcpy(&value, (data_+i),
                               sizeof(Real), cudaMemcpyDeviceToHost));
-      return *value;
+      return value;
     } else
 #endif
     return this->data_[i];

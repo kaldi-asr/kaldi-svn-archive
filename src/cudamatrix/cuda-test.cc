@@ -337,7 +337,7 @@ template<class Real> static void UnitTestCholesky() {
       B(i,i) = 1;
       C(i) = i + 1;
     }
-    B.AddVecVec(1.0,C,C);
+    B.AddVecVec(1.0, C, C);
     // copy the matrix to cudamatrix object
     A.CopyFromMat(B);
     A.CopyToMat(&B);
@@ -350,12 +350,12 @@ template<class Real> static void UnitTestCholesky() {
       for (MatrixIndexT j = i+1; j < dim; j++)
         D(i,j) = 0;
     }
-    KALDI_LOG << D << '\n';
+    KALDI_LOG << "D is: " << D << '\n';
     Matrix<Real> E(dim,dim);
-    const Real alpha = 1;
-    const Real beta = 1;
-    //E.AddMatMat(alpha,D,kNoTrans,,beta);
+    E.AddMatMat(1.0, D, kNoTrans, D, kTrans, 0.0);
     // check if the D'D is eaual to B or not!
+    KALDI_LOG << "B is: " << B << '\n';
+    KALDI_LOG << "E is: " << E << '\n';
     AssertEqual(B,E);
   }
 }
@@ -452,8 +452,8 @@ template<class Real> static void UnitTestInvert() {
     KALDI_LOG << "D is " << '\n';
     KALDI_LOG << D << '\n';
     Matrix<Real> X(dim,dim);
-    X.AddMatMat(1,B,kNoTrans,D,kNoTrans,0);
-    KALDI_LOG << X << '\n';
+    X.AddMatMat(1.0, B, kNoTrans, D, kNoTrans, 0.0);
+    KALDI_LOG << "X is (should be identity): " << X << '\n';
     AssertEqual(Identity,X);
   }
 }
@@ -787,16 +787,16 @@ template<class Real> static void UnitTestVector() {
 
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
-  //UnitTestSimpleTest<Real>();
-  //UnitTestTrace<Real>();
-  //UnitTestCholesky<Real>();
-  //UnitTestInvert<Real>();
-  //UnitInvert<Real>();
-  //UnitTestCopyFromMat<Real>();
-  //UnitTestCopySp<Real>();
-  //UnitTestConstructor<Real>();
+  UnitTestSimpleTest<Real>();
+  UnitTestTrace<Real>();
+  UnitTestCholesky<Real>();
+  UnitTestInvert<Real>();
+  UnitInvert<Real>();
+  UnitTestCopyFromMat<Real>();
+  UnitTestCopySp<Real>();
+  UnitTestConstructor<Real>();
   UnitTestVector<Real>();
-  //UnitTestMatrix<Real>();
+  UnitTestMatrix<Real>();
 }
 } //namespace
 

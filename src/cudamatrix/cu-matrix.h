@@ -140,6 +140,7 @@ class CuMatrixBase {
                 CuVector<Real> *log_post_tgt);  
 
   void Cholesky();
+  
   void Invert(Real alpha, CuMatrix<Real> &A);
   void ApplyPow(Real power);
   void ApplyFloor(Real floor_val);
