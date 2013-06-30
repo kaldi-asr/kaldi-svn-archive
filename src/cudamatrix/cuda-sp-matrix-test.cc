@@ -10,6 +10,7 @@
 
 #include "base/kaldi-common.h"
 #include "cudamatrix/cu-sp-matrix.h"
+#include "cudamatrix/cu-vector.h"
 #include "cudamatrix/cu-math.h"
 
 using namespace kaldi;
@@ -70,22 +71,103 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
 /*
  * Unit Tests
  */
+// test the CuSpMatrix(CuMatrixBase, SpCopyType) constructor
+template<class Real>
+static void UnitTestCuSpMatrixConstructor() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim = 10 * i;
 
+    Matrix<Real> A(dim, dim);
+    A.SetRandn();
+    SpMatrix<Real> B(A, kTakeLower);
 
+    CuMatrix<Real> C(A);
+    CuSpMatrix<Real> D(C, kTakeLower);
+    SpMatrix<Real> E(dim);
+    D.CopyToSp(&E);
+    
+    AssertEqual(B, E);
+  }
+}
+
+// test the operator()
+template<class Real>
+static void UnitTestCuSpMatrixOperator() {
+  SpMatrix<Real> A(100);
+  A.SetRandn();
+
+  CuSpMatrix<Real> B(100);
+  B.CopyFromSp(A);
+
+  for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
+    for (MatrixIndexT j = 0; j <= i; j++)
+      KALDI_ASSERT(std::abs(A(i, j) - B(i, j)) < 0.0001);
+  }
+}
+
+// test the Invert() method
+template<class Real>
+static void UnitTestCuSpMatrixInvert() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim = 10 * i;
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    CuSpMatrix<Real> B(A);
+
+    A.Invert();
+    B.Invert();
+
+    SpMatrix<Real> C(dim);
+    B.CopyToSp(&C);
+
+    AssertEqual(A, C);    
+  }
+}
+
+// test AddVec2
+// TODO (variani) : It fails for dimension greater than 16. (thread indexing might be wrong)
+//                  fails for dim = 0 
+template<class Real>
+static void UnitTestCuSpMatrixAddVec2() {
+  for (MatrixIndexT dim = 1; dim < 16; dim++) {
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    CuSpMatrix<Real> B(A);
+    
+    Vector<Real> C(dim);
+    C.SetRandn();
+    CuVector<Real> D(C);
+    Real alpha = RandGauss();
+
+    A.AddVec2(alpha, C);
+    B.AddVec2(alpha, D);
+
+    SpMatrix<Real> E(dim);
+    B.CopyToSp(&E);
+
+    AssertEqual(A, E);
+  }
+}
 
 template<class Real> void CudaSpMatrixUnitTest() {
-
+  UnitTestCuSpMatrixConstructor<Real>();
+  UnitTestCuSpMatrixOperator<Real>();
+  UnitTestCuSpMatrixInvert<Real>();
+  UnitTestCuSpMatrixAddVec2<Real>();
 }
 
 } // namespace kaldi
 
 
 int main() {
+  using namespace kaldi;
   // Select the GPU
+  kaldi::int32 use_gpu_id = -2;
 #if HAVE_CUDA == 1
-  CuDevice::Instantiate().SelectGpuId(-2); // -2 .. automatic selection
+  CuDevice::Instantiate().SelectGpuId(use_gpu_id);
 #endif
   kaldi::CudaSpMatrixUnitTest<float>();
   kaldi::CudaSpMatrixUnitTest<double>();
   KALDI_LOG << "Tests succeeded";
+  return 0;
 }
