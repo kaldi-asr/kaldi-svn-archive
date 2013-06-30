@@ -1,7 +1,12 @@
+// cudamatrix/cuda-test.cc
+//
+//
 #include <iostream>
-#include "base/kaldi-common.h"
+#include <vector>
+#include <cstdlib>
 #include <ctime>
 
+#include "base/kaldi-common.h"
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-tp-matrix.h"
 #include "cudamatrix/cu-packed-matrix.h"
