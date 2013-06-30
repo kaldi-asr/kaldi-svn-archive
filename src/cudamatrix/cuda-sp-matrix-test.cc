@@ -19,20 +19,7 @@ namespace kaldi {
 /*
  * INITIALIZERS
  */
-template<class Real>
-static void InitRand(VectorBase<Real> *v) {
-  for (MatrixIndexT i = 0; i < v->Dim(); i++)
-    (*v)(i) = RandGauss();
-}
-
-template<class Real>
-static void InitRand(SpMatrix<Real> *M) {
-  do {
-    for (MatrixIndexT i = 0; i < M->NumRow; i++)
-      for (MatrixIndexT j = 0; j <= i; j++)
-        (*M)(i, j) = RandGauss();
-  } while (M->NumRows() != 0 && M->Cond() > 100);
-}
+// SetRandn() could be used.
 
 /*
  * ASSERTS
