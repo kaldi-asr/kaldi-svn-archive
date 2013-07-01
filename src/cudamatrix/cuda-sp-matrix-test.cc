@@ -129,7 +129,8 @@ static void UnitTestCuSpMatrixInvert() {
 //                  fails for dim = 0 
 template<class Real>
 static void UnitTestCuSpMatrixAddVec2() {
-  for (MatrixIndexT dim = 1; dim < 16; dim++) {
+  for (int32 i = 0; i < 50; i++) {
+    MatrixIndexT dim = 1 + rand() % 200;
     SpMatrix<Real> A(dim);
     A.SetRandn();
     CuSpMatrix<Real> B(A);

@@ -374,17 +374,6 @@ static void _add(Real* mat, Real value, MatrixDim d) {
     mat[index] = mat[index] + value;
 }
 
-template<typename Real>
-__global__
-static void _add_vec2(Real* mat, const Real* vec, const Real alpha, int dim) {
-  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
-  int32_cuda j = blockIdx.x * blockDim.x + threadIdx.y;
-  if ( i < dim && j <= i) {
-     int32_cuda index = (i * (i+1) / 2) + j;
-     mat[index] = mat[index] + alpha * vec[i] * vec[j];   
-  }
-}
-
 
 template<typename Real>
 __global__
@@ -1341,10 +1330,6 @@ void cudaF_add(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _add<<<Gr,Bl>>>(mat,value,d); 
 }
 
-void cudaF_add_vec2(dim3 Gr, dim3 Bl, float* mat, const float* vec, const float alpha, int dim) {
-  _add_vec2<<<Gr,Bl>>>(mat,vec,alpha,dim);
-}
-
 void cudaF_scale_diag(int Gr, int Bl, float* mat, float value, int dim) {
   _scale_diag<<<Gr,Bl>>>(mat,value,dim);
 }
@@ -1645,10 +1630,6 @@ void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
 
 void cudaD_add(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _add<<<Gr,Bl>>>(mat,value,d); 
-}
-
-void cudaD_add_vec2(dim3 Gr, dim3 Bl, double* mat, const double* vec, const double alpha, int dim) {
-  _add_vec2<<<Gr,Bl>>>(mat,vec,alpha,dim);
 }
 
 void cudaD_scale_diag(int Gr, int Bl, double* mat, double value, int dim) {

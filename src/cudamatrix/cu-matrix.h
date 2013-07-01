@@ -126,7 +126,7 @@ class CuMatrixBase {
   /// tanh output.  Does, element-by-element, *this = diff * (1 - value^2).
   void DiffTanh(const CuMatrixBase<Real> &value,
                 const CuMatrixBase<Real> &diff);
-
+  
   /// Differentiate the block [softmax+cross-entropy] :
   /// dE/da = posterior_mat - target_mat, 
   /// 'E' is error function, 'a' is activation on softmax input

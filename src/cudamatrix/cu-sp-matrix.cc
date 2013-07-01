@@ -76,6 +76,20 @@ void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
   }
 }
 
+
+
+#if HAVE_CUDA == 1
+inline void CublasSpr(char uplo, int n, float alpha, const float *x,
+                      int incx, float *AP) {
+  cublasSspr(uplo, n, alpha, x, incx, AP);
+}
+inline void CublasSpr(char uplo, int n, double alpha, const double *x,
+                      int incx, double *AP) {
+  cublasDspr(uplo, n, alpha, x, incx, AP);
+}
+#endif
+
+
 template<class Real>
 void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
   KALDI_ASSERT(v.Dim() == this->NumRows());
@@ -86,10 +100,8 @@ void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(nr, CUBLOCK), n_blocks(nr, CUBLOCK));
 
-    Real* data = this->data_;
-    const Real* v_data = v.Data();
-
-    cuda_add_vec2(dimGrid, dimBlock, data, v_data, alpha, nr);
+    CublasSpr('U', this->num_rows_, alpha, v.Data(),
+              1, this->Data());
     CU_SAFE_CALL(cudaGetLastError());
     CuDevice::Instantiate().AccuProfile("CuSpMatrix::AddVec2", tim.Elapsed());
   } else
@@ -100,19 +112,14 @@ void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
 }
 
 #if HAVE_CUDA == 1
-template<typename Real> inline void cublas_syrk(char uplo, char trans, int n, int k,
-                                                Real alpha, const Real *A, int lda,
-                                                Real beta, Real *C, int ldc) {
-  KALDI_ERR << __func__ << " Not implemented!";
-}
-template<> inline void cublas_syrk(char uplo, char trans, int n, int k,
-                                    float alpha, const float *A, int lda,
-                                    float beta, float *C, int ldc) {
+inline void CublasSyrk(char uplo, char trans, int n, int k,
+                       float alpha, const float *A, int lda,
+                       float beta, float *C, int ldc) {
   cublasSsyrk(uplo,trans,n,k,alpha,A,lda,beta,C,ldc);
 }
-template<> inline void cublas_syrk(char uplo, char trans, int n, int k,
-                                   double alpha, const double *A, int lda,
-                                   double beta, double *C, int ldc) {
+inline void CublasSyrk(char uplo, char trans, int n, int k,
+                       double alpha, const double *A, int lda,
+                       double beta, double *C, int ldc) {
   cublasDsyrk(uplo,trans,n,k,alpha,A,lda,beta,C,ldc);
 }
 #endif
@@ -136,11 +143,11 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
     }
 
     //CuMatrix<Real> tmp_mat(*this);
-    cublas_syrk('U', transM, this_dim, m_other_dim, alpha, M.RowData(0),
-                M.Stride(), beta, this->Data(), 1);
+    CublasSyrk('U', transM, this_dim, m_other_dim, alpha, M.RowData(0),
+               M.Stride(), beta, this->Data(), 1);
     //this->CopyFromMat(tmp_mat, kTakeLower);
     
-    CuDevice::Instantiate().AccuProfile("CuSpMatrix::AddVEc2", tim.Elapsed());
+    CuDevice::Instantiate().AccuProfile("CuSpMatrix::AddMat2", tim.Elapsed());
   } else
 #endif
   {
