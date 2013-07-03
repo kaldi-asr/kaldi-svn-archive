@@ -30,15 +30,14 @@ int main(int argc, char *argv[]) {
   const char *usage =
       "Tokenise utf8 input xml\n"
       "Usage:  idlaktxp [options] xml_input xml_output\n"
-      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/mod-test001.xml output.xml\n" //NOLINT
-      "e.g.: cat  ../idlaktxp/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
+      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/test-data/mod-test001.xml output.xml\n" //NOLINT
+      "e.g.: cat  ../idlaktxp/test-data/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
   // input output variables 
   std::string filein;
   std::string fileout;
   std::string tpdb;
   std::string configf;
   std::string input;
-  std::ostream *out;
   std::ofstream fout;
   // defaults to non-pretty XML output
   bool pretty = false;
@@ -59,13 +58,6 @@ int main(int argc, char *argv[]) {
     }
     filein = po.GetArg(1);
     fileout = po.GetArg(2);
-    // Allow piping
-    if (fileout == "-") {
-      out = &(std::cout);
-    } else {
-      fout.open(fileout.c_str());
-      out = &fout;
-    }
     // Set up input/output streams
     bool binary;
     kaldi::Input ki(filein, &binary);
@@ -89,8 +81,8 @@ int main(int argc, char *argv[]) {
     p.Process(&doc);
     pz.Process(&doc);
     ph.Process(&doc);
-    pr.Process(&doc);
-    sy.Process(&doc);
+    //pr.Process(&doc);
+    //sy.Process(&doc);
     // Output result
     if (!pretty)
       doc.save(kio.Stream(), "", pugi::format_raw);

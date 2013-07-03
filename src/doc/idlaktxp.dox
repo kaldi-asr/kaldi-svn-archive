@@ -100,6 +100,11 @@
  
  The core tags are as follows:
 
+ - \b fileid: This can be used to break large texts into proposed output
+   output files with the stem set based on the attribute id. This tag 
+   plays an important role in voice building by allowing input audio data
+   to be matchesd up with normalisation output. 
+
  - \b utt: This is a series of spurts (see below) and equates to a sentence.  
 
  - \b spt: This is a spurt of speech.This is speech bounded by silences,
@@ -356,7 +361,9 @@ Hello there, 1 2 3.
 
   This module restructures the XML by putting ws and tk tokens in spt
   tags. This has an effect on markup already present in the
-  text. Currently a tag is copied if it crosses an spt boundary.
+  text. Currently a tag is copied if it crosses an spt boundary. fileid 
+  tags are maintained at a top level and force utterance breaks at 
+  their beginning and end. 
 
   Although not implemented as yet, it is possible to guess breaks in
   long unpunctuated series of tokens using part of speech.

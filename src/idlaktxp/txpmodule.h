@@ -35,6 +35,7 @@
 #include "idlaktxp/txplexicon.h"
 #include "idlaktxp/txplts.h"
 #include "idlaktxp/txpsylmax.h"
+#include "idlaktxp/txpfexspec.h"
 
 namespace kaldi {
 
@@ -103,6 +104,9 @@ class TxpPauses : public TxpModule {
   bool Process(pugi::xml_document * input);
 
  private:
+  /// Process a file (documents may have several files of information separated
+  /// within file id elements).
+  bool ProcessFile(pugi::xml_node * file);
   /// Object containing lookup between punctuation and break strength
   /// and time
   TxpPbreak pbreak_;
@@ -142,6 +146,9 @@ class TxpPhrasing : public TxpModule {
   bool Process(pugi::xml_document * input);
 
  private:
+  /// Process a file (documents may have several files of information separated
+  /// within file id elements).
+  bool ProcessFile(pugi::xml_node * file);
 };
 
 /// Convert tokens into pronunications based on lexicons and
@@ -181,6 +188,24 @@ class TxpSyllabify : public TxpModule {
   /// Object containing specifications of valid nucleus and onset
   /// phone sequences
   TxpSylmax sylmax_;
+};
+
+/// Linguistic feature extraction: Converts output from text normalisation
+/// into full context model names
+class TxpFex : public TxpModule {
+ public:
+  explicit TxpFex(const std::string &tpdb,
+                  const std::string &configf = "");
+  ~TxpFex();
+  bool Process(pugi::xml_document * input);
+  /// Returns true if the system is splitting mid phrase pauses to allow
+  /// spurt processing of model names
+  bool IsSptPauseHandling();
+
+ private:
+  /// Object containing specification for feature extraction
+  TxpFexspec fexspec_;
+  TxpFexspecModels models_;
 };
 
 }  // namespace kaldi

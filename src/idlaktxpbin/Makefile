@@ -6,14 +6,14 @@ EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLRO
 
 include ../kaldi.mk
 
-BINFILES = idlaktxp
+BINFILES = idlaktxp idlakfex wavinfo
 OBJFILES =
 
 all:  $(BINFILES)
 
 TESTFILES =
 
-$(BINFILES): ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a 
+$(BINFILES): ../idlaktxp/idlaktxp.a ../util/kaldi-util.a ../base/kaldi-base.a ../matrix/kaldi-matrix.a ../feat/kaldi-feature.a
 
 
 

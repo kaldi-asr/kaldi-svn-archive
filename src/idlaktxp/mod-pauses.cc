@@ -37,13 +37,35 @@ TxpPauses::TxpPauses(const std::string &tpdb, const std::string &configf)
 TxpPauses::~TxpPauses() {
 }
 
+// If fileids are present in the document it breaks the
+// document up by them
 bool TxpPauses::Process(pugi::xml_document * input) {
+  pugi::xpath_node_set files;
+  files = input->document_element().select_nodes("//fileid");
+  if (files.size()) {
+    for (pugi::xpath_node_set::const_iterator it = files.begin();
+         it != files.end();
+         ++it) {
+      pugi::xml_node file = (*it).node();
+      ProcessFile(&file);
+    }
+  }
+  else {
+    ProcessFile(&input->document_element());
+  }
+  return true;
+}
+
+// Adds breaks as required and ensures all documents/fileids
+// have a break initial and final
+bool TxpPauses::ProcessFile(pugi::xml_node * file) {
   pugi::xml_node * breakitem = NULL, *ptk = NULL, pretk;
   const TxpPbreakInfo * pbreak;
   TxpPbreakInfo pbreakpunc;
   bool prebreak, pstbreak, newline, newline2;
+  pugi::xpath_node_set files;
   pugi::xpath_node_set tks =
-      input->document_element().select_nodes("//tk|//break|//ws");
+      file->select_nodes(".//tk|.//break|.//ws");
   tks.sort();
   for (pugi::xpath_node_set::const_iterator it = tks.begin();
        it != tks.end();

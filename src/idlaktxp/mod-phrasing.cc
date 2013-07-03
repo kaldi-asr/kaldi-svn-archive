@@ -36,34 +36,48 @@ TxpPhrasing::~TxpPhrasing() {
 }
 
 bool TxpPhrasing::Process(pugi::xml_document * input) {
+  pugi::xml_node rootnode;
+  pugi::xpath_node_set files;
+  files = input->document_element().select_nodes("//fileid");
+  if (files.size()) {
+    for (pugi::xpath_node_set::const_iterator it = files.begin();
+         it != files.end();
+         ++it) {
+      pugi::xml_node file = (*it).node();
+      ProcessFile(&file);
+    }
+  }
+  else {
+    rootnode = input->document_element();
+    ProcessFile(&rootnode);
+  }
+  return true;
+}
+
+bool TxpPhrasing::ProcessFile(pugi::xml_node * rootnode) {
   bool final = false;
-  pugi::xml_node uttnode, phrasenode, rootnode, lastbreak, firstbreak;
+  pugi::xml_node uttnode, phrasenode, lastbreak, firstbreak;
   int32 phraseid = 1;
   int32 uttid = 1;
   int32 wordid = 1;
-  rootnode = input->document_element();
-  uttnode = rootnode.append_child("utt");
+  uttnode = rootnode->append_child("utt");
   uttnode.append_attribute("uttid").set_value(uttid);
-  lastbreak = rootnode.select_nodes("//break[last()]").first().node();
-  firstbreak = rootnode.select_nodes("//break[1]").first().node();
-  // firstbreak.print(std::cout);
-  // lastbreak.print(std::cout);
+  lastbreak = rootnode->select_nodes("(.//break)[last()]").first().node();
+  firstbreak = rootnode->select_nodes("(.//break)[1]").first().node();
   while (!final) {
     phrasenode = uttnode.append_child("spt");
     phrasenode.append_attribute("phraseid").set_value(phraseid);
     wordid = 1;
-    final = _copy_until_break(&rootnode, &phrasenode, &firstbreak, &lastbreak, &wordid);
-    // phrasenode.print(std::cout);
-    lastbreak = rootnode.select_nodes("//break[last()]").first().node();
-    firstbreak = rootnode.select_nodes("//break[1]").first().node();
+    final = _copy_until_break(rootnode, &phrasenode, &firstbreak, &lastbreak, &wordid);
+    firstbreak = rootnode->select_nodes(".//break[1]").first().node();
     phrasenode.append_attribute("no_wrds").set_value(wordid - 1);
     if (_is_utt_final(phrasenode)) {
 	uttnode.append_attribute("no_phrases").set_value(phraseid);
+        phraseid = 0;
         if (!final) {
-          uttnode = rootnode.append_child("utt");
+          uttnode = rootnode->append_child("utt");
           uttid++;
           uttnode.append_attribute("uttid").set_value(uttid);
-          phraseid = 1;
         }
     }
     phraseid++;
@@ -132,7 +146,8 @@ static bool _copy_until_break(pugi::xml_node *parent,
 static bool _is_utt_final(const pugi::xml_node &spt) {
   pugi::xml_node lastbreak;
   pugi::xpath_node_set breaks;
-  breaks = spt.select_nodes("//break");
+  breaks = spt.select_nodes(".//break");
+  breaks.sort();
   lastbreak = breaks[breaks.size() - 1].node();
   // lastbreak.print(std::cout);
   //std::cout << "!" << lastbreak.attribute("type").value() << "\n";
