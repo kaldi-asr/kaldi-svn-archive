@@ -169,7 +169,7 @@ static bool testModule(kaldi::TxpModule &mod, const std::string &dirin,
                   std::string(".xml"));
   if (canOpenIn(filereg)) {
     std::cout << new_output_file << " " << filereg << std::endl;
-    if (!regressionTest(new_output_file, filereg)) error = true;
+    if (!regressionTest(file_output_verbose, filereg)) error = true;
   }
   return error;
 }
