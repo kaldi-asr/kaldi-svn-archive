@@ -142,10 +142,12 @@ void CuSpMatrix<Real>::AddMat2(const Real alpha, const CuMatrixBase<Real> &M,
       return;
     }
 
-    //CuMatrix<Real> tmp_mat(*this);
-    CublasSyrk('U', transM, this_dim, m_other_dim, alpha, M.RowData(0),
-               M.Stride(), beta, this->Data(), 1);
-    //this->CopyFromMat(tmp_mat, kTakeLower);
+    char trans = (transM == kTrans ? 'N' : 'T');
+
+    CuMatrix<Real> tmp_mat(*this);
+    CublasSyrk('U', trans, this_dim, m_other_dim, alpha, M.RowData(0),
+               M.Stride(), beta, tmp_mat.RowData(0), tmp_mat.Stride());
+    this->CopyFromMat(tmp_mat, kTakeLower);
     
     CuDevice::Instantiate().AccuProfile("CuSpMatrix::AddMat2", tim.Elapsed());
   } else

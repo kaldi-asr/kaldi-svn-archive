@@ -125,8 +125,7 @@ static void UnitTestCuSpMatrixInvert() {
 }
 
 // test AddVec2
-// TODO (variani) : It fails for dimension greater than 16. (thread indexing might be wrong)
-//                  fails for dim = 0 
+// TODO (variani) : fails for dim = 0 
 template<class Real>
 static void UnitTestCuSpMatrixAddVec2() {
   for (int32 i = 0; i < 50; i++) {
@@ -150,11 +149,40 @@ static void UnitTestCuSpMatrixAddVec2() {
   }
 }
 
+// test AddMat2
+template<class Real>
+static void UnitTestCuSpMatrixAddMat2() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim_row = 15 * i + rand() % 10;
+    MatrixIndexT dim_col = 7 *i + rand() % 10;
+    Matrix<Real> A(dim_row, dim_col);
+    A.SetRandn();
+    CuMatrix<Real> B(A);
+
+    SpMatrix<Real> C(dim_col);
+    C.SetRandn();
+    CuSpMatrix<Real> D(C);
+
+    const Real alpha = 2.0;
+    const Real beta = 3.0;
+
+    C.AddMat2(alpha, A, kTrans, beta);
+    D.AddMat2(alpha, B, kTrans, beta);
+
+    SpMatrix<Real> E(dim_col);
+    D.CopyToSp(&E);
+
+    AssertEqual(C, E);
+        
+  }
+}
+
 template<class Real> void CudaSpMatrixUnitTest() {
   UnitTestCuSpMatrixConstructor<Real>();
   UnitTestCuSpMatrixOperator<Real>();
   UnitTestCuSpMatrixInvert<Real>();
   UnitTestCuSpMatrixAddVec2<Real>();
+  UnitTestCuSpMatrixAddMat2<Real>();
 }
 
 } // namespace kaldi
