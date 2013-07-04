@@ -97,6 +97,33 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
 }
 
 template<class Real>
+static void UnitTestSetZeroUpperDiag() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim = 10 * i;
+    Matrix<Real> A(dim,dim);
+    A.SetRandn();
+    CuMatrix<Real> B(A);
+
+    B.SetZeroUpperDiag();
+
+    Real sum = 0.0;
+    for (MatrixIndexT i = 0; i < dim; i++) {
+      for (MatrixIndexT j = i + 1; j < dim; j++)
+        sum += A(i,j);
+    }
+        
+    KALDI_LOG << "the upper diaganoal sum for A is : " << sum;
+    B.CopyToMat(&A);
+    sum = 0.0;
+    for (MatrixIndexT i = 0; i < dim; i++) {
+      for (MatrixIndexT j = i + 1; j < dim; j++)
+        sum += A(i,j);
+    }
+    KALDI_LOG << "the upper diaganoal sum for B is : " << sum;
+  }
+}
+
+template<class Real>
 static void UnitTestSimpleTest() {
   // test differnet constructors + CopyFrom* + CopyToMat
   // CopyFromTp
@@ -329,10 +356,10 @@ static void UnitTestSimpleTest() {
 }
 
 template<class Real> static void UnitTestCholesky() {
-  for (MatrixIndexT iter = 0; iter < 10; iter++) {
-    MatrixIndexT dim = 45 + rand() %  40;
+  for (MatrixIndexT iter = 0; iter < 1; iter++) {
+    //MatrixIndexT dim = 45 + rand() %  40;
     // set dimension
-    //MatrixIndexT dim = 13;
+    MatrixIndexT dim = 7;
     // computing the matrix for cholesky input
     // CuMatrix is cuda matrix class while Matrix is cpu matrix class
     CuMatrix<Real> A(dim,dim);
@@ -349,18 +376,14 @@ template<class Real> static void UnitTestCholesky() {
     KALDI_LOG << B << '\n';
     // doing cholesky
     A.Cholesky();
+    //A.SetZeroUpperDiag();
     Matrix<Real> D(dim,dim);
     A.CopyToMat(&D);
-    for (MatrixIndexT i = 0; i < dim; i++) {
-      for (MatrixIndexT j = i+1; j < dim; j++)
-        D(i,j) = 0;
-    }
+    
     KALDI_LOG << "D is: " << D << '\n';
     Matrix<Real> E(dim,dim);
     E.AddMatMat(1.0, D, kNoTrans, D, kTrans, 0.0);
     // check if the D'D is eaual to B or not!
-    KALDI_LOG << "B is: " << B << '\n';
-    KALDI_LOG << "E is: " << E << '\n';
     AssertEqual(B,E);
   }
 }
@@ -792,9 +815,9 @@ template<class Real> static void UnitTestVector() {
 
 template<class Real>
 static void CuMatrixUnitTest(bool full_test) {
+  /*
   UnitTestSimpleTest<Real>();
   UnitTestTrace<Real>();
-  UnitTestCholesky<Real>();
   UnitTestInvert<Real>();
   UnitInvert<Real>();
   UnitTestCopyFromMat<Real>();
@@ -802,6 +825,9 @@ static void CuMatrixUnitTest(bool full_test) {
   UnitTestConstructor<Real>();
   UnitTestVector<Real>();
   UnitTestMatrix<Real>();
+  */
+  UnitTestCholesky<Real>();
+  UnitTestSetZeroUpperDiag<Real>();
 }
 } //namespace
 

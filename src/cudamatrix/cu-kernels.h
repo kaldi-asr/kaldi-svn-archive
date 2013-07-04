@@ -60,6 +60,7 @@ template<typename Real> inline void cuda_set_diag(int Gr, int Bl, Real* mat, Rea
 template<typename Real> inline void cuda_set_diag_packed(int Gr, int Bl, Real* mat, Real value, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add_diag_packed(int Gr, int Bl, Real* mat, Real value, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_set_const(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
+template<typename Real> inline void cuda_set_zero_above_diag(dim3 Gr, dim3 Bl, Real* mat, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add(dim3 Gr, dim3 Bl, Real *mat, Real value, MatrixDim d) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_add_vec2(dim3 Gr, dim3 Bl, Real *mat, const Real *vec, const Real alpha, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
 template<typename Real> inline void cuda_scale_diag(int Gr, int Bl, Real* mat, Real value, int dim) { KALDI_ERR << __func__ << " Not implemented!"; }
@@ -144,6 +145,7 @@ template<> inline void cuda_set_diag<float>(int Gr, int Bl, float* mat, float va
 template<> inline void cuda_set_diag_packed<float>(int Gr, int Bl, float* mat, float value, int dim) { cudaF_set_diag_packed(Gr,Bl,mat,value,dim); }
 template<> inline void cuda_add_diag_packed<float>(int Gr, int Bl, float* mat, float value, int dim) { cudaF_add_diag_packed(Gr,Bl,mat,value,dim); }
 template<> inline void cuda_set_const<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_set_const(Gr,Bl,mat,value,d); }
+template<> inline void cuda_set_zero_above_diag<float>(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) { cudaF_set_zero_above_diag(Gr,Bl,mat,d); }
 template<> inline void cuda_add<float>(dim3 Gr, dim3 Bl, float *mat, float value, MatrixDim d) { cudaF_add(Gr,Bl,mat,value,d); }
 template<> inline void cuda_add_vec2<float>(dim3 Gr, dim3 Bl, float *mat, const float *vec, const float alpha, int dim) { cudaF_add_vec2(Gr,Bl,mat,vec,alpha,dim); }
 template<> inline void cuda_scale_diag<float>(int Gr, int Bl, float* mat, float value, int dim) { cudaF_scale_diag(Gr,Bl,mat,value,dim); }
@@ -232,6 +234,7 @@ template<> inline void cuda_set_diag<double>(int Gr, int Bl, double* mat, double
 template<> inline void cuda_set_diag_packed<double>(int Gr, int Bl, double* mat, double value, int dim) { cudaD_set_diag_packed(Gr,Bl,mat,value,dim); }
 template<> inline void cuda_add_diag_packed<double>(int Gr, int Bl, double* mat, double value, int dim) { cudaD_add_diag_packed(Gr,Bl,mat,value,dim); }
 template<> inline void cuda_set_const<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_set_const(Gr,Bl,mat,value,d); }
+template<> inline void cuda_set_zero_above_diag<double>(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) { cudaD_set_zero_above_diag(Gr,Bl,mat,d); }
 template<> inline void cuda_add<double>(dim3 Gr, dim3 Bl, double *mat, double value, MatrixDim d) { cudaD_add(Gr,Bl,mat,value,d); }
 template<> inline void cuda_add_vec2<double>(dim3 Gr, dim3 Bl, double *mat, const double *vec, const double alpha, int dim) { cudaD_add_vec2(Gr,Bl,mat,vec,alpha,dim); }
 template<> inline void cuda_scale_diag<double>(int Gr, int Bl, double* mat, double value, int dim) { cudaD_scale_diag(Gr,Bl,mat,value,dim); }

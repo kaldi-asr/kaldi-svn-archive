@@ -418,6 +418,24 @@ void CuMatrixBase<Real>::Set(Real value) {
   }
 }
 
+// set zero the upper diagonal
+// no cpu implementation yet. Check with Dan.
+template<typename Real>
+void CuMatrixBase<Real>::SetZeroUpperDiag() {
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CUBLOCK), n_blocks(NumRows(), CUBLOCK));
+
+    cuda_set_zero_above_diag(dimGrid, dimBlock, data_, Dim());
+    CU_SAFE_CALL(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }
+#endif
+}
 
 template<typename Real> 
 void CuMatrixBase<Real>::Add(Real value) { 
@@ -973,7 +991,7 @@ void CuMatrixBase<Real>::DiffXent(const CuStlVector<int32> &tgt,
   }
 }
 
-
+// Cholesky method may be only called for symmetric matrices.
 template<typename Real>
 void CuMatrixBase<Real>::Cholesky() {
 #if HAVE_CUDA == 1
@@ -981,7 +999,6 @@ void CuMatrixBase<Real>::Cholesky() {
     Timer tim;
     int TILE_SIZE = 16;
     int n_blocks = (num_rows_ + TILE_SIZE - 1) / TILE_SIZE;
-
 
     dim3 threads(TILE_SIZE,TILE_SIZE);
     KALDI_LOG << "n_blcoks is : " << n_blocks << '\n';
@@ -1017,6 +1034,9 @@ void CuMatrixBase<Real>::Cholesky() {
     
     cuda_factorize_diagonal_block(data_, n_blocks-1, Dim());
     cudaThreadSynchronize();
+
+    // set the upper diagonal equal to zero
+    this->SetZeroUpperDiag();
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
     
@@ -1037,7 +1057,7 @@ template<> inline void cublas_trsm<double>(int m, int n, double alpha, const dou
 #endif
 
 template<typename Real>
-void CuMatrixBase<Real>::Invert(Real alpha, CuMatrix<Real> &A) {
+void CuMatrixBase<Real>::InvertLowerTriangular(CuMatrix<Real> &A) {
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -1054,6 +1074,7 @@ void CuMatrixBase<Real>::Invert(Real alpha, CuMatrix<Real> &A) {
     KALDI_LOG << A << '\n';
     this->Cholesky();
     //CuSpMatrix<Real> L(*this, kTakeLower);
+    Real alpha = 1.0;
     cublas_trsm(num_rows_,num_rows_,alpha,data_,stride_,temp.RowData(0),temp.Dim().stride);
     
     CuSpMatrix<Real> L(temp, kTakeLower);

@@ -366,6 +366,17 @@ static void _set_const(Real* mat, Real value, MatrixDim d) {
 
 template<typename Real>
 __global__
+static void _set_zero_above_diag(Real* mat, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index  = i + j * d.stride;
+  if ( i < d.cols && j < i)
+    mat[index] = 0;    
+}
+
+
+template<typename Real>
+__global__
 static void _add(Real* mat, Real value, MatrixDim d) {
   int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -1326,6 +1337,10 @@ void cudaF_set_const(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
 }
 
+void cudaF_set_zero_above_diag(dim3 Gr, dim3 Bl, float* mat, MatrixDim d) {
+  _set_zero_above_diag<<<Gr,Bl>>>(mat, d);
+}
+
 void cudaF_add(dim3 Gr, dim3 Bl, float* mat, float value, MatrixDim d) {
   _add<<<Gr,Bl>>>(mat,value,d); 
 }
@@ -1626,6 +1641,10 @@ void cudaD_add_diag_packed(int Gr, int Bl, double* mat, double value, int dim) {
 
 void cudaD_set_const(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {
   _set_const<<<Gr,Bl>>>(mat,value,d); 
+}
+
+void cudaD_set_zero_above_diag(dim3 Gr, dim3 Bl, double* mat, MatrixDim d) {
+  _set_zero_above_diag<<<Gr,Bl>>>(mat, d);
 }
 
 void cudaD_add(dim3 Gr, dim3 Bl, double* mat, double value, MatrixDim d) {

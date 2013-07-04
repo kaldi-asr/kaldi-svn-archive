@@ -141,7 +141,7 @@ class CuMatrixBase {
 
   void Cholesky();
   
-  void Invert(Real alpha, CuMatrix<Real> &A);
+  void InvertLowerTriangular(CuMatrix<Real> &A);
   void ApplyPow(Real power);
   void ApplyFloor(Real floor_val);
   void ApplyExp();
@@ -166,6 +166,7 @@ class CuMatrixBase {
   void SetZero();
   void Set(Real value);
   void Add(Real value);
+  void SetZeroUpperDiag();
   void Scale(Real value);
   void ApplyLog();
   /// Multiply two matrices elementhwise: C = A .* C

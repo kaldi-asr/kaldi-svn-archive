@@ -20,7 +20,6 @@ namespace kaldi {
 /*
  * INITIALIZERS
  */
-// SetRandn() could be used.
 
 /*
  * ASSERTS
@@ -71,7 +70,6 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
 /*
  * Unit Tests
  */
-// test the CuSpMatrix(CuMatrixBase, SpCopyType) constructor
 template<class Real>
 static void UnitTestCuSpMatrixConstructor() {
   for (MatrixIndexT i = 1; i < 10; i++) {
@@ -90,7 +88,6 @@ static void UnitTestCuSpMatrixConstructor() {
   }
 }
 
-// test the operator()
 template<class Real>
 static void UnitTestCuSpMatrixOperator() {
   SpMatrix<Real> A(100);
@@ -105,7 +102,6 @@ static void UnitTestCuSpMatrixOperator() {
   }
 }
 
-// test the Invert() method
 template<class Real>
 static void UnitTestCuSpMatrixInvert() {
   for (MatrixIndexT i = 1; i < 10; i++) {
@@ -124,7 +120,6 @@ static void UnitTestCuSpMatrixInvert() {
   }
 }
 
-// test AddVec2
 // TODO (variani) : fails for dim = 0 
 template<class Real>
 static void UnitTestCuSpMatrixAddVec2() {
@@ -149,7 +144,6 @@ static void UnitTestCuSpMatrixAddVec2() {
   }
 }
 
-// test AddMat2
 template<class Real>
 static void UnitTestCuSpMatrixAddMat2() {
   for (MatrixIndexT i = 1; i < 10; i++) {
@@ -173,7 +167,6 @@ static void UnitTestCuSpMatrixAddMat2() {
     D.CopyToSp(&E);
 
     AssertEqual(C, E);
-        
   }
 }
 
@@ -206,7 +199,6 @@ template<class Real>
 static void UnitTestCuSpMatrixTraceSpSp() {
   for (MatrixIndexT i = 1; i < 50; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
-    KALDI_LOG << "dim is : " << dim;
     
     SpMatrix<Real> A(dim);
     A.SetRandn();
@@ -216,13 +208,9 @@ static void UnitTestCuSpMatrixTraceSpSp() {
     C.SetRandn();
     const CuSpMatrix<Real> D(C);
 
-    Real a = TraceSpSp(A, C);
-    Real b = TraceSpSp(B, D);
-    
-    KALDI_LOG << a;
-    KALDI_LOG << b;
-    
-    KALDI_ASSERT((a-b)==0);
+#ifdef KALDI_PARANOID
+    KALDI_ASSERT(TraceSpSp(A, C), TraceSpSp(B, D));
+#endif
   }
 }
 
@@ -249,5 +237,8 @@ int main() {
   kaldi::CudaSpMatrixUnitTest<float>();
   kaldi::CudaSpMatrixUnitTest<double>();
   KALDI_LOG << "Tests succeeded";
+#if HAVE_CUDA == 1
+  CuDevice::Instantiate().PrintProfile();
+#endif
   return 0;
 }

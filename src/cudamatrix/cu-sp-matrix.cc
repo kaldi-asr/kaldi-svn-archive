@@ -14,7 +14,6 @@
 
 namespace kaldi {
 
-
 template<typename Real>
 void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
                                    SpCopyType copy_type) {
@@ -56,7 +55,6 @@ void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
   }
 }
 
-
 template<class Real>
 void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
                               bool inverse_needed) {
@@ -76,8 +74,6 @@ void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
   }
 }
 
-
-
 #if HAVE_CUDA == 1
 inline void CublasSpr(char uplo, int n, float alpha, const float *x,
                       int incx, float *AP) {
@@ -88,7 +84,6 @@ inline void CublasSpr(char uplo, int n, double alpha, const double *x,
   cublasDspr(uplo, n, alpha, x, incx, AP);
 }
 #endif
-
 
 template<class Real>
 void CuSpMatrix<Real>::AddVec2(const Real alpha, const CuVectorBase<Real> &v) {
@@ -172,7 +167,6 @@ template<> inline double cublas_dot<double>(int n, const double *x, int incx, co
 }
 #endif
 
-
 template <>
 double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<double> &B) {
   double result;
@@ -251,7 +245,6 @@ float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<float> &B) {
   return result;
 }
 
-
 template <>
 double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<float> &B) {
   double result;
@@ -277,7 +270,6 @@ double TraceSpSp(const CuSpMatrix<double> &A, const CuSpMatrix<float> &B) {
   return result;
 }
 
-
 template <>
 float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<double> &B) {
   float result;
@@ -302,29 +294,6 @@ float TraceSpSp(const CuSpMatrix<float> &A, const CuSpMatrix<double> &B) {
   }
   return result;
 }
-
-
-
-/*
-#if HAVE_CUDA == 1
-template<typename Real> inline void cublas_trsm(int m, int n, Real alpha,
-                                                const Real *A, int lda, Real *B,
-                                                int ldb) { 
-  KALDI_ERR << __func__ << " Not implemented!"; 
-}
-template<> inline void cublas_trsm<float>(int m, int n, float alpha,
-                                          const float *A, int lda, float *B,
-                                          int ldb) {
-  cublasStrsm('L', 'U', 'N', 'N', m, n, alpha, A, lda, B, ldb);
-}
-template<> inline void cublas_trsm<double>(int m, int n, float alpha,
-                                           const float *A, int lda, float *B,
-                                           int ldb) {
-  cublasDtrsm('L', 'U', 'N', 'N', m, n, alpha, A, lda, B, ldb);
-}
-#endif
-*/
-
 
 template class CuSpMatrix<float>;
 template class CuSpMatrix<double>;
