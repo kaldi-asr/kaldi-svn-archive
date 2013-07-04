@@ -89,31 +89,10 @@ void CuMatrix<Real>::Destroy() {
 
 template<typename Real>
 void CuMatrix<Real>::Swap(CuMatrix<Real> *mat) {
-#if HAVE_CUDA == 1
-  if (CuDevice::Instantiate().Enabled()) {
-    if (this->num_rows_ == 0) {
-      if (mat->num_rows_ != 0) {
-        this->Resize(mat->num_rows_, mat->num_cols_, kUndefined);
-        this->CopyFromMat(*mat);
-        mat->Resize(0, 0);
-      }
-    } else {
-      if (mat->num_rows_ != 0) {
-        CuMatrix<Real> temp;
-        this->Swap(&temp);
-        mat->Swap(&temp);
-        this->Swap(mat);
-      } else {
-        mat->Resize(this->num_rows_, this->num_cols_, kUndefined);
-        mat->CopyFromMat(*this);
-        this->Destroy();
-      }
-    }
-  } else
-#endif
-  {
-    this->Mat().Swap(&(mat->Mat()));
-  }
+  std::swap(this->num_rows_, mat->num_rows_);
+  std::swap(this->num_cols_, mat->num_cols_);
+  std::swap(this->stride_, mat->stride_);
+  std::swap(this->data_, mat->data_);
 }
 
 
