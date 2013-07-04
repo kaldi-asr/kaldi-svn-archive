@@ -177,12 +177,63 @@ static void UnitTestCuSpMatrixAddMat2() {
   }
 }
 
+template<class Real>
+static void UnitTestCuSpMatrixAddSp() {
+  for (MatrixIndexT i = 1; i < 50; i++) {
+    MatrixIndexT dim = 7 * i + rand() % 10;
+    
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    CuSpMatrix<Real> B(A);
+
+    SpMatrix<Real> C(dim);
+    C.SetRandn();
+    const CuSpMatrix<Real> D(C);
+
+    const Real alpha = 2.0;
+    
+    A.AddSp(alpha, C);
+    B.AddSp(alpha, D);
+
+    SpMatrix<Real> E(dim);
+    B.CopyToSp(&E);
+
+    AssertEqual(A, E);
+  }
+}
+
+template<class Real>
+static void UnitTestCuSpMatrixTraceSpSp() {
+  for (MatrixIndexT i = 1; i < 50; i++) {
+    MatrixIndexT dim = 5 * i + rand() % 10;
+    KALDI_LOG << "dim is : " << dim;
+    
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    const CuSpMatrix<Real> B(A);
+
+    SpMatrix<Real> C(dim);
+    C.SetRandn();
+    const CuSpMatrix<Real> D(C);
+
+    Real a = TraceSpSp(A, C);
+    Real b = TraceSpSp(B, D);
+    
+    KALDI_LOG << a;
+    KALDI_LOG << b;
+    
+    KALDI_ASSERT((a-b)==0);
+  }
+}
+
 template<class Real> void CudaSpMatrixUnitTest() {
   UnitTestCuSpMatrixConstructor<Real>();
   UnitTestCuSpMatrixOperator<Real>();
   UnitTestCuSpMatrixInvert<Real>();
   UnitTestCuSpMatrixAddVec2<Real>();
   UnitTestCuSpMatrixAddMat2<Real>();
+  UnitTestCuSpMatrixAddSp<Real>();
+  UnitTestCuSpMatrixTraceSpSp<Real>();
 }
 
 } // namespace kaldi
