@@ -693,25 +693,13 @@ void UnitTestSwapCu2Cu() {
   CuMatrix<Real> Di2(110,121);
   Di2.CopyFromMat(Hi2);
 
-  {
-    Output ko("1.mat", false);
-    Di.Write(ko.Stream(), false);
-  }
-  {
-    Output ko("2.mat", false);
-    Di2.Write(ko.Stream(), false);
-  }
-
   Di.Swap(&Di2);
-
-  {
-    Output ko("1_swap.mat", false);
-    Di.Write(ko.Stream(), false);
-  }
-  {
-    Output ko("2_swap.mat", false);
-    Di2.Write(ko.Stream(), false);
-  }
+  Matrix<Real> Hf(Di.NumRows(), Di.NumCols());
+  Di.CopyToMat(&Hf);
+  Matrix<Real> Hf2(Di2.NumRows(), Di2.NumCols());
+  Di2.CopyToMat(&Hf2);
+  AssertEqual(Hi,Hf2);
+  AssertEqual(Hi2,Hf);
 }
 
 template<class Real>
@@ -723,33 +711,16 @@ void UnitTestSwapCu2M() {
 
   Matrix<Real> Hi2(110,121);
   RandGaussMatrix(&Hi2);
-  CuMatrix<Real> Di2(110,121);
+  Matrix<Real> Di2(110,121);
   Di2.CopyFromMat(Hi2);
 
-  {
-    Output ko("1.mat", false);
-    Di.Write(ko.Stream(), false);
-  }
-  {
-    Output ko("2.mat", false);
-    Di2.Write(ko.Stream(), false);
-  }
-
-  Matrix<Real> temp(Di.NumRows(), Di.NumCols()); 
-  Di.CopyToMat(&temp);
-  Di2.Swap(&temp);
-  Di.Resize(temp.NumRows(), temp.NumCols(), kUndefined);
-  Di.CopyFromMat(temp);
-
-  {
-    Output ko("1_swap.mat", false);
-    Di.Write(ko.Stream(), false);
-  }
-  {
-    Output ko("2_swap.mat", false);
-    Di2.Write(ko.Stream(), false);
-  }
+  Di.Swap(&Hi2);
+  Matrix<Real> Hf(Di.NumRows(), Di.NumCols());
+  Di.CopyToMat(&Hf);
+  AssertEqual(Di2,Hf);
+  AssertEqual(Hi2,Hi);
 }
+
 template<class Real> void CudaMatrixUnitTest() {
   //test CuMatrix<Real> methods by cross-check with Matrix
   UnitTestCuMatrixApplyLog<Real>();
@@ -777,7 +748,7 @@ template<class Real> void CudaMatrixUnitTest() {
 
   UnitTestCheck<Real>();
 
-//  UnitTestSwapCu2Cu<Real>();
+  UnitTestSwapCu2Cu<Real>();
   UnitTestSwapCu2M<Real>();
 }
 
