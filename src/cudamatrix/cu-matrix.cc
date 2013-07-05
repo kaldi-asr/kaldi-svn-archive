@@ -1021,7 +1021,7 @@ void CuMatrixBase<Real>::Cholesky() {
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
     
   } else
-#else
+#endif
   {
     SpMatrix<Real> sp(this->NumRows(), kUndefined);
     sp.CopyFromMat(this->Mat(), kTakeLower);
@@ -1029,7 +1029,6 @@ void CuMatrixBase<Real>::Cholesky() {
     tp.Cholesky(sp);
     this->Mat().CopyFromTp(tp);
   }
-#endif
 }
 
 #if HAVE_CUDA
