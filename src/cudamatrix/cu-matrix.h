@@ -139,6 +139,7 @@ class CuMatrixBase {
   void DiffXent(const CuStlVector<int32> &tgt,
                 CuVector<Real> *log_post_tgt);  
 
+  
   void Cholesky();
   
   void InvertLowerTriangular(CuMatrix<Real> &A);

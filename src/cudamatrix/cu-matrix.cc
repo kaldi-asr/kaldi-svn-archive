@@ -973,6 +973,7 @@ void CuMatrixBase<Real>::DiffXent(const CuStlVector<int32> &tgt,
 // Cholesky method may be only called for symmetric matrices.
 template<typename Real>
 void CuMatrixBase<Real>::Cholesky() {
+  KALDI_ASSERT(this->NumRows() == this->NumCols());
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -1019,6 +1020,14 @@ void CuMatrixBase<Real>::Cholesky() {
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
     
+  } else
+#else
+  {
+    SpMatrix<Real> sp(this->NumRows(), kUndefined);
+    sp.CopyFromMat(this->Mat(), kTakeLower);
+    TpMatrix<Real> tp(this->NumRows());
+    tp.Cholesky(sp);
+    this->Mat().CopyFromTp(tp);
   }
 #endif
 }
