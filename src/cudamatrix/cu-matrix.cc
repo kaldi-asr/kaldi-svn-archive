@@ -98,7 +98,8 @@ void CuMatrix<Real>::Swap(CuMatrix<Real> *mat) {
 
 template<typename Real>
 void CuMatrix<Real>::Swap(Matrix<Real> *mat) {
-
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
     if (this->num_rows_ == 0) {
       if (mat->num_rows_ != 0) {
         // *this is empty, but mat is nonempty.
@@ -123,6 +124,14 @@ void CuMatrix<Real>::Swap(Matrix<Real> *mat) {
         this->Destroy();
       }
     }
+  } else
+#endif
+  {
+    std::swap(mat->data_, this->data_);
+    std::swap(mat->num_cols_, this->num_cols_);
+    std::swap(mat->num_rows_, this->num_rows_);
+    std::swap(mat->stride_, this->stride_);
+  }
 }
 
 
