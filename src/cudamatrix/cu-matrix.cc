@@ -89,17 +89,16 @@ void CuMatrix<Real>::Destroy() {
 
 template<typename Real>
 void CuMatrix<Real>::Swap(CuMatrix<Real> *mat) {
-  std::swap(this->num_rows_, mat->num_rows_);
-  std::swap(this->num_cols_, mat->num_cols_);
-  std::swap(this->stride_, mat->stride_);
-  std::swap(this->data_, mat->data_);
+  std::swap(mat->data_, this->data_);
+  std::swap(mat->num_cols_, this->num_cols_);
+  std::swap(mat->num_rows_, this->num_rows_);
+  std::swap(mat->stride_, this->stride_);
 }
 
 
 template<typename Real>
 void CuMatrix<Real>::Swap(Matrix<Real> *mat) {
-#if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) {
+
     if (this->num_rows_ == 0) {
       if (mat->num_rows_ != 0) {
         // *this is empty, but mat is nonempty.
@@ -117,21 +116,13 @@ void CuMatrix<Real>::Swap(Matrix<Real> *mat) {
         this->Swap(&temp); // now temp is full, *this is empty.
         mat->Swap(&temp); // now mat has data from *this, temp has
         // data from mat.
-        this->Swap(mat); // copy data in mat to *this, which is now empty.
+        this->Swap(&temp); // copy data in mat to *this, which is now empty.
       } else { // *this is full but *mat is empty.
         mat->Resize(this->num_rows_, this->num_cols_, kUndefined);
         this->CopyToMat(mat);
         this->Destroy();
       }
     }
-  } else
-#endif
-  {
-    std::swap(mat->data_, this->data_);
-    std::swap(mat->num_cols_, this->num_cols_);
-    std::swap(mat->num_rows_, this->num_rows_);
-    std::swap(mat->stride_, this->stride_);
-  }
 }
 
 

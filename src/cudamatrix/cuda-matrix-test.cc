@@ -21,6 +21,7 @@
 #include <cstdlib>
 
 #include "base/kaldi-common.h"
+#include "util/common-utils.h"
 #include "cudamatrix/cu-matrix.h"
 #include "cudamatrix/cu-vector.h"
 #include "cudamatrix/cu-math.h"
@@ -680,6 +681,75 @@ template<class Real> void UnitTestCheck() {
 
 }
 
+template<class Real>
+void UnitTestSwapCu2Cu() {
+  Matrix<Real> Hi(100,111);
+  RandGaussMatrix(&Hi);
+  CuMatrix<Real> Di(100,111);
+  Di.CopyFromMat(Hi);
+
+  Matrix<Real> Hi2(110,121);
+  RandGaussMatrix(&Hi2);
+  CuMatrix<Real> Di2(110,121);
+  Di2.CopyFromMat(Hi2);
+
+  {
+    Output ko("1.mat", false);
+    Di.Write(ko.Stream(), false);
+  }
+  {
+    Output ko("2.mat", false);
+    Di2.Write(ko.Stream(), false);
+  }
+
+  Di.Swap(&Di2);
+
+  {
+    Output ko("1_swap.mat", false);
+    Di.Write(ko.Stream(), false);
+  }
+  {
+    Output ko("2_swap.mat", false);
+    Di2.Write(ko.Stream(), false);
+  }
+}
+
+template<class Real>
+void UnitTestSwapCu2M() {
+  Matrix<Real> Hi(100,111);
+  RandGaussMatrix(&Hi);
+  CuMatrix<Real> Di(100,111);
+  Di.CopyFromMat(Hi);
+
+  Matrix<Real> Hi2(110,121);
+  RandGaussMatrix(&Hi2);
+  CuMatrix<Real> Di2(110,121);
+  Di2.CopyFromMat(Hi2);
+
+  {
+    Output ko("1.mat", false);
+    Di.Write(ko.Stream(), false);
+  }
+  {
+    Output ko("2.mat", false);
+    Di2.Write(ko.Stream(), false);
+  }
+
+  Matrix<Real> temp(Di.NumRows(), Di.NumCols()); 
+  Di.CopyToMat(&temp);
+  Di2.Swap(&temp);
+  Di.Resize(temp.NumRows(), temp.NumCols(), kUndefined);
+  Di.CopyFromMat(temp);
+
+  {
+    Output ko("1_swap.mat", false);
+    Di.Write(ko.Stream(), false);
+  }
+  {
+    Output ko("2_swap.mat", false);
+    Di2.Write(ko.Stream(), false);
+  }
+}
 template<class Real> void CudaMatrixUnitTest() {
   //test CuMatrix<Real> methods by cross-check with Matrix
   UnitTestCuMatrixApplyLog<Real>();
@@ -706,6 +776,9 @@ template<class Real> void CudaMatrixUnitTest() {
   UnitTestCuDiffXent<Real>();
 
   UnitTestCheck<Real>();
+
+//  UnitTestSwapCu2Cu<Real>();
+  UnitTestSwapCu2M<Real>();
 }
 
 

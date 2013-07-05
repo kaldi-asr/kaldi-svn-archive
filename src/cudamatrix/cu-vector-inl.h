@@ -210,9 +210,10 @@ void CuVector<Real>::Write(std::ostream &os, bool binary) const {
 
 template<typename Real>
 void CuVectorBase<Real>::SetZero() {
+  if (dim_==0 || data_==NULL) return;
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) { 
-    KALDI_ASSERT(dim_>0);
+    KALDI_ASSERT(dim_>=0);
     KALDI_ASSERT(data_!=NULL);
     Timer tim;
     CU_SAFE_CALL(cudaMemset(data_, 0, dim_*sizeof(Real)));

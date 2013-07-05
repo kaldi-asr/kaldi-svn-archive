@@ -116,7 +116,8 @@ double NnetUpdater::ComputeObjfAndDeriv(
   deriv->Resize(num_chunks_, nnet_.OutputDim()); // sets to zero.
   const CuMatrix<BaseFloat> &output(forward_data_[num_components]);
   KALDI_ASSERT(SameDim(output, *deriv));
-  Matrix<BaseFloat> deriv_tmp((*deriv).Mat());
+  Matrix<BaseFloat> deriv_tmp(deriv->NumRows(),deriv->NumCols());
+  (*deriv).CopyToMat(&deriv_tmp);
   for (int32 m = 0; m < num_chunks_; m++) {
     for (size_t i = 0; i < data[m].labels.size(); i++) {
       int32 label = data[m].labels[i].first;
