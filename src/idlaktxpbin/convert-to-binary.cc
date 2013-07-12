@@ -1,6 +1,6 @@
 // idlaktxpbin/convert-to-binary.cc
 
-// Copyright 2013 CereProc Ltd.  (Author: Richard Williams)
+// Copyright 2013 University of Edinburgh  (Author: Richard Williams)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ int main(int argc, const char* argv[]) {
   try {
     kaldi::ParseOptions po(usage);
     po.Read(argc, argv);
-    // Must have inpout and output filenames for XML
+    // Must have input and output filenames for XML
     if (po.NumArgs() != 2) {
       po.PrintUsage();
       exit(1);
