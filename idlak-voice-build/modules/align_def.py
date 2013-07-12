@@ -18,6 +18,7 @@
 # Monophone speake specific aligner using kaldi
 
 import sys, os.path, time, subprocess, glob
+from xml.dom.minidom import getDOMImplementation
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
@@ -36,7 +37,7 @@ def get_wav_durations(kaldidir, wavscp):
     for w in wavs:
         w = w.split()[1]
         stem = os.path.splitext(os.path.split(w)[1])[0]
-        pipe = subprocess.Popen([os.path.join(kaldidir, 'src', 'idlakfexbin', "wavinfo"), '--print-args=false', w], stdout=subprocess.PIPE)
+        pipe = subprocess.Popen([os.path.join(kaldidir, 'src', 'idlaktxpbin', "wavinfo"), '--print-args=false', w], stdout=subprocess.PIPE)
         duration = pipe.communicate()[0].split('\n')[1].split()[1]
         durations[stem] = duration
     return durations
@@ -106,19 +107,23 @@ def write_as_wrdlabs(kaldialign, wavdurations, labdir, dirout):
     fp.write("%.3f %.3f SIL\n" % (lasttime, etime))
     fp.close()
 
-# TODO Should really use dom to write this XML more flexible for future
-# xml structure etc.
 # TODO given the silence duration and location it is possible to look at f0
 # across recent phonetic material to decide if a break is a rising or falling
 def write_xml_textalign(breaktype, breakdef, labdir, wrddir, output):
-    fpx = open(output, 'w')
-    fpx.write("<document>\n")
-    #get files
+    impl = getDOMImplementation()
+
+    document = impl.createDocument(None, "document", None)
+    doc_element = document.documentElement
+    
     labs = glob.glob(labdir + '/*.lab')
     labs.sort()
     for l in labs:
         stem = os.path.splitext(os.path.split(l)[1])[0]
-        fpx.write("<fileid id='%s'>" % stem)
+
+        fileid_element = document.createElement("fileid")
+        doc_element.appendChild(fileid_element)
+        fileid_element.setAttribute('id', stem)
+
         words = open(os.path.join(wrddir, stem + '.wrd')).readlines()
         phones = open(l).readlines()
         pidx = 0
@@ -134,12 +139,17 @@ def write_xml_textalign(breaktype, breakdef, labdir, wrddir, output):
                 if pidx >= len(phones):
                     break
             if ww[2] != 'SIL':
-                fpx.write("<lex pron='%s'>%s</lex> " % (' '.join(pron), ww[2]))
+                lex_element = document.createElement("lex")
+                fileid_element.appendChild(lex_element)
+                lex_element.setAttribute('pron', ' '.join(pron))
+                
+                text_node = document.createTextNode(ww[2])
+                lex_element.appendChild(text_node)
             else:
-                if not widx:
-                    fpx.write("<break type='%s'/>" % breakdef)
-                elif widx == len(words) - 1:
-                    fpx.write("<break type='%s'/>" % breakdef)
+                if not widx or (widx == len(words) - 1):
+                    break_element = document.createElement("break")
+                    fileid_element.appendChild(break_element)
+                    break_element.setAttribute('type', breakdef)
                 else:
                     btype = breakdef
                     for b in breaktype.split(','):
@@ -147,10 +157,13 @@ def write_xml_textalign(breaktype, breakdef, labdir, wrddir, output):
                         minval = float(bb[1])
                         if float(ww[1]) - float(ww[0]) < minval:
                             btype = bb[0]
-                    fpx.write("<break type='%s'/>" % btype)
-        fpx.write("</fileid>\n")
-    fpx.write("</document>\n")
-    fpx.close()
+                    break_element = document.createElement("break")
+                    fileid_element.appendChild(break_element)
+                    break_element.setAttribute('type', btype)
+
+    f = open(output, 'w')
+    f.write(document.toprettyxml())
+    f.close()
                 
 def main():
     # process the options based on the default build configuration
@@ -171,6 +184,9 @@ def main():
     # set up logging, check idlak-scratch, check dependencies and build as required
     build_conf.set_build_environment(SCRIPT_NAME)
 
+    if opts.flist:
+            build_conf.logger.log('warn', 'flist does NOT currently work in align_def.py')
+
     # ADD MODULE SPECIFIC CODE HERE
     # get required input files from idlak-data
     spkdir = os.path.join(build_conf.idlakdata, build_conf.lang, build_conf.acc, build_conf.spk)
@@ -180,9 +196,11 @@ def main():
     breaktype = build_conf.getval('align_def', 'break')
     breakdef = build_conf.getval('align_def', 'breakdef')
     # process dat
-    # remove old setup data
-    # copy setup data
+    # remove old setup data 
     com = 'rm -rf %s' % (os.path.join(build_conf.outdir, 'output', 'data'))
+    build_conf.logger.log('info', 'Removing old alignsetup information: %s' % (com))
+    os.system(com)
+    # copy setup data
     com = 'cp -R %s %s' % (alignsetupdir, os.path.join(build_conf.outdir, 'output', 'data'))
     build_conf.logger.log('info', 'Copying alignsetup information: %s' % (com))
     os.system(com)
@@ -204,8 +222,15 @@ def main():
                 os.path.join(build_conf.kaldidir, 'src', 'featbin'),
                 os.path.join(build_conf.kaldidir, 'src', 'bin'),
                 os.path.join(build_conf.kaldidir, 'src', 'fstbin'),
+                os.path.join(build_conf.kaldidir, 'tools', 'openfst', 'bin'),
                 os.path.join(build_conf.kaldidir, 'src', 'latbin'),
-                os.path.join(build_conf.kaldidir, 'src', 'idlakfexbin'),
+                os.path.join(build_conf.kaldidir, 'src', 'lm'),
+                os.path.join(build_conf.kaldidir, 'src', 'sgmmbin'),
+                os.path.join(build_conf.kaldidir, 'src', 'sgmm2bin'),
+                os.path.join(build_conf.kaldidir, 'src', 'fgmmbin'),
+                os.path.join(build_conf.kaldidir, 'src', 'nnetbin'),
+                os.path.join(build_conf.kaldidir, 'src', 'nnet-cpubin'),
+                os.path.join(build_conf.kaldidir, 'src', 'kwsbin'),
                 os.path.join(build_conf.kaldidir, 'src', 'gmmbin')]
     os.environ["PATH"] += os.pathsep + os.pathsep.join(pathlist)
     datadir = os.path.join(build_conf.outdir, 'output', 'data')
