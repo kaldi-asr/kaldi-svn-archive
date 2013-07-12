@@ -62,6 +62,13 @@
   <!-- Modules may have module specific options, if they are set in module
        with a dependency or in the master build they will override
        defaults and user build conf file values -->
+  <pitch_def
+      options="getf0,pplain"
+      getf0=""
+      getf0_desc="The location of the get_f0 binary."
+      pplain=""
+      pplain_desc="The location of the pplain binary."
+      />    
   <fex_def
       depend="align_def"
       />     
