@@ -17,7 +17,7 @@
 
 # Takes corpora information and creates input files for kaldi aligner
 
-import sys, os, xml.sax, glob
+import sys, os, xml.sax, glob, re
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
@@ -63,7 +63,7 @@ class saxhandler(xml.sax.ContentHandler):
             for p in prons:
                 self.lex[word][p] = 1
 
-def kaldidata(datadir, wavdir, flist, force=False):
+def kaldidata(datadir, wavdir, spk, flist, force=False):
     if force or not os.path.isdir(os.path.join(datadir, "train")):
         if not os.path.isdir(os.path.join(datadir, "train")):
             os.mkdir(os.path.join(datadir, "train"))
@@ -72,15 +72,20 @@ def kaldidata(datadir, wavdir, flist, force=False):
         valid_ids = {}
         wavs = glob.glob(wavdir + '/*.wav')
         for w in wavs:
-            stem = os.path.splitext(os.path.split(w)[1])[0]
-            # stem[4:] removes speaker to get utt id
+            filename = os.path.splitext(os.path.split(w)[1])[0]
+
             if len(flist):
-                if flist.has_key(stem[4:]):
-                    valid_ids[stem[4:]] = 1
+                if flist.has_key(filename):
+                    valid_ids[filename] = 1
             else:
-                valid_ids[stem[4:]] = 1
+                valid_ids[filename] = 1
+
+        # If there are no flist files present in wavdir, we can't proceed.
+        if not wavs:
+            raise Exception("No files specified in flist are present in %s" % (wavdir))
+
         # get the speaker id from the lastr file
-        spk = stem[:3]
+        spk = filename[:3]
         # load into XML
         p = xml.sax.make_parser()
         handler = saxhandler()
@@ -194,7 +199,7 @@ def main():
     # create kaldi required input files (modified from egs/arctic/s1/run.py
     logger.log('Info', 'Creating kaldi input files and train dir')
     wavdir = os.path.join(build_conf.idlakwav, build_conf.lang, build_conf.acc, build_conf.spk, build_conf.srate)
-    kaldidata(os.path.join(outdir, "output"), wavdir, build_conf.flist, True)
+    kaldidata(os.path.join(outdir, "output"), wavdir, build_conf.spk, build_conf.flist, True)
     # END OF MODULE SPECIFIC CODE
     
     build_conf.end_processing(SCRIPT_NAME)
