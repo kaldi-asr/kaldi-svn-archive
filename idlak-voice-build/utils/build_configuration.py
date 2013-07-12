@@ -211,7 +211,10 @@ class BuildConfig(xml.sax.ContentHandler):
                 if not pat:
                     self.logger.log("error", "Filelist has wrong format: %s should be of form [sss]_gNNNN_NNN e.g. bdl_a0001_001" % (l))
                 else:
+                    # Ensure that both potential filenames, with and without speaker prefix are included.
+                    self.flist[str('%s_%s' % (self.spk, pat.group(2)))] = 1
                     self.flist[pat.group(2)] = 1
+        
         # if building dependent modules recursively call them
         if self.data['general']['depend'] == 'True':
             dep_modules = self.dependent_modules(module).keys()
