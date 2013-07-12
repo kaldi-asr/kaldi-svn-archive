@@ -81,8 +81,8 @@ int main(int argc, char *argv[]) {
     p.Process(&doc);
     pz.Process(&doc);
     ph.Process(&doc);
-    //pr.Process(&doc);
-    //sy.Process(&doc);
+    pr.Process(&doc);
+    sy.Process(&doc);
     // Output result
     if (!pretty)
       doc.save(kio.Stream(), "", pugi::format_raw);
