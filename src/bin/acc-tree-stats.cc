@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
 
     for (std::map<EventType, GaussClusterable*>::const_iterator iter = tree_stats.begin();  
         iter != tree_stats.end();
-        iter++ ) {
+        ++iter ) {
       stats.push_back(std::make_pair<EventType, GaussClusterable*>(iter->first, iter->second));
     }
     tree_stats.clear();

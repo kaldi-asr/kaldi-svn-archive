@@ -1,7 +1,8 @@
 // hmm/tree-accu.cc
 
-// Copyright 2009-2011 Microsoft Corporation
-//                2013 Johns Hopkins University (author: Daniel Povey)
+// Copyright 2009-2011  Microsoft Corporation
+//                2013  Johns Hopkins University (author: Daniel Povey);
+//                      Arnab Ghoshal;
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +16,14 @@
 // MERCHANTABLITY OR NON-INFRINGEMENT.
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
+
+#include <algorithm>
+
 #include "util/kaldi-io.h"
 #include "hmm/tree-accu.h"
 #include "hmm/hmm-utils.h"
+
+using std::vector;
 
 namespace kaldi {
 
@@ -40,7 +46,6 @@ void AccumulateTreeStats(const TransitionModel &trans_model,
                          const Matrix<BaseFloat> &features,
                          const std::vector<int32> *phone_map,
                          std::map<EventType, GaussClusterable*> *stats) {
-
   KALDI_ASSERT(IsSortedAndUniq(ci_phones));
   std::vector<std::vector<int32> > split_alignment;
   bool ans = SplitToPhones(trans_model, alignment, &split_alignment);
@@ -58,9 +63,8 @@ void AccumulateTreeStats(const TransitionModel &trans_model,
       int32 central_phone =
           MapPhone(phone_map,
                    trans_model.TransitionIdToPhone(split_alignment[i+P][0]));
-      bool is_ctx_dep = ! std::binary_search(ci_phones.begin(),
-                                             ci_phones.end(),
-                                             central_phone);
+      bool is_ctx_dep = !std::binary_search(ci_phones.begin(), ci_phones.end(),
+                                            central_phone);
       EventType evec;
       for (int j = 0; j < N; j++) {
         int phone;
@@ -93,13 +97,62 @@ void AccumulateTreeStats(const TransitionModel &trans_model,
         std::sort(evec_more.begin(), evec_more.end());  // these must be sorted!
         if (stats->count(evec_more) == 0)
           (*stats)[evec_more] = new GaussClusterable(dim, var_floor);
-        
+
         BaseFloat weight = 1.0;
         (*stats)[evec_more]->AddStats(features.Row(cur_pos), weight);
         cur_pos++;
       }
     }
   }
+  KALDI_ASSERT(cur_pos == static_cast<int>(alignment.size()));
+}
+
+
+void AccumulateFullCtxStats(const std::vector< std::vector<int32> > &alignment,
+                            const Matrix<BaseFloat> &features,
+                            const std::vector<int32> &ci_phones,
+                            int32 central_pos,
+                            BaseFloat var_floor,
+                            std::map<EventType, GaussClusterable*> *stats) {
+  KALDI_ASSERT(features.NumRows() == static_cast<MatrixIndexT>(alignment.size()));
+  // Take context size, i.e. number of features in the full-context names to be
+  // that of the first name, and expect all other names to have the same number
+  // of features.
+  int32 ctx_size = alignment.begin()->size();
+  KALDI_ASSERT((central_pos >= 0) && (central_pos < ctx_size) &&
+               "Invalid value for central_pos");
+
+  int32 cur_pos = 0,
+      dim = features.NumCols();
+  for (vector< vector<int32> >::const_iterator frame_itr = alignment.begin();
+      frame_itr != alignment.end(); ++frame_itr) {
+    if (static_cast<int32>(frame_itr->size()) != ctx_size) {
+      KALDI_ERR << "Expecting full-context models to have " << ctx_size
+                << " features, found: " << frame_itr->size();
+    }
+    int32 central_phone = (*frame_itr)[central_pos];
+    bool is_ctx_dep = !std::binary_search(ci_phones.begin(), ci_phones.end(),
+                                          central_phone);
+    EventType evec;
+    for (int32 i = 0; i < ctx_size-1 /*last one for pdf-class*/; ++i) {
+      int32 feat = (*frame_itr)[i];
+      if (is_ctx_dep || i == central_pos)
+        evec.push_back(std::make_pair<EventKeyType, EventValueType>(i, feat));
+    }
+    // Question about the central phone
+    int32 pdf_class = (*frame_itr)[ctx_size-1];
+    // pdf_class will normally by 0, 1 or 2 for 3-state HMM.
+    evec.push_back(std::make_pair<EventKeyType, EventValueType>(kPdfClass,
+                                                                pdf_class));
+    std::sort(evec.begin(), evec.end());  // these must be sorted!
+    if (stats->count(evec) == 0)
+      (*stats)[evec] = new GaussClusterable(dim, var_floor);
+
+    BaseFloat weight = 1.0;
+    (*stats)[evec]->AddStats(features.Row(cur_pos), weight);
+    cur_pos++;
+  }
+
   KALDI_ASSERT(cur_pos == static_cast<int>(alignment.size()));
 }
 
@@ -115,16 +168,16 @@ void ReadPhoneMap(std::string phone_map_rxfilename,
   std::vector<std::vector<int32> > vec;  // vector of vectors, each with two elements
   // (if file has right format). first is old phone, second is new phone
   if (!ReadIntegerVectorVectorSimple(phone_map_rxfilename, &vec))
-    KALDI_ERR << "Error reading phone map from " <<
-        PrintableRxfilename(phone_map_rxfilename);
+    KALDI_ERR << "Error reading phone map from "
+              << PrintableRxfilename(phone_map_rxfilename);
   for (size_t i = 0; i < vec.size(); i++) {
-    if (vec[i].size() != 2 || vec[i][0]<=0 || vec[i][1]<=0 ||
-       (vec[i][0]<static_cast<int32>(phone_map->size()) &&
-        (*phone_map)[vec[i][0]] != -1))
+    if (vec[i].size() != 2 || vec[i][0] <= 0 || vec[i][1] <= 0
+        || (vec[i][0] < static_cast<int32>(phone_map->size()) &&
+            (*phone_map)[vec[i][0]] != -1))
       KALDI_ERR << "Error reading phone map from "
-                 <<   PrintableRxfilename(phone_map_rxfilename)
-                 << " (bad line " << i << ")";
-    if (vec[i][0]>=static_cast<int32>(phone_map->size()))
+                <<   PrintableRxfilename(phone_map_rxfilename)
+                << " (bad line " << i << ")";
+    if (vec[i][0] >= static_cast<int32>(phone_map->size()))
       phone_map->resize(vec[i][0]+1, -1);
     KALDI_ASSERT((*phone_map)[vec[i][0]] == -1);
     (*phone_map)[vec[i][0]] = vec[i][1];
