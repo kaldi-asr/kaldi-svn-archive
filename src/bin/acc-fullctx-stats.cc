@@ -129,10 +129,8 @@ int main(int argc, char *argv[]) {
               << stats.size();
     DeleteBuildTreeStats(&stats);
 
-    if (num_done != 0)
-      return 0;
-    else
-      return 1;
+    if (num_done != 0) return 0;  //NOLINT
+    else return 1;  //NOLINT
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

@@ -1,6 +1,7 @@
 // hmm/hmm-utils.cc
 
-// Copyright 2009-2011  Microsoft Corporation
+// Copyright 2009-2011  Microsoft Corporation;
+//           2013-      Arnab Ghoshal
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -763,6 +764,52 @@ bool ConvertAlignment(const TransitionModel &old_trans_model,
     }
   }
   assert(new_alignment->size() == old_alignment.size());
+  return true;
+}
+
+
+bool ConvertFullCtxAlignment(const TransitionModel &old_trans_model,
+                             const TransitionModel &new_trans_model,
+                             const ContextDependencyInterface &new_ctx_dep,
+                             const std::vector<int32> &tid_ali,
+                             const std::vector< std::vector <int32> > &full_ali,
+                             std::vector<int32> *new_tid_ali) {
+  KALDI_ASSERT(new_tid_ali != NULL);
+  KALDI_ASSERT(tid_ali.size() == full_ali.size() &&
+               "Regular and full-context alignments must be of same size.");
+  new_tid_ali->clear();
+  int32 num_frames = tid_ali.size(),
+      ctx_width = new_ctx_dep.ContextWidth(),
+      central_pos = new_ctx_dep.CentralPosition();
+
+  for (int32 i = 0; i < num_frames; ++i) {
+    KALDI_ASSERT(full_ali[i].size() == ctx_width);
+    int32 old_tid = tid_ali[i],
+        phone = old_trans_model.TransitionIdToPhone(old_tid),
+        pdf_class = old_trans_model.TransitionIdToPdfClass(old_tid),
+        hmm_state = old_trans_model.TransitionIdToHmmState(old_tid),
+        trans_idx = old_trans_model.TransitionIdToTransitionIndex(old_tid);
+    KALDI_ASSERT(full_ali[i][central_pos] == phone &&
+                 "Mismatched regular and full-context alignments.");
+    KALDI_ASSERT((*full_ali[i].end()) == pdf_class &&
+                 "Mismatched regular and full-context alignments.");
+    std::vector<int32> fullctx(full_ali[i].begin(), full_ali[i].end()-1);
+    int32 new_pdf;
+    if (!new_ctx_dep.Compute(fullctx, pdf_class, &new_pdf)) {
+      std::ostringstream ctx_ss;
+      WriteIntegerVector(ctx_ss, false, full_ali[i]);
+      KALDI_ERR << "Decision tree did not produce an answer for: pdf-class = "
+                << pdf_class << " context window = " << ctx_ss.str();
+    }
+    int32 new_trans_state = new_trans_model.TripleToTransitionState(phone,
+                                                                    hmm_state,
+                                                                    new_pdf);
+    int32 new_tid = new_trans_model.PairToTransitionId(new_trans_state,
+                                                       trans_idx);
+    new_tid_ali->push_back(new_tid);
+  }
+
+  KALDI_ASSERT(new_tid_ali->size() == tid_ali.size());
   return true;
 }
 

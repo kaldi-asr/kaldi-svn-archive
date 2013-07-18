@@ -1,6 +1,7 @@
 // hmm/hmm-utils.h
 
-// Copyright 2009-2011  Microsoft Corporation
+// Copyright 2009-2011  Microsoft Corporation;
+//           2013-      Arnab Ghoshal
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -261,6 +262,22 @@ bool ConvertAlignment(const TransitionModel &old_trans_model,
                       const std::vector<int32> &old_alignment,
                       const std::vector<int32> *phone_map,  // may be NULL
                       std::vector<int32> *new_alignment);
+
+/**
+ * ConvertFullCtxAlignment converts an alignment that was created using one
+ * model, to another model.  They must use a compatible topology (so we
+ * know the state alignments of the new model).
+ * It returns false if it could not be split to phones (probably
+ * because the alignment was partial), but for other kinds of
+ * error that are more likely a coding error, it will throw
+ * an exception.
+ */
+bool ConvertFullCtxAlignment(const TransitionModel &old_trans_model,
+                             const TransitionModel &new_trans_model,
+                             const ContextDependencyInterface &new_ctx_dep,
+                             const std::vector<int32> &tid_ali,
+                             const std::vector< std::vector <int32> > &full_ali,
+                             std::vector<int32> *new_tid_ali);
 
 // ConvertPhnxToProns is only needed in bin/phones-to-prons.cc and
 // isn't closely related with HMMs, but we put it here as there isn't
