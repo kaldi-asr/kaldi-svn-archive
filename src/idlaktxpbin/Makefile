@@ -3,45 +3,18 @@ all:
 
 EXTRA_CXXFLAGS = -I$(PCREROOT)/include -I$(EXPATROOT)/include -I$(PUJIXMLROOT)/src
 EXTRA_LDLIBS = $(PCREROOT)/lib/libpcre.a $(EXPATROOT)/lib/libexpat.a $(PUJIXMLROOT)/scripts/libpugixml.a
+OPENFST_CXXFLAGS =
+OPENFST_LDLIBS =
 
 include ../kaldi.mk
 
-BINFILES = idlaktxp idlakfex wavinfo convert-to-binary
-OBJFILES =
+BINFILES = idlaktxp idlakfex convert-to-binary
 
-all:  $(BINFILES)
+OBJFILES =
 
 TESTFILES =
 
-$(BINFILES): ../idlaktxp/idlaktxp.a ../matrix/kaldi-matrix.a \
-             ../feat/kaldi-feat.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a  \
-             ../util/kaldi-util.a ../base/kaldi-base.a
+ADDLIBS = ../idlaktxp/idlak-txp.a ../util/kaldi-util.a ../matrix/kaldi-matrix.a ../base/kaldi-base.a
 
-
-
-# Rule below would expand to, e.g.:
-# ../base/kaldi-base.a:
-# 	make -c ../base kaldi-base.a
-# -c option to make is same as changing directory.
-%.a:
-	$(MAKE) -C ${@D} ${@F}
-
-clean:
-	-rm -f *.o *.a $(TESTFILES) $(BINFILES)
-
-test_compile: $(TESTFILES)
-
-test: test_compile
-	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
-
-.valgrind: $(TESTFILES)
-
-
-depend:
-	-$(CXX) -M $(CXXFLAGS) *.cc > .depend.mk  
-
-# removing automatic making of "depend" as it's quite slow.
-#.depend.mk: depend
-
--include .depend.mk
+include ../makefiles/default_rules.mk
 

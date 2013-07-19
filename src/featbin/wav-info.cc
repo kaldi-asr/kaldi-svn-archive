@@ -24,8 +24,8 @@
 
 int main(int argc, char *argv[]) {
   const char *usage =
-      "Get information on a riff wav file\n"
-      "Usage:  wavinfo wavfile\n";
+      "Get information on a RIFF wav file\n"
+      "Usage:  wav-info wavfile\n";
   std::string wavin;
   try {
     kaldi::ParseOptions po(usage);

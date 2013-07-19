@@ -149,3 +149,6 @@ onlinebin: base matrix util feat tree optimization gmm tied transform sgmm sgmm2
 # python-kaldi-decoding: base matrix util feat tree optimization thread gmm tied transform sgmm sgmm2 fstext hmm decoder lat online
 online: decoder
 kwsbin: fstext lat base util
+#4) Dependencies for IDLAK
+idlaktxp: base matrix util
+idlaktxpbin: idlaktxp base matrix util
