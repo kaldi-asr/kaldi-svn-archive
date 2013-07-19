@@ -1,4 +1,4 @@
-// nnet/nnet-cache.h
+// nnet/nnet-cache-tgtmat.h
 
 // Copyright 2012  Karel Vesely
 
@@ -16,14 +16,15 @@
 // limitations under the License.
 
 
-#ifndef KALDI_NNET_CACHE_H
-#define KALDI_NNET_CACHE_H
+#ifndef KALDI_NNET_NNET_CACHE_TGTMAT_H_
+#define KALDI_NNET_NNET_CACHE_TGTMAT_H_
 
 #include "base/kaldi-math.h"
 #include "cudamatrix/cu-math.h"
 #include "cudamatrix/cu-matrix.h"
 
 namespace kaldi {
+namespace nnet1 {
 
 /**
  * The feature-target pair cache
@@ -96,6 +97,7 @@ class CacheTgtMat {
 }; 
  
   
-} // namespace
+} // namespace nnet1
+} // namespace kaldi
 
 #endif

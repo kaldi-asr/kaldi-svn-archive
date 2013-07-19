@@ -16,14 +16,15 @@
 // limitations under the License.
 
 
-#ifndef KALDI_NNET_AFFINE_TRANSFORM_H
-#define KALDI_NNET_AFFINE_TRANSFORM_H
+#ifndef KALDI_NNET_NNET_AFFINE_TRANSFORM_H_
+#define KALDI_NNET_NNET_AFFINE_TRANSFORM_H_
 
 
 #include "nnet/nnet-component.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
+namespace nnet1 {
 
 class AffineTransform : public UpdatableComponent {
  public:
@@ -128,6 +129,7 @@ class AffineTransform : public UpdatableComponent {
   CuVector<BaseFloat> bias_corr_;
 };
 
-} // namespace
+} // namespace nnet1
+} // namespace kaldi
 
 #endif

@@ -1,4 +1,4 @@
-// nnet/nnet-limit-rank.cc
+// nnet-cpu/nnet-limit-rank.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -19,6 +19,7 @@
 #include "thread/kaldi-task-sequence.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 class LimitRankClass {
  public:
@@ -105,4 +106,5 @@ void LimitRankParallel(const NnetLimitRankOpts &opts,
 }
 
   
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

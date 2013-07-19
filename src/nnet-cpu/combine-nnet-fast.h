@@ -21,6 +21,7 @@
 #include "nnet-cpu/nnet-update.h"
 #include "nnet-cpu/nnet-compute.h"
 #include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 
 // Compare with combine-nnet.h.  What we're doing is taking
@@ -38,6 +39,7 @@
 // kind of Fisher matrix for preconditioning.
 
 namespace kaldi {
+namespace nnet2 {
 
 /** Configuration class that controls neural net combination, where we combine a
     number of neural nets, trying to find for each layer the optimal weighted
@@ -62,7 +64,7 @@ struct NnetCombineFastConfig {
                            fisher_minibatch_size(64), minibatch_size(1024),
                            max_lbfgs_dim(10) {}
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("initial-model", &initial_model, "Specifies where to start the "
                  "optimization from.  If 0 ... #models-1, then specifies the model; "
                  "if #models, then the average of all inputs; otherwise, chosen "
@@ -93,6 +95,7 @@ void CombineNnetsFast(const NnetCombineFastConfig &combine_config,
   
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi
 
 #endif

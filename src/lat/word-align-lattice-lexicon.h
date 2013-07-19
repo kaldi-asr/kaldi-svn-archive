@@ -15,8 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_FSTEXT_WORD_ALIGN_LATTICE_H_
-#define KALDI_FSTEXT_WORD_ALIGN_LATTICE_H_
+#ifndef KALDI_LAT_WORD_ALIGN_LATTICE_LEXICON_H_
+#define KALDI_LAT_WORD_ALIGN_LATTICE_LEXICON_H_
 #include <fst/fstlib.h>
 #include <fst/fst-decl.h>
 
@@ -124,7 +124,7 @@ struct WordAlignLatticeLexiconOpts {
   WordAlignLatticeLexiconOpts(): partial_word_label(0), reorder(true),
                                  test(false), max_expand(-1.0) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("partial-word-label", &partial_word_label, "Numeric id of "
                  "word symbol that is to be used for arcs in the word-aligned "
                  "lattice corresponding to partial words at the end of "

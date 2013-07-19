@@ -17,8 +17,8 @@
 
 
 
-#ifndef KALDI_NNET_COMPONENT_H
-#define KALDI_NNET_COMPONENT_H
+#ifndef KALDI_NNET_NNET_COMPONENT_H_
+#define KALDI_NNET_NNET_COMPONENT_H_
 
 
 #include "base/kaldi-common.h"
@@ -30,6 +30,7 @@
 #include <iostream>
 
 namespace kaldi {
+namespace nnet1 {
 
 // declare the nnet class so we can declare pointer
 struct NnetTrainOptions;
@@ -227,6 +228,7 @@ inline void Component::Backpropagate(const CuMatrix<BaseFloat> &in,
 
 
 
+} // namespace nnet1
 } // namespace kaldi
 
 

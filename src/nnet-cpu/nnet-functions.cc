@@ -1,4 +1,4 @@
-// nnet/nnet-nnet.cc
+// nnet-cpu/nnet-functions.cc
 
 // Copyright 2011-2012  Karel Vesely
 //                      Johns Hopkins University (author: Daniel Povey)
@@ -20,6 +20,7 @@
 #include "util/stl-utils.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 int32 IndexOfSoftmaxLayer(const Nnet &nnet) {
   int32 index = -1, nc = nnet.NumComponents();
@@ -52,4 +53,5 @@ void InsertComponents(const Nnet &src_nnet,
 }
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

@@ -17,8 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_GMM_ESTIMATE_FULL_GMM_H_
-#define KALDI_GMM_ESTIMATE_FULL_GMM_H_
+#ifndef KALDI_GMM_MLE_FULL_GMM_H_
+#define KALDI_GMM_MLE_FULL_GMM_H_
 
 #include <vector>
 
@@ -51,7 +51,7 @@ struct MleFullGmmOptions {
     max_condition          = 1.0e+04;
     remove_low_count_gaussians = true;
   }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     std::string module = "MleFullGmmOptions: ";
     po->Register("min-gaussian-weight", &min_gaussian_weight,
                  module+"Min Gaussian weight before we remove it.");
@@ -156,4 +156,4 @@ BaseFloat MlObjective(const FullGmm &gmm,
 
 }  // End namespace kaldi
 
-#endif  // KALDI_GMM_ESTIMATE_FULL_GMM_H_
+#endif  // KALDI_GMM_MLE_FULL_GMM_H_

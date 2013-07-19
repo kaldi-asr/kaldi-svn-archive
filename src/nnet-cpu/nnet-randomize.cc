@@ -1,4 +1,4 @@
-// nnet/nnet-randomize.cc
+// nnet-cpu/nnet-randomize.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -18,6 +18,7 @@
 #include "nnet-cpu/nnet-randomize.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 void NnetDataRandomizer::RandomizeSamples() {
   KALDI_ASSERT(samples_.empty());
@@ -117,4 +118,5 @@ void NnetDataRandomizer::Next() {
   num_samples_returned_++;
 }
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

@@ -21,6 +21,7 @@
 #include "nnet-cpu/nnet-nnet.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 /* This program computes various statistics from a neural net.  These are
    summaries of certain quantities already present in the network as
@@ -32,7 +33,7 @@ struct NnetStatsConfig {
   BaseFloat bucket_width;
   NnetStatsConfig(): bucket_width(0.025) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("bucket-width", &bucket_width, "Width of bucket in average-derivative "
                  "stats for analysis.");
   }
@@ -88,6 +89,7 @@ void GetNnetStats(const NnetStatsConfig &config,
                   std::vector<NnetStats> *stats);
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi
 
 #endif // KALDI_NNET_CPU_NNET_STATS_H_

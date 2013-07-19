@@ -1,4 +1,4 @@
-// nnet/nnet-component.cc
+// nnet-cpu/nnet-precondition.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -18,6 +18,7 @@
 #include "nnet-cpu/nnet-precondition.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 /// See below for comment.
 void PreconditionDirections(const MatrixBase<BaseFloat> &R,
@@ -125,7 +126,8 @@ void PreconditionDirectionsAlphaRescaled(
 }
 
 
-}
+} // namespace nnet2
+} // namespace kaldi
 
 /*
   Notes for an idea on preconditioning.

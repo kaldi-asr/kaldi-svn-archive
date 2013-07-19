@@ -1,4 +1,4 @@
-// gmmbin/rbm-convert-to-nnet.cc
+// nnetbin/rbm-convert-to-nnet.cc
 
 // Copyright 2009-2011  Microsoft Corporation
 
@@ -23,6 +23,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
+    using namespace kaldi::nnet1;
     typedef kaldi::int32 int32;
 
     const char *usage =

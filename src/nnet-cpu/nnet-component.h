@@ -16,16 +16,17 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_CPU_COMPONENT_H_
-#define KALDI_NNET_CPU_COMPONENT_H_
+#ifndef KALDI_NNET_CPU_NNET_COMPONENT_H_
+#define KALDI_NNET_CPU_NNET_COMPONENT_H_
 
 #include "base/kaldi-common.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 #include "matrix/matrix-lib.h"
 
 #include <iostream>
 
 namespace kaldi {
+namespace nnet2 {
 
 
 /**
@@ -593,7 +594,7 @@ struct PreconditionConfig { // relates to AffineComponentA
   
   PreconditionConfig(): alpha(0.1), do_precondition(true),
                         renormalize(true) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("alpha", &alpha, "Smoothing constant used in "
                  "preconditioning of updates.");
     po->Register("do-precondition", &do_precondition, "Controls whether "
@@ -1172,6 +1173,7 @@ bool ParseFromString(const std::string &name, std::string *string,
                      bool *param);
 
 
+} // namespace nnet2
 } // namespace kaldi
 
 

@@ -20,9 +20,10 @@
 
 #include "nnet-cpu/nnet-update.h"
 #include "nnet-cpu/nnet-compute.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 
 struct NnetAdaptiveTrainerConfig {
@@ -42,7 +43,7 @@ struct NnetAdaptiveTrainerConfig {
       num_phases(20),
       always_accept(false) { }
   
-  void Register (ParseOptions *po) {
+  void Register (OptionsItf *po) {
     po->Register("minibatch-size", &minibatch_size,
                  "Number of samples per minibatch of training data.");
     po->Register("minibatches-per-phase", &minibatches_per_phase,
@@ -120,7 +121,7 @@ struct NnetSimpleTrainerConfig {
   NnetSimpleTrainerConfig(): minibatch_size(500),
                              minibatches_per_phase(50) { }
   
-  void Register (ParseOptions *po) {
+  void Register (OptionsItf *po) {
     po->Register("minibatch-size", &minibatch_size,
                  "Number of samples per minibatch of training data.");
     po->Register("minibatches-per-phase", &minibatches_per_phase,
@@ -171,6 +172,7 @@ class NnetSimpleTrainer {
 
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi
 
 #endif

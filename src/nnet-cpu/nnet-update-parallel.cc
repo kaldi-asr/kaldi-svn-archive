@@ -1,4 +1,4 @@
-// nnet/nnet-update-parallel.cc
+// nnet-cpu/nnet-update-parallel.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -20,6 +20,7 @@
 #include "thread/kaldi-mutex.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 void ExamplesRepository::AcceptExamples(
     std::vector<NnetTrainingExample> *examples) {
@@ -379,4 +380,5 @@ BaseFloat DoBackpropParallel(const Nnet &nnet,
 }
 
   
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

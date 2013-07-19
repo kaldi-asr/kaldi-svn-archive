@@ -15,8 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_FSTEXT_PHONE_ALIGN_LATTICE_H_
-#define KALDI_FSTEXT_PHONE_ALIGN_LATTICE_H_
+#ifndef KALDI_LAT_PHONE_ALIGN_LATTICE_H_
+#define KALDI_LAT_PHONE_ALIGN_LATTICE_H_
 #include <fst/fstlib.h>
 #include <fst/fst-decl.h>
 
@@ -36,7 +36,7 @@ struct PhoneAlignLatticeOptions {
   PhoneAlignLatticeOptions(): reorder(true),
                               remove_epsilon(true),
                               replace_output_symbols(false) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("reorder", &reorder, "True if lattice was created from HCLG with "
                  "--reorder=true option.");
     po->Register("remove-epsilon", &remove_epsilon, "If true, removes epsilons from "

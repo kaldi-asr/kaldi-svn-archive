@@ -1,4 +1,4 @@
-// nnet/nnet-compute.cc
+// nnet-cpu/nnet-compute.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -19,6 +19,7 @@
 #include "util/kaldi-holder.h" // for Posterior
 
 namespace kaldi {
+namespace nnet2 {
 
 /*
   This class does the forward and possibly backward computation for (typically)
@@ -188,4 +189,5 @@ BaseFloat NnetGradientComputation(const Nnet &nnet,
 }
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

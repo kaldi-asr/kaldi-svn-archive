@@ -1,4 +1,4 @@
-// onlinebin/onlinebin-util.cc
+// online/onlinebin-util.cc
 
 // Copyright 2012 Cisco Systems (author: Matthias Paulik)
 
@@ -18,7 +18,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "online/onlinebin-util.h"
+#include "onlinebin-util.h"
 
 namespace kaldi {
 

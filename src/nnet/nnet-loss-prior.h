@@ -15,8 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_NNET_LOSS_PRIOR_H
-#define KALDI_NNET_LOSS_PRIOR_H
+#ifndef KALDI_NNET_NNET_LOSS_PRIOR_H_
+#define KALDI_NNET_NNET_LOSS_PRIOR_H_
 
 #include "base/kaldi-common.h"
 #include "cudamatrix/cu-matrix.h"
@@ -24,6 +24,7 @@
 #include "cudamatrix/cu-stlvector.h"
 
 namespace kaldi {
+namespace nnet1 {
 
 class XentPrior {
  public:
@@ -80,7 +81,8 @@ class XentPrior {
 
 
 
-} // namespace
+} // namespace nnet1
+} // namespace kaldi
 
 #endif
 

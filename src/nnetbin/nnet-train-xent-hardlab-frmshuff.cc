@@ -1,4 +1,4 @@
-// nnetbin/nnet-train-xent-hardlab-perutt.cc
+// nnetbin/nnet-train-xent-hardlab-frmshuff.cc
 
 // Copyright 2011-2013  Brno University of Technology (Author: Karel Vesely)
 
@@ -27,6 +27,7 @@
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
+  using namespace kaldi::nnet1;
   try {
     const char *usage =
         "Perform one iteration of Neural Network training by stochastic gradient descent.\n"
@@ -79,6 +80,7 @@ int main(int argc, char *argv[]) {
     srand(seed);
      
     using namespace kaldi;
+    using namespace kaldi::nnet1;
     typedef kaldi::int32 int32;
 
     //Select the GPU

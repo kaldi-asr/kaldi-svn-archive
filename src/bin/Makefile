@@ -16,45 +16,22 @@ BINFILES = align-equal align-equal-compiled acc-tree-stats \
         dot-weights sum-tree-stats weight-post post-to-tacc copy-matrix \
         copy-vector copy-int-vector sum-post sum-matrices draw-tree \
         copy-int-vector-vector thresh-post \
-        align-mapped align-compiled-mapped latgen-faster-mapped \
+        align-mapped align-compiled-mapped latgen-faster-mapped latgen-faster-mapped-parallel \
         hmm-info pdf-to-counts analyze-counts extract-ctx post-to-phone-post \
         post-to-pdf-post duplicate-matrix logprob-to-post prob-to-post copy-post \
         matrix-logprob matrix-sum latgen-tracking-mapped \
         build-pfile-from-ali get-post-on-ali acc-fullctx-stats fullctx-to-pdf \
 	convert-fullctx-ali
 
-OBJFILES = 
+OBJFILES =
 
-all:  $(BINFILES)
+ADDLIBS = ../lm/kaldi-lm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a \
+          ../hmm/kaldi-hmm.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a \
+					../tree/kaldi-tree.a ../matrix/kaldi-matrix.a  ../util/kaldi-util.a \
+					../base/kaldi-base.a  ../thread/kaldi-thread.a
 
 
 TESTFILES =
 
-$(BINFILES): ../lm/kaldi-lm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a ../matrix/kaldi-matrix.a  ../util/kaldi-util.a ../base/kaldi-base.a 
-
-# Rule below would expand to, e.g.:
-# ../base/kaldi-base.a:
-# 	make -c ../base kaldi-base.a
-# -c option to make is same as changing directory.
-%.a:
-	$(MAKE) -C ${@D} ${@F}
-
-clean:
-	-rm -f *.o *.a $(TESTFILES) $(BINFILES) 
-
-test_compile: $(TESTFILES)
-  
-test: test_compile
-	@result=0; for x in $(TESTFILES); do echo -n "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
-
-.valgrind: $(TESTFILES)
-
-
-depend:
-	-$(CXX) -M $(CXXFLAGS) *.cc > .depend.mk  
-
-# removing automatic making of "depend" as it's quite slow.
-#.depend.mk: depend
-
--include .depend.mk
+include ../makefiles/default_rules.mk
 

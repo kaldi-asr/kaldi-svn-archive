@@ -1,4 +1,4 @@
-// nnet/mixup-nnet.cc
+// nnet-cpu/mixup-nnet.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -20,6 +20,7 @@
 #include <numeric> // for std::accumulate
 
 namespace kaldi {
+namespace nnet2 {
 
 static BaseFloat GetFirstLearningRate(const Nnet &nnet) {
   for (int32 c = 0; c < nnet.NumComponents(); c++) {
@@ -240,4 +241,5 @@ void SoftmaxComponent::MixUp(int32 num_mixtures,
 
 
   
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

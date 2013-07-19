@@ -32,10 +32,12 @@ int main(int argc, char *argv[]) {
     using namespace fst;
 
     typedef kaldi::int32 int32;
-    typedef OnlineFeInput<OnlinePaSource, Mfcc> FeInput;
+    typedef OnlineFeInput<Mfcc> FeInput;
 
     // Up to delta-delta derivative features are calculated (unless LDA is used)
     const int32 kDeltaOrder = 2;
+    // Time out interval for the PortAudio source
+    const int32 kTimeout = 500; // half second
     // Input sampling frequency is fixed to 16KHz
     const int32 kSampleFreq = 16000;
     // PortAudio's internal ring buffer size in bytes
@@ -49,9 +51,9 @@ int main(int argc, char *argv[]) {
         "Feature splicing/LDA transform is used, if the optional(last) argument "
         "is given.\n"
         "Otherwise delta/delta-delta(2-nd order) features are produced.\n\n"
-        "Usage: ./online-wav-gmm-decode-faster [options] model-in"
-        "fst-in word-symbol-table silence-phones [lda-matrix-in]\n\n"
-        "Example: ./online-wav-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
+        "Usage: online-gmm-decode-faster [options] <model-in>"
+        "<fst-in> <word-symbol-table> <silence-phones> [<lda-matrix-in>]\n\n"
+        "Example: online-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
         "--max-active=4000 --beam=12.0 --acoustic-scale=0.0769 "
         "model HCLG.fst words.txt '1:2:3:4:5' lda-matrix";
     ParseOptions po(usage);
@@ -133,7 +135,7 @@ int main(int argc, char *argv[]) {
     OnlineFasterDecoder decoder(*decode_fst, decoder_opts,
                                 silence_phones, trans_model);
     VectorFst<LatticeArc> out_fst;
-    OnlinePaSource au_src(kSampleFreq, kPaRingSize, kPaReportInt);
+    OnlinePaSource au_src(kTimeout, kSampleFreq, kPaRingSize, kPaReportInt);
     Mfcc mfcc(mfcc_opts);
     FeInput fe_input(&au_src, &mfcc,
                      frame_length * (kSampleFreq / 1000),
@@ -154,7 +156,7 @@ int main(int argc, char *argv[]) {
       feat_transform = new OnlineDeltaInput(opts, &cmn_input);
     }
     
-    // feature_reading_opts contains timeout, batch size.
+    // feature_reading_opts contains number of retries, batch size.
     OnlineFeatureMatrix feature_matrix(feature_reading_opts,
                                        feat_transform);
 
@@ -172,6 +174,12 @@ int main(int argc, char *argv[]) {
                                      static_cast<LatticeArc::Weight*>(0));
         PrintPartialResult(word_ids, word_syms, partial_res || word_ids.size());
         partial_res = false;
+        if (dstate == decoder.kEndFeats) {
+          if (au_src.TimedOut())
+            KALDI_WARN << "PortAudio time out detected!";
+          KALDI_LOG << "No more features available from PortAudio!";
+          break;
+        }
       } else {
         std::vector<int32> word_ids;
         if (decoder.PartialTraceback(&out_fst)) {

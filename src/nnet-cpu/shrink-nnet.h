@@ -20,9 +20,10 @@
 
 #include "nnet-cpu/nnet-update.h"
 #include "nnet-cpu/nnet-compute.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 /** Configuration class that controls neural net "shrinkage" which is actually a
     scaling on the parameters of each of the updatable layers.
@@ -36,7 +37,7 @@ struct NnetShrinkConfig {
   BaseFloat initial_step;
   
   NnetShrinkConfig(): num_bfgs_iters(10), initial_step(0.1) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("num-bfgs-iters", &num_bfgs_iters, "Number of iterations of "
                  "BFGS to use when optimizing shrinkage parameters");
     po->Register("initial-step", &initial_step, "Parameter in the optimization, "
@@ -50,6 +51,7 @@ void ShrinkNnet(const NnetShrinkConfig &shrink_config,
   
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi
 
 #endif

@@ -16,14 +16,15 @@
 // limitations under the License.
 
 
-#ifndef KALDI_NNET_RBM_H
-#define KALDI_NNET_RBM_H
+#ifndef KALDI_NNET_NNET_RBM_H_
+#define KALDI_NNET_NNET_RBM_H_
 
 
 #include "nnet/nnet-component.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
+namespace nnet1 {
 
 class RbmBase : public UpdatableComponent {
  public:
@@ -389,6 +390,7 @@ protected:
 
 
 
-} // namespace
+} // namespace nnet1
+} // namespace kaldi
 
 #endif

@@ -30,6 +30,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
+    using namespace kaldi::nnet2;
     typedef kaldi::int32 int32;
     using fst::SymbolTable;
     using fst::VectorFst;
@@ -37,7 +38,7 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Generate lattices using neural net model.\n"
-        "Usage: nnet-latgen-faster [options] <nnet-in> <fst-in|fsts-rspecifier> <features-rspecifier>"
+        "Usage: nnet-latgen-faster-parallel [options] <nnet-in> <fst-in|fsts-rspecifier> <features-rspecifier>"
         " <lattice-wspecifier> [ <words-wspecifier> [<alignments-wspecifier>] ]\n";
     ParseOptions po(usage);
     Timer timer;

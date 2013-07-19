@@ -1,4 +1,4 @@
-// gmmbin/gmm-align-compiled.cc
+// nnet-cpubin/nnet-align-compiled.cc
 
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
@@ -30,6 +30,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
+    using namespace kaldi::nnet2;
     typedef kaldi::int32 int32;
     using fst::SymbolTable;
     using fst::VectorFst;

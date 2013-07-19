@@ -1,4 +1,4 @@
-// nnet/combine-nnet.cc
+// nnet-cpu/combine-nnet.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -18,6 +18,7 @@
 #include "nnet-cpu/combine-nnet.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 
 // Here, "scale_params" is in blocks, with the first block
@@ -241,4 +242,5 @@ void CombineNnets(const NnetCombineConfig &combine_config,
 }
  
   
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     using namespace fst;
 
     typedef kaldi::int32 int32;
-    typedef OnlineFeInput<OnlineVectorSource, Mfcc> FeInput;
+    typedef OnlineFeInput<Mfcc> FeInput;
 
     // up to delta-delta derivative features are calculated (unless LDA is used)
     const int32 kDeltaOrder = 2;
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
         "Caution: the last few frames of the wav file may not be decoded properly.\n"
         "Hence, don't use one wav file per utterance, but "
         "rather use one wav file per show.\n\n"
-        "Usage: ./online-wav-gmm-decode-faster [options] wav-rspecifier model-in"
+        "Usage: online-wav-gmm-decode-faster [options] wav-rspecifier model-in"
         "fst-in word-symbol-table silence-phones transcript-wspecifier "
         "alignments-wspecifier [lda-matrix-in]\n\n"
         "Example: ./online-wav-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
         feat_transform = new OnlineDeltaInput(opts, &cmn_input);
       }
 
-      // feature_reading_opts contains timeout, batch size.
+      // feature_reading_opts contains number of retries, batch size.
       OnlineFeatureMatrix feature_matrix(feature_reading_opts,
                                          feat_transform);
 

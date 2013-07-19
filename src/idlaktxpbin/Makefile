@@ -14,7 +14,7 @@ all:  $(BINFILES)
 TESTFILES =
 
 $(BINFILES): ../idlaktxp/idlaktxp.a ../matrix/kaldi-matrix.a \
-             ../feat/kaldi-feature.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a  \
+             ../feat/kaldi-feat.a ../transform/kaldi-transform.a ../gmm/kaldi-gmm.a ../tree/kaldi-tree.a  \
              ../util/kaldi-util.a ../base/kaldi-base.a
 
 

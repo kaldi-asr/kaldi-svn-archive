@@ -1,4 +1,4 @@
-// nnet/nnet-lbfgs.cc
+// nnet-cpu/nnet-lbfgs.cc
 
 // Copyright 2012   Johns Hopkins University (author: Daniel Povey)
 
@@ -18,6 +18,7 @@
 #include "nnet-cpu/nnet-lbfgs.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 
 Nnet *GetPreconditioner(const Nnet &nnet) {
@@ -162,4 +163,5 @@ NnetLbfgsTrainer::~NnetLbfgsTrainer() {
 }
 
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi

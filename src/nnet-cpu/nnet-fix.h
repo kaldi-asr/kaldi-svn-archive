@@ -21,6 +21,7 @@
 #include "nnet-cpu/nnet-nnet.h"
 
 namespace kaldi {
+namespace nnet2 {
 
 /* This header provides a function FixNnet(), and associated config, which
    is responsible for fixing certain pathologies in a neural network during
@@ -42,7 +43,7 @@ struct NnetFixConfig {
 
   NnetFixConfig(): min_average_deriv(0.1), max_average_deriv(0.75),
                    parameter_factor(2.0) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("min-average-deriv", &min_average_deriv, "Miniumum derivative, "
                  "averaged over the training data, that we allow for a nonlinearity,"
                  "expressed relative to the maximum derivative of the nonlinearity,"
@@ -57,6 +58,7 @@ struct NnetFixConfig {
 
 void FixNnet(const NnetFixConfig &config, Nnet *nnet);
 
-} // namespace
+} // namespace nnet2
+} // namespace kaldi
 
 #endif // KALDI_NNET_CPU_NNET_FIX_H_

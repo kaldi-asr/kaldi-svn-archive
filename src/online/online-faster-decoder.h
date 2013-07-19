@@ -18,8 +18,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_ONLINE_FASTER_DECODER_H_
-#define KALDI_ONLINE_FASTER_DECODER_H_
+#ifndef KALDI_ONLINE_ONLINE_FASTER_DECODER_H_
+#define KALDI_ONLINE_ONLINE_FASTER_DECODER_H_
 
 #ifdef _MSC_VER
 #include <unordered_set>
@@ -52,7 +52,7 @@ struct OnlineFasterDecoderOpts : public FasterDecoderOptions {
     update_interval(3), beam_update(.01),
     max_beam_update(0.05) {}
 
-  void Register(ParseOptions *po, bool full) {
+  void Register(OptionsItf *po, bool full) {
     FasterDecoderOptions::Register(po, full);
     po->Register("rt-min", &rt_min,
                  "Approximate minimum decoding run time factor");
@@ -134,4 +134,4 @@ class OnlineFasterDecoder : public FasterDecoder {
 };
 
 } // namespace kaldi
-#endif // KALDI_ONLINE_FASTER_DECODER_H_
+#endif // KALDI_ONLINE_ONLINE_FASTER_DECODER_H_

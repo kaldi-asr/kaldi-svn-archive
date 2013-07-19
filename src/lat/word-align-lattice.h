@@ -15,8 +15,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_FSTEXT_WORD_ALIGN_LATTICE_H_
-#define KALDI_FSTEXT_WORD_ALIGN_LATTICE_H_
+#ifndef KALDI_LAT_WORD_ALIGN_LATTICE_H_
+#define KALDI_LAT_WORD_ALIGN_LATTICE_H_
 #include <fst/fstlib.h>
 #include <fst/fst-decl.h>
 
@@ -57,7 +57,7 @@ struct WordBoundaryInfoOpts {
                           reorder(true), silence_may_be_word_internal(false),
                           silence_has_olabels(false) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("wbegin-phones", &wbegin_phones, "Colon-separated list of "
                  "numeric ids of phones that begin a word");
     po->Register("wend-phones", &wend_phones, "Colon-separated list of "
@@ -98,7 +98,7 @@ struct WordBoundaryInfoNewOpts {
   WordBoundaryInfoNewOpts(): silence_label(0), partial_word_label(0),
                              reorder(true) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("silence-label", &silence_label, "Numeric id of word symbol "
                  "that is to be used for silence arcs in the word-aligned "
                  "lattice (zero is OK)");
