@@ -326,7 +326,7 @@ void CuVectorBase<Real>::AddVecVec(Real alpha, const CuVectorBase<Real> &v,
   } else
 #endif
   {
-    KALDI_LOG << "Salam!" << '\n';
+//    KALDI_LOG << "Salam!" << '\n';
     Vec().AddVecVec(alpha, v.Vec(), r.Vec(), beta);
   }
 }

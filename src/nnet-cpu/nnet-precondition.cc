@@ -16,7 +16,7 @@
 // limitations under the License.
 
 #include "nnet-cpu/nnet-precondition.h"
-
+#include "util/kaldi-io.h"
 
 namespace kaldi {
 
@@ -63,11 +63,24 @@ void PreconditionDirections(const CuMatrixBase<BaseFloat> &R,
     S.Invert();
     Q.AddSpMat(1.0, S, R, kNoTrans, 0.0);
   }
-
+    {
+	    CuMatrix<BaseFloat> R1(R), R2(*P);
+	    Output ko2(std::string("R.txt"), false);
+	    R1.Write(ko2.Stream(), false);
+	    Output ko3(std::string("P.txt"), false);
+	    R2.Write(ko3.Stream(), false);
+    }
   for (int32 n = 0; n < N; n++) {
     CuSubVector<BaseFloat> r(R, n), q(Q, n);
+    //
+    std::cout << "n :" << n << std::endl;
+    std::cout << "r.Sum() is " << r.Sum() << std::endl;
+    std::cout << "q.Sum() is " << q.Sum() << std::endl;
+    //
     BaseFloat gamma = VecVec(r, q), // gamma_n = r_n^T q_n.
                beta = 1 + gamma / (N - 1 - gamma);
+    std::cout << "gamma is " << gamma << std::endl;
+    std::cout << "beta is " << beta << std::endl;
     KALDI_ASSERT(gamma >= 0.0 && beta > 0.0);
     // Q and P share the same memory.  The result of the
     // scaling below will be output as P.

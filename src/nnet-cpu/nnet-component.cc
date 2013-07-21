@@ -693,7 +693,34 @@ void AffineComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   out->Resize(in.NumRows(), linear_params_.NumRows());
   out->CopyRowsFromVec(bias_params_); // copies bias_params_ to each row
   // of *out.
+  static int i=0;
+  {
+	  std::string fname;
+	  std::ostringstream ii;
+	  ii << i;
+	  fname = ii.str();
+	  std::cout << i << std::endl;
+	  std::cout << out->NumRows() << "x" << out->NumCols() << std::endl;
+	  Output ko2(std::string(fname+"_C_pre.mat"), false);
+	  out->Write(ko2.Stream(), false);
+  }
   out->AddMatMat(1.0, in, kNoTrans, linear_params_, kTrans, 1.0);
+  {
+	  std::string fname;
+	  std::ostringstream ii;
+	  ii << i;
+	  fname = ii.str();
+	  std::cout << i << std::endl;
+	  CuMatrix<BaseFloat> in1(in);
+	  Output ko(std::string(fname+"_A.mat"), false);
+	  in1.Write(ko.Stream(), false);
+	  Output ko1(std::string(fname+"_B.mat"), false);
+	  linear_params_.Write(ko1.Stream(), false);
+	  Output ko2(std::string(fname+"_C.mat"), false);
+	  out->Write(ko2.Stream(), false);
+	  std::cout << in1.NumRows() << "x" << in1.NumCols() << " X " << linear_params_.NumCols() << "x" << linear_params_.NumRows() << " = " << out->NumRows() << "x" << out->NumCols() << std::endl;
+	  i++;
+  }
 }
 
 void AffineComponent::UpdateSimple(const CuMatrixBase<BaseFloat> &in_value,
