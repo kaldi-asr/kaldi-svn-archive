@@ -120,7 +120,6 @@ bool OnlinePaSource::Read(Vector<BaseFloat> *data) {
                << "; Received: " << nsamples_rcv << " samples";
     // This would be a PortAudio error.
   }
-  KALDI_WARN << "Requested: " << nsamples_req << "; Received: " << nsamples_rcv << " samples"; // DEBUG
   data->Resize(nsamples_rcv);
   for (int i = 0; i < nsamples_rcv; ++i)
     (*data)(i) = static_cast<BaseFloat>(buf[i]);
@@ -163,67 +162,5 @@ bool OnlineVectorSource::Read(Vector<BaseFloat> *data) {
   return (pos_ < src_.Dim());
 }
 
-
-/// Buffers internally the given data
-void OnlineBlockSource::Write(unsigned char * data, size_t num_samples) {
-  // allocate the space at once -> should be faster
-  src_.reserve(src_.size() + num_samples);
-  // copy and convert the data to the buffer
-  for (size_t i = 0; i < num_samples; ++i) {
-      switch (bits_per_sample_) {
-        case 8:
-          src_.push_back(*data);
-          data++;
-          break;
-        case 16:
-          {
-            int16 k = *reinterpret_cast<uint16*>(data);
-#ifdef __BIG_ENDIAN__
-            KALDI_SWAP2(k);
-#endif
-            src_.push_back(k);
-            data += 2;
-            break;
-          }
-        case 32:
-          {
-            int32 k = *reinterpret_cast<uint32*>(data);
-#ifdef __BIG_ENDIAN__
-            KALDI_SWAP4(k);
-#endif
-            src_.push_back(k);
-            data += 4;
-            break;
-          }
-        default:
-          KALDI_ERR << "bits per sample is " << bits_per_sample_;  // already checked this.
-      }
-  }
-}
-
-
-
-/// Return true if some still data available after Reading
-bool OnlineBlockSource::Read(Vector<BaseFloat> *data) {
-  // FIXME implement timeout!
-  KALDI_ASSERT(data->Dim() > 0);
-  // KALDI_WARN << "Requested: " << data->Dim(); // DEBUG
-
-  // TODO check: static_cast<size_t> from data->Dim() works on all architectures
-  size_t n = std::min(src_.size(), static_cast<size_t>(data->Dim()));
-  // KALDI_WARN << "DEBUG size before remove: "  << n;
-  // KALDI_WARN << "DEBUG outgoing data Dim(): "  << data->Dim();
-  for (size_t i = 0; i < n ; ++i) {
-    (*data)(i) = src_[i];
-  }
-  // remove the already read elements
-  std::vector<BaseFloat>(src_.begin() + n, src_.end()).swap(src_);
-  // KALDI_WARN << "DEBUG size after remove: "  << src_.size();
-  return ((!no_more_input_) || (src_.size() > 0));
-}
-
-void OnlineBlockSource::NoMoreInput() {
-  this->no_more_input_ = true;
-}
 
 } // namespace kaldi
