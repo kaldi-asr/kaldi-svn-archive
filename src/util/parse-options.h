@@ -149,12 +149,6 @@ class ParseOptions : public OptionsItf {
   void RegisterCommon(const std::string &name,
                       T *ptr, const std::string &doc, bool is_standard);
 
-  /// Reads the options values from a config file
-  void ReadConfigFile(const std::string &filename);
-
-  void SplitLongArg(std::string in, std::string *key, std::string *value);
-  void NormalizeArgName(std::string *str);
-
   bool SetOption(const std::string &key, const std::string &value);
 
   bool ToBool(std::string str);
@@ -201,6 +195,12 @@ class ParseOptions : public OptionsItf {
   /// is constructed with a prefix
   const std::string prefix_;
   ParseOptions *other_parser_;
+
+ protected:
+  /// Reads the options values from a config file
+  void ReadConfigFile(const std::string &filename);
+  void SplitLongArg(std::string in, std::string *key, std::string *value);
+  void NormalizeArgName(std::string *str);
 };
 
 }  // namespace kaldi
