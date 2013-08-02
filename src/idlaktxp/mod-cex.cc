@@ -30,10 +30,7 @@ TxpCex::~TxpCex() {
 }
 
 bool TxpCex::Process(pugi::xml_document* input) {
-  //int modellen;
   std::string* model = new std::string();
-  //modellen = cexspec_.MaxFeatureSize() + 1;
-  //model =  new char[modellen];
   cexspec_.AddPauseNodes(input);
   pugi::xpath_node_set tks =
       input->document_element().select_nodes("//phon");
@@ -44,7 +41,6 @@ bool TxpCex::Process(pugi::xml_document* input) {
        it != tks.end();
        ++it, i++, context.Next()) {
     pugi::xml_node phon = (*it).node();
-    //memset(model, 0, modellen);
     model->clear();
     cexspec_.ExtractFeatures(context, model);
     phon.text() = model->c_str();

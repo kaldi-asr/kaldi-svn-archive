@@ -1,4 +1,4 @@
-// idlaktxp/mod-toxparse.cc
+// idlaktxp/idlakcex.cc
 
 // Copyright 2012 CereProc Ltd.  (Author: Matthew Aylett)
 
@@ -22,22 +22,24 @@
 #include "idlaktxp/txpmodule.h"
 #include "idlaktxp/idlak-common.h"
 
-/// Example program that runs all modules in idlaktxp and produces
-/// XML output
+/// Takes output from idalktxp adds structure for pauses
+/// and creates full context model names for each phone
+///
 /// You need a text processing database (tpdb) to run this. An example is in
-/// ../../idlak-data/arctic-bdl/tpdb
+/// ../../idlak-data/en/ga
 int main(int argc, char *argv[]) {
   const char *usage =
       "Tokenise utf8 input xml\n"
       "Usage:  idlaktxp [options] xml_input xml_output\n"
-      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/test_data/mod-test001.xml output.xml\n" //NOLINT
-      "e.g.: cat  ../idlaktxp/test_data/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
+      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/test_data/mod-syllabify-out002.xml output.xml\n" //NOLINT
+      "e.g.: cat  ../idlaktxp/test_data/mod-syllabify-out002.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
   // input output variables
   std::string filein;
   std::string fileout;
   std::string tpdb;
   std::string configf;
   std::string input;
+  std::ostream *out;
   std::ofstream fout;
   // defaults to non-pretty XML output
   bool pretty = false;
@@ -63,12 +65,7 @@ int main(int argc, char *argv[]) {
     kaldi::Input ki(filein, &binary);
     kaldi::Output kio(fileout, binary);
     // Set up each module
-    kaldi::TxpTokenise t(tpdb, configf);
-    kaldi::TxpPosTag p(tpdb, configf);
-    kaldi::TxpPauses pz(tpdb, configf);
-    kaldi::TxpPhrasing ph(tpdb, configf);
-    kaldi::TxpPronounce pr(tpdb, configf);
-    kaldi::TxpSyllabify sy(tpdb, configf);
+    kaldi::TxpCex fx(tpdb, configf);
     // Use pujiXMl to read input file
     pugi::xml_document doc;
     pugi::xml_parse_result r = doc.load(ki.Stream(), pugi::encoding_utf8);
@@ -77,12 +74,7 @@ int main(int argc, char *argv[]) {
                 << "Error offset: " << r.offset;
     }
     // Run each module on the input XML
-    t.Process(&doc);
-    p.Process(&doc);
-    pz.Process(&doc);
-    ph.Process(&doc);
-    pr.Process(&doc);
-    sy.Process(&doc);
+    fx.Process(&doc);
     // Output result
     if (!pretty)
       doc.save(kio.Stream(), "", pugi::format_raw);
