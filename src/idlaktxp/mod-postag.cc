@@ -16,13 +16,14 @@
 // limitations under the License.
 //
 
-#include "./txpmodule.h"
+#include "idlaktxp/txpmodule.h"
 
 namespace kaldi {
 
 TxpPosTag::TxpPosTag(const std::string &tpdb, const std::string &configf)
-    : TxpModule("postag", tpdb, configf), tagger_(&config_, "postags", "default"),
-      posset_(&config_, "posset", "default") {
+    : TxpModule("postag", tpdb, configf),
+      tagger_(config_, std::string("postags"), std::string("default")),
+      posset_(config_, std::string("posset"), std::string("default")) {
   tagger_.Parse(tpdb.c_str());
   posset_.Parse(tpdb.c_str());
 }
@@ -30,8 +31,8 @@ TxpPosTag::TxpPosTag(const std::string &tpdb, const std::string &configf)
 TxpPosTag::~TxpPosTag() {
 }
 
-bool TxpPosTag::Process(pugi::xml_document * input) {
-    const char * ptag = "", * tag, *set;
+bool TxpPosTag::Process(pugi::xml_document* input) {
+    const char *ptag = "", *tag, *set;
   pugi::xpath_node_set tks = input->document_element().select_nodes("//tk");
   tks.sort();
   for (pugi::xpath_node_set::const_iterator it = tks.begin();
@@ -49,8 +50,8 @@ bool TxpPosTag::Process(pugi::xml_document * input) {
     node.attribute("pos").set_value(tag);
     set = posset_.GetPosSet(tag);
     if (set) {
-	if (!node.attribute("posset")) node.append_attribute("posset");
-	node.attribute("posset").set_value(set);
+      if (!node.attribute("posset")) node.append_attribute("posset");
+      node.attribute("posset").set_value(set);
     }
   }
   return true;

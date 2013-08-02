@@ -19,7 +19,7 @@
 // This is a very simple part of speech tagger. It could be improved by taking
 // note of breaks caused by punctuation
 
-#include "./txppos.h"
+#include "idlaktxp/txppos.h"
 
 namespace kaldi {
 
@@ -31,13 +31,13 @@ bool TxpPos::Parse(const std::string &tpdb) {
   return r;
 }
 
-const char * TxpPos::GetPos(const char * ptag, const char * word) {
+const char* TxpPos::GetPos(const char* ptag, const char* word) {
   RgxVector::iterator it;
   LookupMap::iterator lkp;
-  const char * current_tag;
+  const char* current_tag;
   current_tag =  most_common_.c_str();
   // Regex tagger
-  for (it = rgxtagger_.begin(); it != rgxtagger_.end(); it++) {
+  for (it = rgxtagger_.begin(); it != rgxtagger_.end(); ++it) {
     if ((*it).pos == TXPPOSRGX_POS_WORD &&
         !strcmp((*it).pattern.c_str(), word)) {
       current_tag = (*it).tag.c_str();
@@ -69,27 +69,27 @@ const char * TxpPos::GetPos(const char * ptag, const char * word) {
   return current_tag;
 }
 
-void TxpPos::StartElement(const char * name, const char ** atts) {
+void TxpPos::StartElement(const char* name, const char** atts) {
   std::string pos;
   std::string tag;
   std::string ptag;
   TxpPosRgx rgx;
   if (!strcmp(name, "most_common")) {
-    SetAtt("tag", atts, &most_common_);
+    SetAttribute("tag", atts, &most_common_);
   }
   if (!strcmp(name, "r")) {
-    SetAtt("pos", atts, &pos);
+    SetAttribute("pos", atts, &pos);
     if (pos == "WORD") rgx.pos = TXPPOSRGX_POS_WORD;
     else if (pos == "PREFIX") rgx.pos = TXPPOSRGX_POS_PREFIX;
     else if (pos == "SUFFIX") rgx.pos = TXPPOSRGX_POS_SUFFIX;
-    SetAtt("pat", atts, &(rgx.pattern));
-    SetAtt("tag", atts, &(rgx.tag));
+    SetAttribute("pat", atts, &(rgx.pattern));
+    SetAttribute("tag", atts, &(rgx.tag));
     rgxtagger_.push_back(rgx);
   } else if (!strcmp(name, "w")) {
-    SetAtt("name", atts, &word_);
+    SetAttribute("name", atts, &word_);
   } else if (!strcmp(name, "p")) {
-    SetAtt("tag", atts, &tag);
-    SetAtt("ptag", atts, &ptag);
+    SetAttribute("tag", atts, &tag);
+    SetAttribute("ptag", atts, &ptag);
     if (ptag.empty())
       patterntagger_.insert(LookupItem(word_, tag));
     else
@@ -105,17 +105,17 @@ bool TxpPosSet::Parse(const std::string &tpdb) {
   return r;
 }
 
-void TxpPosSet::StartElement(const char * name, const char ** atts) {
+void TxpPosSet::StartElement(const char* name, const char** atts) {
   std::string tagname;
   std::string set;
   if (!strcmp(name, "tag")) {
-    SetAtt("name", atts, &tagname);
-    SetAtt("set", atts, &set);
+    SetAttribute("name", atts, &tagname);
+    SetAttribute("set", atts, &set);
     posset_.insert(LookupItem(tagname, set));
   }
 }
 
-const char * TxpPosSet::GetPosSet(const char * pos) {
+const char* TxpPosSet::GetPosSet(const char* pos) {
   LookupMap::iterator lkp;
   lkp = posset_.find(std::string(pos));
   if (lkp != posset_.end()) {

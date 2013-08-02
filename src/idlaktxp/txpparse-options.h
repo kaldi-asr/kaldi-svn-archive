@@ -35,9 +35,9 @@
 namespace kaldi {
 
 /// string to string pointer lookup
-typedef std::map<std::string, std::string *> LookupMapPtr;
+typedef std::map<std::string, std::string*> LookupMapPtr;
 /// string/string pointer pair
-typedef std::pair<std::string, std::string *> LookupItemPtr;
+typedef std::pair<std::string, std::string*> LookupItemPtr;
 
 /// Class derived from standard ParseOptions in order to allow txp system
 /// to load a voice specific set of configurations switches from
@@ -48,15 +48,15 @@ typedef std::pair<std::string, std::string *> LookupItemPtr;
 class TxpParseOptions : public ParseOptions {
  public:
   /// Set defaults and register switches in txpoptions_
-  explicit TxpParseOptions(const char *usage);
+  explicit TxpParseOptions(const char* usage);
   /// Delete added switches in txpoptions_
   ~TxpParseOptions();
   /// Read in tpdb path, set tpdb, load default.conf from voice
-  int Read(int argc, const char*const *argv);
+  int Read(int argc, const char* argv[]);
   /// Return txp switch value used by txp modules
-  const char * GetValue(const char * module, const char * key);
+  const char* GetValue(const char* module, const char* key);
   /// Return path to tpdb
-  const char * GetTpdb();
+  const char* GetTpdb();
  private:
   /// Path to tpdb (text processing database) used by the voice
   std::string tpdb_;

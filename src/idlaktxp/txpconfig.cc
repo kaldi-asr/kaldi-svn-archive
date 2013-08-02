@@ -16,14 +16,14 @@
 // limitations under the License.
 //
 
-#include "./txpconfig.h"
+#include "idlaktxp/txpconfig.h"
 
 namespace kaldi {
 
 /// This is the full default configuration for txp. Only keys that
 /// have a default value here can be specified in module setup
 /// \todo currently nonsense values and modules
-const char * txpconfigdefault =
+const char* txpconfigdefault =
     "<tpconfig>\n"
     "    <general lang='en'\n"
     "         region='us'\n"
@@ -51,7 +51,7 @@ TxpConfig::TxpConfig() {
   if (!r) KALDI_ERR << "PugiXML Error parsing internal txp configuration file";
 }
 
-bool TxpConfig::Parse(enum TXPCONFIG_LVL lvl, const char * config) {
+bool TxpConfig::Parse(enum TXPCONFIG_LVL lvl, const std::string config) {
   std::string fname;
   pugi::xml_parse_result r;
   // input is the system wide configuration XML input file
@@ -63,7 +63,7 @@ bool TxpConfig::Parse(enum TXPCONFIG_LVL lvl, const char * config) {
                       << config;
   // input is a user defined XML input file
   } else {
-    r = user_.load_file(config);
+    r = user_.load_file(config.c_str());
     if (!r) KALDI_WARN << "PugiXML Error parsing user txp configuration file: "
                        << config;
   }
@@ -71,7 +71,7 @@ bool TxpConfig::Parse(enum TXPCONFIG_LVL lvl, const char * config) {
   return true;
 }
 
-const char * TxpConfig::GetValue(const char * module, const char * key) {
+const char* TxpConfig::GetValue(const std::string module, const std::string key) const {
   std::string xpath_string;
   pugi::xml_node node;
   pugi::xpath_node_set nodeset;
@@ -90,21 +90,21 @@ const char * TxpConfig::GetValue(const char * module, const char * key) {
   it = nodeset.begin();
   if (it != nodeset.end()) {
     node = (*it).node();
-    return node.attribute(key).value();
+    return node.attribute(key.c_str()).value();
   }
   // Try system config
   nodeset = system_.document_element().select_nodes(xpath_string.c_str());
   it = nodeset.begin();
   if (it != nodeset.end()) {
     node = (*it).node();
-    return node.attribute(key).value();
+    return node.attribute(key.c_str()).value();
   }
   // Try default config
   nodeset = default_.document_element().select_nodes(xpath_string.c_str());
   it = nodeset.begin();
   if (it != nodeset.end()) {
     node = (*it).node();
-    return node.attribute(key).value();
+    return node.attribute(key.c_str()).value();
   }
   return NULL;
 }

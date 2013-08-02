@@ -79,6 +79,7 @@ def run_f0_pass(wavdir, outdir, getf0_path, pplain_path, params_file, input_file
             f0_options = '-P %s' % (params_file)
 
         com = '%s %s %s %s' % (getf0_path, f0_options, infile, outfilebin)
+        print com
 
         retval = os.system(com)
         if retval:
@@ -87,7 +88,7 @@ def run_f0_pass(wavdir, outdir, getf0_path, pplain_path, params_file, input_file
         # Convert output to ascii
         # First two columns of output are required - f0, prob-voicing
         com = '%s %s' % (pplain_path, outfilebin)
-        print outfilebin
+        print com
         stdin, stdout, stderr = os.popen3(com)
         stdin.close()
         fp = open(outfile, 'w')
@@ -125,7 +126,7 @@ def interpolate_f0s(kaldisrcdir, valid_ids, indir, outdir):
     for f in valid_ids:
         infile = os.path.join(indir, f + ".f0")
 
-        scp_line = '%s %s/idlaktxpbin/convert-to-binary %s - |\n' % (f, kaldisrcdir, infile)
+        scp_line = '%s %s/bin/copy-matrix %s - |\n' % (f, kaldisrcdir, infile)
         scp_file.write(scp_line)
 
     scp_file.close()
@@ -135,6 +136,7 @@ def interpolate_f0s(kaldisrcdir, valid_ids, indir, outdir):
     wspecifier = 'ark,t:%s' % (outfile) 
 
     com = '%s/featbin/interpolate-pitch %s %s' % (kaldisrcdir, rspecifier, wspecifier)
+    print com
     os.system(com)
 
 def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir, force=False):
@@ -194,11 +196,6 @@ def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir, fo
     run_f0_pass(wavdir, pass2_outdir, getf0_path, pplain_path, params_file, valid_ids)
 
     # Interpolate in gaps.
-
-    #lerp_dir = os.path.join(outdir, 'interpolated')
-    #if not os.path.isdir(lerp_dir):
-    #    os.mkdir(lerp_dir)
-
     interpolate_f0s(kaldisrcdir, valid_ids, pass2_outdir, outdir)
 
 def main():

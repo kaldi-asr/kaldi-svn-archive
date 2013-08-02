@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
       "Usage:  idlaktxp [options] xml_input xml_output\n"
       "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/test-data/mod-test001.xml output.xml\n" //NOLINT
       "e.g.: cat  ../idlaktxp/test-data/mod-test001.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
-  // input output variables 
+  // input output variables
   std::string filein;
   std::string fileout;
   std::string tpdb;

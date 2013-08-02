@@ -25,9 +25,9 @@
 #include <vector>
 #include <string>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpxmldata.h"
-#include "./txputf8.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpxmldata.h"
+#include "idlaktxp/txputf8.h"
 
 namespace kaldi {
 
@@ -47,22 +47,23 @@ typedef std::vector<TxpSylItem> PhoneVector;
 /// see \ref idlaktxp_syll
 class TxpSylmax: public TxpXmlData {
  public:
-  explicit TxpSylmax(TxpConfig * config, const char * type, const char * name)
-      : TxpXmlData(config, type, name), stress_(false), max_onset_(0), max_nucleus_(0) {}
+  explicit TxpSylmax(const TxpConfig &config, const std::string &type, const std::string &name)
+      : TxpXmlData(config, type, name), stress_(false), max_onset_(0),
+        max_nucleus_(0) {}
   ~TxpSylmax() {}
   bool Parse(const std::string &tpdb);
   /// Apply maximal onset rules to the phones in the array
-  void Maxonset(PhoneVector *pronptr);
+  void Maxonset(PhoneVector* pronptr);
   /// Convert phone array to a string based pronunciation for XML
-  void Writespron(PhoneVector *pronptr, std::string *sylpron);
+  void Writespron(PhoneVector* pronptr, std::string* sylpron);
   /// Append a pronunciation onto a phone array
-  int32 GetPhoneVector(const char * pron, PhoneVector *phonevectorptr);
+  int32 GetPhoneVector(const char* pron, PhoneVector* phonevectorptr);
   /// Decide if a phone is syllabic or not
-  bool IsSyllabic(const char * phone);
+  bool IsSyllabic(const char* phone);
 
 
  private:
-  void StartElement(const char * name, const char ** atts);
+  void StartElement(const char* name, const char** atts);
   /// Based on codas, onsets and nuclei set syllable boundaries in phone array
   int32 AddSylBound(PhoneVector *pron);
   /// Find if a valid nucleus begins here
@@ -71,19 +72,19 @@ class TxpSylmax: public TxpXmlData {
   int32 FindOnset(const PhoneVector &pron, int32 pos);
   /// Append a phone starting at p into the phone array
   void InsertPhone(PhoneVector *phonevectorptr,
-                   const char * p, int32 len, bool wbnd);
+                   const char* p, int32 len, bool wbnd);
   /// Set nucleus pattern based on position and length in phone array
   /// return true if not blocked by a word boundary and sufficient items
   /// are available
   bool GetPhoneNucleusPattern(const PhoneVector &pron,
                               int32 pos, int32 len,
-                              bool with_stress, std::string *pat);
+                              bool with_stress, std::string* pat);
   /// Set onset pattern based on position and length backwards in phone array
   /// return true if not blocked by a word boundary and sufficient items
   /// are available
   bool GetPhoneOnsetPattern(const PhoneVector &pron,
                             int32 pos, int32 len,
-                            std::string *pat);
+                            std::string* pat);
   /// phones which are syllabic
   StringSet syllabic_;
   /// valid nucleus patterns
@@ -98,7 +99,7 @@ class TxpSylmax: public TxpXmlData {
   int32 max_nucleus_;
 };
 
-/// Structure to hold a phone together withi its syllabic information
+/// Structure to hold a phone together with its syllabic information
 struct TxpSylItem {
  public:
   void Clear() {

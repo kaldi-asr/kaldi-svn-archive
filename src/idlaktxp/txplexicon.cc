@@ -16,27 +16,27 @@
 // limitations under the License.
 //
 
-#include "./txplexicon.h"
+#include "idlaktxp/txplexicon.h"
 
 namespace kaldi {
 
-void TxpLexicon::StartElement(const char * name, const char ** atts) {
+void TxpLexicon::StartElement(const char* name, const char** atts) {
   if (!strcmp(name, "lex")) {
     inlex_ = true;
-    SetAtt("entry", atts, &entry_);
-    SetAtt("pron", atts, &pron_);
-    SetAtt("default", atts, &isdefault_);
+    SetAttribute("entry", atts, &entry_);
+    SetAttribute("pron", atts, &pron_);
+    SetAttribute("default", atts, &isdefault_);
     word_ = "";
   }
 }
 
-void TxpLexicon::CharHandler(const char * data, int32 len) {
+void TxpLexicon::CharHandler(const char* data, const int32 len) {
   if (inlex_) {
     word_ = word_ + std::string(data, len);
   }
 }
 
-void TxpLexicon:: EndElement(const char * name) {
+void TxpLexicon:: EndElement(const char* name) {
   LookupMap::iterator it;
   if (!strcmp(name, "lex")) {
     inlex_ = false;
@@ -51,7 +51,8 @@ void TxpLexicon:: EndElement(const char * name) {
       if (it == lookup_.end()) {
         lookup_.insert(LookupItem(word_ + std::string(":default"), pron_));
       } else {
-        KALDI_ERR << "Lexicon error muliple default entries for word: " << word_;
+        KALDI_ERR << "Lexicon error muliple default entries for word: "
+                  << word_;
         return;
       }
     }
@@ -62,7 +63,7 @@ void TxpLexicon:: EndElement(const char * name) {
 
 int TxpLexicon::GetPron(const std::string &word,
                         const std::string &entry,
-                        TxpLexiconLkp &lkp) {
+                        TxpLexiconLkp* lkp) {
   LookupMap::iterator it;
   std::size_t pos;
   if (!entry.empty())
@@ -70,14 +71,14 @@ int TxpLexicon::GetPron(const std::string &word,
   else
     it = lookup_.find(word + std::string(":default"));
   if (it != lookup_.end()) {
-    lkp.pron += it->second;
+    lkp->pron += it->second;
     // Extract other pronunciations
     it = lookup_.find(word + std::string(":default"));
-    it++;
+    ++it;
     pos = (it->first).find(":");
     while ((it->first).substr(0, pos) == word) {
-      lkp.altprons.push_back(it->second);
-      it++;
+      lkp->altprons.push_back(it->second);
+      ++it;
       if (it == lookup_.end()) break;
       pos = (it->first).find(":");
     }

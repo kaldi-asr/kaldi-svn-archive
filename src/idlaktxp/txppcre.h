@@ -24,7 +24,7 @@
 #include <pcre.h>
 #include <string>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
+#include "idlaktxp/idlak-common.h"
 
 #define KALDI_TXPPCRE_MAXMATCH 10
 
@@ -37,20 +37,20 @@ namespace kaldi {
 class TxpPcre {
  public:
   /// Convert string into a pcre regular expression
-  const pcre * Compile(const char * rgx);
+  const pcre* Compile(const char* rgx);
   /// Apply a regular expression to some input
-  bool Execute(const pcre * rgx, const std::string &input);
+  bool Execute(const pcre* rgx, const std::string &input);
   /// Apply a regular expression to a string and return remaining unmatched
   /// string
-  const char * Consume(const pcre * rgx, const char * input, int32 len);
-  const char * Consume(const pcre * rgx, const char * input);
+  const char* Consume(const pcre* rgx, const char* input, int32 len);
+  const char* Consume(const pcre* rgx, const char* input);
   /// Copy matched element of input into tgt
   bool SetMatch(int32 match, std::string *tgt);
   /// Return number of matches
   int32 Matches() {return n_ - 1;}
  private:
   /// Hold pointer to last matched string
-  const char * input_;
+  const char* input_;
   /// Hold integer offsets to matches in input
   int32 ovector_[KALDI_TXPPCRE_MAXMATCH * 3];
   /// Number of matches in regex

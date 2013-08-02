@@ -1,4 +1,4 @@
-<build_config>
+  <build_config>
   <!-- language, accent, speaker, region filled in by speaker config -->
   <!-- if working directories are not set they default to
        (relative to idlak-voice-build directory)
@@ -69,7 +69,7 @@
       pplain=""
       pplain_desc="The location of the pplain binary."
       />    
-  <fex_def
+  <cex_def
       depend="align_def"
       />     
   <align_def

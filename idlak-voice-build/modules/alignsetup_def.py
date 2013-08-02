@@ -80,6 +80,13 @@ def kaldidata(datadir, wavdir, spk, flist, force=False):
             else:
                 valid_ids[filename] = 1
 
+            pat = re.match('([a-z][a-z][a-z]_)?([a-z][0-9][0-9][0-9][0-9]_[0-9][0-9][0-9])', filename)
+
+            if pat:
+                # Ensure that both potential filenames, with and without speaker prefix are included.
+                valid_ids[str('%s_%s' % (spk, pat.group(2)))] = 1
+                valid_ids[pat.group(2)] = 1
+
         # If there are no flist files present in wavdir, we can't proceed.
         if not wavs:
             raise Exception("No files specified in flist are present in %s" % (wavdir))
@@ -101,6 +108,7 @@ def kaldidata(datadir, wavdir, spk, flist, force=False):
         fputt2spk = open(os.path.join(datadir, "train", "utt2spk"), 'w')
         for uttid in handler.ids:
             if valid_ids.has_key(uttid):
+                print "Valid: %s" % (uttid)
                 fp.write("%s %s\n" % (spk + '_' + uttid, os.path.join(datadir, wavdir, spk + '_' + uttid + '.wav')))
                 fputt2spk.write("%s %s\n" % (spk + '_' + uttid, spk))
         fp.close()

@@ -35,7 +35,7 @@
 #include "idlaktxp/txplexicon.h"
 #include "idlaktxp/txplts.h"
 #include "idlaktxp/txpsylmax.h"
-#include "idlaktxp/txpfexspec.h"
+#include "idlaktxp/txpcexspec.h"
 
 namespace kaldi {
 
@@ -52,14 +52,14 @@ class TxpModule {
   virtual ~TxpModule() {}
   /// Process the XML, modifying the XML to reflect linguistic
   /// information
-  virtual bool Process(pugi::xml_document * input) {return true;}
+  virtual bool Process(pugi::xml_document* input) {return true;}
   /// Return a configuration value for this module as a string
-  const char * GetConfigValue(const char * key);
+  const std::string GetConfigValue(const std::string &key);
   /// Return a boolean configuration
   /// True/true/TRUE -> true, False, false, FALSE, anything else -> false
-  bool GetConfigValueBool(const char * key);
+  bool GetConfigValueBool(const std::string &key);
   /// Get the name of the module
-  const std::string & GetName() {return name_;}
+  const std::string&  GetName() const {return name_;}
 
  protected:
   /// Configuration structure for the module
@@ -82,7 +82,7 @@ class TxpTokenise : public TxpModule {
   explicit TxpTokenise(const std::string &tpdb,
                        const std::string &configf = "");
   ~TxpTokenise();
-  bool Process(pugi::xml_document * input);
+  bool Process(pugi::xml_document* input);
 
  private:
   /// Analyses the characters and sets flags giving case, foriegn
@@ -101,12 +101,12 @@ class TxpPauses : public TxpModule {
   explicit TxpPauses(const std::string &tpdb,
                      const std::string &configf = "");
   ~TxpPauses();
-  bool Process(pugi::xml_document * input);
+  bool Process(pugi::xml_document* input);
 
  private:
   /// Process a file (documents may have several files of information separated
   /// within file id elements).
-  bool ProcessFile(pugi::xml_node * file);
+  bool ProcessFile(pugi::xml_node* file);
   /// Object containing lookup between punctuation and break strength
   /// and time
   TxpPbreak pbreak_;
@@ -127,7 +127,7 @@ class TxpPosTag : public TxpModule {
   explicit TxpPosTag(const std::string &tpdb,
                      const std::string &configf = "");
   ~TxpPosTag();
-  bool Process(pugi::xml_document * input);
+  bool Process(pugi::xml_document* input);
 
  private:
   /// Greedy regex and bigram tagger
@@ -143,12 +143,12 @@ class TxpPhrasing : public TxpModule {
   explicit TxpPhrasing(const std::string &tpdb,
                        const std::string &configf = "");
   ~TxpPhrasing();
-  bool Process(pugi::xml_document * input);
+  bool Process(pugi::xml_document* input);
 
  private:
   /// Process a file (documents may have several files of information separated
   /// within file id elements).
-  bool ProcessFile(pugi::xml_node * file);
+  bool ProcessFile(pugi::xml_node* file);
 };
 
 /// Convert tokens into pronunications based on lexicons and
@@ -159,13 +159,13 @@ class TxpPronounce : public TxpModule {
   explicit TxpPronounce(const std::string &tpdb,
                         const std::string &configf = "");
   ~TxpPronounce();
-  bool Process(pugi::xml_document * input);
+  bool Process(pugi::xml_document* input);
 
  private:
   /// Checks lexicon and lts to determine pronuciations
   /// and appends it to the lex lookup structure
-  void AppendPron(const char * entry, const std::string &word,
-                  TxpLexiconLkp &lexlkp);
+  void AppendPron(const char* entry, const std::string &word,
+                  TxpLexiconLkp* lexlkp);
   /// A normalisation rules object is required to allow the default
   /// pronunciation of symbol and digit characters
   TxpNRules nrules_;
@@ -182,7 +182,7 @@ class TxpSyllabify : public TxpModule {
   explicit TxpSyllabify(const std::string &tpdb,
                         const std::string &configf = "");
   ~TxpSyllabify();
-  bool Process(pugi::xml_document * input);
+  bool Process(pugi::xml_document* input);
 
  private:
   /// Object containing specifications of valid nucleus and onset
@@ -190,22 +190,22 @@ class TxpSyllabify : public TxpModule {
   TxpSylmax sylmax_;
 };
 
-/// Linguistic feature extraction: Converts output from text normalisation
+/// Linguistic context extraction: Converts output from text normalisation
 /// into full context model names
-class TxpFex : public TxpModule {
+class TxpCex : public TxpModule {
  public:
-  explicit TxpFex(const std::string &tpdb,
+  explicit TxpCex(const std::string &tpdb,
                   const std::string &configf = "");
-  ~TxpFex();
-  bool Process(pugi::xml_document * input);
+  ~TxpCex();
+  bool Process(pugi::xml_document* input);
   /// Returns true if the system is splitting mid phrase pauses to allow
   /// spurt processing of model names
   bool IsSptPauseHandling();
 
  private:
   /// Object containing specification for feature extraction
-  TxpFexspec fexspec_;
-  TxpFexspecModels models_;
+  TxpCexspec cexspec_;
+  TxpCexspecModels models_;
 };
 
 }  // namespace kaldi

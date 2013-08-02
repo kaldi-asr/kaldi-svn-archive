@@ -10,10 +10,10 @@ include ../kaldi.mk
 TESTFILES = idlak-mod-test
 
 OBJFILES = txpconfig.o txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o \
-	   txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o txpfexspec.o \
+	   txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o txpcexspec.o \
            txpparse-options.o \
-	   fexfunctions.o fexfunctionscatalog.o mod-tokenise.o \
-	   mod-postag.o mod-pauses.o mod-phrasing.o mod-pronounce.o mod-syllabify.o mod-fex.o
+	   cexfunctions.o cexfunctionscatalog.o mod-tokenise.o \
+	   mod-postag.o mod-pauses.o mod-phrasing.o mod-pronounce.o mod-syllabify.o mod-cex.o
 
 LIBNAME = idlak-txp
 #LIBFILE = idlaktxp.a

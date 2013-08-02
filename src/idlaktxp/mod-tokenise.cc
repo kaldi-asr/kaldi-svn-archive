@@ -16,22 +16,23 @@
 // limitations under the License.
 //
 
-#include "./txpmodule.h"
+#include "idlaktxp/txpmodule.h"
 
 namespace kaldi {
 
 // Parent class processes the configuration file and the resulting
 // TxpConfig is used to contruct the nrules data object
 TxpTokenise::TxpTokenise(const std::string &tpdb, const std::string &configf)
-    : TxpModule("tokenise", tpdb, configf), nrules_(&config_, "nrules", "default") {
+    : TxpModule("tokenise", tpdb, configf),
+      nrules_(config_, std::string("nrules"), std::string("default")) {
   nrules_.Parse(tpdb.c_str());
 }
 
 TxpTokenise::~TxpTokenise() {
 }
 
-bool TxpTokenise::Process(pugi::xml_document * input) {
-  const char * p;
+bool TxpTokenise::Process(pugi::xml_document* input) {
+  const char* p;
   int32 n = 0;
   int32 offset, col = 0;
   std::string token, wspace, tmp;
@@ -86,8 +87,8 @@ bool TxpTokenise::Process(pugi::xml_document * input) {
 }
 
 // Analyses the characters and sets flags giving case, foriegn character info
-int32 TxpTokenise::SetPuncCaseInfo(std::string *tkin, pugi::xml_node *tk) {
-  const char * p;
+int32 TxpTokenise::SetPuncCaseInfo(std::string* tkin, pugi::xml_node* tk) {
+  const char* p;
   TxpCaseInfo caseinfo;
   pugi::xml_node node;
   int32 n = 0;

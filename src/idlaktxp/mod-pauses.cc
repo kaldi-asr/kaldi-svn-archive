@@ -16,22 +16,23 @@
 // limitations under the License.
 //
 
-#include "./txpmodule.h"
+#include "idlaktxp/txpmodule.h"
 
 namespace kaldi {
 
-static void _insert_break_after(pugi::xml_node *tk,
-                                const TxpPbreakInfo * pbreak);
-static void _insert_break_before(pugi::xml_node *tk,
-                                 const TxpPbreakInfo * pbreak);
+static void _insert_break_after(pugi::xml_node* tk,
+                                const TxpPbreakInfo* pbreak);
+static void _insert_break_before(pugi::xml_node* tk,
+                                 const TxpPbreakInfo* pbreak);
 
 TxpPauses::TxpPauses(const std::string &tpdb, const std::string &configf)
-    : TxpModule("pauses", tpdb, configf), pbreak_(&config_, "pbreak", "default"),
+    : TxpModule("pauses", tpdb, configf),
+      pbreak_(config_, std::string("pbreak"), std::string("default")),
       hzone_(false), hzone_start_(0), hzone_end_(0) {
   pbreak_.Parse(tpdb.c_str());
   hzone_ = GetConfigValueBool("hzone");
-  hzone_start_ = atoi(GetConfigValue("hzone_start"));
-  hzone_end_ = atoi(GetConfigValue("hzone_end"));
+  hzone_start_ = atoi(GetConfigValue("hzone_start").c_str());
+  hzone_end_ = atoi(GetConfigValue("hzone_end").c_str());
 }
 
 TxpPauses::~TxpPauses() {
@@ -39,7 +40,7 @@ TxpPauses::~TxpPauses() {
 
 // If fileids are present in the document it breaks the
 // document up by them
-bool TxpPauses::Process(pugi::xml_document * input) {
+bool TxpPauses::Process(pugi::xml_document* input) {
   pugi::xpath_node_set files;
   files = input->document_element().select_nodes("//fileid");
   if (files.size()) {
@@ -49,18 +50,18 @@ bool TxpPauses::Process(pugi::xml_document * input) {
       pugi::xml_node file = (*it).node();
       ProcessFile(&file);
     }
-  }
-  else {
-    ProcessFile(&input->document_element());
+  } else {
+    pugi::xml_node document_element = input->document_element();
+    ProcessFile(&document_element);
   }
   return true;
 }
 
 // Adds breaks as required and ensures all documents/fileids
 // have a break initial and final
-bool TxpPauses::ProcessFile(pugi::xml_node * file) {
-  pugi::xml_node * breakitem = NULL, *ptk = NULL, pretk;
-  const TxpPbreakInfo * pbreak;
+bool TxpPauses::ProcessFile(pugi::xml_node* file) {
+  pugi::xml_node *breakitem = NULL, *ptk = NULL, pretk;
+  const TxpPbreakInfo* pbreak;
   TxpPbreakInfo pbreakpunc;
   bool prebreak, pstbreak, newline, newline2;
   pugi::xpath_node_set files;
@@ -154,8 +155,8 @@ bool TxpPauses::ProcessFile(pugi::xml_node * file) {
   return true;
 }
 
-static void _insert_break_after(pugi::xml_node *tk,
-                                const TxpPbreakInfo * pbreak) {
+static void _insert_break_after(pugi::xml_node* tk,
+                                const TxpPbreakInfo* pbreak) {
   pugi::xml_node breakitem;
   if (!pbreak) return;
   // std::cout << tk.attribute("norm").value() << std::endl;
@@ -164,8 +165,8 @@ static void _insert_break_after(pugi::xml_node *tk,
   breakitem.append_attribute("time").set_value(pbreak->time);
 }
 
-static void _insert_break_before(pugi::xml_node *tk,
-                                 const TxpPbreakInfo * pbreak) {
+static void _insert_break_before(pugi::xml_node* tk,
+                                 const TxpPbreakInfo* pbreak) {
   pugi::xml_node breakitem;
   if (!pbreak) return;
   // std::cout << tk.attribute("norm").value() << std::endl;

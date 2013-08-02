@@ -18,7 +18,7 @@
 
 // This file hold information that relates punctuation to pause insertion
 
-#include "./txppbreak.h"
+#include "idlaktxp/txppbreak.h"
 
 namespace kaldi {
 
@@ -30,11 +30,11 @@ bool TxpPbreak::Parse(const std::string &tpdb) {
   return r;
 }
 
-bool TxpPbreak::GetPbreak(const char * punc,
+bool TxpPbreak::GetPbreak(const char* punc,
                           enum TXPPBREAK_POS pos,
                           TxpPbreakInfo &info) {
   PbreakMap::iterator lkp;
-  const char * p;
+  const char* p;
   TxpUtf8 utf8;
   int32 clen;
   bool found = false;
@@ -55,11 +55,11 @@ bool TxpPbreak::GetPbreak(const char * punc,
   return found;
 }
 
-void TxpPbreak::GetWhitespaceBreaks(const char * ws, int32 col,
+void TxpPbreak::GetWhitespaceBreaks(const char* ws, int32 col,
                                     bool hzone,
                                     int32 hzone_start, int32 hzone_end,
-                                    bool * newline, bool * newline2) {
-  const char * p = ws;
+                                    bool* newline, bool* newline2) {
+  const char* p = ws;
   TxpUtf8 utf8;
   int32 clen;
   int32 nls = 0;
@@ -87,31 +87,31 @@ void TxpPbreak::GetWhitespaceBreaks(const char * ws, int32 col,
   }
 }
 
-const TxpPbreakInfo * TxpPbreak::GetPbreakPst(const char * punc) {
+const TxpPbreakInfo* TxpPbreak::GetPbreakPst(const char* punc) {
   PbreakMap::iterator lkp;
   lkp = pst_pbreak_.find(std::string(punc));
   if (lkp !=  pst_pbreak_.end()) return &(lkp->second);
   return NULL;
 }
 
-const TxpPbreakInfo * TxpPbreak::GetPbreakPre(const char * punc) {
+const TxpPbreakInfo* TxpPbreak::GetPbreakPre(const char* punc) {
   PbreakMap::iterator lkp;
   lkp = pre_pbreak_.find(std::string(punc));
   if (lkp !=  pre_pbreak_.end()) return &(lkp->second);
   return NULL;
 }
 
-void TxpPbreak::StartElement(const char * name, const char ** atts) {
+void TxpPbreak::StartElement(const char* name, const char** atts) {
   std::string punc;
   std::string pos;
   std::string time;
   std::string type;
   TxpPbreakInfo pbreak;
   if (!strcmp(name, "break")) {
-    SetAtt("name", atts, &punc);
-    SetAtt("pos", atts, &pos);
-    SetAtt("time", atts, &time);
-    SetAtt("type", atts, &type);
+    SetAttribute("name", atts, &punc);
+    SetAttribute("pos", atts, &pos);
+    SetAttribute("time", atts, &time);
+    SetAttribute("type", atts, &type);
     pbreak.time = atof(time.c_str());
     pbreak.type = atoi(type.c_str());
     if (pos == "pstpunc") {

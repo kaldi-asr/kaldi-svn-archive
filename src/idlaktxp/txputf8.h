@@ -22,7 +22,7 @@
 // This class offers some limited utf8 functionality
 
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
+#include "idlaktxp/idlak-common.h"
 
 namespace kaldi {
 
@@ -34,7 +34,7 @@ namespace kaldi {
 class TxpUtf8 {
  public:
   /// Return the size of the next utf8 character
-  int32 Clen(const char * input) {
+  int32 Clen(const char* input) {
     return trailingBytesForUTF8_[static_cast<unsigned int>(
         static_cast<unsigned const char>(input[0]))] + 1;
   }

@@ -16,12 +16,12 @@
 // limitations under the License.
 //
 
-#include "./txpxmldata.h"
+#include "idlaktxp/txpxmldata.h"
 
 namespace kaldi {
 
-TxpXmlData::TxpXmlData(TxpConfig * config, const char * type,
-                       const char * name) {
+TxpXmlData::TxpXmlData(const TxpConfig &config, const std::string &type,
+                       const std::string &name) {
   Init(config, type, name);
 }
 
@@ -31,9 +31,9 @@ TxpXmlData::~TxpXmlData() {
   }
 }
 
-void TxpXmlData::Init(TxpConfig * config, const char * type,
-                      const char * name) {
-  config_ = config;
+void TxpXmlData::Init(const TxpConfig &config, const std::string &type,
+                      const std::string &name) {
+  config_ = &config;
   type_ = type;
   name_ = name;
   parser_ = XML_ParserCreate("UTF-8");
@@ -53,7 +53,7 @@ void TxpXmlData::EndElementCB(void *userData, const char *name) {
   reinterpret_cast<TxpXmlData*>(userData)->EndElement(name);
 }
 
-void TxpXmlData::CharHandlerCB(void *userData, const char * data, int32 len) {
+void TxpXmlData::CharHandlerCB(void *userData, const char* data, int32 len) {
   reinterpret_cast<TxpXmlData*>(userData)->CharHandler(data, len);
 }
 
@@ -66,7 +66,7 @@ void TxpXmlData::EndCDataCB(void *userData) {
 }
 
 bool TxpXmlData::Parse(const std::string &tpdb) {
-  const char * lang, * region, * acc, * spk;
+  const char *lang, *region, *acc, *spk;
   bool binary, indataroot = false;
   enum XML_Status r;
   Input ki;
@@ -105,20 +105,24 @@ bool TxpXmlData::Parse(const std::string &tpdb) {
       }
     }
   }
-  if (indataroot) {  
+  if (indataroot) {
     // search speaker specific directory
-    fname_ = dataroot + "/" + lang + "/" + acc + "/" + spk + "/" + type_ + "-" + name_ + ".xml";
+    fname_ = dataroot + "/" + lang + "/" + acc + "/" + spk + "/" +
+             type_ + "-" + name_ + ".xml";
     if (!ki.Open(fname_.c_str(), &binary)) {
       // search accent specific directory
-      fname_ = dataroot + "/" + lang + "/" + acc + "/" + type_ + "-" + name_ + ".xml";
+      fname_ = dataroot + "/" + lang + "/" + acc + "/" + type_ + "-" +
+               name_ + ".xml";
       if (!ki.Open(fname_.c_str(), &binary)) {
         // search region specific directory
-        fname_ = dataroot + "/" + lang + "/region_" + region + "/" + type_ + "-" + name_ + ".xml";
+        fname_ = dataroot + "/" + lang + "/region_" + region + "/" + type_ +
+                 "-" + name_ + ".xml";
         if (!ki.Open(fname_.c_str(), &binary)) {
           // search language directory
           fname_ = dataroot + "/" + lang + "/" + type_ + "-" + name_ + ".xml";
           if (!ki.Open(fname_.c_str(), &binary)) {
-            KALDI_ERR << "Can't find xml data:" << type_ << "-" << name_ << ".xml";
+            KALDI_ERR << "Can't find xml data:" << type_ << "-" << name_
+                      << ".xml";
           }
         }
       }
@@ -130,7 +134,8 @@ bool TxpXmlData::Parse(const std::string &tpdb) {
     }
   }
   while (getline(ki.Stream(), buffer_)) {
-    buffer_.append("\n");  // Reappend line break to get correct error reporting
+    // Reappend line break to get correct error reporting
+    buffer_.append("\n");
     r = XML_Parse(parser_, buffer_.c_str(), buffer_.length(), false);
     if (r == XML_STATUS_ERROR) {
       KALDI_WARN << "Expat XML Parse error: " <<
@@ -145,8 +150,8 @@ bool TxpXmlData::Parse(const std::string &tpdb) {
   return true;
 }
 
-int32 TxpXmlData::SetAtt(const char * name, const char ** atts,
-                         std::string *val) {
+int32 TxpXmlData::SetAttribute(const char* name, const char** atts,
+                         std::string* val) {
   int32 i = 0;
   val->clear();
   while (atts[i]) {
@@ -156,7 +161,7 @@ int32 TxpXmlData::SetAtt(const char * name, const char ** atts,
   return i / 2;
 }
 
-const char * TxpXmlData::GetConfigValue(const char * key) {
+const char* TxpXmlData::GetConfigValue(const char* key) {
   return config_->GetValue("general", key);
 }
 

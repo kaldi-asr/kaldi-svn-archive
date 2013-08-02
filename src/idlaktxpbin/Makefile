@@ -8,7 +8,7 @@ OPENFST_LDLIBS =
 
 include ../kaldi.mk
 
-BINFILES = idlaktxp idlakfex convert-to-binary
+BINFILES = idlaktxp idlakcex
 
 OBJFILES =
 

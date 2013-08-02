@@ -48,7 +48,7 @@ const std::string txpconfigdefault =
 TxpParseOptions::TxpParseOptions(const char *usage)
     : ParseOptions(usage) {
   std::istringstream is(txpconfigdefault);
-  std::string line, key, value, * stringptr;
+  std::string line, key, value, *stringptr;
   LookupMapItem item;
   RegisterStandard("tpdb", &tpdb_,
                    "Text processing database (directory XML language/speaker files)"); //NOLINT
@@ -80,7 +80,7 @@ TxpParseOptions::~TxpParseOptions() {
   }
 }
 
-int TxpParseOptions::Read(int argc, const char*const *argv) {
+int TxpParseOptions::Read(int argc, const char* argv[]) {
   std::string key, value;
   int i;
   // first pass: look for tpdb parameter
@@ -101,7 +101,7 @@ int TxpParseOptions::Read(int argc, const char*const *argv) {
   return ParseOptions::Read(argc, argv);
 }
 
-const char * TxpParseOptions::GetValue(const char * module, const char * key) {
+const char* TxpParseOptions::GetValue(const char* module, const char* key) {
   LookupMapPtr::iterator lookup;
   std::string optkey(module);
   optkey = optkey + "-" + key;
@@ -109,7 +109,7 @@ const char * TxpParseOptions::GetValue(const char * module, const char * key) {
   if (lookup == txpoptions_.end()) return NULL;
   return (lookup->second)->c_str();
 }
-const char * TxpParseOptions::GetTpdb() {
+const char* TxpParseOptions::GetTpdb() {
   LookupMapPtr::iterator lookup;
   lookup = txpoptions_.find(std::string("tpdb"));
   return (lookup->second)->c_str();

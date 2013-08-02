@@ -26,9 +26,9 @@
 #include <vector>
 #include <string>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpxmldata.h"
-#include "./txputf8.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpxmldata.h"
+#include "idlaktxp/txputf8.h"
 
 namespace kaldi {
 
@@ -48,26 +48,26 @@ typedef std::pair<std::string, TxpPbreakInfo> PbreakItem;
 /// is valid when the punctuation is before or after a token
 class TxpPbreak: public TxpXmlData {
  public:
-  explicit TxpPbreak(TxpConfig * config, const char * type, const char * name)
+  explicit TxpPbreak(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name), default_type_(4), default_time_(0.2f) {}
   ~TxpPbreak() {}
   bool Parse(const std::string &tpdb);
   /// Lookup a punctuation symbol and depending whether before or
   /// after token fill info with time and strength if it is stronger or
   /// longer than current values
-  bool GetPbreak(const char * punc,
+  bool GetPbreak(const char* punc,
                  enum TXPPBREAK_POS pos,
                  TxpPbreakInfo &info);
   /// Get info for punctuation symbol before token
-  const TxpPbreakInfo * GetPbreakPre(const char * punc);
+  const TxpPbreakInfo* GetPbreakPre(const char* punc);
   /// Get info for punctuation symbol after token
-  const TxpPbreakInfo * GetPbreakPst(const char * punc);
+  const TxpPbreakInfo* GetPbreakPst(const char* punc);
   /// Given whitespace, column number and hzone info set
   /// flags for repeated or single linebreak
-  void GetWhitespaceBreaks(const char * ws, int32 col,
+  void GetWhitespaceBreaks(const char* ws, int32 col,
                            bool hzone,
                            int32 hzone_start, int32 hzone_end,
-                           bool * newline, bool * newline2);
+                           bool* newline, bool* newline2);
   /// Return default break strength
   int32 get_default_type() {return default_type_;}
   /// Return default break time
@@ -75,7 +75,7 @@ class TxpPbreak: public TxpXmlData {
 
 
  private:
-  void StartElement(const char * name, const char ** atts);
+  void StartElement(const char* name, const char** atts);
   /// Map of punctuation characters that fire breaks before tokens
   PbreakMap pre_pbreak_;
   /// Map of punctuation characters that fire breaks after tokens

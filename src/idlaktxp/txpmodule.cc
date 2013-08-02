@@ -24,19 +24,18 @@ TxpModule::TxpModule(const std::string &name, const std::string &tpdb,
                      const std::string &configf)
     : name_(name), tpdb_(tpdb), configf_(configf) {
   // Load configuration
-  config_.Parse(TXPCONFIG_LVL_SYSTEM, tpdb.c_str());
-  if (!configf.empty()) config_.Parse(TXPCONFIG_LVL_USER, configf.c_str());
+  config_.Parse(TXPCONFIG_LVL_SYSTEM, tpdb);
+  if (!configf.empty()) config_.Parse(TXPCONFIG_LVL_USER, configf);
 }
 
-const char * TxpModule::GetConfigValue(const char * key) {
-  return config_.GetValue(name_.c_str(), key);
+const std::string TxpModule::GetConfigValue(const std::string &key) {
+  return config_.GetValue(name_, key);
 }
 
 // True/true/TRUE -> true, False, false, FALSE, anything else -> false
-bool TxpModule::GetConfigValueBool(const char * key) {
-  const char * val;
-  val = config_.GetValue(name_.c_str(), key);
-  if (!strcmp(val, "True") || !strcmp(val, "true") || !strcmp(val, "TRUE"))
+bool TxpModule::GetConfigValueBool(const std::string &key) {
+  const std::string val = config_.GetValue(name_, key);
+  if ((val == "True") || (val == "true") || (val == "TRUE"))
     return true;
   return false;
 }

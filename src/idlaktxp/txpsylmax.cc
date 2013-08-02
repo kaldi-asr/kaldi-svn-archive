@@ -19,7 +19,7 @@
 // This file contains functions which carry out maximal onset
 // syllabification
 
-#include "./txpsylmax.h"
+#include "idlaktxp/txpsylmax.h"
 
 namespace kaldi {
 
@@ -60,7 +60,7 @@ void TxpSylmax::Maxonset(PhoneVector *pronptr) {
 
 void TxpSylmax::Writespron(PhoneVector *pronptr, std::string *sylpron) {
   int32 pos, newwrdb = -1, i;
-  const char * bound;
+  const char* bound;
   PhoneVector &pron = *pronptr;
   sylpron->clear();
   // if wrdb is at a cross word point move it back to the end of
@@ -162,11 +162,11 @@ int32 TxpSylmax::FindOnset(const PhoneVector &pron, int32 pos) {
 
 // convert pronunciation into a vector
 // TODO(matthew): generalise to read in sylpron
-int32 TxpSylmax::GetPhoneVector(const char * pron,
+int32 TxpSylmax::GetPhoneVector(const char* pron,
                                 PhoneVector *phonevectorptr) {
   PhoneVector &phonevector = *phonevectorptr;
   std::vector<std::string> array;
-  const char * p, * s;
+  const char *p, *s;
   int32 i, len;
   p = pron;
   i = 0;
@@ -190,7 +190,7 @@ int32 TxpSylmax::GetPhoneVector(const char * pron,
 
 // TODO(matthew): generalise to read in sylpron
 void TxpSylmax::InsertPhone(PhoneVector *phonevectorptr,
-                            const char * p, int32 len, bool wrdb) {
+                            const char *p, int32 len, bool wrdb) {
   PhoneVector &phonevector = *phonevectorptr;
   TxpSylItem item;
   item.Clear();
@@ -213,7 +213,7 @@ bool TxpSylmax::GetPhoneNucleusPattern(const PhoneVector &pron,
   PhoneVector::const_iterator it;
   int32 i;
   pat->clear();
-  for (i = 0, it = pron.begin() + pos; i < len; it++, i++) {
+  for (i = 0, it = pron.begin() + pos; i < len; ++it, ++i) {
     if (it == pron.end()) {
       pat->clear();
       return false;
@@ -234,7 +234,7 @@ bool TxpSylmax::GetPhoneOnsetPattern(const PhoneVector &pron,
   PhoneVector::const_reverse_iterator it;
   int32 i;
   pat->clear();
-  for (i = 0, it = pron.rbegin() + (pron.size() - pos); i < len; it++, i++) {
+  for (i = 0, it = pron.rbegin() + (pron.size() - pos); i < len; ++it, ++i) {
     if (it == pron.rend()) {
       pat->clear();
       return false;
@@ -250,34 +250,34 @@ bool TxpSylmax::GetPhoneOnsetPattern(const PhoneVector &pron,
   return true;
 }
 
-bool TxpSylmax::IsSyllabic(const char * phone) {
+bool TxpSylmax::IsSyllabic(const char *phone) {
   StringSet::iterator it = syllabic_.find(std::string(phone));
   return (it != onsets_.end());
 }
 
 
-void TxpSylmax::StartElement(const char * name, const char ** atts) {
+void TxpSylmax::StartElement(const char *name, const char ** atts) {
   std::string item;
   PhoneVector pv;
-  int32 sz;
+  int32 size;
   if (!strcmp("nuclei", name)) {
-    SetAtt("stress", atts, &item);
+    SetAttribute("stress", atts, &item);
     stress_ = false;
     if (item == "true" || item == "True" || item == "TRUE")
       stress_ = true;
   } else if (!strcmp("s", name)) {
-    SetAtt("name", atts, &item);
+    SetAttribute("name", atts, &item);
     syllabic_.insert(item);
   } else if (!strcmp("o", name)) {
-    SetAtt("pat", atts, &item);
+    SetAttribute("pat", atts, &item);
     onsets_.insert(item);
-    sz = GetPhoneVector(item.c_str(), &pv);
-    if (sz > max_onset_) max_onset_ = sz;
+    size = GetPhoneVector(item.c_str(), &pv);
+    if (size > max_onset_) max_onset_ = size;
   } else if (!strcmp("n", name)) {
-    SetAtt("pat", atts, &item);
+    SetAttribute("pat", atts, &item);
     nuclei_.insert(item);
-    sz = GetPhoneVector(item.c_str(), &pv);
-    if (sz > max_nucleus_) max_nucleus_ = sz;
+    size = GetPhoneVector(item.c_str(), &pv);
+    if (size > max_nucleus_) max_nucleus_ = size;
   }
 }
 

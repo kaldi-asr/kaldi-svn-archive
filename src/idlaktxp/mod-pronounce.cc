@@ -16,13 +16,15 @@
 // limitations under the License.
 //
 
-#include "./txpmodule.h"
+#include "idlaktxp/txpmodule.h"
 
 namespace kaldi {
 
 TxpPronounce::TxpPronounce(const std::string &tpdb, const std::string &configf)
-    : TxpModule("pronounce", tpdb, configf), nrules_(&config_, "lexicon", "default"),
-      lex_(&config_, "lexicon", "default"), lts_(&config_, "ccart", "default") {
+    : TxpModule("pronounce", tpdb, configf),
+      nrules_(config_, std::string("lexicon"), std::string("default")),
+      lex_(config_, std::string("lexicon"), std::string("default")),
+      lts_(config_, std::string("ccart"), std::string("default")) {
   nrules_.Parse(tpdb.c_str());
   lex_.Parse(tpdb.c_str());
   lts_.Parse(tpdb.c_str());
@@ -31,13 +33,13 @@ TxpPronounce::TxpPronounce(const std::string &tpdb, const std::string &configf)
 TxpPronounce::~TxpPronounce() {
 }
 
-bool TxpPronounce::Process(pugi::xml_document * input) {
+bool TxpPronounce::Process(pugi::xml_document* input) {
   pugi::xml_node parent, child;
   pugi::xpath_node_set tks = input->document_element().select_nodes("//tk");
-  const char * lex_entry;
-  const char * lex_pron;
-  const char * word, *p;
-  const std::string * symbol;
+  const char* lex_entry;
+  const char* lex_pron;
+  const char* word, *p;
+  const std::string* symbol;
   std::string utfchar, word_str, altprons;
   TxpLexiconLkp lexlkp;
   TxpUtf8 utf8;
@@ -76,26 +78,26 @@ bool TxpPronounce::Process(pugi::xml_document * input) {
         if (!nrules_.IsAlpha(utfchar)) {
           symbol = nrules_.Lkp(std::string("symbols"), utfchar);
           if (symbol) {
-            AppendPron(NULL, *symbol, lexlkp);
+            AppendPron(NULL, *symbol, &lexlkp);
           } else {
             symbol = nrules_.Lkp(std::string("asdigits"), utfchar);
-            if (symbol) AppendPron(NULL, *symbol, lexlkp);
+            if (symbol) AppendPron(NULL, *symbol, &lexlkp);
           }
         } else {
-          AppendPron(NULL, utfchar, lexlkp);
+          AppendPron(NULL, utfchar, &lexlkp);
         }
         p += clen;
       }
       node.append_attribute("pron").set_value(lexlkp.pron.c_str());
     } else {
       // standard lookup of word
-      AppendPron(lex_entry, std::string(word), lexlkp);
+      AppendPron(lex_entry, std::string(word), &lexlkp);
       node.append_attribute("pron").set_value(lexlkp.pron.c_str());
       if (lexlkp.lts) {
         node.append_attribute("lts").set_value("true");
       } else if (!lexlkp.lts && lexlkp.altprons.size() > 1) {
         altprons.clear();
-        for(i = 0; i < lexlkp.altprons.size(); i++) {
+        for (i = 0; i < lexlkp.altprons.size(); i++) {
           if (i) altprons = altprons + ", ";
           altprons = altprons + lexlkp.altprons[i];
         }
@@ -106,11 +108,11 @@ bool TxpPronounce::Process(pugi::xml_document * input) {
   return true;
 }
 
-void TxpPronounce::AppendPron(const char * entry,
+void TxpPronounce::AppendPron(const char* entry,
                               const std::string &word,
-                              TxpLexiconLkp &lexlkp) {
+                              TxpLexiconLkp* lexlkp) {
   bool found = false;
-  if (!lexlkp.pron.empty()) lexlkp.pron += " ";
+  if (!lexlkp->pron.empty()) lexlkp->pron += " ";
   if (entry) {
     found = lex_.GetPron(word, std::string(entry), lexlkp);
     if (!found) {

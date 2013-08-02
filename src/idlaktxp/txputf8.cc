@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-#include "./txputf8.h"
+#include "idlaktxp/txputf8.h"
 
 namespace kaldi {
 

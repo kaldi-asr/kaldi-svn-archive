@@ -26,17 +26,17 @@
 #include <utility>
 #include <string>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpxmldata.h"
-#include "./txppcre.h"
-#include "./txputf8.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpxmldata.h"
+#include "idlaktxp/txppcre.h"
+#include "idlaktxp/txputf8.h"
 
 namespace kaldi {
 
 /// Maps a regular expression name to a pcre regular expression item
-typedef std::map<std::string, pcre *> RgxMap;
+typedef std::map<std::string, pcre*> RgxMap;
 /// Regular expression name/ pcre regular expression pair
-typedef std::pair<std::string, pcre *> RgxItem;
+typedef std::pair<std::string, pcre*> RgxItem;
 
 struct TxpCaseInfo;
 
@@ -70,42 +70,42 @@ struct TxpCaseInfo;
 class TxpNRules: public TxpXmlData {
  public:
   /// Set up hard coded regular expresisons and lookups
-  explicit TxpNRules(TxpConfig * config, const char * type, const char * name);
+  explicit TxpNRules(const TxpConfig &config, const std::string &type, const std::string &name);
   ~TxpNRules();
   /// Checks to see what regexs have been found to determine whether to use
   /// hard coded defaults
   bool Parse(const std::string &tpdb);
   /// Given a lookup table name and a key return the value as a
   /// std::string pointer
-  const std::string * Lkp(const std::string & name, const std::string & key);
+  const std::string* Lkp(const std::string & name, const std::string & key);
   /// Given a regular expresison name return the pcre regex
-  const pcre * GetRgx(const std::string & name);
+  const pcre* GetRgx(const std::string & name);
   /// Copies a token into token, following whitespace into wspace and returns
   /// nput pointer incremented to next token
-  const char * ConsumeToken(const char * input,
-                            std::string * token,
-                            std::string * wspace);
+  const char* ConsumeToken(const char* input,
+                            std::string* token,
+                            std::string* wspace);
   /// Takes a token as input and breaks off a token delimited by punctuation
   /// This is used in tokenise to split tokens into sub tokens based on
   /// punctuation symbols
-  const char * ConsumePunc(const char * input,
-                           std::string * prepunc,
-                           std::string * token,
-                           std::string * pstpunc);
+  const char* ConsumePunc(const char* input,
+                           std::string* prepunc,
+                           std::string* token,
+                           std::string* pstpunc);
   /// Replace non-ascii punctuation with an ascii equivilent
-  void ReplaceUtf8Punc(const std::string & tkin, std::string * tkout);
+  void ReplaceUtf8Punc(const std::string & tkin, std::string* tkout);
   /// Replaces characters which are not in the languages lexicon into
   /// equivilents. Downcases upper case and sets case information structure
-  void NormCaseCharacter(std::string * norm, TxpCaseInfo & caseinfo);
+  void NormCaseCharacter(std::string* norm, TxpCaseInfo & caseinfo);
   /// True if token is only standard lexicon characters (i.e. English a-z)
   bool IsAlpha(const std::string & token);
 
  private:
-  void StartElement(const char * name, const char ** atts);
+  void StartElement(const char* name, const char ** atts);
   void EndElement(const char *);
   void StartCData();
   void EndCData();
-  void CharHandler(const char * data, int32 len);
+  void CharHandler(const char* data, int32 len);
   /// Parses the lookup format in the cdata into a map and adds it to lkps
   int32 MakeLkp(LookupMap *lkps,
                 const std::string &name,
@@ -115,28 +115,28 @@ class TxpNRules: public TxpXmlData {
   /// Buffer for cdata data
   std::string cdata_buffer_;
   /// Regex to find a lookup item
-  const pcre * lkp_item_;
+  const pcre* lkp_item_;
   /// Regex to find start of lookup
-  const pcre * lkp_open_;
+  const pcre* lkp_open_;
   // Basic tokenisation regexs. Typuically all are overidden in the
   // tpdb data file.
   /// Regex for finding whitespace
-  const pcre * rgxwspace_;
+  const pcre* rgxwspace_;
   /// Regex for finding individual symbols that separate tokens
-  const pcre * rgxsep_;
+  const pcre* rgxsep_;
   /// Regex for finding punctuation symbols
-  const pcre * rgxpunc_;
+  const pcre* rgxpunc_;
   /// Regex for finding lexicon valid character (e.g. English a-z)
-  const pcre * rgxalpha_;
+  const pcre* rgxalpha_;
   // Hard coded lookups overridden by normalisation rules if present
   /// Regex for finding whitespace
-  const pcre * rgxwspace_default_;
+  const pcre* rgxwspace_default_;
   /// Regex for finding individual symbols that separate tokens
-  const pcre * rgxsep_default_;
+  const pcre* rgxsep_default_;
   /// Regex for finding punctuation symbols
-  const pcre * rgxpunc_default_;
+  const pcre* rgxpunc_default_;
   /// Regex for finding lexicon valid character (e.g. English a-z)
-  const pcre * rgxalpha_default_;
+  const pcre* rgxalpha_default_;
   /// Map of hard coded lookup tables
   LookupMap locallkps_;
   /// Map of lookup tables in tpdb file

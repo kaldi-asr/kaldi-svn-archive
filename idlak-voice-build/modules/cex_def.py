@@ -22,7 +22,7 @@ from xml.dom.minidom import parse, parseString
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
-DESCRIPTION = 'Full model context creation (linguistic feature extraction)'
+DESCRIPTION = 'Full model context creation (linguistic context extraction)'
 
 # Add to path
 sys.path = sys.path + [SCRIPT_DIR + '/../utils']
@@ -30,6 +30,31 @@ sys.path = sys.path + [SCRIPT_DIR]
 
 # import voice build utilities
 import build_configuration
+
+def ProduceLookupTable(xml_file):
+    # Produce a lookup table which changes the sets (e.g. phones) into ints.
+    # Save out so other applications can change the data back.
+    lookup_table = {}
+
+    dom = parse(xml_file)
+
+    sets = dom.getElementsByTagName('set')
+
+    for s in sets:
+        set_name = s.getAttribute('name')
+        set_items = s.getElementsByTagName('item')
+
+        item_dict = {}
+        lookup_table[set_name] = item_dict
+
+        # We want to key the items based on their order in the file.
+        item_id = 0
+        for item in set_items:
+                item_name = item.getAttribute('name')
+                lookup_table[set_name][item_name] = item_id
+                item_id = item_id + 1
+
+    return lookup_table
 
 def main():
     # process the options based on the default build configuration
@@ -57,25 +82,38 @@ def main():
     aligndir = build_conf.get_input_dir('align_def')
     # examine modulespecific settings and set as appropriate
     # process data
-    # get path to fexbin and to txpbin
-    pathlist = [os.path.join(build_conf.kaldidir, 'src', 'idlakfexbin'),
-                os.path.join(build_conf.kaldidir, 'src', 'idlaktxpbin')]
+    # get path to txpbin
+    pathlist = [os.path.join(build_conf.kaldidir, 'src', 'idlaktxpbin')]
     os.environ["PATH"] += os.pathsep + os.pathsep.join(pathlist)
     # open the aligner xml output with minidom
     dom = parse(os.path.join(aligndir, "text.xml" ))
-    # open output file
-    fexfp = open(os.path.join(build_conf.outdir, 'output', 'fex.dat'), 'w')
-    # get each utterance
-    for node in dom.getElementsByTagName('fileid'):
-        fexfp.write(node.getAttribute('id').encode('utf8') + '\n')
-        normpipe = subprocess.Popen(["idlaktxp", "--pretty", "--tpdb=%s" % (tpdbdir), "-", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        normtext = normpipe.communicate(input=node.toxml())[0]
-        normpipe.stdout.close()
-        fexpipe = subprocess.Popen(["idlakfex", "--tpdb=%s" % (tpdbdir), "-", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        fex = fexpipe.communicate(input=normtext)[0]
-        fexpipe.stdout.close()
-        #output = fexpipe.communicate()[0]
-        fexfp.write(fex.encode('utf8'))
+    normpipe = subprocess.Popen(["idlaktxp", "--pretty", "--tpdb=%s" % (tpdbdir), "-", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    normtext = normpipe.communicate(input=dom.toxml())[0]
+    normpipe.stdout.close()
+    cexpipe = subprocess.Popen(["idlakcex", "--pretty", "--tpdb=%s" % (tpdbdir), "-", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    cex = cexpipe.communicate(input=normtext)[0]
+    cexpipe.stdout.close()
+
+    dom = parseString(cex)
+
+    fileids = dom.getElementsByTagName('fileid')
+
+    for f in fileids:
+        phons = f.getElementsByTagName('phon')
+
+        #for p in phons:
+            #print p.firstChild.nodeValue
+    
+            # Process 'normtext' with minidom into something which kaldi will understand.
+            # Probably need to use the look-up table at this stage to change the phones to ints.
+    xml_file = '../../idlak-data/en/ga/cex-default.xml'
+    lookup_table = ProduceLookupTable(xml_file)
+
+    dom = parse(xml_file)
+
+    features = dom.getElementsByTagName('feat')
+
+    print lookup_table
     # END OF MODULE SPECIFIC CODE
     
     build_conf.end_processing(SCRIPT_NAME)

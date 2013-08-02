@@ -16,23 +16,23 @@
 // limitations under the License.
 //
 
-#include "./txplts.h"
-#include "./txputf8.h"
+#include "idlaktxp/txplts.h"
+#include "idlaktxp/txputf8.h"
 
 namespace kaldi {
 
 static int32 pos2int(const std::string &pos);
-static bool ApplyQuestion(const char * word, int32 pos, const char * utfchar);
-static const char * ApplyTree(const TxpLtsTree &tree,
-                              const char * word,
-                              int32 pos);
+static bool ApplyQuestion(const char* word, const int32 pos, const char* utfchar);
+static const char* ApplyTree(const TxpLtsTree &tree,
+                              const char* word,
+                              const int32 pos);
 
-void TxpLts::StartElement(const char * name, const char ** atts) {
+void TxpLts::StartElement(const char* name, const char** atts) {
   std::string terminal;
   LtsMap::iterator it;
   if (!strcmp(name, "tree")) {
-    SetAtt("ltr", atts, &ltr_);
-    SetAtt("terminal", atts, &terminal);
+    SetAttribute("ltr", atts, &ltr_);
+    SetAttribute("terminal", atts, &terminal);
     TxpLtsTree tree;
     tree.root = atoi(terminal.c_str());
     ltslkp_.insert(LtsItem(ltr_, tree));
@@ -41,11 +41,11 @@ void TxpLts::StartElement(const char * name, const char ** atts) {
     std::string pos;
     std::string yes;
     std::string no;
-    SetAtt("pos", atts, &pos);
-    SetAtt("posval", atts, &(node.posval));
-    SetAtt("yes", atts, &yes);
-    SetAtt("no", atts, &no);
-    SetAtt("val", atts, &(node.val));
+    SetAttribute("pos", atts, &pos);
+    SetAttribute("posval", atts, &(node.posval));
+    SetAttribute("yes", atts, &yes);
+    SetAttribute("no", atts, &no);
+    SetAttribute("val", atts, &(node.val));
     if (!pos.empty()) {
       // non terminal node
       node.yes = atoi(yes.c_str());
@@ -57,10 +57,10 @@ void TxpLts::StartElement(const char * name, const char ** atts) {
   }
 }
 
-int TxpLts::GetPron(const std::string &word, TxpLexiconLkp &lkp) {
+int TxpLts::GetPron(const std::string &word, TxpLexiconLkp* lkp) {
   TxpUtf8 utf8;
   int32 clen, pos = 0;
-  const char * p, *phone, * stress;
+  const char *p, *phone, *stress;
   std::string ltr;
   LtsMap::iterator it;
   TxpLtsTree stress_tree;
@@ -82,14 +82,14 @@ int TxpLts::GetPron(const std::string &word, TxpLexiconLkp &lkp) {
       phone = ApplyTree(it->second, word.c_str(), pos);
       // If not a null result
       if (strcmp("0", phone)) {
-        if (!lkp.pron.empty()) lkp.pron += " ";
+        if (!lkp->pron.empty()) lkp->pron += " ";
         // Check is syllabic and if so get stress
         if (phone[strlen(phone) - 1] == '0') {
           stress = ApplyTree(stress_tree, word.c_str(), pos);
-          lkp.pron += std::string(phone, strlen(phone) - 1);
-          lkp.pron += stress;
+          lkp->pron += std::string(phone, strlen(phone) - 1);
+          lkp->pron += stress;
         } else {
-          lkp.pron += phone;
+          lkp->pron += phone;
         }
       }
     } else {
@@ -98,7 +98,7 @@ int TxpLts::GetPron(const std::string &word, TxpLexiconLkp &lkp) {
     p += clen;
     pos++;
   }
-  lkp.lts = true;
+  lkp->lts = true;
   return true;
 }
 
@@ -116,10 +116,10 @@ static int32 pos2int(const std::string &pos) {
   return idx;
 }
 
-static bool ApplyQuestion(const char * word, int32 pos, const char * utfchar) {
+static bool ApplyQuestion(const char* word, const int32 pos, const char* utfchar) {
   TxpUtf8 utf8;
   int32 clen, idx = 0;
-  const char * p = word;
+  const char* p = word;
   // position before word start
   if (pos < 0 && !strcmp(utfchar, "#")) return true;
   while (*p) {
@@ -135,9 +135,9 @@ static bool ApplyQuestion(const char * word, int32 pos, const char * utfchar) {
   return false;
 }
 
-static const char * ApplyTree(const TxpLtsTree &tree,
-                              const char * word,
-                              int32 pos) {
+static const char* ApplyTree(const TxpLtsTree &tree,
+                              const char* word,
+                              const int32 pos) {
   int32 currentnode = tree.root;
   TxpLtsNode node;
   while (1) {

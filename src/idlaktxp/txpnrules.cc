@@ -16,12 +16,12 @@
 // limitations under the License.
 //
 
-#include "./txpnrules.h"
-#include "./txputf8.h"
+#include "idlaktxp/txpnrules.h"
+#include "idlaktxp/txputf8.h"
 
 namespace kaldi {
 
-TxpNRules::TxpNRules(TxpConfig * config, const char * type, const char * name)
+TxpNRules::TxpNRules(const TxpConfig &config, const std::string &type, const std::string &name)
     : TxpXmlData(config, type, name), incdata_(false), cdata_buffer_("") {
   TxpPcre pcre;
   lkp_item_ = pcre.Compile("[\n\\s]*(u?[\\'\\\"](.*?)[\\'\\\"]\\s*:\\s*u?[\\'\\\"](.*?)[\\'\\\"])[\n\\s]*[,}][\n\\s]*");// NOLINT
@@ -52,7 +52,7 @@ TxpNRules::~TxpNRules() {
 }
 
 bool TxpNRules::Parse(const std::string &tpdb) {
-  const pcre * rgx;
+  const pcre* rgx;
   bool r;
   r = TxpXmlData::Parse(tpdb);
   if (r) {
@@ -71,7 +71,7 @@ bool TxpNRules::Parse(const std::string &tpdb) {
   return r;
 }
 
-const std::string * TxpNRules::Lkp(const std::string & name,
+const std::string* TxpNRules::Lkp(const std::string & name,
                                    const std::string & key) {
   std::string namekey;
   LookupMap::iterator it;
@@ -89,7 +89,7 @@ const std::string * TxpNRules::Lkp(const std::string & name,
   }
 }
 
-const pcre * TxpNRules::GetRgx(const std::string & name) {
+const pcre* TxpNRules::GetRgx(const std::string & name) {
   RgxMap::iterator it;
   it = rgxs_.find(name);
   if (it != rgxs_.end())
@@ -99,13 +99,13 @@ const pcre * TxpNRules::GetRgx(const std::string & name) {
 }
 
 // get intial token and following whitespace from input and return the rest
-const char * TxpNRules::ConsumeToken(const char * input,
-                                     std::string * token,
-                                     std::string * wspace) {
+const char* TxpNRules::ConsumeToken(const char* input,
+                                     std::string* token,
+                                     std::string* wspace) {
   TxpPcre pcre;
   TxpUtf8 utf8;
   int32 clen;
-  const char * p, * s, * w, *pre_s;
+  const char *p, *s, *w, *pre_s;
   // Check for initial whitespace
   *wspace = "";
   *token = "";
@@ -148,9 +148,9 @@ const char * TxpNRules::ConsumeToken(const char * input,
 }
 
 void TxpNRules::ReplaceUtf8Punc(const std::string & tkin,
-                                std::string * tkout) {
-  const char * p;
-  const std::string * r;
+                                std::string* tkout) {
+  const char* p;
+  const std::string* r;
   TxpUtf8 utf8;
   int32 clen;
   p = tkin.c_str();
@@ -166,12 +166,12 @@ void TxpNRules::ReplaceUtf8Punc(const std::string & tkin,
   }
 }
 
-const char * TxpNRules::ConsumePunc(const char * input,
-                                    std::string * prepunc,
-                                    std::string * token,
-                                    std::string * pstpunc) {
+const char* TxpNRules::ConsumePunc(const char* input,
+                                    std::string* prepunc,
+                                    std::string* token,
+                                    std::string* pstpunc) {
   TxpPcre pcre;
-  const char * p;
+  const char* p;
   p = pcre.Consume(rgxpunc_, input);
   if (p) {
     pcre.SetMatch(0, prepunc);
@@ -186,9 +186,9 @@ const char * TxpNRules::ConsumePunc(const char * input,
   }
 }
 
-void TxpNRules::NormCaseCharacter(std::string * norm, TxpCaseInfo & caseinfo) {
-  const char * p;
-  const std::string * r;
+void TxpNRules::NormCaseCharacter(std::string* norm, TxpCaseInfo & caseinfo) {
+  const char* p;
+  const std::string* r;
   std::string c;
   std::string result;
   int32 clen, j = 0;
@@ -235,15 +235,15 @@ bool TxpNRules::IsAlpha(const std::string &token) {
   return false;
 }
 
-void TxpNRules::StartElement(const char * name, const char ** atts) {
+void TxpNRules::StartElement(const char* name, const char** atts) {
   // save name and type for procesing cdata
   if (!strcmp(name, "lookup") || !strcmp(name, "regex")) {
     elementtype_ = name;
-    SetAtt("name", atts, &elementname_);
+    SetAttribute("name", atts, &elementname_);
   }
 }
 
-void TxpNRules::EndElement(const char * name) {
+void TxpNRules::EndElement(const char* name) {
 }
 
 void TxpNRules::StartCData() {
@@ -253,7 +253,7 @@ void TxpNRules::StartCData() {
 
 // TODO(MPA): Add checking (i.e. max match on regex, duplications, empty keys)
 void TxpNRules::EndCData() {
-  const char * error;
+  const char* error;
   int erroffset;
   incdata_ = false;
   if (elementtype_ == "lookup") {
@@ -265,7 +265,7 @@ void TxpNRules::EndCData() {
   }
 }
 
-void TxpNRules::CharHandler(const char * data, int32 len) {
+void TxpNRules::CharHandler(const char* data, int32 len) {
   if (incdata_) cdata_buffer_.append(data, len);
 }
 
@@ -279,7 +279,7 @@ int32 TxpNRules::MakeLkp(LookupMap *lkps,
   std::string val;
   std::string tmp;
   std::string namekey;
-  const char * pp, *npp;
+  const char* pp, *npp;
   pp = cdata.c_str();
   pplen = cdata.length();
   // consume opening {

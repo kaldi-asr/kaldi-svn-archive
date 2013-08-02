@@ -22,8 +22,8 @@
 #include <string>
 #include "pugixml.hpp"
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-//#include "./txpnrules.h"
+#include "idlaktxp/idlak-common.h"
+// #include "./txpnrules.h"
 
 /// Name of configuration tag in XML source text
 #define TXPCONFIG_SECTION "tpconfig"
@@ -54,10 +54,10 @@ class TxpConfig {
   explicit TxpConfig();
   ~TxpConfig() {}
   /// Loads either a system configuration or a user configuration
-  bool Parse(enum TXPCONFIG_LVL lvl, const char * config);
+  bool Parse(enum TXPCONFIG_LVL lvl, const std::string config);
   /// Looks for a module/key value, first in the user config,
   /// then the system config and finally in the default config.
-  const char * GetValue(const char * module, const char * key);
+  const char* GetValue(const std::string module, const std::string key) const;
 
  private:
   /// Default values hard coded in txpconfig.cc

@@ -26,9 +26,9 @@
 #include <vector>
 #include <string>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpxmldata.h"
-#include "./txplexicon.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpxmldata.h"
+#include "idlaktxp/txplexicon.h"
 
 namespace kaldi {
 
@@ -48,15 +48,15 @@ typedef std::pair<std::string, TxpLtsTree> LtsItem;
 /// wagon
 class TxpLts: public TxpXmlData {
  public:
-  explicit TxpLts(TxpConfig * config, const char * type, const char * name)
+  explicit TxpLts(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name) {}
   ~TxpLts() {}
   /// Given a word return the result of looking up the pronciation of
   /// of each letter in a cart tree
-  int GetPron(const std::string &word, TxpLexiconLkp &lkp);
+  int GetPron(const std::string &word, TxpLexiconLkp* lkp);
 
  private:
-  void StartElement(const char * name, const char ** atts);
+  void StartElement(const char* name, const char** atts);
   /// Lookup from letter to cart tree
   LtsMap ltslkp_;
   /// holds parser status of current letter

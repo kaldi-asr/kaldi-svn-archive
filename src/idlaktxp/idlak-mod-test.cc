@@ -40,15 +40,15 @@
 #include "idlaktxp/txpmodule.h"
 #include "idlaktxp/idlak-common.h"
 
-static void getTestFileName(int fno, std::string & fname,
+static void getTestFileName(int fno, std::string* fname,
                             const std::string &basename,
                             const std::string &ext);
 
 static bool canOpenIn(const std::string & fname);
 
-static bool testModule(kaldi::TxpModule &mod, const std::string &dirin,
+static bool testModule(kaldi::TxpModule* mod, const std::string &dirin,
                        const std::string &input, kaldi::int32 fno,
-                       std::string &new_output_file);
+                       std::string* new_output_file);
 
 static bool regressionTest(const std::string &output,
                            const std::string &regression);
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
   std::string configf;
   kaldi::int32 i, fno = 0;
   bool error = false;
-  std::vector<kaldi::TxpModule *> modules;
+  std::vector<kaldi::TxpModule*> modules;
 
   try {
     kaldi::ParseOptions po(usage);
@@ -97,10 +97,10 @@ int main(int argc, char *argv[]) {
 
     // increment through test files until we can't open one
     while (1) {
-      getTestFileName(fno, filein, dirin + "/mod-test", std::string(".xml"));
+      getTestFileName(fno, &filein, dirin + "/mod-test", std::string(".xml"));
       if (!canOpenIn(filein)) break;
       for (i = 0; i < modules.size(); i++) {
-        error = testModule(*modules[i], dirin, filein, fno, filein);
+        error = testModule(modules[i], dirin, filein, fno, &filein);
       }
       fno++;
     }
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
   return error;
 }
 
-static void getTestFileName(int fno, std::string & fname,
+static void getTestFileName(int fno, std::string* fname,
                         const std::string &basename,
                         const std::string &ext) {
   std::ostringstream stream;
@@ -121,7 +121,7 @@ static void getTestFileName(int fno, std::string & fname,
   stream << zeros << fno;
   fnostr = stream.str();
   fnostr = fnostr.substr(fnostr.size() - 3);
-  fname = basename + fnostr + ext;
+  *fname = basename + fnostr + ext;
 }
 
 static bool canOpenIn(const std::string & fname) {
@@ -132,16 +132,16 @@ static bool canOpenIn(const std::string & fname) {
     return true;
 }
 
-static bool testModule(kaldi::TxpModule &mod, const std::string &dirin,
+static bool testModule(kaldi::TxpModule* mod, const std::string &dirin,
                        const std::string &input, kaldi::int32 fno,
-                       std::string &new_output_file) {
+                       std::string* new_output_file) {
   bool error;
-  const std::string * name;
+  const std::string* name;
   std::string filereg;
   std::string file_output_verbose;
   bool binary;
 
-  name = &mod.GetName();
+  name = &mod->GetName();
   kaldi::Input ki(input, &binary);
   std::cout << input << std::endl;
   pugi::xml_document doc;
@@ -154,18 +154,18 @@ static bool testModule(kaldi::TxpModule &mod, const std::string &dirin,
               << "Error offset: " << r.offset;
     return true;
   }
-  mod.Process(&doc);
+  mod->Process(&doc);
   getTestFileName(fno, new_output_file, dirin + "/mod-" + *name + "-out",
                   std::string(".xml"));
-  kaldi::Output kio(new_output_file, binary);
-  getTestFileName(fno, file_output_verbose, dirin + "/mod-" + *name + "-outv",
+  kaldi::Output kio(*new_output_file, binary);
+  getTestFileName(fno, &file_output_verbose, dirin + "/mod-" + *name + "-outv",
                   std::string(".xml"));
   kaldi::Output kiov(file_output_verbose, binary);
   doc.save(kiov.Stream(), "\t");
   kiov.Close();
   doc.save(kio.Stream(), "", pugi::format_raw);
   kio.Close();
-  getTestFileName(fno, filereg, dirin + "/mod-" + *name + "-reg",
+  getTestFileName(fno, &filereg, dirin + "/mod-" + *name + "-reg",
                   std::string(".xml"));
   if (canOpenIn(filereg)) {
     std::cout << new_output_file << " " << filereg << std::endl;

@@ -20,7 +20,7 @@
 #define KALDI_IDLAKTXP_TXPPOS_H_
 
 // This file defines greedy part of speech tagger class which
-// determines pos tags for each normalised word and the tag set 
+// determines pos tags for each normalised word and the tag set
 // class which hold definitions of tag types
 
 #include <map>
@@ -28,8 +28,8 @@
 #include <string>
 #include <vector>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpxmldata.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpxmldata.h"
 
 namespace kaldi {
 
@@ -48,16 +48,16 @@ typedef std::vector<TxpPosRgx> RgxVector;
 /// see /ref idlaktxp_pos
 class TxpPos: public TxpXmlData {
  public:
-  explicit TxpPos(TxpConfig * config, const char * type, const char * name)
+  explicit TxpPos(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name) {}
   ~TxpPos() {}
   bool Parse(const std::string &tpdb);
   /// Return the part of speech for word current with previous
   /// context POS prev
-  const char * GetPos(const char * prev, const char * current);
+  const char* GetPos(const char* prev, const char* current);
 
  private:
-  void StartElement(const char * name, const char ** atts);
+  void StartElement(const char* name, const char** atts);
   /// For loading pattern tagger
   std::string word_;
   // Tagger data
@@ -85,16 +85,16 @@ struct TxpPosRgx {
 /// see /ref idlaktxp_pos
 class TxpPosSet: public TxpXmlData {
  public:
-  explicit TxpPosSet(TxpConfig * config, const char * type, const char * name)
+  explicit TxpPosSet(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name) {}
   ~TxpPosSet() {}
   bool Parse(const std::string &tpdb);
   /// Return the part of speech for word current with previous
   /// context POS prev
-  const char * GetPosSet(const char * pos);
+  const char* GetPosSet(const char* pos);
 
  private:
-  void StartElement(const char * name, const char ** atts);
+  void StartElement(const char* name, const char** atts);
   /// unigram and POS_word bigram patterns.
   LookupMap posset_;
 };

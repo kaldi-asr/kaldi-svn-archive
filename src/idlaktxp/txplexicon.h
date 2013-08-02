@@ -24,8 +24,8 @@
 #include <map>
 #include <string>
 #include "base/kaldi-common.h"
-#include "./idlak-common.h"
-#include "./txpxmldata.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpxmldata.h"
 
 namespace kaldi {
 
@@ -43,11 +43,15 @@ struct TxpLexCompare {
     if (!x.substr(0, p1).compare(y.substr(0, p2))) {
       /// if the same word always return default entries first
       if (x.find(":default") != std::string::npos &&
-          y.find(":default") == std::string::npos) return true;
-      else if (x.find(":default") == std::string::npos &&
-               y.find(":default") != std::string::npos) return false;
+          y.find(":default") == std::string::npos) {
+        return true;
+      } else if (x.find(":default") == std::string::npos &&
+               y.find(":default") != std::string::npos) {
+        return false;
       /// otherwise in string entry order
-      else return x.compare(y) < 0;
+      } else {
+        return x.compare(y) < 0;
+      }
     } else {
       /// otherwise in word order
       return (x.substr(0, p1).compare(y.substr(0, p2)) < 0);
@@ -63,18 +67,18 @@ typedef std::multimap<std::string, std::string, TxpLexCompare> LookupLex;
 /// There must be at least one default pronunciation for every word
 class TxpLexicon: public TxpXmlData {
  public:
-  explicit TxpLexicon(TxpConfig * config, const char * type, const char * name)
+  explicit TxpLexicon(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name), inlex_(false) {}
   ~TxpLexicon() {}
   /// Fill the lexicon lookup structure with the correct pronunciation
   int GetPron(const std::string &word,
               const std::string &entry,
-              TxpLexiconLkp &lkp);
+              TxpLexiconLkp* lkp);
 
  private:
-  void StartElement(const char * name, const char ** atts);
-  void EndElement(const char *);
-  void CharHandler(const char * data, int32 len);
+  void StartElement(const char* name, const char** atts);
+  void EndElement(const char*);
+  void CharHandler(const char* data, const int32 len);
   /// Holds <entry>:<word> and default:<word> pronunciation lookups
   LookupLex lookup_;
   /// Holds parser status in lex item

@@ -1,4 +1,4 @@
-// idlaktxp/mod-fex.cc
+// idlaktxp/mod-cex.cc
 
 // Copyright 2012 CereProc Ltd.  (Author: Matthew Aylett)
 
@@ -20,41 +20,42 @@
 
 namespace kaldi {
 
-TxpFex::TxpFex(const std::string &tpdb, const std::string &configf)
-    : TxpModule("fex", tpdb, configf) {
-  fexspec_.Init(&config_, "fex", "default");
-  fexspec_.Parse(tpdb.c_str());
+TxpCex::TxpCex(const std::string &tpdb, const std::string &configf)
+    : TxpModule("cex", tpdb, configf) {
+  cexspec_.Init(config_, std::string("cex"), std::string("default"));
+  cexspec_.Parse(tpdb.c_str());
 }
 
-TxpFex::~TxpFex() {
+TxpCex::~TxpCex() {
 }
 
-bool TxpFex::Process(pugi::xml_document * input) {
-  int modellen;
-  char * model;
-  modellen = fexspec_.MaxFeatSz() + 1;
-  model =  new char[modellen];
-  fexspec_.AddPauseNodes(input);
+bool TxpCex::Process(pugi::xml_document* input) {
+  //int modellen;
+  std::string* model = new std::string();
+  //modellen = cexspec_.MaxFeatureSize() + 1;
+  //model =  new char[modellen];
+  cexspec_.AddPauseNodes(input);
   pugi::xpath_node_set tks =
       input->document_element().select_nodes("//phon");
   tks.sort();
-  TxpFexspecContext context(*input,  fexspec_.GetPauseHandling());
+  TxpCexspecContext context(*input,  cexspec_.GetPauseHandling());
   kaldi::int32 i = 0;
   for (pugi::xpath_node_set::const_iterator it = tks.begin();
        it != tks.end();
-       ++it, i++, context.next()) {
+       ++it, i++, context.Next()) {
     pugi::xml_node phon = (*it).node();
-    memset(model, 0, modellen);
-    fexspec_.ExtractFeatures(context, model);
-    phon.text() = model;
+    //memset(model, 0, modellen);
+    model->clear();
+    cexspec_.ExtractFeatures(context, model);
+    phon.text() = model->c_str();
   }
-  delete [] model;
+  delete model;
   // should set to error status
-  return true;  
+  return true;
 }
 
-bool TxpFex::IsSptPauseHandling() {
-  if (fexspec_.GetPauseHandling() == FEXSPECPAU_HAND_SPT) return true;
+bool TxpCex::IsSptPauseHandling() {
+  if (cexspec_.GetPauseHandling() == CEXSPECPAU_HANDLER_SPURT) return true;
   return false;
 }
 

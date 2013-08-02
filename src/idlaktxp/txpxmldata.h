@@ -24,8 +24,8 @@
 #include <string>
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "./idlak-common.h"
-#include "./txpconfig.h"
+#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/txpconfig.h"
 
 namespace kaldi {
 
@@ -39,30 +39,30 @@ namespace kaldi {
 class TxpXmlData {
  public:
   /// Callback functions set in expat for start element
-  static void StartElementCB(void *userData, const char *name,
-                             const char **atts);
+  static void StartElementCB(void* userData, const char* name,
+                             const char** atts);
   /// Callback functions set in expat for end element
-  static void EndElementCB(void *userData, const char *name);
+  static void EndElementCB(void* userData, const char* name);
   /// Callback functions set in expat for handling characters
-  static void CharHandlerCB(void *userData, const char * data, int32 len);
+  static void CharHandlerCB(void* userData, const char* data, int32 len);
   /// Callback functions set in expat for start of Cdata
   /// (used for regular expressions)
-  static void StartCDataCB(void *userData);
+  static void StartCDataCB(void* userData);
   /// Callback functions set in expat for end of Cdata
-  static void EndCDataCB(void *userData);
+  static void EndCDataCB(void* userData);
 
-  explicit TxpXmlData(TxpConfig * config, const char * type, const char * name);
-  explicit TxpXmlData() : parser_(NULL) {};
+  explicit TxpXmlData(const TxpConfig &config, const std::string &type, const std::string &name);
+  explicit TxpXmlData() : parser_(NULL) {}
   virtual ~TxpXmlData();
 
   /// Initialise the data structure by processing a tpdb file
-  virtual void Init(TxpConfig * config, const char * type, const char * name);
+  virtual void Init(const TxpConfig &config, const std::string &type, const std::string &name);
   /// Inherited class for bespoke start element handling
-  virtual void StartElement(const char * name, const char ** atts) {}
+  virtual void StartElement(const char* name, const char ** atts) {}
   /// Inherited class for bespoke end element handling
-  virtual void EndElement(const char * name) {}
+  virtual void EndElement(const char* name) {}
   /// Inherited class for bespoke character handling
-  virtual void CharHandler(const char * data, int32 len) {}
+  virtual void CharHandler(const char* data, int32 len) {}
   /// Inherited class for bespoke start cdata handling
   virtual void StartCData() {}
   /// Inherited class for bespoke start cdata handling
@@ -77,13 +77,13 @@ class TxpXmlData {
   bool Parse(const std::string &tpdb);
   /// Utility to set a named attribute from an expat array of attribute
   /// key value pairs
-  int32 SetAtt(const char * name, const char ** atts, std::string *val);
+  int32 SetAttribute(const char* name, const char ** atts, std::string *val);
   /// Return a general configuration value
-  const char * GetConfigValue(const char * key);
+  const char* GetConfigValue(const char* key);
 
  protected:
   /// Configuration structure all xmldats classes use the general section
-  TxpConfig * config_;
+  const TxpConfig* config_;
   /// Expat parser structure
   XML_Parser parser_;
   /// Type of object e.g. lexicon
