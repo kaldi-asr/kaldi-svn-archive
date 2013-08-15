@@ -106,7 +106,7 @@ void CuPackedMatrix<Real>::Swap(PackedMatrix<Real> *mat) {
         this->Swap(mat); // copy data in mat to *this, which is now empty.
       } else { // *this is full but *mat is empty.
         mat->Resize(this->num_rows_, kUndefined);
-        this->CopyToMat(mat);
+        this->CopyToPacked(mat);
         this->Destroy();
       }
     }
@@ -160,7 +160,7 @@ void CuPackedMatrix<Real>::CopyFromPacked(const PackedMatrix<Real> &src) {
 }
 
 template<typename Real>
-void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
+void CuPackedMatrix<Real>::CopyToPacked(PackedMatrix<Real> *dst) const {
   KALDI_ASSERT(dst->NumRows() == NumRows() && dst->NumCols() == NumCols());
   
 #if HAVE_CUDA == 1 
@@ -172,9 +172,9 @@ void CuPackedMatrix<Real>::CopyToMat(PackedMatrix<Real> *dst) const {
     
     CU_SAFE_CALL(cudaMemcpy(dst->data_, data_, num_bytes,
                             cudaMemcpyDeviceToHost));
-    CuDevice::Instantiate().AccuProfile("CuPackedMatrixMatrix::CopyToMatD2H",tim.Elapsed());
+    CuDevice::Instantiate().AccuProfile("CuPackedMatrixMatrix::CopyToPackedD2H",tim.Elapsed());
   } else
-  #endif
+#endif
   {
     //memcpy(data_, dst->Data(), SizeInBytes());
     dst->CopyFromPacked(Mat());
@@ -222,7 +222,7 @@ void CuPackedMatrix<Real>::Read(std::istream &is, bool binary) {
 template<typename Real>
 void CuPackedMatrix<Real>::Write(std::ostream &os, bool binary) const {
   PackedMatrix<Real> temp(this->num_rows_, kUndefined);
-  this->CopyToMat(&temp);
+  this->CopyToPacked(&temp);
   temp.Write(os, binary); 
 }
 
@@ -426,15 +426,21 @@ void CuPackedMatrix<Real>::SetUnit() {
 /**
  * Print the matrix to stream
  */
-/*
 template<typename Real>
-std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat) {
-  Matrix<Real> temp;
-  mat.CopyToMat(&temp);
+std::ostream &operator << (std::ostream &out, const CuPackedMatrix<Real> &mat) {
+  PackedMatrix<Real> temp(mat.NumRows());
+  mat.CopyToPacked(&temp);
   out << temp;
   return out;
 }
-*/
+
+// instantiate the template
+template
+std::ostream &operator << (std::ostream &out, const CuPackedMatrix<float> &mat);
+template
+std::ostream &operator << (std::ostream &out, const CuPackedMatrix<double> &mat);
+
+
 // Instantiate class CuPackedMatrix for float and double.
 template class CuPackedMatrix<float>;
 template class CuPackedMatrix<double>;

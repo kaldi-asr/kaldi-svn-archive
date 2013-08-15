@@ -764,6 +764,14 @@ int main() {
 
 
   kaldi::CudaMatrixUnitTest<float>();
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().DoublePrecisionSupported()) {
+    kaldi::CudaMatrixUnitTest<double>();
+  } else {
+    KALDI_WARN << "Double precision not supported";
+  }
+#else
   kaldi::CudaMatrixUnitTest<double>();
+#endif
   std::cout << "Tests succeeded.\n";
 }

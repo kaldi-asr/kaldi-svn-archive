@@ -94,7 +94,7 @@ class CuPackedMatrix {
   // Copy functions (do not resize).
   void CopyFromPacked(const CuPackedMatrix<Real> &src);
   void CopyFromPacked(const PackedMatrix<Real> &src);
-  void CopyToMat(PackedMatrix<Real> *dst) const;
+  void CopyToPacked(PackedMatrix<Real> *dst) const;
 
   void Read(std::istream &in, bool binary);
   
@@ -109,6 +109,23 @@ class CuPackedMatrix {
   void Swap(PackedMatrix<Real> *other);
   Real* Data() { return data_; }  
   const Real* Data() const { return data_; }
+  
+  inline Real operator() (MatrixIndexT r, MatrixIndexT c) const {
+    if (static_cast<UnsignedMatrixIndexT>(c) >
+        static_cast<UnsignedMatrixIndexT>(r))
+      std::swap(c, r);
+    KALDI_ASSERT(static_cast<UnsignedMatrixIndexT>(r) <
+                 static_cast<UnsignedMatrixIndexT>(this->num_rows_));
+#if HAVE_CUDA == 1
+    if (CuDevice::Instantiate().Enabled()) {    
+      Real value;
+      CU_SAFE_CALL(cudaMemcpy(&value, this->data_ + (r * (r+1)) / 2 + c,
+                              sizeof(Real), cudaMemcpyDeviceToHost));
+      return value;
+    } else
+#endif
+    return this->data_[(r * (r+1)) / 2 + c];
+  }
 
   inline MatrixIndexT NumRows() const { return num_rows_; }
   inline MatrixIndexT NumCols() const { return num_rows_; }

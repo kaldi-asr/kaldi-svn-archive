@@ -476,12 +476,8 @@ bool SameDimAndStride(const CuMatrixBase<Real> &M, const CuMatrixBase<Real> &N) 
 
 /// I/O
 template<typename Real>
-std::ostream &operator << (std::ostream &out, const CuMatrix<Real> &mat) {
-  Matrix<Real> temp(mat.NumRows(), mat.NumCols(), kUndefined);
-  mat.CopyToMat(&temp);
-  out << temp;
-  return out;
-}
+std::ostream &operator << (std::ostream &out, const CuMatrixBase<Real> &mat);
+
 
   
 } // namespace

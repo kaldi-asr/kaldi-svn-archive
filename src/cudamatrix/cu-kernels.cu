@@ -1061,7 +1061,7 @@ static void _take_mean(const Real* x, Real* y, MatrixDim d_in, int d_out) {
   int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
   int32_cuda index1 = i + j * d_in.stride;
   int32_cuda index2 = j + i * d_in.stride;
-  if ( i <= j && j < d_in.rows) {
+  if (i <= j && j < d_in.rows) {
     int32_cuda index_sp = (j * (j+1) / 2) + i;
     y[index_sp] = 0.5 * (x[index1] + x[index2]);
   }
@@ -1075,7 +1075,7 @@ static void _take_lower(const Real* x, Real* y, MatrixDim d_in, int d_out) {
   int32_cuda index = i + j * d_in.stride;
   int32_cuda index_sp = (j * (j+1) / 2) + i;
   int32_cuda nr = d_out * (d_out + 1) / 2;
-  if ( i <= j  &&  j < d_in.rows && index_sp < nr) {
+  if (i <= j  &&  j < d_in.rows && index_sp < nr) {
     y[index_sp] = x[index];
   }
 }

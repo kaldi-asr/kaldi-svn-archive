@@ -1,4 +1,4 @@
-// cudamatrix/cuda-cu-sp-matrix-test.cc
+// cudamatrix/cu-sp-matrix-test.cc
 //
 //
 // UnitTests for testing cu-sp-matrix.h methods.
@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #include "base/kaldi-common.h"
+#include "cu-device.h"
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-vector.h"
 #include "cudamatrix/cu-math.h"
@@ -71,7 +72,7 @@ static bool ApproxEqual(const SpMatrix<Real> &A,
  * Unit Tests
  */
 template<class Real>
-static void UnitTestCuSpMatrixConstructor() {
+static void UnitTestCuSpMatrixConstructor() { 
   for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 10 * i;
 
@@ -81,9 +82,10 @@ static void UnitTestCuSpMatrixConstructor() {
 
     CuMatrix<Real> C(A);
     CuSpMatrix<Real> D(C, kTakeLower);
+
     SpMatrix<Real> E(dim);
     D.CopyToSp(&E);
-    
+
     AssertEqual(B, E);
   }
 }
@@ -235,7 +237,15 @@ int main() {
   CuDevice::Instantiate().SelectGpuId(use_gpu_id);
 #endif
   kaldi::CudaSpMatrixUnitTest<float>();
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().DoublePrecisionSupported()) {
+    kaldi::CudaSpMatrixUnitTest<double>();
+  } else {
+    KALDI_WARN << "Double precision not supported";
+  }
+#else
   kaldi::CudaSpMatrixUnitTest<double>();
+#endif
   KALDI_LOG << "Tests succeeded";
 #if HAVE_CUDA == 1
   CuDevice::Instantiate().PrintProfile();

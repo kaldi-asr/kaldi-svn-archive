@@ -21,6 +21,7 @@
 
 #include <cublas.h>
 #include <cuda.h>
+#include <cuda_runtime_api.h>
 
 #include <vector>
 #include <dlfcn.h>
@@ -167,13 +168,24 @@ void CuDevice::SelectGpuId(int32 gpu_id) {
     // Notify user which GPU is finally used
     char name[128];
     DeviceGetName(name,128,act_gpu_id);
+
+    CU_SAFE_CALL(cudaGetDeviceProperties(&properties_, act_gpu_id));
+
     KALDI_LOG << "The active GPU is [" << act_gpu_id << "]: "
-              << name << "\t" << GetFreeMemory(NULL, NULL);
+              << name << "\t" << GetFreeMemory(NULL, NULL) << " version "
+              << properties_.major << "." << properties_.minor;
+    
   }
 
   return;
 }
 
+
+bool CuDevice::DoublePrecisionSupported() {
+  if (!Enabled()) return true;
+  return properties_.major > 1 || (properties_.major == 1 && properties_.minor >= 3);
+  // Double precision is supported from version 1.3
+}
 
 
 bool CuDevice::IsComputeExclusive() {
@@ -404,13 +416,8 @@ void CuDevice::DeviceGetName(char* name, int32 len, int32 dev) {
 }
 
 
-////////////////////////////////////////////////
 // The instance of the static singleton 
-//
-CuDevice CuDevice::msDevice;
-//
-////////////////////////////////////////////////
-
+CuDevice CuDevice::global_device_;
 
 
 }

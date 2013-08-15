@@ -826,6 +826,10 @@ static void CuMatrixUnitTest(bool full_test) {
   UnitTestVector<Real>();
   UnitTestMatrix<Real>();
   */
+  if (!CuDevice::Instantiate().DoublePrecisionSupported()) {
+    KALDI_WARN << "Double precision not supported";
+    return;
+  }
   UnitTestCholesky<Real>();
   UnitTestSetZeroUpperDiag<Real>();
 }

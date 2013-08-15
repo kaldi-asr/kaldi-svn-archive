@@ -22,8 +22,8 @@ void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     MatrixIndexT D = this->NumRows();
-    dim3 dimBlock(CUBLOCK,CUBLOCK);
-    dim3 dimGrid(n_blocks(M.NumCols(),CUBLOCK), n_blocks(M.NumRows(),CUBLOCK));
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(M.NumCols(), CUBLOCK), n_blocks(M.NumRows(), CUBLOCK));
     switch (copy_type) {
       case kTakeMeanAndCheck:
         KALDI_LOG << "kTakeMeanAndCheck!";
@@ -36,12 +36,14 @@ void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
       case kTakeLower:
         {
           cuda_take_lower(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), D);
+          CU_SAFE_CALL(cudaGetLastError());
           cudaThreadSynchronize();
         }
         break;
       case kTakeUpper:
         {
           cuda_take_upper(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), D);
+          CU_SAFE_CALL(cudaGetLastError());
         }
         break;
       default:

@@ -59,7 +59,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
                    SpCopyType copy_type = kTakeLower);
   
   void CopyToSp(SpMatrix<Real> *dst) {
-    CuPackedMatrix<Real>::CopyToMat(dst);
+    CuPackedMatrix<Real>::CopyToPacked(dst);
   }
 
   inline Real operator() (MatrixIndexT r, MatrixIndexT c) const {

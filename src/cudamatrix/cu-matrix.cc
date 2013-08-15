@@ -1303,6 +1303,24 @@ CuMatrix<Real>::DeriveLastLayerComponent(int32 i, int32 label,
 }
 */
 
+/**
+ * Print the matrix to stream
+ */
+template<typename Real>
+std::ostream &operator << (std::ostream &out, const CuMatrixBase<Real> &mat) {
+  Matrix<Real> temp(mat.NumRows(), mat.NumCols());
+  mat.CopyToMat(&temp);
+  out << temp;
+  return out;
+}
+
+// instantiate the template
+template
+std::ostream &operator << (std::ostream &out, const CuMatrixBase<float> &mat);
+template 
+std::ostream &operator << (std::ostream &out, const CuMatrixBase<double> &mat);
+
+
 // Instantiate classes CuMatrix and CuMatrixBase for float and double.
 template class CuMatrix<float>;
 template class CuMatrix<double>;
