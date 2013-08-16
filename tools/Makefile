@@ -1,6 +1,16 @@
 # SHELL += -x
 
-all: sph2pipe atlas irstlm_tgt sclite_tgt openfst_tgt
+all: check_required_programs sph2pipe atlas irstlm_tgt sclite_tgt openfst_tgt
+
+
+check_required_programs:
+	which aclocal
+	which automake
+	which autoconf
+	which libtoolize || which glibtoolize
+	which svn
+	which gcc
+	which g++
 
 clean: openfst_cleaned sclite_cleaned  irstlm_cleaned
 
@@ -25,16 +35,19 @@ distclean:
 		rm -rf openfst-1.3.2.tar.gz
 		rm -f openfst
 
-openfst_tgt: openfst_compiled
+openfst_tgt: openfst_compiled openfst/lib
 
 .PHONY: openfst_compiled
 openfst_compiled: openfst-1.3.2/Makefile
-		cd openfst-1.3.2/; \
-		$(MAKE) install
+	cd openfst-1.3.2/ && \
+	$(MAKE) install
+
+openfst/lib:
+	-cd openfst && [ -d lib64 -a ! -d lib ] && ln -s lib64 lib
 
 openfst-1.3.2/Makefile: openfst-1.3.2/.patched
 		cd openfst-1.3.2/; \
-		./configure --prefix=`pwd` --enable-static --disable-shared --enable-far --enable-ngram-fsts
+		./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts
 
 
 .PHONY: openfst-1.3.2/.patched
