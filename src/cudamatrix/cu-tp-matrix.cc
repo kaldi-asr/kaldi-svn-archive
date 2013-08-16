@@ -61,7 +61,7 @@ void CuTpMatrix<Real>::Invert() {
     cublas_trsm(dim, dim, alpha, tmp2.RowData(0), tmp2.Dim().stride, 
       tmp.RowData(0), tmp.Dim().stride);
     KALDI_LOG << "tmp is " << tmp;
-    this->CopyFromMat(tmp, kTrans);
+    this->CopyFromMat(tmp, kNoTrans);
   } else
 #endif
   {
@@ -76,8 +76,10 @@ void CuTpMatrix<Real>::CopyFromMat(CuMatrixBase<Real> &M,
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
     size_t nr = (this->NumRows())*(this->NumRows() + 1) / 2;
-    int dimGrid(1);
-    int dimBlock(nr);
+    //int dimGrid(1);
+    //int dimBlock(nr);
+    dim3 dimBlock(CUBLOCK, CUBLOCK);
+    dim3 dimGrid(n_blocks(M.NumCols(), CUBLOCK), n_blocks(M.NumRows(), CUBLOCK));
     if (Trans == kNoTrans) {
       cuda_take_lower(dimGrid, dimBlock, M.RowData(0), this->data_, M.Dim(), this->NumRows());
       cudaThreadSynchronize();

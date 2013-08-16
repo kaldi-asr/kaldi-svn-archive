@@ -150,7 +150,7 @@ static void UnitTestCuPackedMatrixCopy() {
 
 template<class Real>
 static void UnitTestCuPackedMatrixTrace() {
-  for (MatrixIndexT i = 1; i < 50; i++) {
+  for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
     
     PackedMatrix<Real> A(dim);
@@ -165,7 +165,7 @@ static void UnitTestCuPackedMatrixTrace() {
 
 template<class Real>
 static void UnitTestCuPackedMatrixScale() {
-  for (MatrixIndexT i = 1; i < 50; i++) {
+  for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
     
     PackedMatrix<Real> A(dim);
@@ -181,7 +181,7 @@ static void UnitTestCuPackedMatrixScale() {
 
 template<class Real>
 static void UnitTestCuPackedMatrixScaleDiag() {
-  for (MatrixIndexT i = 1; i < 50; i++) {
+  for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
     
     PackedMatrix<Real> A(dim);
@@ -199,7 +199,7 @@ static void UnitTestCuPackedMatrixScaleDiag() {
 
 template<class Real>
 static void UnitTestCuPackedMatrixAddToDiag() {
-  for (MatrixIndexT i = 1; i < 50; i++) {
+  for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
     
     PackedMatrix<Real> A(dim);
@@ -221,7 +221,7 @@ static void UnitTestCuPackedMatrixAddToDiag() {
 
 template<class Real>
 static void UnitTestCuPackedMatrixSetUnit() {
-  for (MatrixIndexT i = 1; i < 50; i++) {
+  for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
     
     CuPackedMatrix<Real> A(dim);
@@ -242,7 +242,7 @@ static void UnitTestCuPackedMatrixSetUnit() {
 
 template<class Real> void CudaPackedMatrixUnitTest() {
   UnitTestCuPackedMatrixConstructor<Real>();
-  UnitTestCuPackedMatrixCopy<Real>();
+  //UnitTestCuPackedMatrixCopy<Real>();
   UnitTestCuPackedMatrixTrace<Real>();
   UnitTestCuPackedMatrixScale<Real>();
   UnitTestCuPackedMatrixAddToDiag<Real>();
