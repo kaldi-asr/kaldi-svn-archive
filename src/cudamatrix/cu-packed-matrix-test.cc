@@ -174,11 +174,32 @@ static void UnitTestCuPackedMatrixScaleDiag() {
   }
 }
 
+template<class Real>
+static void UnitTestCuPackedMatrixAddToDiag() {
+  for (MatrixIndexT i = 1; i < 50; i++) {
+    MatrixIndexT dim = 5 * i + rand() % 10;
+    
+    PackedMatrix<Real> A(dim);
+    A.SetRandn();
+    CuPackedMatrix<Real> B(A);
+
+    Real value = rand() % 50;
+    B.AddToDiag(value); 
+
+    for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
+      KALDI_ASSERT(std::abs((A(i, i)+value) - B(i, i))  
+                   < 0.001 * std::max(1.0, (double) (std::abs(A(i, i)) + std::abs(B(i, i) + value))));
+      }
+  }
+}
+
+
 template<class Real> void CudaPackedMatrixUnitTest() {
   UnitTestCuPackedMatrixConstructor<Real>();
   UnitTestCuPackedMatrixCopy<Real>();
   UnitTestCuPackedMatrixTrace<Real>();
   UnitTestCuPackedMatrixScale<Real>();
+  UnitTestCuPackedMatrixAddToDiag<Real>();
 }
 
 } // namespace kaldi
