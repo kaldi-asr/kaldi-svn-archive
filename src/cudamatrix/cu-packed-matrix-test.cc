@@ -69,7 +69,7 @@ static void AssertEqual(const PackedMatrix<Real> &A,
 }
 
 template<class Real>
-static void AssertDiagEqual(const CuPackedMatrix<Real> &A,
+static void AssertDiagEqual(const PackedMatrix<Real> &A,
                         const CuPackedMatrix<Real> &B,
                         float value,
                         float tol = 0.001) {
