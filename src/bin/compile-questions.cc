@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     qo.SetQuestionsOf(kPdfClass, pdfclass_opts);
 
     // Now read the keyed questions
-    {
+    if (!keyed_questions_filename.empty()) {
       kaldi::Input ki;
       if (!ki.OpenTextMode(keyed_questions_filename)) {
         KALDI_WARN << "Failed to open keyed questions file: "
