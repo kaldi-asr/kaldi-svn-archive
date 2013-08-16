@@ -69,6 +69,27 @@ static void AssertEqual(const PackedMatrix<Real> &A,
 }
 
 template<class Real>
+static void AssertDiagEqual(const CuPackedMatrix<Real> &A,
+                        const CuPackedMatrix<Real> &B,
+                        float value,
+                        float tol = 0.001) {
+  for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
+    KALDI_ASSERT(std::abs((A(i, i)+value) - B(i, i))  
+                 < tol * std::max(1.0, (double) (std::abs(A(i, i)) + std::abs(B(i, i) + value))));
+  }
+}
+template<class Real>
+static void AssertDiagEqual(const PackedMatrix<Real> &A,
+                        const PackedMatrix<Real> &B,
+                        float value,
+                        float tol = 0.001) {
+  for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
+    KALDI_ASSERT(std::abs((A(i, i)+value) - B(i, i))  
+                 < tol * std::max(1.0, (double) (std::abs(A(i, i)) + std::abs(B(i, i) + value))));
+  }
+}
+
+template<class Real>
 static void AssertEqual(const PackedMatrix<Real> &A,
                         const CuPackedMatrix<Real> &B,
                         float tol = 0.001) {
@@ -187,11 +208,14 @@ static void UnitTestCuPackedMatrixAddToDiag() {
 
     Real value = rand() % 50;
     B.AddToDiag(value); 
-
+    
+    AssertDiagEqual(A, B, value);
+    /*
     for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
       KALDI_ASSERT(std::abs((A(i, i)+value) - B(i, i))  
                    < 0.001 * std::max(1.0, (double) (std::abs(A(i, i)) + std::abs(B(i, i) + value))));
       }
+    */
   }
 }
 

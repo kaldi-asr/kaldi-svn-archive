@@ -56,8 +56,12 @@ void CuTpMatrix<Real>::Invert() {
     cuda_set_diag(dimGrid, dimBlock, tmp.RowData(0), alpha, tmp.Dim());
     //Matrix<Real> A(dim,dim);
     //tmp.CopyToMat(&A);
-    cublas_trsm(dim,dim,alpha,this->data_,1,tmp.RowData(0),tmp.Dim().stride);
-    this->CopyFromMat(tmp, kNoTrans);
+    CuMatrix<Real> tmp2(dim, dim);
+    tmp2.CopyFromTp(*this);
+    cublas_trsm(dim, dim, alpha, tmp2.RowData(0), tmp2.Dim().stride, 
+      tmp.RowData(0), tmp.Dim().stride);
+    KALDI_LOG << "tmp is " << tmp;
+    this->CopyFromMat(tmp, kTrans);
   } else
 #endif
   {
