@@ -60,7 +60,6 @@ void CuTpMatrix<Real>::Invert() {
     tmp2.CopyFromTp(*this);
     cublas_trsm(dim, dim, alpha, tmp2.RowData(0), tmp2.Dim().stride, 
       tmp.RowData(0), tmp.Dim().stride);
-    KALDI_LOG << "tmp is " << tmp;
     this->CopyFromMat(tmp, kNoTrans);
   } else
 #endif
