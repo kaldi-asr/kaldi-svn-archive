@@ -1,10 +1,11 @@
-# makefiles/darwin_10_6.mk contains Darwin-specific rules for OS X 10.6.*
+# makefiles/darwin_10_6.mk contains Darwin-specific rules for OS X 10.7.*
 
 ifndef FSTROOT
 $(error FSTROOT not defined.)
 endif
 
 CXXFLAGS = -msse -msse2 -Wall -I.. \
+	  -fPIC \
       -DKALDI_DOUBLEPRECISION=0 -DHAVE_POSIX_MEMALIGN \
       -Wno-sign-compare -Winit-self \
       -DHAVE_EXECINFO_H=1 -DHAVE_CXXABI_H -rdynamic \
