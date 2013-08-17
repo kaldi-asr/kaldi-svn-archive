@@ -63,14 +63,14 @@ class EventTypeComparison {
     num_generalizations_(0),
     num_specializations_(0),
     num_incompatibilities_(0),
-    phone_ref_(0),
-    phone_chk_(0),
-    pdf_class_ref_(kNoPdf),
-    pdf_class_chk_(kNoPdf),
     left_generalization_(false),
     left_specialization_(false),
     right_generalization_(false),
-    right_specialization_(false) {
+    right_specialization_(false),
+    phone_ref_(0),
+    phone_chk_(0),
+    pdf_class_ref_(kNoPdf),
+    pdf_class_chk_(kNoPdf) {
 
   }
 
@@ -82,14 +82,14 @@ class EventTypeComparison {
     num_generalizations_(copy.num_generalizations_),
     num_specializations_(copy.num_specializations_),
     num_incompatibilities_(copy.num_incompatibilities_),
-    phone_ref_(copy.phone_ref_),
-    phone_chk_(copy.phone_chk_),
-    pdf_class_ref_(copy.pdf_class_ref_),
-    pdf_class_chk_(copy.pdf_class_chk_),
     left_generalization_(copy.left_generalization_),
     left_specialization_(copy.left_specialization_),
     right_generalization_(copy.right_generalization_),
-    right_specialization_(copy.right_specialization_) {
+    right_specialization_(copy.right_specialization_),
+    phone_ref_(copy.phone_ref_),
+    phone_chk_(copy.phone_chk_),
+    pdf_class_ref_(copy.pdf_class_ref_),
+    pdf_class_chk_(copy.pdf_class_chk_) {
 
   }
 
@@ -226,14 +226,17 @@ class TopoNode {
 
   }
 
+
   TopoNode(const EventType &event_type):
     event_type_(event_type), generalization_(NULL) {
 
   }
 
+
   inline int32 PdfId() {
     return pdf_id_;
   }
+
 
   inline bool IsLeaf() {
     return specializations_.size() == 0;
@@ -258,6 +261,14 @@ class TopoNode {
    * Clear and delete all specializations;  recursive call.
    */
   void Clear();
+
+  /**
+   * Set all pointers to NULL (no delete!)
+   */
+  void ClearPointers() {
+    generalization_ = NULL;
+    specializations_.clear();
+  }
 
 
  protected:
@@ -349,8 +360,10 @@ class TopoTree : public ContextDependencyInterface {
     }
   }
 
-  /// Read context-dependency object from disk; throws on error
+  /// Read TopoTree object from disk;  throws on error
   void Read (std::istream &is, bool binary);
+
+  /// Write TopoTree object to disk;  throws error
   void Write (std::ostream &os, bool binary) const;
 
   /**
@@ -358,11 +371,20 @@ class TopoTree : public ContextDependencyInterface {
    */
   TopoNode *FindSpecialization(const TopoNode *node, const EventType &event_type) const;
 
+  /**
+   * Insert a new TopoNode to the tree.  Returns false if the node already existed.
+   */
   bool Insert(TopoNode *node);
 
+  /**
+   * Print the TopoTree;  this is a bit more readable than Write(std::cout)
+   */
   void Print(std::ostream &out);
 
  private:
+  /**
+   * Insert a TopoNode to the given TopoNode.  Returns false if the node already existed.
+   */
   bool Insert(TopoNode *target, TopoNode *node);
 
   /// Acoustic context size
@@ -400,9 +422,13 @@ int32 EventTypeBalance(const EventType &event_type, int32 P);
 
 
 /**
- * Sort the specializations by ascending context size (first) and descending
- * size of left context (second).  This is implemented via the "balance" of
- * the poly-phone, i.e. len(ctx-right) - len(ctx-left).
+ * Compute the EventType actual context size
+ */
+int32 EventTypeContextSize(const EventType &event_type, int32 P);
+
+/**
+ * Sort the specializations by "balance" (len(ctx_right) - len(ctx_left)) and
+ * total context length
  */
 class TopoNodeComparison {
  public:

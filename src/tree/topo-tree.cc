@@ -227,16 +227,31 @@ bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
   if (reinsert.size() > 0) {
     KALDI_ASSERT(target->generalization_ != NULL);
 
+    //
     std::sort(reinsert.begin(), reinsert.end(), TopoNodeComparison(P_));
     for (std::vector<TopoNode *>::iterator it = reinsert.begin();
         it != reinsert.end(); it++) {
-      (*it)->generalization_
+
+      // make sure to clear all pointer before inserting
+      (*it)->ClearPointers();
+
       Insert(target->generalization_, *it);
     }
   }
 
   return true;
 }
+
+
+void TopoTree::Read(std::istream &is, bool binary) {
+  // TODO
+}
+
+
+void TopoTree::Write(std::ostream &os, bool binary) const {
+  // TODO
+}
+
 
 void TopoTree::Print(std::ostream &out) {
   out << N_ << std::endl;
@@ -265,6 +280,7 @@ void TopoTree::Print(std::ostream &out) {
       agenda.push_back(std::make_pair(pair.first + 1, *it));
   }
 }
+
 
 void EventTypeComparison::compare(const EventType &ref, const EventType &chk, int32 P) {
   KALDI_ASSERT(ref[0].first == kPdfClass);
@@ -355,6 +371,7 @@ void EventTypeComparison::compare(const EventType &ref, const EventType &chk, in
   return;
 }
 
+
 void RootEventType(const EventType &event_type_in, EventType *event_type_out, int32 P) {
   KALDI_ASSERT(event_type_out != NULL);
   KALDI_ASSERT(event_type_in[0].first == kPdfClass);
@@ -375,6 +392,7 @@ void RootEventType(const EventType &event_type_in, EventType *event_type_out, in
 
   return;
 }
+
 
 bool GeneralizeEventType(const EventType &event_type_in, EventType *event_type_out, int32 P, bool left) {
   KALDI_ASSERT(event_type_out != NULL);
@@ -408,6 +426,7 @@ bool GeneralizeEventType(const EventType &event_type_in, EventType *event_type_o
   return false;
 }
 
+
 int32 EventTypeBalance(const EventType &event_type, int32 P) {
   KALDI_ASSERT(event_type.size() > 0);
   KALDI_ASSERT(event_type[0].first == kPdfClass);
@@ -426,6 +445,24 @@ int32 EventTypeBalance(const EventType &event_type, int32 P) {
   return bal;
 }
 
+
+int32 EventTypeContextSize(const EventType &event_type, int32 P) {
+  KALDI_ASSERT(event_type.size() > 0);
+  KALDI_ASSERT(event_type[0].first == kPdfClass);
+
+  int32 ctx_size = 0;
+  for (int32 i = 1; i < event_type.size(); ++i) {
+    if (i == P + 1)
+      continue;
+
+    if (event_type[i].second > 0)
+      ctx_size += 1;
+  }
+
+  return ctx_size;
+}
+
+
 bool TopoNodeComparison::operator() (const TopoNode *a, const TopoNode *b) const {
   KALDI_ASSERT(a != NULL);
   KALDI_ASSERT(b != NULL);
@@ -441,8 +478,12 @@ bool TopoNodeComparison::operator() (const TopoNode *a, const TopoNode *b) const
   bal1 = 2 * abs(bal1) - (bal1 < 0 ? 1 : 0);
   bal2 = 2 * abs(bal2) - (bal2 < 0 ? 1 : 0);
 
-  return bal1 < bal2;
+  if (bal1 == bal2)
+    return EventTypeContextSize(a->event_type_, P_) < EventTypeContextSize(b->event_type_, P_);
+  else
+    return bal1 < bal2;
 }
+
 
 } // end namespace kaldi.
 
