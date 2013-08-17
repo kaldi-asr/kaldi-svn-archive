@@ -194,18 +194,18 @@ class CuVector: public CuVectorBase<Real> {
 
   CuVector<Real> &operator = (const CuVectorBase<Real> &other) {
     Resize(other.Dim());
-    CopyFromVec(other);
+    this->CopyFromVec(other);
     return *this;
   }
 
   CuVector<Real> &operator = (const CuVector<Real> &other) {
     Resize(other.Dim());
-    CopyFromVec(other);
+    this->CopyFromVec(other);
     return *this;
   }
   CuVector<Real> &operator = (const VectorBase<Real> &other) {
     Resize(other.Dim());
-    CopyFromVec(other);
+    this->CopyFromVec(other);
     return *this;
   }
       
