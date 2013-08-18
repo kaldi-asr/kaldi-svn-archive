@@ -26,6 +26,8 @@
 #include "tree/cluster-utils.h"
 #include "tree/event-map.h"
 
+#include <algorithm>
+#include <utility>
 #include <map>
 #include <string>
 #include <sstream>
@@ -171,7 +173,7 @@ class EventTypeComparison {
    */
   bool Fits() {
     return
-        StrictPhoneMatch() &&
+        (StrictPhoneMatch() || PhoneMatch() && pdf_class_chk_ == kNoPdf) &&
         num_incompatibilities_ == 0 &&
         num_specializations_ == 0 &&
         num_generalizations_ >= 0;
@@ -232,15 +234,36 @@ class TopoNode {
 
   }
 
+  TopoNode(TopoNode *generalization):
+    generalization_(generalization) {
+
+  }
 
   inline int32 PdfId() {
     return pdf_id_;
   }
 
+  inline bool IsRoot() {
+    return event_type_[0].second == kNoPdf;
+  }
 
   inline bool IsLeaf() {
     return specializations_.size() == 0;
   }
+
+  inline bool IsVirtual() {
+    return pdf_id_ == kNoPdf;
+  }
+
+  inline void SetPdfId(int32 pdf_id) {
+    pdf_id_ = pdf_id;
+  }
+
+  /// Read TopoTree object from disk;  throws on error
+  void Read (std::istream &is, bool binary);
+
+  /// Write TopoTree object to disk;  throws error
+  void Write (std::ostream &os, bool binary) const;
 
  protected:
   /// Corresponding EventType, may be RootEventType.
@@ -277,30 +300,12 @@ class TopoNode {
   // make sure the TopoTree can assign pdf ids etc.
   friend class TopoTree;
   friend class TopoNodeComparison;
+  friend bool operator==(const TopoNode &lhs, const TopoNode& rhs);
 };
 
-/**
- * This TopoNode additionally holds traditional tree stats in form of
- * GaussClusterable instances.
- */
-class TopoNodeWithStats : public TopoNode {
- public:
-  TopoNodeWithStats(const EventType &event_type, TopoNode *generalization, GaussClusterable *stats):
-    TopoNode(event_type, generalization), stats_(stats) {
-
-  }
-
-  TopoNodeWithStats(const EventType &event_type, GaussClusterable *stats) {
-    TopoNodeWithStats(event_type, NULL, stats);
-  }
-
- private:
-  GaussClusterable *stats_;
-
-
- protected:
-  TopoNodeWithStats() { }
-};
+inline bool operator==(const TopoNode& lhs, const TopoNode& rhs) {
+  return lhs.event_type_ == rhs.event_type_;
+}
 
 
 /**
@@ -326,25 +331,28 @@ class TopoTree : public ContextDependencyInterface {
    */
   virtual TopoNode *Compute(const EventType &event_type) const;
 
+  /**
+   * Get the number of non-virtual tree nodes, which is resembles the actual
+   * states.
+   */
   virtual int32 NumPdfs() const {
-    // TODO determine the number of non-virtual nodes
-    return 0;
+    return num_pdfs_;
   }
 
   // Constructor takes ownership of pointers.
   TopoTree(int32 N, int32 P, std::map<EventValueType, TopoNode *> roots):
-    N_(N), P_(P), roots_(roots) {
+    N_(N), P_(P), num_pdfs_(0), roots_(roots) {
 
   }
 
   TopoTree(int32 N, int32 P):
-    N_(N), P_(P) {
+    N_(N), P_(P), num_pdfs_(0) {
 
   }
 
   // Constructor with no arguments; will normally be called
   // prior to Read()
-  TopoTree(): N_(0), P_(0) {
+  TopoTree(): N_(0), P_(0), num_pdfs_(0) {
 
   }
 
@@ -353,11 +361,7 @@ class TopoTree : public ContextDependencyInterface {
   }
 
   virtual ~TopoTree() {
-    for (std::map<EventValueType, TopoNode *>::iterator it = roots_.begin();
-        it != roots_.end(); it++) {
-      it->second->Clear();
-      delete it->second;
-    }
+    Clear();
   }
 
   /// Read TopoTree object from disk;  throws on error
@@ -372,14 +376,52 @@ class TopoTree : public ContextDependencyInterface {
   TopoNode *FindSpecialization(const TopoNode *node, const EventType &event_type) const;
 
   /**
-   * Insert a new TopoNode to the tree.  Returns false if the node already existed.
+   * Insert a new EventType to the tree.  Returns false if the node already existed.
    */
-  bool Insert(TopoNode *node);
+  bool Insert(const EventType &event_type);
+
+  /**
+   * Remove a certain EventType from the tree.  This is not equal to Virtualize.
+   */
+  bool Remove(const EventType &event_type);
+
+  /**
+   * Make a certain EventType virtual.  This is not equal to Remove.
+   */
+  bool Virtualize(const EventType &event_type);
+
+  /**
+   * Query the given node for a TopoNode that matches the given EventType.
+   * @return Matching node, or NULL on failure.
+   */
+  virtual TopoNode *Compute(TopoNode *node, const EventType &event_type) const;
 
   /**
    * Print the TopoTree;  this is a bit more readable than Write(std::cout)
    */
   void Print(std::ostream &out);
+
+  /**
+   * Populate all non-virtual nodes with a PdfId
+   */
+  int32 Populate();
+
+  /**
+   * Fill the tree with all intermediate phones in context given the leaves, e.g.
+   * /a/ -> xx/a/xx will be filled with /a/ -> x/a/ -> x/a/x -> ...
+   */
+  void Fill();
+
+  /**
+   * Clear all elements of the tree.
+   */
+  void Clear() {
+    for (std::map<EventValueType, TopoNode *>::iterator it = roots_.begin();
+        it != roots_.end(); it++) {
+      it->second->Clear();
+      delete it->second;
+    }
+  }
 
  private:
   /**
@@ -392,6 +434,9 @@ class TopoTree : public ContextDependencyInterface {
 
   /// Center of phonetic context window
   int32 P_;
+
+  /// Number of Pdfs in this tree (0 if not populated).
+  int32 num_pdfs_;
 
   /// Map of RootEventType to TopoNode
   std::map<EventValueType, TopoNode *> roots_;

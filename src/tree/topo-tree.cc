@@ -25,9 +25,12 @@ namespace kaldi {
 
 std::string EventTypeToString(const EventType &e, int32 P) {
   std::stringstream ss;
+  ss << "[ ";
   for (int32 i = 1; i < e.size(); ++i) {
-    if (e[i].second == 0)
+    if (e[i].second == 0) {
+      ss << "- ";
       continue;
+    }
 
     if (i == P+1) {
       ss << "/" << e[i].second << " ";
@@ -40,6 +43,13 @@ std::string EventTypeToString(const EventType &e, int32 P) {
     else
       ss << e[i].second << " ";
   }
+  ss << "] ctx=" << EventTypeContextSize(e, P) << " bal=" << EventTypeBalance(e, P);
+
+  if (e[0].second == kNoPdf)
+    ss << " PdfClass=kNoPdf";
+  else
+    ss << " PdfClass=" << e[0].second;
+
   return ss.str();
 }
 
@@ -75,12 +85,36 @@ void TopoNode::Clear() {
 }
 
 
+void TopoNode::Read(std::istream &is, bool binary) {
+  // make sure this node is empty
+  ClearPointers();
+
+  ReadEventType(is, binary, &event_type_);
+  ReadBasicType(is, binary, &pdf_id_);
+  int32 n;
+  ReadBasicType(is, binary, &n);
+  for (int32 i = 0; i < n; ++i) {
+    TopoNode *node = new TopoNode(this);
+    node->Read(is, binary);
+    specializations_.push_back(node);
+  }
+}
+
+
+void TopoNode::Write(std::ostream &os, bool binary) const {
+  WriteEventType(os, binary, event_type_);
+  WriteBasicType(os, binary, pdf_id_);
+  WriteBasicType(os, binary, specializations_.size());
+  for (int32 i = 0; i < specializations_.size(); ++i)
+    specializations_[i]->Write(os, binary);
+}
+
 TopoNode *TopoTree::FindSpecialization(const TopoNode *node, const EventType &event_type) const {
   KALDI_ASSERT(node != NULL);
   KALDI_ASSERT(event_type[0].first == kPdfClass);
 
   for (int32 i = 0; i < node->specializations_.size(); ++i) {
-    if (EventTypeComparison(node->specializations_[i]->event_type_, event_type, P_).Fits())
+    if (EventTypeComparison(event_type, node->specializations_[i]->event_type_, P_).Fits())
       return node->specializations_[i];
   }
 
@@ -99,13 +133,17 @@ TopoNode *TopoTree::Compute(const EventType &event_type) const {
 
   // get the root node, search from there
   // should be TopoNode *boot = roots_[phone]; but that doesn't compile. (???)
-  TopoNode *cand = roots_.find(phone)->second;
+   return Compute(roots_.find(phone)->second, event_type);
+}
+
+TopoNode *TopoTree::Compute(TopoNode *root, const EventType &event_type) const {
+  KALDI_ASSERT(event_type.size() == N_ + 1);
+
+  TopoNode *cand = root;
   TopoNode *next = NULL;
 
   // descend down the tree
   while (EventTypeComparison(event_type, cand->event_type_, P_).Fits()) {
-
-    WriteEventType(std::cout, false, cand->event_type_);
 
     // we reached a leaf;  no more descent
     if (cand->IsLeaf())
@@ -154,34 +192,36 @@ bool TopoTree::Compute(const std::vector<int32> &phoneseq, int32 pdf_class,
 }
 
 
-bool TopoTree::Insert(TopoNode *node) {
-  KALDI_ASSERT(node != NULL);
-  KALDI_ASSERT(node->event_type_[0].first == kPdfClass);
+bool TopoTree::Insert(const EventType &event_type) {
+  KALDI_ASSERT(event_type[0].first == kPdfClass);
 
-  EventValueType phone = node->event_type_[P_ + 1].second;
+  EventValueType phone = event_type[P_ + 1].second;
 
   // see if the respective root node exists, create it otherwise
   if (roots_.find(phone) == roots_.end()) {
     EventType root_event;
-    RootEventType(node->event_type_, &root_event, P_);
+    RootEventType(event_type, &root_event, P_);
     roots_.insert(std::pair<EventValueType, TopoNode *>(phone, new TopoNode(root_event)));
   }
 
   // query the topology for te best insert position
-  TopoNode *ins = Compute(node->event_type_);
+  TopoNode *ins = Compute(event_type);
 
   // there must be a hit, initially it will be the RootEventType
   KALDI_ASSERT(ins != NULL);
 
   // we already have a node for this EventType
-  if (node->event_type_ == ins->event_type_)
+  if (event_type == ins->event_type_)
     return false;
 
-  return Insert(ins, node);
+  return Insert(ins, new TopoNode(event_type));
 }
 
 
 bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
+  KALDI_ASSERT(target != NULL);
+  KALDI_ASSERT(node != NULL);
+
   // do the actual insert.
   node->generalization_ = target;
 
@@ -200,16 +240,17 @@ bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
 
     EventTypeComparison comp(node->event_type_, (*it)->event_type_, P_);
     if (comp.IsSpecialization()) {
-      // the node is a specialization of the newly inserted, add it here.
+      // the iterated node is a specialization of the newly inserted, add it here.
       Insert(node, *it);
       erase = true;
     } else if (
-        comp.IsPartialSpecialization() == -1 && comp.IsPartialGeneralization() ==  1 ||
-        comp.IsPartialSpecialization() ==  1 && comp.IsPartialGeneralization() == -1) {
-      // e.g., we inserted x/a/x, and on the same level now is xx/a/
-      // e.g., we inserted x/a/x, and on the same level now is /a/xx
-      // traverse all specializations and add to re-insertion list
+        (comp.IsPartialSpecialization() == -1 && comp.IsPartialGeneralization() ==  1) ||
+        (comp.IsPartialSpecialization() ==  1 && comp.IsPartialGeneralization() == -1)) {
+      // e.g., we inserted x/a/x, and on the same level now is  xx/a/
+      // e.g., we inserted x/a/x, and on the same level now is    /a/xx
+      // traverse all its specializations and add them to re-insertion list
       (*it)->TraverseSpecializations(reinsert);
+      (*it)->specializations_.clear();
     }
 
     // see if we had to erase the node.
@@ -225,9 +266,6 @@ bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
 
   // re-insert each of the nodes to make sure the tree is in consistent shape.
   if (reinsert.size() > 0) {
-    KALDI_ASSERT(target->generalization_ != NULL);
-
-    //
     std::sort(reinsert.begin(), reinsert.end(), TopoNodeComparison(P_));
     for (std::vector<TopoNode *>::iterator it = reinsert.begin();
         it != reinsert.end(); it++) {
@@ -235,7 +273,8 @@ bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
       // make sure to clear all pointer before inserting
       (*it)->ClearPointers();
 
-      Insert(target->generalization_, *it);
+      // find the right node to insert
+      Insert(Compute(target, (*it)->event_type_), *it);
     }
   }
 
@@ -243,13 +282,142 @@ bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
 }
 
 
+bool TopoTree::Remove(const EventType &event_type) {
+  TopoNode *n = Compute(event_type);
+
+  // see if node exists, can't delete root node
+  if (n == NULL || n->IsRoot())
+    return false;
+
+  TopoNode *g = n->generalization_;
+
+  {
+    std::vector<TopoNode *>::iterator it = std::find(g->specializations_.begin(), g->specializations_.end(), n);
+
+    // the pointer must be found.
+    KALDI_ASSERT(it != g->specializations_.end());
+
+    g->specializations_.erase(it);
+  }
+
+  // if this node had specializations, traverse them and insert them at g
+  if (n->specializations_.size() > 0) {
+    std::vector<TopoNode *> leaves;
+    n->TraverseSpecializations(leaves);
+
+    for (std::vector<TopoNode *>::iterator it = leaves.begin();
+        it != leaves.end(); it++) {
+      // make sure there are no pointers set
+      (*it)->ClearPointers();
+
+      // insert, but start search from g
+      Insert(Compute(g, (*it)->event_type_), *it);
+    }
+  }
+
+  return true;
+}
+
+
+bool TopoTree::Virtualize(const EventType &event_type) {
+  TopoNode *n = Compute(event_type);
+
+  // see if node exists
+  if (n == NULL)
+    return false;
+
+  n->pdf_id_ = kNoPdf;
+
+  return true;
+}
+
+
+int32 TopoTree::Populate() {
+  num_pdfs_ = 0;
+
+  for (std::map<EventValueType, TopoNode *>::iterator mit = roots_.begin();
+      mit != roots_.end(); mit++) {
+
+    // the root node is virtual
+    mit->second->pdf_id_ = kNoPdf;
+
+    std::vector<TopoNode *> leaves;
+    mit->second->TraverseSpecializations(leaves);
+
+    for (std::vector<TopoNode *>::iterator vit = leaves.begin();
+        vit != leaves.end(); vit++) {
+      if (!(*vit)->IsVirtual())
+        (*vit)->pdf_id_ = num_pdfs_++;
+    }
+  }
+
+  return num_pdfs_;
+}
+
+void TopoTree::Fill() {
+  for (std::map<EventValueType, TopoNode *>::iterator it = roots_.begin();
+      it != roots_.end(); it++) {
+    std::vector<TopoNode *> leaves;
+    it->second->TraverseSpecializations(leaves);
+
+    std::vector<TopoNode *>::iterator it = leaves.begin();
+    while (it != leaves.end()) {
+      EventType event_type = (*it)->event_type_, gen;
+
+      // generate all generalizations, cache them to insert them in the inverse
+      // order
+      std::list<EventType> events;
+      while (GeneralizeEventType(event_type, &gen, P_, EventTypeBalance(event_type, P_) < 0)) {
+        events.push_front(gen);
+        event_type = gen;
+      }
+
+      // insert all generalizations in the reverse order (less tree-reorderings)
+      for (std::list<EventType>::iterator ei = events.begin();
+          ei != events.end(); ei++) {
+        Insert(*ei);
+      }
+
+      leaves.erase(it);
+    }
+  }
+}
+
 void TopoTree::Read(std::istream &is, bool binary) {
-  // TODO
+  // make sure the tree is empty
+  if (roots_.size() > 0)
+    Clear();
+
+  ReadBasicType(is, binary, &N_);
+  ReadBasicType(is, binary, &P_);
+  ReadBasicType(is, binary, &num_pdfs_);
+
+  int32 n;
+  ReadBasicType(is, binary, &n);
+
+  for (int32 i = 0; i < n; ++i) {
+    EventValueType phone;
+    ReadBasicType(is, binary, &phone);
+
+    TopoNode *node = new TopoNode(NULL);
+    node->Read(is, binary);
+
+    roots_.insert(std::make_pair(phone, node));
+  }
 }
 
 
 void TopoTree::Write(std::ostream &os, bool binary) const {
-  // TODO
+  WriteBasicType(os, binary, N_);
+  WriteBasicType(os, binary, P_);
+  WriteBasicType(os, binary, num_pdfs_);
+
+  WriteBasicType(os, binary, roots_.size());
+  for (std::map<EventValueType, TopoNode *>::const_iterator it = roots_.begin();
+    it != roots_.end(); it++) {
+    WriteBasicType(os, binary, it->first);
+    it->second->Write(os, binary);
+  }
 }
 
 
@@ -266,18 +434,18 @@ void TopoTree::Print(std::ostream &out) {
 
   // depth first search
   while (agenda.size() > 0) {
-    std::pair<int32, TopoNode *> pair = agenda.back();  agenda.pop_back();
+    std::pair<int32, TopoNode *> pair = agenda.front();  agenda.pop_front();
 
     // print current
     for (int i = 0; i < pair.first; ++i)
-      std::cout << " ";
+      std::cout << "\t";
 
-    std::cout << EventTypeToString(pair.second->event_type_, P_) << std::endl;
+    std::cout << EventTypeToString(pair.second->event_type_, P_) << " PdfId=" << pair.second->pdf_id_ << std::endl;
 
     // add the children
     for (std::vector<TopoNode *>::iterator it = pair.second->specializations_.begin();
         it != pair.second->specializations_.end(); it++)
-      agenda.push_back(std::make_pair(pair.first + 1, *it));
+      agenda.push_front(std::make_pair(pair.first + 1, *it));
   }
 }
 
@@ -452,9 +620,6 @@ int32 EventTypeContextSize(const EventType &event_type, int32 P) {
 
   int32 ctx_size = 0;
   for (int32 i = 1; i < event_type.size(); ++i) {
-    if (i == P + 1)
-      continue;
-
     if (event_type[i].second > 0)
       ctx_size += 1;
   }
