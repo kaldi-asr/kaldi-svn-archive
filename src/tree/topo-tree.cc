@@ -86,6 +86,8 @@ void TopoNode::Clear() {
 
 
 void TopoNode::Read(std::istream &is, bool binary) {
+  ExpectToken(is, binary, "TopoNode");
+
   // make sure this node is empty
   ClearPointers();
 
@@ -102,6 +104,7 @@ void TopoNode::Read(std::istream &is, bool binary) {
 
 
 void TopoNode::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "TopoNode");
   WriteEventType(os, binary, event_type_);
   WriteBasicType(os, binary, pdf_id_);
   WriteBasicType(os, binary, specializations_.size());
@@ -384,6 +387,8 @@ void TopoTree::Fill() {
 }
 
 void TopoTree::Read(std::istream &is, bool binary) {
+  ExpectToken(is, binary, "TopoTree");
+
   // make sure the tree is empty
   if (roots_.size() > 0)
     Clear();
@@ -391,6 +396,8 @@ void TopoTree::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &N_);
   ReadBasicType(is, binary, &P_);
   ReadBasicType(is, binary, &num_pdfs_);
+
+  ExpectToken(is, binary, "Context");
 
   int32 n;
   ReadBasicType(is, binary, &n);
@@ -408,10 +415,12 @@ void TopoTree::Read(std::istream &is, bool binary) {
 
 
 void TopoTree::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "TopoTree");
   WriteBasicType(os, binary, N_);
   WriteBasicType(os, binary, P_);
   WriteBasicType(os, binary, num_pdfs_);
 
+  WriteToken(os, binary, "Context");
   WriteBasicType(os, binary, roots_.size());
   for (std::map<EventValueType, TopoNode *>::const_iterator it = roots_.begin();
     it != roots_.end(); it++) {
@@ -628,10 +637,46 @@ int32 EventTypeContextSize(const EventType &event_type, int32 P) {
 }
 
 
+bool IsContextIndependentEventType(const EventType &event_type) {
+  return event_type.size() == 2;
+}
+
+
+EventType PadCtxIndependentEventType(const EventType &event_type, int32 N, int32 P) {
+  KALDI_ASSERT(event_type[0].first == kPdfClass);
+  KALDI_ASSERT(event_type.size() == 2);
+
+  EventType padded = event_type;
+  // re-position the phone
+  padded[1].first = P;
+
+  // add the remaining variable contexts
+  for (int32 i = 0; i < N; ++i) {
+    if (i == P)
+      continue;
+
+    padded.push_back(std::make_pair(i, 0));
+  }
+
+  // sort!
+  std::sort(padded.begin(), padded.end());
+
+  return padded;
+}
+
 bool TopoNodeComparison::operator() (const TopoNode *a, const TopoNode *b) const {
   KALDI_ASSERT(a != NULL);
   KALDI_ASSERT(b != NULL);
 
+  // easy sort: phones mismatch, do lexical sort for those.
+  if (a->event_type_[P_ + 1] != b->event_type_[P_ + 1])
+    return a->event_type_[P_ + 1].second < b->event_type_[P_ + 1].second;
+
+  // next check pdf class
+  if (a->event_type_[0].second != b->event_type_[0].second)
+    return a->event_type_[0].second < b->event_type_[0].second;
+
+  // now phone and pdf class match, sort by balance and context size.
   int32 bal1 = EventTypeBalance(a->event_type_, P_);
   int32 bal2 = EventTypeBalance(b->event_type_, P_);
 

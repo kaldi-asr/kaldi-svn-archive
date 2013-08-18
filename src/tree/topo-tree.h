@@ -224,18 +224,18 @@ class TopoNodeComparison;
 class TopoNode {
  public:
   TopoNode(const EventType &event_type, TopoNode *generalization):
-    event_type_(event_type), generalization_(generalization) {
+    event_type_(event_type), pdf_id_(kNoPdf), generalization_(generalization) {
 
   }
 
 
   TopoNode(const EventType &event_type):
-    event_type_(event_type), generalization_(NULL) {
+    event_type_(event_type), pdf_id_(kNoPdf), generalization_(NULL) {
 
   }
 
   TopoNode(TopoNode *generalization):
-    generalization_(generalization) {
+    pdf_id_(kNoPdf), generalization_(generalization) {
 
   }
 
@@ -470,6 +470,14 @@ int32 EventTypeBalance(const EventType &event_type, int32 P);
  * Compute the EventType actual context size
  */
 int32 EventTypeContextSize(const EventType &event_type, int32 P);
+
+
+bool IsContextIndependentEventType(const EventType &event_type);
+
+/**
+ * Pad a ctx-independ EventType to the regular context size.
+ */
+EventType PadCtxIndependentEventType(const EventType &event_type, int32 N, int32 P);
 
 /**
  * Sort the specializations by "balance" (len(ctx_right) - len(ctx_left)) and
