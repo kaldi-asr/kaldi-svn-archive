@@ -82,6 +82,8 @@ template<typename Real> class PackedMatrix {
   /// This function takes time proportional to the number of data elements.
   void Resize(MatrixIndexT nRows, MatrixResizeType resize_type = kSetZero);
 
+  void AddToDiag(const Real r); // Adds r to diaginal
+
   void ScaleDiag(const Real alpha);  // Scales diagonal by alpha.
 
   void SetDiag(const Real alpha);  // Sets diagonal to this value.

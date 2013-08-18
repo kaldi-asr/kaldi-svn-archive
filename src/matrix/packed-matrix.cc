@@ -113,6 +113,15 @@ void PackedMatrix<Real>::Resize(MatrixIndexT r, MatrixResizeType resize_type) {
 
 
 template<typename Real>
+void PackedMatrix<Real>::AddToDiag(Real r) {
+  Real *ptr = data_;
+  for (MatrixIndexT i = 2; i <= num_rows_+1; i++) {
+    *ptr += r;
+    ptr += i;
+  }
+}
+
+template<typename Real>
 void PackedMatrix<Real>::ScaleDiag(Real alpha) {
   Real *ptr = data_;
   for (MatrixIndexT i = 2; i <= num_rows_+1; i++) {
@@ -129,6 +138,7 @@ void PackedMatrix<Real>::SetDiag(Real alpha) {
     ptr += i;
   }
 }
+
 
 
 template<typename Real>

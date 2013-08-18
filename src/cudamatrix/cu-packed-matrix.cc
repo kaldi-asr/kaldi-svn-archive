@@ -405,8 +405,11 @@ void CuPackedMatrix<Real>::AddToDiag(Real r) {
     int dimBlock(NumRows());
     cuda_add_diag_packed(dimGrid,dimBlock,data_,r,num_rows_);
     CuDevice::Instantiate().AccuProfile("CuPackedMatrix::AddToDiag", tim.Elapsed());
-  }
+  } else
 #endif
+  {
+    Mat().AddToDiag(r);
+  }
 }
 
 template<typename Real>

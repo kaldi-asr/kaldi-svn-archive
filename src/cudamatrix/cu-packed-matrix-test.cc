@@ -210,12 +210,6 @@ static void UnitTestCuPackedMatrixAddToDiag() {
     B.AddToDiag(value); 
     
     AssertDiagEqual(A, B, value);
-    /*
-    for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
-      KALDI_ASSERT(std::abs((A(i, i)+value) - B(i, i))  
-                   < 0.001 * std::max(1.0, (double) (std::abs(A(i, i)) + std::abs(B(i, i) + value))));
-      }
-    */
   }
 }
 
