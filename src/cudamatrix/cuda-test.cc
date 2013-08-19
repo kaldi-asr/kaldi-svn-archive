@@ -7,6 +7,7 @@
 #include <ctime>
 
 #include "base/kaldi-common.h"
+#include "cudamatrix/cu-device.h"
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-tp-matrix.h"
 #include "cudamatrix/cu-packed-matrix.h"
@@ -376,7 +377,7 @@ template<class Real> static void UnitTestCholesky() {
     KALDI_LOG << B << '\n';
     // doing cholesky
     A.Cholesky();
-    //A.SetZeroUpperDiag();
+
     Matrix<Real> D(dim,dim);
     A.CopyToMat(&D);
     
@@ -384,7 +385,7 @@ template<class Real> static void UnitTestCholesky() {
     Matrix<Real> E(dim,dim);
     E.AddMatMat(1.0, D, kNoTrans, D, kTrans, 0.0);
     // check if the D'D is eaual to B or not!
-    AssertEqual(B,E);
+    AssertEqual(B, E);
   }
 }
 
@@ -437,7 +438,7 @@ template<class Real> static void UnitInvert() {
   A.CopyToMat(&B);
   KALDI_LOG << "B is : " << '\n';
   KALDI_LOG << B << '\n';
-  A.Invert(1.0, tmp);
+  A.InvertPSD();
   Matrix<Real> D(dim,dim);
   A.CopyToMat(&D);
   KALDI_LOG << "D is : " << '\n';
@@ -468,13 +469,15 @@ template<class Real> static void UnitTestInvert() {
       C(i) = i + 1;
     }
     Matrix<Real> Identity(B);
-    B.AddVecVec(1.0,C,C);
-    CuMatrix<Real> tmp(dim,dim);
+    B.AddVecVec(1.0, C, C);
+    // Now we have a positive-definite B (inversion would
+    // fail if it were not positive definite). 
+
     A.CopyFromMat(B);
     KALDI_LOG << "B is " << '\n';
     KALDI_LOG << B << '\n';
     
-    A.Invert(1.0, tmp);
+    A.InvertPSD();
     Matrix<Real> D(dim,dim);
     A.CopyToMat(&D);
     KALDI_LOG << "D is " << '\n';
@@ -503,7 +506,7 @@ template<class Real> static void UnitTestConstructor() {
   //C.CopyFromMat(A,kTakeLower);
   CuSpMatrix<Real> C(A, kTakeLower);
   SpMatrix<Real> D(dim);
-  C.CopyToMat(&D);
+  C.CopyToSp(&D);
   KALDI_LOG << "C is : " << '\n';
   for (MatrixIndexT i = 0; i < dim; i++) {
     for (MatrixIndexT j = 0; j <= i; j++)
@@ -814,10 +817,10 @@ template<class Real> static void UnitTestVector() {
 }
 
 template<class Real>
-static void CuMatrixUnitTest(bool full_test) {
-  /*
+static void CuMatrixUnitTest() {
   UnitTestSimpleTest<Real>();
   UnitTestTrace<Real>();
+  UnitTestCholesky<Real>();
   UnitTestInvert<Real>();
   UnitInvert<Real>();
   UnitTestCopyFromMat<Real>();
@@ -825,25 +828,28 @@ static void CuMatrixUnitTest(bool full_test) {
   UnitTestConstructor<Real>();
   UnitTestVector<Real>();
   UnitTestMatrix<Real>();
-  */
-  if (!CuDevice::Instantiate().DoublePrecisionSupported()) {
-    KALDI_WARN << "Double precision not supported";
-    return;
-  }
-  UnitTestCholesky<Real>();
   UnitTestSetZeroUpperDiag<Real>();
 }
 } //namespace
 
 int main() {
   using namespace kaldi;
-  kaldi::int32 use_gpu_id = -2; // -2 means automatic selection.
 #if HAVE_CUDA == 1
-  CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+  kaldi::int32 use_gpu_id = -2; // -2 means automatic selection.
+  kaldi::CuDevice::Instantiate().SelectGpuId(use_gpu_id);
 #endif
   
-  bool full_test = false;
-  kaldi::CuMatrixUnitTest<double>(full_test);
+  kaldi::CuMatrixUnitTest<float>();
+
+#if HAVE_CUDA == 1
+  if (!kaldi::CuDevice::Instantiate().DoublePrecisionSupported()) {
+    KALDI_WARN << "Double precision not supported, not testing that code";
+  } else
+#endif
+  {
+    kaldi::CuMatrixUnitTest<double>();
+  }
+  
   KALDI_LOG << "Tests succeeded.\n";
   return 0;
 }

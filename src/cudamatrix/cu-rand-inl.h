@@ -17,8 +17,8 @@
 
 
 
-#ifndef KALDI_CUDAMATRIX_CURAND_INL_H_
-#define KALDI_CUDAMATRIX_CURAND_INL_H_
+#ifndef KALDI_CUDAMATRIX_CU_RAND_INL_H_
+#define KALDI_CUDAMATRIX_CU_RAND_INL_H_
 
 #include "base/kaldi-math.h"
 
@@ -43,6 +43,7 @@ void CuRand<Real>::SeedGpu(MatrixIndexT state_size) {
   state_size_ = state_size;
 
   delete[] host_;
+  host_ = NULL;
   host_size_ = 0;
 }
 
@@ -164,15 +165,19 @@ template<typename Real> void CuRand<Real>::BinarizeProbs(const CuMatrix<Real> &p
   if (CuDevice::Instantiate().Enabled()) { 
     Timer tim;
 
-    // possible no-op's...
+    // optionally re-seed the inner state 
+    // (this is done in host, for good performance it is better to avoid re-seeding)
     int32 tgt_size = probs.num_rows_ * probs.stride_;
     if (tgt_size != state_size_) SeedGpu(tgt_size);
 
-    states->Resize(probs.num_rows_, probs.num_cols_);
-    tmp_.Resize(probs.num_rows_, probs.num_cols_);
-
+    // prepare the output matrix
+    if (states != &probs)
+      states->Resize(probs.num_rows_, probs.num_cols_, kUndefined);
+    // prepare the temporary matrix of uniform random numbers (0,1)
+    tmp_.Resize(probs.num_rows_, probs.num_cols_, kUndefined);
     RandUniform(&tmp_);
 
+    // use the uniform random numbers to compute discrete 0/1 states
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(states->num_cols_, CUBLOCK), n_blocks(states->num_rows_, CUBLOCK));
 

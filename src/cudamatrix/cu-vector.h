@@ -18,8 +18,8 @@
 
 
 
-#ifndef KALDI_CUDAMATRIX_CUVECTOR_H_
-#define KALDI_CUDAMATRIX_CUVECTOR_H_
+#ifndef KALDI_CUDAMATRIX_CU_VECTOR_H_
+#define KALDI_CUDAMATRIX_CU_VECTOR_H_
 
 #include "matrix/kaldi-vector.h"
 #include "cudamatrix/cu-common.h"
@@ -193,13 +193,13 @@ class CuVector: public CuVectorBase<Real> {
   ~CuVector() { Destroy(); }
 
   CuVector<Real> &operator = (const CuVectorBase<Real> &other) {
-    Resize(other.Dim());
+    Resize(other.Dim(), kUndefined);
     this->CopyFromVec(other);
     return *this;
   }
 
   CuVector<Real> &operator = (const CuVector<Real> &other) {
-    Resize(other.Dim());
+    Resize(other.Dim(), kUndefined);
     this->CopyFromVec(other);
     return *this;
   }

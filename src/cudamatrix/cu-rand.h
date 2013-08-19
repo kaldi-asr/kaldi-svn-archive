@@ -17,8 +17,8 @@
 
 
 
-#ifndef KALDI_CUDAMATRIX_CURAND_H_
-#define KALDI_CUDAMATRIX_CURAND_H_
+#ifndef KALDI_CUDAMATRIX_CU_RAND_H_
+#define KALDI_CUDAMATRIX_CU_RAND_H_
 
 
 #include "cudamatrix/cu-matrix.h"
@@ -73,7 +73,7 @@ class CuRand {
   uint32 *host_; ///< host bufer, used for initializing
   int32 host_size_; ///< size of the host buffer
 
-  CuMatrix<Real> tmp_;
+  CuMatrix<Real> tmp_; ///< auxiliary matrix
 };
 
 /*

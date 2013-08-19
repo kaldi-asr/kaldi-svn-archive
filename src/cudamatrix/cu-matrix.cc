@@ -1044,7 +1044,7 @@ template<> inline void cublas_trsm<double>(int m, int n, double alpha, const dou
 #endif
 
 template<typename Real>
-void CuMatrixBase<Real>::InvertLowerTriangular(CuMatrix<Real> &A) {
+void CuMatrixBase<Real>::InvertPSD() {
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
@@ -1057,8 +1057,6 @@ void CuMatrixBase<Real>::InvertLowerTriangular(CuMatrix<Real> &A) {
     cuda_set_diag(dimGrid, dimBlock, temp.RowData(0), value, temp.Dim());
     Matrix<Real> A(dim,dim);
     temp.CopyToMat(&A);
-    KALDI_LOG << "the eye matrix is : " << '\n';
-    KALDI_LOG << A << '\n';
     this->Cholesky();
     //CuSpMatrix<Real> L(*this, kTakeLower);
     Real alpha = 1.0;
@@ -1073,8 +1071,15 @@ void CuMatrixBase<Real>::InvertLowerTriangular(CuMatrix<Real> &A) {
     this->AddMatMat(1,L1,kTrans,L1,kNoTrans,0);
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
-  }
+  } else
 #endif
+  {
+    this->Mat().Invert(); // This is inefficient as we don't make
+    // use of the fact that we're symmetric, but anyway if we're not
+    // using CUDA this function typically shouldn't be called, because its
+    // only envisaged usage is to be call from the CUDA version of
+    // CuSpMatrix::Invert().
+  }
 }
 
 

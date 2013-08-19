@@ -79,8 +79,7 @@ class CuSpMatrix : public CuPackedMatrix<Real> {
     return this->data_[(r * (r+1)) / 2 + c];
   }
 
-  void Invert(Real *logdet = NULL, Real *det_sign = NULL,
-              bool inverse_needed = true);
+  void Invert();
 
   void AddVec2(const Real alpha, const CuVectorBase<Real> &v);
 

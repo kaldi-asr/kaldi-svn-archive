@@ -95,6 +95,7 @@ class CuMatrixBase {
   // Copy function.  These do not resize.
   void CopyFromMat(const CuMatrixBase<Real> &src);
   void CopyFromMat(const MatrixBase<Real> &src);
+
   void CopyFromSp(const CuSpMatrix<Real> &M);
 
   template<typename OtherReal>
@@ -142,7 +143,7 @@ class CuMatrixBase {
   
   void Cholesky();
   
-  void InvertLowerTriangular(CuMatrix<Real> &A);
+  void InvertPSD(); // Inversion for positive semi-definite symmetric matrices.
   void ApplyPow(Real power);
   void ApplyFloor(Real floor_val);
   void ApplyExp();
@@ -406,7 +407,7 @@ class CuMatrix: public CuMatrixBase<Real> {
     this->CopyFromMat(other);
     return *this;
   }  
-
+  
   CuMatrix<Real> &operator = (const MatrixBase<Real> &other) {
     this->Resize(other.NumRows(), other.NumCols(), kUndefined);
     this->CopyFromMat(other);

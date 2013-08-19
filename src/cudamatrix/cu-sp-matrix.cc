@@ -58,21 +58,17 @@ void CuSpMatrix<Real>::CopyFromMat(const CuMatrixBase<Real> &M,
 }
 
 template<class Real>
-void CuSpMatrix<Real>::Invert(Real* logdet, Real* det_sign,
-                              bool inverse_needed) {
+void CuSpMatrix<Real>::Invert() {
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
-    Timer tim;
-    SpMatrix<Real> mat(this->num_rows_);
-    this->CopyToSp(&mat);
-    mat.Invert();
-    CopyFromSp(mat);
-    CU_SAFE_CALL(cudaGetLastError());
-    CuDevice::Instantiate().AccuProfile("CuSpMatrix::Invert", tim.Elapsed());
+    CuMatrix<Real> mat(this->num_rows_);
+    mat.CopyFromSp(*this);
+    mat.InvertPSD();
+    this->CopyFromMat(mat);
   } else
 #endif
-  {
-    Mat().Invert(logdet, det_sign, inverse_needed);
+  { // Use inversion of CPU-based SpMatrix.
+    Mat().Invert();
   }
 }
 
