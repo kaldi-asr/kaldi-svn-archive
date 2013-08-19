@@ -64,7 +64,7 @@ void CuTpMatrix<Real>::Invert() {
   } else
 #endif
   {
-    
+    Mat().Invert();
   }
 }
 

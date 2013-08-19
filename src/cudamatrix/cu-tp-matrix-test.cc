@@ -79,17 +79,6 @@ static void AssertEqual(const PackedMatrix<Real> &A,
                    < tol * std::max(1.0, (double) (std::abs(A(i, j)) + std::abs(B(i, j)))));
 }
 
-template<class Real>
-static bool ApproxEqual(const PackedMatrix<Real> &A,
-                        const PackedMatrix<Real> &B, Real tol = 0.001) {
-  KALDI_ASSERT(A.NumRows() == B.NumRows());
-  PackedMatrix<Real> diff(A);
-  diff.AddPacked(1.0, B);
-  Real a = std::max(A.Max(), -A.Min()), b = std::max(B.Max(), -B.Min()),
-      d = std::max(diff.Max(), -diff.Min());
-  return (d <= tol * std::max(a, b));
-}
-
 /*
  * Unit Tests
  */
@@ -102,10 +91,10 @@ static void UnitTestCuTpMatrixInvert() {
     A.SetRandn();
     CuTpMatrix<Real> B(A);
     
-    AssertEqual<Real>(A, B);
+    AssertEqual<Real>(A, B, 0.005);
     A.Invert();
     B.Invert();
-    AssertEqual<Real>(A, B);
+    AssertEqual<Real>(A, B, 0.005);
   }
 }
 
