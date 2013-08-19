@@ -36,8 +36,11 @@ TopoTree *BuildTopoTree(const BuildTreeStatsType &stats, int32 N, int32 P) {
 
     EventType event_type((*it).first);
 
-    if (IsContextIndependentEventType(event_type))
-      event_type = PadCtxIndependentEventType(event_type, N, P);
+    // context-free phones
+    if (event_type.size() == 2) {
+      event_type[1].first = P;
+      event_type = InflateEventType(event_type, N);
+    }
 
     tree->Insert(event_type);
   }

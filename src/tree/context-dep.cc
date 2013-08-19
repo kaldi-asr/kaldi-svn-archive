@@ -18,6 +18,7 @@
 #include "tree/context-dep.h"
 #include "base/kaldi-math.h"
 #include "tree/build-tree.h"
+#include "tree/topo-tree.h"
 
 namespace kaldi {
 
@@ -172,6 +173,12 @@ void ContextDependency::Read (std::istream &is, bool binary) {
   to_pdf_ = to_pdf;
 }
 
+ContextDependencyInterface *ContextDependency::ReadInstance(std::istream &is, bool binary) {
+  ContextDependency *ctx_dep = new ContextDependency();
+  ctx_dep->Read(is, binary);
+  return ctx_dep;
+}
+
 void ContextDependency::GetPdfInfo(const std::vector<int32> &phones,
                                    const std::vector<int32> &num_pdf_classes,  // indexed by phone,
                                    std::vector<std::vector<std::pair<int32, int32> > > *pdf_info) const {  
@@ -237,6 +244,25 @@ MonophoneContextDependencyShared(const std::vector<std::vector<int32> > phone_se
 }
 
 
+ContextDependencyInterface *ReadContextDependencyInterface(std::istream &is, bool binary) {
+  int t = PeekToken(is, binary);
+
+  ContextDependencyInterface *ctx_dep = NULL;
+
+  switch (t) {
+    case 'C': // ContextDependency
+      ctx_dep = ContextDependency::ReadInstance(is, binary);
+      break;
+    case 'T':
+      ctx_dep = TopoTree::ReadInstance(is, binary);
+      break;
+    default:
+      KALDI_ERR << "Got unexpected token beginning with " << t
+                << " reading ContextDependencyInterface object.";
+  }
+
+  return ctx_dep;
+}
 
 
 

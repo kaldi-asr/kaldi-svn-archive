@@ -53,7 +53,7 @@ std::string EventTypeToString(const EventType &e, int32 P) {
   return ss.str();
 }
 
-int32 TopoNode::TraverseSpecializations(std::vector<TopoNode *> &node_list) {
+int32 TopoNode::TraverseSpecializations(std::vector<TopoNode *> *node_list) {
   std::list<TopoNode *> agenda;
   agenda.push_back(this);
 
@@ -63,12 +63,12 @@ int32 TopoNode::TraverseSpecializations(std::vector<TopoNode *> &node_list) {
 
     for (std::vector<TopoNode *>::iterator it = n->specializations_.begin();
         it != n->specializations_.end(); ++it) {
-      node_list.push_back(*it);
+      node_list->push_back(*it);
       agenda.push_back(*it);
     }
   }
 
-  return node_list.size();
+  return node_list->size();
 }
 
 
@@ -86,7 +86,7 @@ void TopoNode::Clear() {
 
 
 void TopoNode::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "TopoNode");
+  ExpectToken(is, binary, "TN");
 
   // make sure this node is empty
   ClearPointers();
@@ -103,14 +103,51 @@ void TopoNode::Read(std::istream &is, bool binary) {
 }
 
 
+void TopoNode::ReadCompressed(std::istream &is, bool binary, int32 N) {
+  ExpectToken(is, binary, "TN");
+
+  // make sure this node is empty
+  ClearPointers();
+
+  EventType infl;
+  ReadEventType(is, binary, &infl);
+  event_type_ = InflateEventType(infl, N);
+
+  ReadBasicType(is, binary, &pdf_id_);
+
+  int32 n;
+  ReadBasicType(is, binary, &n);
+  for (int32 i = 0; i < n; ++i) {
+    TopoNode *node = new TopoNode(this);
+    node->ReadCompressed(is, binary, N);
+    specializations_.push_back(node);
+  }
+}
+
+
 void TopoNode::Write(std::ostream &os, bool binary) const {
-  WriteToken(os, binary, "TopoNode");
+  WriteToken(os, binary, "TN");
   WriteEventType(os, binary, event_type_);
   WriteBasicType(os, binary, pdf_id_);
   WriteBasicType(os, binary, specializations_.size());
   for (int32 i = 0; i < specializations_.size(); ++i)
     specializations_[i]->Write(os, binary);
 }
+
+
+void TopoNode::WriteCompressed(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "TN");
+
+  // compress EventType
+  EventType comp = CompressEventType(event_type_);
+  WriteEventType(os, binary, comp);
+
+  WriteBasicType(os, binary, pdf_id_);
+  WriteBasicType(os, binary, specializations_.size());
+  for (int32 i = 0; i < specializations_.size(); ++i)
+    specializations_[i]->WriteCompressed(os, binary);
+}
+
 
 TopoNode *TopoTree::FindSpecialization(const TopoNode *node, const EventType &event_type) const {
   KALDI_ASSERT(node != NULL);
@@ -252,7 +289,7 @@ bool TopoTree::Insert(TopoNode *target, TopoNode *node) {
       // e.g., we inserted x/a/x, and on the same level now is  xx/a/
       // e.g., we inserted x/a/x, and on the same level now is    /a/xx
       // traverse all its specializations and add them to re-insertion list
-      (*it)->TraverseSpecializations(reinsert);
+      (*it)->TraverseSpecializations(&reinsert);
       (*it)->specializations_.clear();
     }
 
@@ -306,7 +343,7 @@ bool TopoTree::Remove(const EventType &event_type) {
   // if this node had specializations, traverse them and insert them at g
   if (n->specializations_.size() > 0) {
     std::vector<TopoNode *> leaves;
-    n->TraverseSpecializations(leaves);
+    n->TraverseSpecializations(&leaves);
 
     for (std::vector<TopoNode *>::iterator it = leaves.begin();
         it != leaves.end(); it++) {
@@ -341,11 +378,10 @@ int32 TopoTree::Populate() {
   for (std::map<EventValueType, TopoNode *>::iterator mit = roots_.begin();
       mit != roots_.end(); mit++) {
 
-    // the root node is virtual
-    mit->second->pdf_id_ = kNoPdf;
-
     std::vector<TopoNode *> leaves;
-    mit->second->TraverseSpecializations(leaves);
+    leaves.push_back((*mit).second);
+
+    mit->second->TraverseSpecializations(&leaves);
 
     for (std::vector<TopoNode *>::iterator vit = leaves.begin();
         vit != leaves.end(); vit++) {
@@ -361,7 +397,7 @@ void TopoTree::Fill() {
   for (std::map<EventValueType, TopoNode *>::iterator it = roots_.begin();
       it != roots_.end(); it++) {
     std::vector<TopoNode *> leaves;
-    it->second->TraverseSpecializations(leaves);
+    it->second->TraverseSpecializations(&leaves);
 
     std::vector<TopoNode *>::iterator it = leaves.begin();
     while (it != leaves.end()) {
@@ -387,7 +423,7 @@ void TopoTree::Fill() {
 }
 
 void TopoTree::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "TopoTree");
+  ExpectToken(is, binary, "TokenTree");
 
   // make sure the tree is empty
   if (roots_.size() > 0)
@@ -397,8 +433,6 @@ void TopoTree::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &P_);
   ReadBasicType(is, binary, &num_pdfs_);
 
-  ExpectToken(is, binary, "Context");
-
   int32 n;
   ReadBasicType(is, binary, &n);
 
@@ -407,26 +441,37 @@ void TopoTree::Read(std::istream &is, bool binary) {
     ReadBasicType(is, binary, &phone);
 
     TopoNode *node = new TopoNode(NULL);
-    node->Read(is, binary);
+    node->ReadCompressed(is, binary, N_);
 
     roots_.insert(std::make_pair(phone, node));
   }
+
+  ExpectToken(is, binary, "EndTokenTree");
+}
+
+
+ContextDependencyInterface *TopoTree::ReadInstance(std::istream &is, bool binary) {
+  TopoTree *tree = new TopoTree();
+  tree->Read(is, binary);
+
+  return tree;
 }
 
 
 void TopoTree::Write(std::ostream &os, bool binary) const {
-  WriteToken(os, binary, "TopoTree");
+  WriteToken(os, binary, "TokenTree");
   WriteBasicType(os, binary, N_);
   WriteBasicType(os, binary, P_);
   WriteBasicType(os, binary, num_pdfs_);
 
-  WriteToken(os, binary, "Context");
   WriteBasicType(os, binary, roots_.size());
   for (std::map<EventValueType, TopoNode *>::const_iterator it = roots_.begin();
     it != roots_.end(); it++) {
     WriteBasicType(os, binary, it->first);
-    it->second->Write(os, binary);
+    it->second->WriteCompressed(os, binary);
   }
+
+  WriteToken(os, binary, "EndTokenTree");
 }
 
 
@@ -456,6 +501,51 @@ void TopoTree::Print(std::ostream &out) {
         it != pair.second->specializations_.end(); it++)
       agenda.push_front(std::make_pair(pair.first + 1, *it));
   }
+}
+
+
+void TopoTree::GetPdfInfo(const std::vector<int32> &phones,
+                          const std::vector<int32> &num_pdf_classes,
+                          std::vector<std::vector<std::pair<int32, int32> > > *pdf_info) const {
+
+  // make sure the tree is populated
+  KALDI_ASSERT(roots_.size() > 0 && num_pdfs_ > 0);
+  KALDI_ASSERT(pdf_info != NULL);
+
+  pdf_info->clear();
+  pdf_info->resize(num_pdfs_);
+
+  // traverse all non-virtual nodes
+  for (std::map<EventValueType, TopoNode *>::const_iterator it = roots_.begin();
+      it != roots_.end(); it++) {
+
+    EventValueType phone = it->first;
+    TopoNode *root = it->second;
+
+    std::vector<TopoNode *> node_list;
+    root->TraverseSpecializations(&node_list);
+
+    // root node may be non-virtual
+    node_list.push_back(root);
+
+    for (std::vector<TopoNode *>::iterator ni = node_list.begin();
+        ni != node_list.end(); ni++) {
+      TopoNode *n = *ni;
+      if (!n->IsVirtual()) {
+        (*pdf_info)[n->pdf_id_].push_back(std::make_pair(phone, n->event_type_[0].second));
+      }
+    }
+  }
+
+  // sort+unique each of the pdf_info elements (in case of state-tying).
+  for (std::vector<std::vector<std::pair<int32, int32> > >::iterator it = (*pdf_info).begin();
+      it != (*pdf_info).end(); it++) {
+    if ((*it).size() > 1) {
+      std::sort((*it).begin(), (*it).end());
+      std::unique((*it).begin(), (*it).end());
+    }
+  }
+
 }
 
 
@@ -637,31 +727,52 @@ int32 EventTypeContextSize(const EventType &event_type, int32 P) {
 }
 
 
-bool IsContextIndependentEventType(const EventType &event_type) {
-  return event_type.size() == 2;
+EventType CompressEventType(const EventType &event_type) {
+  EventType comp;
+
+  for (EventType::const_iterator it = event_type.begin(); it != event_type.end(); it++) {
+    if ((*it).first == kPdfClass) {
+      // ignore the pair if it's kNoPdf
+      if ((*it).second != kNoPdf)
+        comp.push_back(*it);
+    } else if ((*it).second != 0) {
+      // only keep the pair if it is a non-boundary phone
+      comp.push_back(*it);
+    }
+  }
+
+  std::sort(comp.begin(), comp.end());
+
+  return comp;
 }
 
 
-EventType PadCtxIndependentEventType(const EventType &event_type, int32 N, int32 P) {
-  KALDI_ASSERT(event_type[0].first == kPdfClass);
-  KALDI_ASSERT(event_type.size() == 2);
+EventType InflateEventType(const EventType &event_type, int32 N) {
+  KALDI_ASSERT(event_type.size() > 0);
+  KALDI_ASSERT(N > 0);
 
-  EventType padded = event_type;
-  // re-position the phone
-  padded[1].first = P;
+  EventType infl(event_type);
 
-  // add the remaining variable contexts
-  for (int32 i = 0; i < N; ++i) {
-    if (i == P)
-      continue;
+  // make sure vector is sorted
+  std::sort(infl.begin(), infl.end());
 
-    padded.push_back(std::make_pair(i, 0));
+  // add kPdfClass, if missing
+  if (infl[0].first != kPdfClass)
+    infl.insert(infl.begin(), std::make_pair(kPdfClass, kNoPdf));
+
+  // now pad the context
+  EventType::iterator it = infl.begin() + 1;
+  int32 i = 0;
+  while (infl.size() != N + 1) {
+    if ((*it).first != i) {
+      it = infl.insert(it, std::make_pair(i, 0));
+    }
+    i++;
+    it++;
   }
 
-  // sort!
-  std::sort(padded.begin(), padded.end());
-
-  return padded;
+  // the result is sorted by construction.
+  return infl;
 }
 
 bool TopoNodeComparison::operator() (const TopoNode *a, const TopoNode *b) const {

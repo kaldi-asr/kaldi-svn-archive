@@ -262,8 +262,12 @@ class TopoNode {
   /// Read TopoTree object from disk;  throws on error
   void Read (std::istream &is, bool binary);
 
+  void ReadCompressed(std::istream &is, bool binary, int32 N);
+
   /// Write TopoTree object to disk;  throws error
   void Write (std::ostream &os, bool binary) const;
+
+  void WriteCompressed(std::ostream &os, bool binary) const;
 
  protected:
   /// Corresponding EventType, may be RootEventType.
@@ -278,7 +282,7 @@ class TopoNode {
   /**
    * Get a list of all specializations below this node.  Iterative traversal.
    */
-  int32 TraverseSpecializations(std::vector<TopoNode *> &node_list);
+  int32 TraverseSpecializations(std::vector<TopoNode *> *node_list);
 
   /**
    * Clear and delete all specializations;  recursive call.
@@ -339,6 +343,15 @@ class TopoTree : public ContextDependencyInterface {
     return num_pdfs_;
   }
 
+  /**
+   * GetPdfInfo returns a vector indexed by pdf-id, saying for each pdf which
+   * pairs of (phone, pdf-class) it can correspond to.  (Usually just one).
+   * c.f. hmm/hmm-topology.h for meaning of pdf-class.
+   */
+  void GetPdfInfo(const std::vector<int32> &phones,  // list of phones
+                  const std::vector<int32> &num_pdf_classes,  // indexed by phone,
+                  std::vector<std::vector<std::pair<int32, int32> > > *pdf_info) const;
+
   // Constructor takes ownership of pointers.
   TopoTree(int32 N, int32 P, std::map<EventValueType, TopoNode *> roots):
     N_(N), P_(P), num_pdfs_(0), roots_(roots) {
@@ -367,6 +380,8 @@ class TopoTree : public ContextDependencyInterface {
   /// Read TopoTree object from disk;  throws on error
   void Read (std::istream &is, bool binary);
 
+  static ContextDependencyInterface *ReadInstance(std::istream &is, bool binary);
+
   /// Write TopoTree object to disk;  throws error
   void Write (std::ostream &os, bool binary) const;
 
@@ -391,18 +406,12 @@ class TopoTree : public ContextDependencyInterface {
   bool Virtualize(const EventType &event_type);
 
   /**
-   * Query the given node for a TopoNode that matches the given EventType.
-   * @return Matching node, or NULL on failure.
-   */
-  virtual TopoNode *Compute(TopoNode *node, const EventType &event_type) const;
-
-  /**
-   * Print the TopoTree;  this is a bit more readable than Write(std::cout)
+   * Print the TopoTree;  this is a bit more readable than Write(std::cout, false)
    */
   void Print(std::ostream &out);
 
   /**
-   * Populate all non-virtual nodes with a PdfId
+   * Populate all non-virtual (pdf_id_ != kNoPdf) with PdfIds.
    */
   int32 Populate();
 
@@ -423,11 +432,25 @@ class TopoTree : public ContextDependencyInterface {
     }
   }
 
+  void VirtualizeRootNodes() {
+    for (std::map<EventValueType, TopoNode *>::iterator it = roots_.begin();
+        it != roots_.end(); it++) {
+      it->second->SetPdfId(kNoPdf);
+      delete it->second;
+    }
+  }
+
  private:
   /**
    * Insert a TopoNode to the given TopoNode.  Returns false if the node already existed.
    */
   bool Insert(TopoNode *target, TopoNode *node);
+
+  /**
+   * Query the given node for a TopoNode that matches the given EventType.
+   * @return Matching node, or NULL on failure.
+   */
+  virtual TopoNode *Compute(TopoNode *node, const EventType &event_type) const;
 
   /// Acoustic context size
   int32 N_;
@@ -472,12 +495,17 @@ int32 EventTypeBalance(const EventType &event_type, int32 P);
 int32 EventTypeContextSize(const EventType &event_type, int32 P);
 
 
-bool IsContextIndependentEventType(const EventType &event_type);
+/**
+ * Compress an EventType to only contain non-boundary phones and pdf classes
+ * different from kNoPdf
+ */
+EventType CompressEventType(const EventType &event_type);
 
 /**
- * Pad a ctx-independ EventType to the regular context size.
+ * Inflate a compressed EventType by adding the pdf_class=kNoPdf (if applicable)
+ * and the boundary phones.
  */
-EventType PadCtxIndependentEventType(const EventType &event_type, int32 N, int32 P);
+EventType InflateEventType(const EventType &event_type, int32 N);
 
 /**
  * Sort the specializations by "balance" (len(ctx_right) - len(ctx_left)) and

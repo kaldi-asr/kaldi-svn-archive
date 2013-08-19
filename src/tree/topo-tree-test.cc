@@ -55,6 +55,36 @@ void TestRootEventType() {
   KALDI_ASSERT(e2[0].second == kNoPdf);
 }
 
+void TestCompression() {
+  cout << "TestCompression:" << endl;
+
+  EventValueType phoneseqs[][5] = {
+      { 0, 0, 2, 0, 0 }, //    /a/x
+      { 0, 1, 2, 0, 0 }, //  xx/a/
+      { 0, 0, 2, 1, 0 }, //   x/a/
+      { 0, 1, 2, 1, 0 }, //   x/a/x
+      { 1, 1, 2, 1, 1 }
+  };
+
+  int32 N = 5;
+
+  EventType ev[] = {
+      make_event(0, N, phoneseqs[0]),
+      make_event(0, N, phoneseqs[1]),
+      make_event(0, N, phoneseqs[2]),
+      make_event(0, N, phoneseqs[3]),
+      make_event(kNoPdf, N, phoneseqs[4])
+  };
+
+  for (int i = 0; i < 5; ++i) {
+    EventType comp = CompressEventType(ev[i]);
+    EventType infl = InflateEventType(comp, 5);
+
+    cout << "orig: " << EventTypeToString(ev[i], 2) << endl;
+    cout << "comp: " << EventTypeToString(comp) << endl;
+    cout << "infl: " << EventTypeToString(infl, 2) << endl << endl;
+  }
+}
 
 void TestGeneralization() {
   cout << "TestGeneralization:" << endl;
@@ -177,13 +207,34 @@ void TestTree() {
   tree.Fill();
   tree.Print(cout);
 
+  cout << "Removing: " << EventTypeToString(ev[2], P) << endl;
+  tree.Remove(ev[2]);
+  tree.Print(cout);
+
+  cout << "Manifesting states..." << endl;
+  for (int i = 0; i < 5; ++i)
+    tree.Compute(ev[i])->SetPdfId(0);
+
   cout << "Populating" << endl;
   cout << "num_pdfs = " << tree.Populate() << endl;
   tree.Print(cout);
 
-  cout << "Removing: " << EventTypeToString(ev[2], P) << endl;
-  tree.Remove(ev[2]);
-  tree.Print(cout);
+  vector<int32> phones; phones.push_back(0);
+  vector<int32> pdf_classes; pdf_classes.push_back(0);
+
+  vector<vector<pair<EventKeyType, EventValueType> > > pdf_info;
+  tree.GetPdfInfo(phones, pdf_classes, &pdf_info);
+
+  int32 i = 0;
+  for (vector<vector<pair<EventKeyType, EventValueType> > >::iterator it = pdf_info.begin();
+      it != pdf_info.end(); it++) {
+    cout << i << ": ";
+    for (vector<pair<EventKeyType, EventValueType> >::iterator ci = (*it).begin();
+        ci != (*it).end(); ci++)
+      cout << (*ci).first << " " << (*ci).second << " ";
+    cout << endl;
+    i++;
+  }
 
 
   // Test IO
@@ -201,6 +252,7 @@ void TestTree() {
 int main(int argc, char **argv) {
 
   TestRootEventType();
+  TestCompression();
   TestGeneralization();
   TestTree();
 
