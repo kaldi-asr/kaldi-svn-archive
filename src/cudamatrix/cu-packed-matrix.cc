@@ -408,7 +408,8 @@ void CuPackedMatrix<Real>::AddToDiag(Real r) {
   } else
 #endif
   {
-    Mat().AddToDiag(r);
+    // TODO
+    //Mat().AddToDiag(r);
   }
 }
 

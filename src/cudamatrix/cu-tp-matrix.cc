@@ -93,6 +93,7 @@ void CuTpMatrix<Real>::CopyFromMat(CuMatrixBase<Real> &M,
   }
 }
 
+
 template class CuTpMatrix<float>;
 template class CuTpMatrix<double>;
 

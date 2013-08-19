@@ -88,10 +88,10 @@ class CuDevice {
   void SelectGpuIdAuto();
   
   /// Should only be called if Enabled() == true. 
-  //int32 MajorDeviceVersion();
+  int32 MajorDeviceVersion();
 
   /// Should only be called if Enabled() == true. 
-  //int32 MinorDeviceVersion();
+  int32 MinorDeviceVersion();
 
   std::map<std::string, double> profile_map_;
   

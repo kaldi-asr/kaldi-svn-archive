@@ -61,7 +61,7 @@ template<class Real>
 void CuSpMatrix<Real>::Invert() {
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
-    CuMatrix<Real> mat(this->num_rows_);
+    CuMatrix<Real> mat(this->num_rows_, this->num_rows_);
     mat.CopyFromSp(*this);
     mat.InvertPSD();
     this->CopyFromMat(mat);

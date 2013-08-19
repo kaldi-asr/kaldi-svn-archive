@@ -109,9 +109,26 @@ static void UnitTestCuTpMatrixInvert() {
   }
 }
 
+template<class Real>
+static void UnitTestCuTpMatrixCopyFromTp() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim = 5 * i + rand() % 10;
+    
+    TpMatrix<Real> A(dim);
+    A.SetRandn();
+    CuTpMatrix<Real> B(dim);
+    B.CopyFromTp(A);
+    CuTpMatrix<Real> C(dim);
+    C.CopyFromTp(B);
+    
+    AssertEqual<Real>(A, B);
+    AssertEqual<Real>(B, C);
+  }
+}
 
 template<class Real> void CudaTpMatrixUnitTest() {
   UnitTestCuTpMatrixInvert<Real>();
+  UnitTestCuTpMatrixCopyFromTp<Real>();
 }
 
 } // namespace kaldi
