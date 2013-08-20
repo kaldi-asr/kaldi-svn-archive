@@ -115,6 +115,26 @@ static void UnitTestCuTpMatrixCopyFromTp() {
   }
 }
 
+template<class Real>
+static void UnitTestCuTpMatrixCholesky() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim = 5 * i + rand() % 10;
+    
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    CuSpMatrix<Real> B(A);
+
+    TpMatrix<Real> C(dim);
+    C.SetRandn();
+    CuTpMatrix<Real> D(C);
+    C.Cholesky(A);
+    D.Cholesky(B);
+    
+    AssertEqual<Real>(C, D);
+  }
+}
+
+
 template<class Real> void CudaTpMatrixUnitTest() {
   UnitTestCuTpMatrixInvert<Real>();
   UnitTestCuTpMatrixCopyFromTp<Real>();
