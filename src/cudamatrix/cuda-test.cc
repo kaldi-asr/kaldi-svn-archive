@@ -384,7 +384,7 @@ template<class Real> static void UnitTestCholesky() {
     KALDI_LOG << "D is: " << D << '\n';
     Matrix<Real> E(dim,dim);
     E.AddMatMat(1.0, D, kNoTrans, D, kTrans, 0.0);
-    // check if the D'D is eaual to B or not!
+    // check if the D'D is equal to B or not!
     AssertEqual(B, E);
   }
 }

@@ -740,6 +740,7 @@ template<class Real> void CudaMatrixUnitTest() {
   UnitTestCuVectorAddColSumMatLarge<Real>();
   UnitTestCuVectorInvertElements<Real>();
 
+
   UnitTestCuSigmoid<Real>();
   UnitTestCuDiffSigmoid<Real>();
   UnitTestCuFindRowMaxId<Real>();

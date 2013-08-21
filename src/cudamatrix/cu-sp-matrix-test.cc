@@ -107,18 +107,26 @@ static void UnitTestCuSpMatrixOperator() {
 template<class Real>
 static void UnitTestCuSpMatrixInvert() {
   for (MatrixIndexT i = 1; i < 10; i++) {
-    MatrixIndexT dim = 10 * i;
+    MatrixIndexT dim = 10*i;
     SpMatrix<Real> A(dim);
     A.SetRandn();
     CuSpMatrix<Real> B(A);
+    
+    Matrix<Real> D(A);
+    A.AddMat2(1.0, D, kTrans, 1.0);
+    A.AddToDiag(i);
 
+    CuMatrix<Real> C(B);
+    B.AddMat2(1.0, C, kTrans, 1.0);
+    B.AddToDiag(i);
+    
     A.Invert();
     B.Invert();
-
-    SpMatrix<Real> C(dim);
-    B.CopyToSp(&C);
-
-    AssertEqual(A, C);    
+    
+    SpMatrix<Real> E(dim);
+    B.CopyToSp(&E);
+    
+    AssertEqual(A, E);    
   }
 }
 
@@ -197,18 +205,18 @@ static void UnitTestCuSpMatrixAddSp() {
   }
 }
 
-template<class Real>
+template<class Real, class OtherReal>
 static void UnitTestCuSpMatrixTraceSpSp() {
-  for (MatrixIndexT i = 1; i < 50; i++) {
+  for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 5 * i + rand() % 10;
     
     SpMatrix<Real> A(dim);
     A.SetRandn();
     const CuSpMatrix<Real> B(A);
-
-    SpMatrix<Real> C(dim);
+    SpMatrix<OtherReal> C(dim);
     C.SetRandn();
-    const CuSpMatrix<Real> D(C);
+    const CuSpMatrix<OtherReal> D(C);
+
 
 #ifdef KALDI_PARANOID
     KALDI_ASSERT(TraceSpSp(A, C), TraceSpSp(B, D));
@@ -223,7 +231,10 @@ template<class Real> void CudaSpMatrixUnitTest() {
   UnitTestCuSpMatrixAddVec2<Real>();
   UnitTestCuSpMatrixAddMat2<Real>();
   UnitTestCuSpMatrixAddSp<Real>();
-  UnitTestCuSpMatrixTraceSpSp<Real>();
+}
+
+template<class Real, class OtherReal> void CudaSpMatrixUnitTest() {
+  UnitTestCuSpMatrixTraceSpSp<Real, OtherReal>();
 }
 
 } // namespace kaldi
@@ -237,14 +248,20 @@ int main() {
   CuDevice::Instantiate().SelectGpuId(use_gpu_id);
 #endif
   kaldi::CudaSpMatrixUnitTest<float>();
+  kaldi::CudaSpMatrixUnitTest<float, float>();
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().DoublePrecisionSupported()) {
     kaldi::CudaSpMatrixUnitTest<double>();
+    kaldi::CudaSpMatrixUnitTest<float, double>();
+    kaldi::CudaSpMatrixUnitTest<double, float>();
+    kaldi::CudaSpMatrixUnitTest<double, double>();
   } else {
     KALDI_WARN << "Double precision not supported";
   }
 #else
-  kaldi::CudaSpMatrixUnitTest<double>();
+  kaldi::CudaSpMatrixUnitTest<float, double>();
+  kaldi::CudaSpMatrixUnitTest<double, float>();
+  kaldi::CudaSpMatrixUnitTest<double, double>();
 #endif
   KALDI_LOG << "Tests succeeded";
 #if HAVE_CUDA == 1

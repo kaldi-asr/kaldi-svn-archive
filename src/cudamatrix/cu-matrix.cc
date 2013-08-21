@@ -981,8 +981,6 @@ void CuMatrixBase<Real>::Cholesky() {
     int n_blocks = (num_rows_ + TILE_SIZE - 1) / TILE_SIZE;
 
     dim3 threads(TILE_SIZE,TILE_SIZE);
-    KALDI_LOG << "n_blcoks is : " << n_blocks << '\n';
-    KALDI_LOG << "the stride is : " << Dim().stride << '\n';
     dim3 logrid;
      
     for (int i = n_blocks; i > 2; i--) {
@@ -1062,13 +1060,13 @@ void CuMatrixBase<Real>::InvertPSD() {
     Real alpha = 1.0;
     cublas_trsm(num_rows_,num_rows_,alpha,data_,stride_,temp.RowData(0),temp.Dim().stride);
     
-    CuSpMatrix<Real> L(temp, kTakeLower);
-    CuMatrix<Real> L1(dim,dim);
-    L1.CopyFromSp(L);
+    //CuSpMatrix<Real> L(temp, kTakeLower);
+    //CuMatrix<Real> L1(dim,dim);
+    //L1.CopyFromSp(L);
+    //L1.SetZeroUpperDiag();
     Matrix<Real> L_test(dim,dim);
-    L1.CopyToMat(&L_test);
-    KALDI_LOG << L_test << '\n';
-    this->AddMatMat(1,L1,kTrans,L1,kNoTrans,0);
+    temp.CopyToMat(&L_test);
+    this->AddMatMat(1,temp,kTrans,temp,kNoTrans,0);
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
