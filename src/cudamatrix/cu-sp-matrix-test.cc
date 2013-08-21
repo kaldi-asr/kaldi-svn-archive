@@ -40,12 +40,6 @@ static bool ApproxEqual(VectorBase<Real> &A, VectorBase<Real> &B, float tol = 0.
   return true;
 }
 
-static void AssertEqual(std::vector<int32> &A, std::vector<int32> &B) {
-  KALDI_ASSERT(A.size() == B.size());
-  for (size_t i = 0; i < A.size(); i++)
-    KALDI_ASSERT(A[i] == B[i]);
-}
-
 template<class Real>
 static void AssertEqual(const SpMatrix<Real> &A,
                         const SpMatrix<Real> &B,
