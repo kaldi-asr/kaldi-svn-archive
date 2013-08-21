@@ -1,6 +1,8 @@
 // cudamatrix/cu-device.cc
 
 // Copyright 2009-2012  Karel Vesely
+//                2013  Lucas Ondel
+//                2013  Johns Hopkins University (author: Daniel Povey)
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +26,7 @@
 #include <cuda_runtime_api.h>
 
 #include <vector>
+#include <algorithm>
 #include <dlfcn.h>
 
 #include "cudamatrix/cu-common.h"
@@ -333,9 +336,12 @@ void CuDevice::PrintProfile() {
     std::ostringstream os;
     os << "-----\n[cudevice profile]\n";
     std::map<std::string, double>::iterator it;
-    for(it = profile_map_.begin(); it != profile_map_.end(); ++it) {
-      os << it->first << "\t" << it->second << "s\n";
-    }
+    std::vector<std::pair<double, std::string> > pairs;
+    for(it = profile_map_.begin(); it != profile_map_.end(); ++it)
+      pairs.push_back(std::make_pair(it->second, it->first));
+    std::sort(pairs.begin(), pairs.end());
+    for (size_t i = 0; i < pairs.size(); i++) 
+      os << pairs[i].second << "\t" << pairs[i].first << "s\n";
     os << "-----";
     KALDI_LOG << os.str();
   }

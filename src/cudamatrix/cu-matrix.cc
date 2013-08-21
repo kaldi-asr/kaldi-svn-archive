@@ -1146,7 +1146,7 @@ void CuMatrixBase<Real>::CopyRowsFromVec(const CuVectorBase<Real> &rv) {
     } else {
       KALDI_ERR << "Wrong sized arguments";
     }
-    CuDevice::Instantiate().AccuProfile("CuMatrix::CopyRowsFromVec",tim.Elapsed());
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
 #endif
   {

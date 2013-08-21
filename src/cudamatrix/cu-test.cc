@@ -124,243 +124,11 @@ static void UnitTestSetZeroUpperDiag() {
   }
 }
 
-template<class Real>
-static void UnitTestSimpleTest() {
-  // test differnet constructors + CopyFrom* + CopyToMat
-  // CopyFromTp
-  TpMatrix<Real> A(10);
-  A.SetRandn();
-  KALDI_LOG << A;
-  CuTpMatrix<Real> B(A);
-  CuMatrix<Real> C(B, kTrans);
-  Matrix<Real> D(10,10);
-  C.CopyToMat(&D);
-  KALDI_LOG << D;
-  /*
-  //TraceSpSp
-  for (MatrixIndexT iter = 0; iter < 19; iter++) {
-    //int32 dim = 15 + rand() % 10;
-    int32 dim = iter + 1;
-    KALDI_LOG << "dim is : " << dim << '\n';
-    SpMatrix<float> A1(dim);
-    A1.SetRandn();
-    //A1.SetDiag(1.0);
-    //A1(dim-2,dim-2) = 1;
-    //A1(dim-1,dim-1) = 10;
-    //KALDI_LOG << A1;
-    CuSpMatrix<float> A(A1);
-    SpMatrix<Real> B1(dim);
-    B1.SetRandn();
-    //B1.SetDiag(1.0);
-    //B1(dim-2,dim-2) = 1;
-    //B1(dim-1,dim-1) = 20;
-    //KALDI_LOG << B1;
-    CuSpMatrix<Real> B(B1);
-    KALDI_LOG << TraceSpSp(A1,B1) << '\n';
-    KALDI_LOG << TraceSpSp(A,B) << '\n';
-  }  
- 
-  // CopyFromMat
-  CuMatrix<float> A(8,10);
-  A.SetRandn();
-  CuMatrix<Real> B(10,8);
-  B.CopyFromMat(A, kTrans);
-  CuMatrix<float> C(8,10);
-  C.CopyFromMat(B, kTrans);
-  Matrix<float> A1(8,10);
-  Matrix<Real> B1(10,8);
-  Matrix<float> C1(8,10);
-  A.CopyToMat(&A1);
-  B.CopyToMat(&B1);
-  C.CopyToMat(&C1);
-  KALDI_LOG << A1;
-  KALDI_LOG << B1;
-  KALDI_LOG << C1;
-  AssertEqual(A1,C1);
-  
-  A.CopyToMat(&A1);
-  //B.CopyToMat(&B1);
-  B1.CopyFromMat(A1);
-  C1.CopyFromMat(B1);
-  KALDI_LOG << A1;
-  KALDI_LOG << C1;
-  
-  //AssertEqual(A1,B1);
-  
-  CuMatrix<Real> A(12,12);
-  A.SetRandn();
-  Matrix<Real> B(12,12);
-  A.CopyToMat(&B);
-  KALDI_LOG << B;
-  Real power = 2.0;
-  A.ApplyPow(power);
-  A.CopyToMat(&B);
-  KALDI_LOG << B;
-  
-  
-  CuVector<Real> v(15);
-  Vector<Real> v1(15);
-  v.SetRandn();
-  v.CopyToVec(&v1);
-  KALDI_LOG << v1;
-  CuMatrix<Real> m(3,15);
-  m.CopyRowsFromVec(v);
-  Matrix<Real> m1(3,15);
-  m.CopyToMat(&m1);
-  KALDI_LOG << m1;
-
-  for (MatrixIndexT iter = 0; iter < 10; iter++) {
-    int32 dim = 5 + rand() % 10;
-    CuMatrix<Real> A(dim,dim);
-    Matrix<Real> A1(dim,dim);
-    A1.SetRandn();
-    A.CopyFromMat(A1);
-    CuVector<Real> C(dim);
-    Vector<Real> C1(dim);
-    Vector<Real> D(dim);
-    //KALDI_LOG << A1;
-    for (MatrixIndexT row = 0; row < dim; row++) {
-      C.CopyFromVec(A.Row(row));
-      C1.CopyFromVec(A1.Row(row));
-      C.CopyToVec(&D);
-      AssertEqual(C1,D);
-    } 
-  }
-
-
-  for (MatrixIndexT iter = 0; iter < 10; iter++) {
-    int32 dim = 5 + rand() % 10;
-    KALDI_LOG << "dim is " << dim << '\n';
-    CuMatrix<Real> A(dim,dim);
-    Matrix<Real> A1(dim,dim);
-    A1.SetRandn();
-    A.CopyFromMat(A1);
-    for (MatrixIndexT r = 0; r < dim; r++) {
-      for (MatrixIndexT c = 0; c < dim; c++)
-        std::cout << A(r,c) << ' ';
-      std::cout << '\n';
-    }
-    for (MatrixIndexT r = 0; r < dim; r++) {
-      for (MatrixIndexT c = 0; c < dim; c++)
-        std::cout << A1(r,c) << ' ';
-      std::cout << '\n';
-    }
-  }
-        
-  for (MatrixIndexT iter = 0; iter < 10; iter++) {
-    int32 dim = 5 + rand() % 10;
-    KALDI_LOG << "dim is " << dim << '\n';
-    CuMatrix<Real> A(dim,dim);
-    Matrix<Real> A1(dim,dim);
-    A1.SetRandn();
-    A.CopyFromMat(A1);
-    CuMatrix<Real> B(dim,dim);
-    Matrix<Real> B1(dim,dim);
-    B1.SetRandn();
-    B.CopyFromMat(B1);
-    Real value = TraceMatMat(A,B,kTrans);
-    KALDI_LOG << value << '\n';
-    value = TraceMatMat(A1,B1,kTrans);
-    KALDI_LOG << value << '\n';
-  }
-  
- 
-  SpMatrix<Real> A(dim);
-  A.SetRandn();
-  
-  CuSpMatrix<Real> B(A);
-  CuMatrix<Real> C(B);
-  Matrix<Real> D(dim,dim);
-  C.CopyToMat(&D);
-  KALDI_LOG << D;
-
-  std::cout << "dim is : " << dim << std::endl;
-  CuPackedMatrix<Real> A(dim);
-  PackedMatrix<Real> B(dim);
-  A.CopyToMat(&B);
-  std::cout << "The cudamatrix A is" << std::endl;
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << B(i,j) << " ";
-    }
-    std::cout << std::endl;
-  }
-  for (int i = 0; i < dim; i++) {
-    B(i,i) = i;
-  }
-  CuPackedMatrix<Real> C(B);
-  PackedMatrix<Real> D(dim);
-  C.CopyToMat(&D);
-  std::cout << "The cudamatrix C is" << std::endl;
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << D(i,j) << " ";
-      D(i,j) = D(i,j) + 1;
-    }
-    std::cout << std::endl;
-  }
-  C.CopyFromPacked(D);
-  CuPackedMatrix<Real> E(C);
-  PackedMatrix<Real> F(dim);
-  E.CopyToMat(&F);
-  std::cout << "The cudamatrix E is" << std::endl;
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << F(i,j) << " ";
-    }
-    std::cout << std::endl;
-  }
-  E.SetDiag(10);
-  E.Scale(2);
-  E.ScaleDiag(4);
-  std::cout << "Trace(E) = " << E.Trace() << std::endl;
-  
-  
-  CuSpMatrix<Real> G(dim);
-  G.SetDiag(10);
-  G.Invert();
-  SpMatrix<Real> H(dim);
-  KALDI_LOG << "NUMROWS is" << H.NumRows() << '\n';
-  G.CopyToMat(&H);
-  H(1,1)=14;
-  for (int i = 0; i < dim; i++) {
-    for (int j = 0; j <= i; j++) {
-      std::cout << H(i,j) << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  Vector<Real> I(dim);
-  InitRand(&I);
-  CuVector<Real> J(dim);
-  J.CopyFromVec(I);
-
-  G.AddVec2(1,J);
-  SpMatrix<Real> K(dim);
-  G.CopyToMat(&K);
-
-  for (MatrixIndexT i = 0; i < dim; i++) {
-    for (MatrixIndexT j = 0; j <= i; j++) {
-      std::cout << K(i,j) << " ";
-    }
-    std::cout << std::endl;
-  }
-
-  //CuMatrix<Real> L(dim,dim);
-  //L.CopyFromSp(G);
-  CuMatrix<Real> L(G);
-  Matrix<Real> M(dim,dim);
-  L.CopyToMat(&M);
-  KALDI_LOG << M << '\n';
-  */
-
-}
 
 template<class Real> static void UnitTestCholesky() {
-  for (MatrixIndexT iter = 0; iter < 1; iter++) {
-    //MatrixIndexT dim = 45 + rand() %  40;
+  for (MatrixIndexT iter = 0; iter < 3; iter++) {
+    MatrixIndexT dim = 300 + rand() %  200;
     // set dimension
-    MatrixIndexT dim = 7;
     // computing the matrix for cholesky input
     // CuMatrix is cuda matrix class while Matrix is cpu matrix class
     CuMatrix<Real> A(dim,dim);
@@ -374,14 +142,14 @@ template<class Real> static void UnitTestCholesky() {
     // copy the matrix to cudamatrix object
     A.CopyFromMat(B);
     A.CopyToMat(&B);
-    KALDI_LOG << B << '\n';
+    //KALDI_LOG << B << '\n';
     // doing cholesky
     A.Cholesky();
 
     Matrix<Real> D(dim,dim);
     A.CopyToMat(&D);
     
-    KALDI_LOG << "D is: " << D << '\n';
+    //KALDI_LOG << "D is: " << D << '\n';
     Matrix<Real> E(dim,dim);
     E.AddMatMat(1.0, D, kNoTrans, D, kTrans, 0.0);
     // check if the D'D is equal to B or not!
@@ -456,9 +224,9 @@ template<class Real> static void UnitInvert() {
 }
 
 template<class Real> static void UnitTestInvert() {
-  for (MatrixIndexT iter = 0; iter < 1; iter++) {
-    // MatrixIndexT dim = 15 + rand() % 40;
-    MatrixIndexT dim = 50;
+  for (MatrixIndexT iter = 0; iter < 3; iter++) {
+    MatrixIndexT dim = 500 + rand() % 400;
+    
     KALDI_LOG << "dim is : " << '\n';
     KALDI_LOG << dim << '\n';
     CuMatrix<Real> A(dim,dim);
@@ -466,7 +234,7 @@ template<class Real> static void UnitTestInvert() {
     Vector<Real> C(dim);
     for (MatrixIndexT i = 0; i < dim; i++) {
       B(i,i) = 1;
-      C(i) = i + 1;
+      C(i) = (i/(1.0*dim)) + 1;
     }
     Matrix<Real> Identity(B);
     B.AddVecVec(1.0, C, C);
@@ -485,7 +253,7 @@ template<class Real> static void UnitTestInvert() {
     Matrix<Real> X(dim,dim);
     X.AddMatMat(1.0, B, kNoTrans, D, kNoTrans, 0.0);
     KALDI_LOG << "X is (should be identity): " << X << '\n';
-    AssertEqual(Identity,X);
+    AssertEqual(Identity, X, (sizeof(Real) == 4 ? 0.1 : 0.001));
   }
 }
 
@@ -818,7 +586,6 @@ template<class Real> static void UnitTestVector() {
 
 template<class Real>
 static void CuMatrixUnitTest() {
-  UnitTestSimpleTest<Real>();
   UnitTestTrace<Real>();
   UnitTestCholesky<Real>();
   UnitTestInvert<Real>();
@@ -849,6 +616,11 @@ int main() {
   {
     kaldi::CuMatrixUnitTest<double>();
   }
+
+#if HAVE_CUDA == 1
+  kaldi::CuDevice::Instantiate().PrintProfile();
+#endif
+
   
   KALDI_LOG << "Tests succeeded.\n";
   return 0;
