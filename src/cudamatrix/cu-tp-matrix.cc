@@ -74,9 +74,6 @@ void CuTpMatrix<Real>::CopyFromMat(CuMatrixBase<Real> &M,
 #if HAVE_CUDA==1
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
-    size_t nr = (this->NumRows())*(this->NumRows() + 1) / 2;
-    //int dimGrid(1);
-    //int dimBlock(nr);
     dim3 dimBlock(CUBLOCK, CUBLOCK);
     dim3 dimGrid(n_blocks(M.NumCols(), CUBLOCK), n_blocks(M.NumRows(), CUBLOCK));
     if (Trans == kNoTrans) {
