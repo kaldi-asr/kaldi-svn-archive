@@ -1,6 +1,7 @@
 // cudamatrix/cuda-matrix-test.cc
 
 // Copyright 2010  Karel Vesely
+//                 Lucas Ondel
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
