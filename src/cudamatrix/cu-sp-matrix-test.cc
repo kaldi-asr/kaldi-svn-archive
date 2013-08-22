@@ -234,6 +234,26 @@ static void UnitTestCuSpMatrixTraceSpSp() {
   }
 }
 
+template<class Real, class OtherReal>
+static void UnitTestCuSpMatrixAddSp() {
+  for (MatrixIndexT i = 1; i < 10; i++) {
+    MatrixIndexT dim = 5 * i + rand() % 10;
+    
+    SpMatrix<Real> A(dim);
+    A.SetRandn();
+    const CuSpMatrix<Real> B(A);
+    SpMatrix<OtherReal> C(dim);
+    C.SetRandn();
+    const CuSpMatrix<OtherReal> D(C);
+    
+    A.AddSp(1.0, C);
+    B.AddSp(1.0, D);
+    
+    AssertEqual(A, B);
+
+  }
+}
+
 template<class Real> void CudaSpMatrixUnitTest() {
   UnitTestCuSpMatrixConstructor<Real>();
   UnitTestCuSpMatrixOperator<Real>();
