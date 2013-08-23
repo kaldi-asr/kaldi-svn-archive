@@ -63,6 +63,12 @@ class Lpc {
   KALDI_DISALLOW_COPY_AND_ASSIGN(Lpc);
 };
 
+BaseFloat WaveToLpc(const VectorBase<BaseFloat> &wave_window,
+                    int32 lpc_order,
+                    BaseFloat energy_floor,
+                    Vector<BaseFloat> *lp_coeffs,
+                    Vector<BaseFloat> *lp_residuals = NULL);
+
 }  // namespace kaldi
 
 #endif  // KALDI_FEAT_FEATURE_LPC_H_

@@ -1,6 +1,7 @@
 // feat/feature-functions.cc
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Microsoft Corporation
+// Copyright 2013-      Arnab Ghoshal
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,26 +59,63 @@ FeatureWindowFunction::FeatureWindowFunction(const FrameExtractionOptions &opts)
   int32 frame_length = opts.WindowSize();
   assert(frame_length > 0);
   window.Resize(frame_length);
-  for (int32 i = 0; i < frame_length; i++) {
-    BaseFloat i_fl = static_cast<BaseFloat>(i);
-    if (opts.window_type == "hanning") {
-      window(i) = 0.5  - 0.5*cos(M_2PI * i_fl / (frame_length-1));
-    } else if (opts.window_type == "hamming") {
-      window(i) = 0.54 - 0.46*cos(M_2PI * i_fl / (frame_length-1));
-    } else if (opts.window_type == "povey") {  // like hamming but goes to zero at edges.
-      window(i) = pow(0.5 - 0.5*cos(M_2PI * i_fl / (frame_length-1)), 0.85);
-    } else if (opts.window_type == "rectangular") {
-      window(i) = 1.0;
-    } else {
-      KALDI_ERR << "Invalid window type " << opts.window_type;
-    }
+  if (opts.window_type == "hanning") {
+    HannWindow(frame_length);
+  } else if (opts.window_type == "hamming") {
+    HammingWindow(frame_length);
+  } else if (opts.window_type == "povey") {  // like hamming but goes to zero at edges.
+    PoveyWindow(frame_length);
+  } else if (opts.window_type == "rectangular") {
+    window.Set(1.0);
+  } else if (opts.window_type == "blackman") {
+    BlackmanWindow(frame_length, opts.blackman_coeff);
+  } else {
+    KALDI_ERR << "Invalid window type " << opts.window_type;
   }
 }
+
+void FeatureWindowFunction::HannWindow(int32 frame_length) {
+  KALDI_ASSERT(frame_length > 0);
+  BaseFloat a = M_2PI / (frame_length - 1);
+  for (int32 i = 0; i < frame_length; i++) {
+    window(i) = 0.5 * (1 - cos(a * i));
+  }
+}
+
+void FeatureWindowFunction::HammingWindow(int32 frame_length) {
+  KALDI_ASSERT(frame_length > 0);
+  BaseFloat a = M_2PI / (frame_length - 1);
+  for (int32 i = 0; i < frame_length; i++) {
+    window(i) = 0.54 - 0.46 * cos(a * i);
+  }
+}
+
+void FeatureWindowFunction::PoveyWindow(int32 frame_length) {
+  KALDI_ASSERT(frame_length > 0);
+  BaseFloat a = M_2PI / (frame_length - 1);
+  for (int32 i = 0; i < frame_length; i++) {
+    window(i) = pow(0.5 * (1 - cos(a * i)), 0.85);
+  }
+}
+
+void FeatureWindowFunction::BlackmanWindow(int32 frame_length, BaseFloat alpha_2) {
+  KALDI_ASSERT(frame_length > 0);
+  if (alpha_2 < 0.0 || alpha_2 > 0.5) {
+    KALDI_WARN << "Invalid value of Blackman window coefficient (" << alpha_2
+               << "). Setting it to 0.42 for a regular Blackman window.";
+    alpha_2 = 0.42;
+  }
+  BaseFloat a = M_2PI / (frame_length - 1),
+      b = (0.5 - alpha_2);
+  for (int32 i = 0; i < frame_length; i++) {
+    window(i) = alpha_2 - 0.5 * cos(a * i) + b * cos(2* a * i);
+  }
+}
+
 
 // ExtractWindow extracts a windowed frame of waveform with a power-of-two,
 // padded size.  It does mean subtraction, pre-emphasis and dithering as
 // requested.
-
 void ExtractWindow(const VectorBase<BaseFloat> &wave,
                    int32 f,  // with 0 <= f < NumFrames(feats, opts)
                    const FrameExtractionOptions &opts,
@@ -135,30 +173,79 @@ void ExtractWaveformRemainder(const VectorBase<BaseFloat> &wave,
     wave_remainder->CopyFromVec(SubVector<BaseFloat>(wave, offset, remaining_len));
 }
 
-
-void ComputePowerSpectrum(VectorBase<BaseFloat> *waveform) {
-  int32 dim = waveform->Dim();
-
-  // no, letting it be non-power-of-two for now.
-  // assert(dim > 0 && (dim & (dim-1) == 0));  // make sure a power of two.. actually my FFT code
-  // does not require this (dan) but this is better in case we use different code [dan].
-
-  // RealFft(waveform, true);  // true == forward (not inverse) FFT; makes no difference here,
-  // as we just want power spectrum.
-
-  // now we have in waveform, first half of complex spectrum
-  // it's stored as [real0, realN/2-1, real1, im1, real2, im2, ...]
+template<class Real>
+void ComputePowerSpectrum(VectorBase<Real> *complex_fft) {
+  int32 dim = complex_fft->Dim();
   int32 half_dim = dim/2;
-  BaseFloat first_energy = (*waveform)(0) * (*waveform)(0),
-      last_energy = (*waveform)(1) * (*waveform)(1);  // handle this special case
+  Real first_energy = (*complex_fft)(0) * (*complex_fft)(0),
+      last_energy = (*complex_fft)(1) * (*complex_fft)(1);  // handle this special case
   for (int32 i = 1; i < half_dim; i++) {
-    BaseFloat real = (*waveform)(i*2), im = (*waveform)(i*2 + 1);
-    (*waveform)(i) = real*real + im*im;
+    Real real = (*complex_fft)(i*2), im = (*complex_fft)(i*2 + 1);
+    (*complex_fft)(i) = real*real + im*im;
   }
-  (*waveform)(0) = first_energy;
-  (*waveform)(half_dim) = last_energy;  // Will actually never be used, and anyway
+  (*complex_fft)(0) = first_energy;
+  (*complex_fft)(half_dim) = last_energy;  // Will actually never be used, and anyway
   // if the signal has been bandlimited sensibly this should be zero.
 }
+
+template void ComputePowerSpectrum(VectorBase<float> *complex_fft);
+template void ComputePowerSpectrum(VectorBase<double> *complex_fft);
+
+
+template<class Real>
+void PowerSpecToRealCeps(VectorBase<Real> *power_spectrum) {
+  int32 dim = power_spectrum->Dim();
+  int32 half_dim = dim/2;
+  power_spectrum->Range(0, half_dim+1).ApplyLog();
+  power_spectrum->Range(0, half_dim+1).Scale(0.5);  // square root
+  // Now reconstruct the last N/2 - 1 elements of the symmetric spectrum that
+  // correspond to the negative frequencies.
+  for (int32 i = 1; i < half_dim; i++)
+    (*power_spectrum)(dim-i) = (*power_spectrum)(i);
+
+  RealFft(power_spectrum, true);  // Doing FFT not IFFT; this is correct.
+  power_spectrum->Scale(1.0/dim);
+  Real last_cepstrum = (*power_spectrum)(1);
+  for (int32 i = 1; i < half_dim; i++) {
+    Real real = (*power_spectrum)(i*2),
+      im = (*power_spectrum)(i*2 + 1);
+    (*power_spectrum)(i) = real;
+    KALDI_ASSERT(std::abs(im) <= 1e-4 &&
+                 "Real cepstrum not expected to have imaginary value.");
+  }
+  (*power_spectrum)(half_dim) = last_cepstrum;
+}
+
+template void PowerSpecToRealCeps(VectorBase<float> *power_spectrum);
+template void PowerSpecToRealCeps(VectorBase<double> *power_spectrum);
+
+
+template<class Real>
+void RealCepsToMagnitudeSpec(VectorBase<Real> *real_cepstrum, bool apply_exp) {
+  int32 dim = real_cepstrum->Dim();
+  int32 half_dim = dim/2;
+  // Now reconstruct the last N/2 - 1 elements of the symmetric cepstrum that
+  // correspond to the negative quefrencies.
+  for (int32 i = 1; i < half_dim; i++)
+    (*real_cepstrum)(dim-i) = (*real_cepstrum)(i);
+  RealFft(real_cepstrum, true);
+  Real last_spectrum = (*real_cepstrum)(1);
+  for (int32 i = 1; i < half_dim; i++) {
+    Real real = (*real_cepstrum)(i*2),
+      im = (*real_cepstrum)(i*2 + 1);
+    (*real_cepstrum)(i) = real;
+    KALDI_ASSERT(std::abs(im) <= 1e-4 &&
+                 "FFT of real cepstrum not expected to have imaginary value.");
+  }
+  (*real_cepstrum)(half_dim) = last_spectrum;
+  if (apply_exp)
+    real_cepstrum->Range(0, half_dim+1).ApplyExp();
+}
+
+template void RealCepsToMagnitudeSpec(VectorBase<float> *real_cepstrum,
+                                      bool apply_exp);
+template void RealCepsToMagnitudeSpec(VectorBase<double> *real_cepstrum,
+                                      bool apply_exp);
 
 
 DeltaFeatures::DeltaFeatures(const DeltaFeaturesOptions &opts): opts_(opts) {
@@ -232,10 +319,6 @@ void ComputeDeltas(const DeltaFeaturesOptions &delta_opts,
     delta.Process(input_features, r, &row);
   }
 }
-
-
-
-
 
 
 

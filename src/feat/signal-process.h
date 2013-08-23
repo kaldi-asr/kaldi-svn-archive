@@ -42,6 +42,11 @@ BaseFloat NormalizedAutoCorrelate(const VectorBase<BaseFloat> &signal_window,
                                   VectorBase<BaseFloat> *autoc,
                                   BaseFloat energy_floor = FLT_EPSILON);
 
+void NormalizedCrossCorrelate(const VectorBase<BaseFloat> &signal_window,
+                              int32 order,
+                              VectorBase<BaseFloat> *xcorr,
+                              BaseFloat energy_floor = FLT_EPSILON);
+
 /// Levinson-Durbin recursion for obtaining the linear predictor coefficients
 /// from the autocorrelation values. Returns the LPC gain, i.e. the prediction
 /// error energy.

@@ -22,6 +22,46 @@
 
 namespace kaldi {
 
+BaseFloat WaveToLpc(const VectorBase<BaseFloat> &wave_window,
+                    int32 lpc_order,
+                    BaseFloat energy_floor,
+                    Vector<BaseFloat> *lp_coeffs,
+                    Vector<BaseFloat> *lp_residuals) {
+  KALDI_ASSERT(lp_coeffs != NULL);
+  KALDI_ASSERT(lp_coeffs->Dim() == lpc_order);
+  if (lp_residuals != NULL) {
+    if (lp_residuals->Dim() != wave_window.Dim())
+      KALDI_ERR << "LP residual dimension (" << lp_residuals->Dim() << ") doesn't"
+                << " match signal window size (" << wave_window.Dim() << ").";
+  }
+  Vector<BaseFloat> autoc(lpc_order);
+  BaseFloat total_energy = NormalizedAutoCorrelate(wave_window,
+                                                   lpc_order,
+                                                   &autoc,
+                                                   energy_floor);
+  if (total_energy < energy_floor) {
+    lp_coeffs->SetZero();
+    if (lp_residuals != NULL)
+      lp_residuals->CopyFromVec(wave_window);
+    return 1.0;
+  }
+
+  BaseFloat gain = Levinson(autoc, lpc_order, lp_coeffs, energy_floor);
+  gain *= total_energy;  // Since the autocorrelations were normalized
+
+  if (lp_residuals != NULL) {
+    gain = 1/sqrt(gain);
+    Vector<BaseFloat> filter(lpc_order+1, kUndefined);
+    filter.Range(1, lpc_order).CopyFromVec(*lp_coeffs);
+    filter.Range(1, lpc_order).Scale(-1.0);
+    filter(0) = 1;
+    FirFilter(wave_window, filter, lp_residuals);
+    lp_residuals->Scale(gain);
+  }
+  return gain;
+}
+
+
 void Lpc::Compute(const VectorBase<BaseFloat> &wave,
                   Matrix<BaseFloat> *lp_coeffs,
                   Matrix<BaseFloat> *lp_residuals,
@@ -51,8 +91,8 @@ void Lpc::Compute(const VectorBase<BaseFloat> &wave,
     BaseFloat total_energy = NormalizedAutoCorrelate(signal_window,
                                                      opts_.lpc_order,
                                                      &autoc);
-    BaseFloat gain = Levinson(autoc, opts_.lpc_order, &this_lpc);
-    //todo: add energy floor to levinson
+    BaseFloat gain = Levinson(autoc, opts_.lpc_order, &this_lpc,
+                              opts_.energy_floor);
     gain *= total_energy;  // Since the autocorrelations were normalized
 
     if (lp_residuals != NULL) {

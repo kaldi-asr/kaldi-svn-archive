@@ -101,6 +101,14 @@ BaseFloat NormalizedAutoCorrelate(const VectorBase<BaseFloat> &signal_window,
 }
 
 
+void NormalizedCrossCorrelate(const VectorBase<BaseFloat> &signal_window,
+                              int32 order,
+                              VectorBase<BaseFloat> *xcorr,
+                              BaseFloat energy_floor) {
+  KALDI_ERR << "Not implemented yet";
+}
+
+
 BaseFloat Levinson(const VectorBase<BaseFloat> &autoc, int32 lpc_order,
                    VectorBase<BaseFloat> *lp_coeffs,
                    BaseFloat energy_floor) {
@@ -164,6 +172,5 @@ void IirFilter(const VectorBase<BaseFloat> &signal_window,
                VectorBase<BaseFloat> *output) {
   KALDI_ERR << "Not implemented yet";
 }
-
 
 }  // namespace kaldi

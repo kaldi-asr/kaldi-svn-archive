@@ -1,6 +1,7 @@
 // feat/feature-functions.h
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Microsoft Corporation
+// Copyright 2013-      Arnab Ghoshal
 
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -73,11 +74,13 @@ struct FrameExtractionOptions {
   BaseFloat preemph_coeff;  // Preemphasis coefficient.
   bool remove_dc_offset;  // Subtract mean of wave before FFT.
   std::string window_type;  // e.g. Hamming window
-  bool round_to_power_of_two;
-  // Maybe "hamming", "rectangular", "povey", "hanning"
+  // Maybe "hamming", "rectangular", "povey", "hanning", "blackman"
   // "povey" is a window I made to be similar to Hamming but to go to zero at the
   // edges, it's pow((0.5 - 0.5*cos(n/N*2*pi)), 0.85)
   // I just don't think the Hamming window makes sense as a windowing function.
+  bool round_to_power_of_two;
+  BaseFloat blackman_coeff;
+
   FrameExtractionOptions():
       samp_freq(16000),
       frame_shift_ms(10.0),
@@ -86,7 +89,8 @@ struct FrameExtractionOptions {
       preemph_coeff(0.97),
       remove_dc_offset(true),
       window_type("povey"),
-      round_to_power_of_two(true) { }
+      round_to_power_of_two(true),
+      blackman_coeff(0.42) {}
 
   void Register(OptionsItf *po) {
     po->Register("sample-frequency", &samp_freq,
@@ -103,6 +107,8 @@ struct FrameExtractionOptions {
                  "(\"hamming\"|\"hanning\"|\"povey\"|\"rectangular\")");
     po->Register("round-to-power-of-two", &round_to_power_of_two,
                  "If true, round window size to power of two.");
+    po->Register("blackman-coeff", &blackman_coeff,
+                 "Constant coefficient for generalized Blackman window.");
   }
   int32 WindowShift() const {
     return static_cast<int32>(samp_freq * 0.001 * frame_shift_ms);
@@ -121,6 +127,15 @@ struct FeatureWindowFunction {
   FeatureWindowFunction() {}
   explicit FeatureWindowFunction(const FrameExtractionOptions &opts);
   Vector<BaseFloat> window;
+ private:
+  void HammingWindow(int32 frame_length);
+  void HannWindow(int32 frame_length);
+  void PoveyWindow(int32 frame_length);
+  // Generalized Blackman window function:
+  // \alpha/2 - 1/2 \cos(2 \pi n/N-1) + (1-\alpha)/2 \cos(4 \pi n/N-1)
+  // The parameter 'alpha_2' is \alpha/2 and should be between [0, 0.5].
+  // Regular Blackman window corresponds to alpha_2 = 0.42
+  void BlackmanWindow(int32 frame_length, BaseFloat alpha_2);
 };
 
 int32 NumFrames(int32 wave_length,
@@ -158,9 +173,32 @@ void ExtractWaveformRemainder(const VectorBase<BaseFloat> &wave,
 // this function computes in the first (n/2) + 1 elements of it, the
 // energies of the fft bins from zero to the Nyquist frequency.  Contents of the
 // remaining (n/2) - 1 elements are undefined at output.
-void ComputePowerSpectrum(VectorBase<BaseFloat> *complex_fft);
+template<class Real> void ComputePowerSpectrum(VectorBase<Real> *complex_fft);
 
 
+/// PowerSpecToRealCeps takes the output of ComputePowerSpectrum (which is a
+/// squared magnitude spectrum) and produces the real cepstrum coefficients.
+/// If the power spectrum corresponds to an N-point FFT, then only the first
+/// N/2 + 1 elements of it are calculated by ComputePowerSpectrum. This function
+/// recreates the symmetric log-magnitude spectrum by filling in the remaining
+/// N/2 - 1 values and computes an IFFT. The IFFT computation happens "in-place"
+/// and the first N/2 + 1 elements of the vector are the real part of the
+/// cepstral coefficients (the imaginary parts should be 0 anyway, since the
+/// power spectrum is symmetric/even). Contents of the last last N/2 - 1 elements
+/// are undefined at output, as they are not needed (as real cepstrum is even).
+template<class Real>
+void PowerSpecToRealCeps(VectorBase<Real> *power_spectrum);
+
+/// RealCepsToMagnitudeSpec takes the output of PowerSpecToRealCeps and computes
+/// an N-point FFT. PowerSpecToRealCeps computes only the first N/2 + 1 elements
+/// (corresponding to positive quefrencies). This function recreates the symmetric
+/// real cepstrum by filling in the remaining N/2 - 1 values and computes an FFT.
+/// The FFT computation happens "in-place" and the first N/2 + 1 elements of the
+/// vector are the real part of the log magnitude spectrum (the imaginary parts
+/// should be close to 0). Contents of the last last N/2 - 1 elements are
+/// undefined at output, as they are not needed.
+template<class Real>
+void RealCepsToMagnitudeSpec(VectorBase<Real> *real_cepstrum, bool apply_exp);
 
 inline void MaxNormalizeEnergy(Matrix<BaseFloat> *feats) {
   // Just subtract the largest energy value... assume energy is the first
