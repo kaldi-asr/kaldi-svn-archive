@@ -9,6 +9,11 @@ if ! which wget >&/dev/null; then
    exit 1;
 fi
 
+if ! which cmake >&/dev/null; then
+  echo "This script requires cmake: install it first.";
+  exit 1;
+fi
+
 echo "****(1) Installing expat"
 
 (
@@ -29,6 +34,7 @@ echo "****(1) Installing expat"
 ok_expat=$?
 if [ $ok_expat -ne 0 ]; then
   echo "****expat install failed."
+  exit 1
 fi
 
 echo "****(2) Installing pugixml"
@@ -52,6 +58,7 @@ echo "****(2) Installing pugixml"
 ok_pugixml=$?
 if [ $ok_pugixml -ne 0 ]; then
   echo "****pugixml install failed."
+  exit 1
 fi
 
 echo "****(3) Installing pcre with utf8 support"
@@ -74,6 +81,7 @@ echo "****(3) Installing pcre with utf8 support"
 ok_pcre=$?
 if [ $ok_pcre -ne 0 ]; then
   echo "****pcre install failed."
+  exit 1
 fi
 
 # echo "****(1) Installing Apache Xerces C++ XML Parser"
