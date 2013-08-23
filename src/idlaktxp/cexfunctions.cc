@@ -508,11 +508,11 @@ bool CexFuncStringPhraseTobiEndTone(const TxpCexspec* cex,
     const char* break_name;
 
     if (break_type == 3) {
-      break_name = "L-H";
+      break_name = "LH";
       // check and append value
       okay = cex->AppendValue(*feat, okay, break_name, buffer);
     } else if (break_type == 4) {
-      break_name = "L-L";
+      break_name = "LL";
       // check and append value
       okay = cex->AppendValue(*feat, okay, break_name, buffer);
     } else {

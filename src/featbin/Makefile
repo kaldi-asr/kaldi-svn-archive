@@ -11,7 +11,7 @@ BINFILES = compute-mfcc-feats compute-plp-feats compute-fbank-feats \
     get-full-lda-mat compute-spectrogram-feats extract-feature-segments \
     reverse-feats paste-feats select-feats subsample-feats process-pitch-feats \
     interpolate-pitch copy-feats-to-htk extract-rows \
-    wav-info
+    wav-data wav-info
 
 OBJFILES = 
 

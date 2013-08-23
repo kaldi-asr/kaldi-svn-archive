@@ -15,14 +15,14 @@
 # See the Apache 2 License for the specific language governing permissions and
 # limitations under the License.
 
-# Monophone speake specific aligner using kaldi
+# Triphone speaker specific aligner using kaldi
 
 import sys, os.path, time, subprocess, glob
 from xml.dom.minidom import getDOMImplementation
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
-DESCRIPTION = 'Monophone speake specific aligner using kaldi'
+DESCRIPTION = 'Triphone speake specific aligner using kaldi'
 
 # Add to path
 sys.path = sys.path + [SCRIPT_DIR + '/../utils']
@@ -37,7 +37,7 @@ def get_wav_durations(kaldidir, wavscp):
     for w in wavs:
         w = w.split()[1]
         stem = os.path.splitext(os.path.split(w)[1])[0]
-        pipe = subprocess.Popen([os.path.join(kaldidir, 'src', 'idlaktxpbin', "wavinfo"), '--print-args=false', w], stdout=subprocess.PIPE)
+        pipe = subprocess.Popen([os.path.join(kaldidir, 'src', 'featbin', "wav-info"), '--print-args=false', w], stdout=subprocess.PIPE)
         duration = pipe.communicate()[0].split('\n')[1].split()[1]
         durations[stem] = duration
     return durations
@@ -83,6 +83,7 @@ def write_as_wrdlabs(kaldialign, wavdurations, labdir, dirout):
     lastid = ''
     lasttime = 0.0
     lines = open(kaldialign).readlines()
+    print kaldialign
     for l in lines:
         ll = l.split()
         if ll[0] != lastid:
@@ -254,12 +255,16 @@ def main():
     com = 'cd %s/output; steps/train_mono.sh --nj 1 data/train data/lang kaldimono_output' % (build_conf.outdir)
     build_conf.logger.log('info', 'running kaldi script to compute flat start monophone models')
     os.system(com)
+    # delta train
+    com = 'cd %s/output; steps/train_deltas.sh 2000 10000 data/train data/lang kaldimono_output kaldidelta_output' % (build_conf.outdir)
+    build_conf.logger.log('info', 'running kaldi script to compute flat start triphone models')
+    os.system(com)
     # extract the phone alignment
-    com = 'cd %s/output; show-alignments data/lang/phones.txt kaldimono_output/40.mdl "ark:gunzip -c kaldimono_output/ali.1.gz|" > align.dat' % (build_conf.outdir)
+    com = 'cd %s/output; show-alignments data/lang/phones.txt kaldidelta_output/35.mdl "ark:gunzip -c kaldidelta_output/ali.1.gz|" > align.dat' % (build_conf.outdir)
     build_conf.logger.log('info', 'running kaldi script to extract alignment')
     os.system(com)
     #extract the word alignment
-    com = 'cd %s/output; linear-to-nbest "ark:gunzip -c kaldimono_output/ali.1.gz|" "ark:utils/sym2int.pl --map-oov 1669 -f 2- data/lang/words.txt < data/train/text |" \'\' \'\' ark:- | lattice-align-words data/lang/phones/word_boundary.int kaldimono_output/40.mdl ark:- ark:- | nbest-to-ctm ark:- - | utils/int2sym.pl -f 5 data/lang/words.txt > wrdalign.dat' % (build_conf.outdir)
+    com = 'cd %s/output; linear-to-nbest "ark:gunzip -c kaldidelta_output/ali.1.gz|" "ark:utils/sym2int.pl --map-oov 1669 -f 2- data/lang/words.txt < data/train/text |" \'\' \'\' ark:- | lattice-align-words data/lang/phones/word_boundary.int kaldidelta_output/35.mdl ark:- ark:- | nbest-to-ctm ark:- - | utils/int2sym.pl -f 5 data/lang/words.txt > wrdalign.dat' % (build_conf.outdir)
     build_conf.logger.log('info', 'running kaldi scripts to extract word alignment')
     os.system(com)
     # get actual duration times of all wav files

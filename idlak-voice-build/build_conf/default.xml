@@ -71,7 +71,15 @@
       />    
   <cex_def
       depend="align_def"
-      />     
+      />
+  <duration_def
+      depend="align_def"
+      />
+  <mcep_def 
+      options="sptk_root"
+      sptk_root=""
+      sptk_root_desc="The location of the SPTK directory."
+      /> 
   <align_def
       depend="alignsetup_def"
       options="break2,break3,breakdef"
@@ -83,8 +91,3 @@
   <alignsetup_def 
       />
 </build_config>
-    
-
-
-
-

@@ -108,7 +108,6 @@ def kaldidata(datadir, wavdir, spk, flist, force=False):
         fputt2spk = open(os.path.join(datadir, "train", "utt2spk"), 'w')
         for uttid in handler.ids:
             if valid_ids.has_key(uttid):
-                print "Valid: %s" % (uttid)
                 fp.write("%s %s\n" % (spk + '_' + uttid, os.path.join(datadir, wavdir, spk + '_' + uttid + '.wav')))
                 fputt2spk.write("%s %s\n" % (spk + '_' + uttid, spk))
         fp.close()
@@ -202,7 +201,7 @@ def main():
                                                                   accdir,
                                                                   os.path.join(spkdir, "text.xml"),
                                                                   os.path.join(outdir, "output", "text_norm.xml"))
-    logger.log('Info', 'Running normalisation on input xml text')
+    logger.log('Info', 'Running normalisation on input xml text: %s' % (com))
     os.system(com)
     # create kaldi required input files (modified from egs/arctic/s1/run.py
     logger.log('Info', 'Creating kaldi input files and train dir')

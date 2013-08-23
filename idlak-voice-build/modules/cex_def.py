@@ -17,7 +17,7 @@
 
 # Template for creating modules for the idlak build system
 
-import sys, os.path, time, subprocess
+import sys, os.path, time, subprocess, re
 from xml.dom.minidom import parse, parseString
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -78,6 +78,7 @@ def main():
     # ADD MODULE SPECIFIC CODE HERE
     # get required input files from idlak-data
     tpdbdir = os.path.join(build_conf.idlakdata, build_conf.lang, build_conf.acc)
+    outdir = build_conf.outdir
     # get required directories from dependent modules
     aligndir = build_conf.get_input_dir('align_def')
     # examine modulespecific settings and set as appropriate
@@ -94,26 +95,67 @@ def main():
     cex = cexpipe.communicate(input=normtext)[0]
     cexpipe.stdout.close()
 
+    xml_file = '../../idlak-data/en/ga/cex-default.xml'
+    dom = parse(xml_file)
+    
+    # Convert the idlakcex output to integers using the lookup table.
+    # We want a dict of the feature delimiters alongside the set which the feature belongs to [if any]
+    feature_delimiters = {}
+
+    features = dom.getElementsByTagName('feat')
+
+    for f in features:
+      current_delim = f.getAttribute('delim')
+      current_set = f.getAttribute('set')
+      feature_delimiters[current_delim] = current_set
+
+    # Process 'normtext' with minidom into something which kaldi will understand.
+    # Probably need to use the look-up table at this stage to change the phones to ints.
+    lookup_table = ProduceLookupTable(xml_file)
+    #print lookup_table
+
     dom = parseString(cex)
 
     fileids = dom.getElementsByTagName('fileid')
 
+    output_filename = os.path.join(outdir, 'output', 'cex.dat')
+    output_file = open(output_filename, 'w')
+
     for f in fileids:
         phons = f.getElementsByTagName('phon')
 
-        #for p in phons:
-            #print p.firstChild.nodeValue
-    
-            # Process 'normtext' with minidom into something which kaldi will understand.
-            # Probably need to use the look-up table at this stage to change the phones to ints.
-    xml_file = '../../idlak-data/en/ga/cex-default.xml'
-    lookup_table = ProduceLookupTable(xml_file)
+        for p in phons:
+            cex_string = p.firstChild.nodeValue
 
-    dom = parse(xml_file)
+            # We parse the idlakcex output to ascertain the values for each feature.
+            escaped_delimiters = []
 
-    features = dom.getElementsByTagName('feat')
+            # Need to escape non-alphanumeric characters in the delimiters.
+            for k in feature_delimiters.keys():
+                escaped_delimiters.append(re.escape(k))
 
-    print lookup_table
+            delimiter_string = '|'.join(escaped_delimiters)
+            regex_string = "(%s)(\w+?)(?=%s|$)" % (delimiter_string, delimiter_string)
+
+            pat = re.finditer(regex_string, cex_string)
+
+            # This will hold the values of all the phone's features.
+            feature_list = []
+
+            for match in pat:
+                # Check if this feature uses a set. If so, match.group(1) will name the set.
+                # If it does, we need to convert the value to an integer.
+                if feature_delimiters[match.group(1)] != '':
+                    feature_value = lookup_table[feature_delimiters[match.group(1)]][match.group(2)]
+                else:
+                    feature_value = match.group(2)
+
+                feature_list.append(str(feature_value))
+
+            output_file.write('%s\n' % (' '.join(feature_list)))
+
+    output_file.close()
+
     # END OF MODULE SPECIFIC CODE
     
     build_conf.end_processing(SCRIPT_NAME)
