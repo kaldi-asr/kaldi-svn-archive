@@ -23,8 +23,8 @@ echo "$0 $@"  # Print the command line for logging
 [ -f path.sh ] && . ./path.sh;
 . parse_options.sh || exit 1;
 
-if [ $# != 6 ]; then
-   echo "Usage: steps/train_deltas.sh <num-leaves> <tot-gauss> <data-dir> <lang-dir> <alignment-dir> <exp-dir>"
+if [ $# != 7 ]; then
+   echo "Usage: steps/train_deltas.sh <num-leaves> <tot-gauss> <context-width> <data-dir> <lang-dir> <alignment-dir> <exp-dir>"
    echo "e.g.: steps/train_deltas.sh 2000 10000 data/train_si84_half data/lang exp/mono_ali exp/tri1"
    echo "main options (for others, see top of script file)"
    echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
@@ -35,10 +35,11 @@ fi
 
 numleaves=$1
 totgauss=$2
-data=$3
-lang=$4
-alidir=$5
-dir=$6
+contextwidth=$3
+data=$4
+lang=$5
+alidir=$6
+dir=$7
 
 for f in $alidir/final.mdl $alidir/ali.1.gz $data/feats.scp $lang/phones.txt; do
   [ ! -f $f ] && echo "train_deltas.sh: no such file $f" && exit 1;
@@ -52,6 +53,10 @@ nj=`cat $alidir/num_jobs` || exit 1;
 mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 
+# Always have this central to the width (assumed to be odd).
+# Exploiting the fact the bash truncates non-integers here.
+centralpos=$((contextwidth/2))
+
 sdata=$data/split$nj;
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
@@ -62,7 +67,9 @@ rm $dir/.error 2>/dev/null
 if [ $stage -le -3 ]; then
   echo "$0: accumulating tree stats"
   $cmd JOB=1:$nj $dir/log/acc_tree.JOB.log \
-    acc-tree-stats  --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
+    acc-tree-stats  --ci-phones=$ciphonelist \
+    --context-width=$contextwidth --central-position=$centralpos \
+    $alidir/final.mdl "$feats" \
      "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
   sum-tree-stats $dir/treeacc $dir/*.treeacc 2>$dir/log/sum_tree_acc.log || exit 1;
   rm $dir/*.treeacc
@@ -71,13 +78,16 @@ fi
 if [ $stage -le -2 ]; then
   echo "$0: getting questions for tree-building, via clustering"
   # preparing questions, roots file...
-  cluster-phones $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
+  cluster-phones     --context-width=$contextwidth --central-position=$centralpos \
+    $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
   cat $lang/phones/extra_questions.int >> $dir/questions.int
-  compile-questions $lang/topo $dir/questions.int $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
+  compile-questions     --context-width=$contextwidth --central-position=$centralpos \
+    $lang/topo $dir/questions.int $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
 
   echo "$0: building the tree"
   $cmd $dir/log/build_tree.log \
     build-tree --verbose=1 --max-leaves=$numleaves \
+    --context-width=$contextwidth --central-position=$centralpos \
     --cluster-thresh=$cluster_thresh $dir/treeacc $lang/phones/roots.int \
     $dir/questions.qst $lang/topo $dir/tree || exit 1;
 
