@@ -69,9 +69,9 @@
  A set of utilities are also used across the system (at present a very
  thinned down set of utf8 functions).
 
- Currently data objects are load more than once if used by more than
+ Currently data objects are loaded more than once if used by more than
  one module. This means it is easy to write a command line application
- which carried out only one modules function, although currently only
+ which carries out only one module's function, although currently only
  a single monolithic system is available (in idlakxpbin). See below for
  a schematic of the system.
 
@@ -90,7 +90,7 @@
  are automatically created using machine learning algorithms, such as
  CART based lts based on wagon).
 
- Scripts to create data for new voices will be released at  a future point.
+ Scripts to create data for new voices will be released at a future point.
 
  @section idlaktxp_XML_tagset XML tagset
 
@@ -103,12 +103,12 @@
  - \b fileid: This can be used to break large texts into proposed output
    output files with the stem set based on the attribute id. This tag 
    plays an important role in voice building by allowing input audio data
-   to be matchesd up with normalisation output. 
+   to be matched up with normalisation output.
 
- - \b utt: This is a series of spurts (see below) and equates to a sentence.  
+ - \b utt: This is a series of spurts (see below) and equates to a sentence.
 
  - \b spt: This is a spurt of speech.This is speech bounded by silences,
-   and equates to a phrase.  
+   and equates to a phrase.
 
  - \b ws: Whitespace. Characters which have
    been processed as whitespace such as spaces, tabs, line breaks.
@@ -221,7 +221,7 @@ Hello there, 1 2 3.
   English this is carried out by splitting text by whitespace, and by
   regarding some symbols as individual tokens (such as '\'). The choice
   of what symbols to split on is optional but once decided it will
-  strongly effect the normalisation rules. Therefore it is strongly
+  strongly affect the normalisation rules. Therefore it is strongly
   recommended to choose a tokenisation that produces the 'best'
   normalisation without normalisation rules and to avoid changing it.
 
@@ -254,7 +254,7 @@ Hello there, 1 2 3.
   be used to replace 'Dr' with Doctor as this can be confused with
   'Dr' as Drive. However it is the easiest user based normalisation
   to produce and for many users, although an abbreviation may be
-  ambiguous over many texts, may not be for a specific users' text.
+  ambiguous over many texts, may not be for a specific user's text.
 
   Abbreviations can have a context and can add XML values. The match
   process is very simple and requires case matching. i.e. IBM -> i b

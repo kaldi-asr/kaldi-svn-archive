@@ -15,9 +15,9 @@
 # See the Apache 2 License for the specific language governing permissions and
 # limitations under the License.
 
-# Template for creating modules for the idlak build system
+# Full model context creation (linguistic context extraction)
 
-import sys, os.path, time, subprocess, re
+import sys, os.path, time, subprocess, re, shlex
 from xml.dom.minidom import parse, parseString
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -88,10 +88,12 @@ def main():
     os.environ["PATH"] += os.pathsep + os.pathsep.join(pathlist)
     # open the aligner xml output with minidom
     dom = parse(os.path.join(aligndir, "text.xml" ))
-    normpipe = subprocess.Popen(["idlaktxp", "--pretty", "--tpdb=%s" % (tpdbdir), "-", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    normcmd = "idlaktxp --pretty --tpdb=%s - -" % (tpdbdir)
+    normpipe = subprocess.Popen(shlex.split(normcmd.encode('utf8')), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     normtext = normpipe.communicate(input=dom.toxml())[0]
     normpipe.stdout.close()
-    cexpipe = subprocess.Popen(["idlakcex", "--pretty", "--tpdb=%s" % (tpdbdir), "-", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    cexcmd = "idlakcex --pretty --tpdb=%s - -" % (tpdbdir)
+    cexpipe = subprocess.Popen(shlex.split(cexcmd.encode('utf8')), stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     cex = cexpipe.communicate(input=normtext)[0]
     cexpipe.stdout.close()
 
@@ -135,6 +137,8 @@ def main():
                 escaped_delimiters.append(re.escape(k))
 
             delimiter_string = '|'.join(escaped_delimiters)
+            # Extract values and their delimiters, ?= indicates that we're looking for the 
+            # next delimiter or the end of the string, but *not* consuming it.
             regex_string = "(%s)(\w+?)(?=%s|$)" % (delimiter_string, delimiter_string)
 
             pat = re.finditer(regex_string, cex_string)

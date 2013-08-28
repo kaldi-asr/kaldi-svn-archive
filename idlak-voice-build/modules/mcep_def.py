@@ -15,7 +15,7 @@
 # See the Apache 2 License for the specific language governing permissions and
 # limitations under the License.
 
-# 
+# Performs mel-cepstrum analysis on given .wav files.
 
 import sys, os.path, time, glob
 
@@ -101,7 +101,7 @@ def main():
         # '-w 1' refers to the usage of a Hamming window.
         # '-n 1' is sigma(n=0,L-1)(w2(n)=1) normalisation.
         window_com = '%s/window/window -l %s -L 512 -w 1 -n 1' % (sptk_bin_root, window_length)
-        # '-e 0.001' is a small value added to periodgram
+        # '-e 0.001' is a small value added to periodogram
         # '-l 512' is frame length.
         mcep_com = '%s/mcep/mcep -a %s -e 0.001 -m %s -l 512' % (sptk_bin_root, alpha, order)
 
