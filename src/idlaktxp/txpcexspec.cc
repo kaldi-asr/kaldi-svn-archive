@@ -237,9 +237,6 @@ int32 TxpCexspec::AddPauseNodes(pugi::xml_document* doc) {
       childnode.append_attribute("val").set_value("pau");
     }
   }
-  Output kio("./temp.xml", false);
-  doc->save(kio.Stream(), "\t");
-  kio.Stream().flush();
   return true;
 }
 

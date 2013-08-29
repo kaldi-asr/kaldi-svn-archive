@@ -106,8 +106,6 @@
     <item name="$"/>
     <item name="PAU"/>
     <item name="X"/>
-    <!-- Should find the source of the error so I can remove this
-    <item name="ERROR" />-->
   </set>
   <set name="tone" null="X">
     <item name="LH"/>
@@ -129,12 +127,8 @@
   <feat delim="=" htsname="RR" desc="phone_forward_forward" name="ForwardForwardPhone" set="phone" pauctx="false">
     <mapping fromstr="X" tostr="sil"/>
   </feat>
-  <feat delim="/00:" htsname="Seg_Fw" desc="segment_location_from_front" name="SegmentLocationFromFront" min="0" max="7">
-    <!--<mapping fromstr="0" tostr="xx"/>-->
-  </feat>
-  <feat delim="/01:" htsname="Seg_Bw" desc="segment_location_from_back" name="SegmentLocationFromBack" min="0" max="7">
-    <!--<mapping fromstr="0" tostr="xx"/>-->
-  </feat>
+  <feat delim="/00:" htsname="Seg_Fw" desc="segment_location_from_front" name="SegmentLocationFromFront" min="0" max="7" />
+  <feat delim="/01:" htsname="Seg_Bw" desc="segment_location_from_back" name="SegmentLocationFromBack" min="0" max="7" />
   <feat delim="/02:" htsname="L-Syl_Stress" desc="left_syllabic_stress" name="BackwardSyllableStress" min="0" max="1" pauctx="false" />
   <feat delim="/03:" htsname="C-Syl_Stress" desc="current_syllabic_stress" name="SyllableStress" min="0" max="1" pauctx="false" />
   <feat delim="/04:" htsname="R-Syl_Stress" desc="right_syllabic_stress" name="ForwardSyllableStress" min="0" max="1" pauctx="false" />
@@ -148,11 +142,5 @@
   <feat delim="/12:" htsname="C-Word_Num-Syls" desc="-" name="WordNumSyls" min="0" max="7"/>
   <feat delim="/13:" htsname="R-Word_Num-Syls" desc="-" name="ForwardWordNumSyls" min="0" max="7"/>
   <feat delim="/14:" htsname="C-Phrase_Num-Words" desc="-" name="PhraseNumWords" min="0" max="30"/>
-  <!--<feat delim="/15:" htsname="Pos_C-Syl_in_C-Word(Fw)" desc="position_current_syllable_in_wrd_from_front" name="psf" min="0" max="7">
-    <mapping fromstr="0" tostr="xx"/>
-  </feat>
-  <feat delim="/16:" htsname="Pos_C-Syl_in_C-Word(Bw)" desc="position_current_syllable_in_wrd_from_back" name="sp2wnb" min="0" max="7">
-    <mapping fromstr="0" tostr="xx"/>
-  </feat>-->
   <feat delim="/17:" htsname="C-Phrase_TOBI_End-tone" desc="-" name="PhraseTobiEndTone" set="tone"/>
 </fex>
