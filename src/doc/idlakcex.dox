@@ -211,6 +211,12 @@ Below is an example of such an XML file:
 </fex>
 \endverbatim
 
+Function names in the C++ should contain the following components in the following order:
 
+ - \b CexFunc
+ - \b String or \b Int: depending on the feature's value type.
+ - The contents of the 'name' field in the XML file.
+
+For example, given the previously-mentioned XML file, the following would be legitimate function names; \e CexFuncStringBackwardBackwardPhone, \e CexFuncIntWordNumSyls, \e CexFuncStringPhraseTobiEndTone.
 
 */

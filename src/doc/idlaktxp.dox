@@ -338,13 +338,10 @@ Hello there, 1 2 3.
   It relies on a four level process:
 
   -# Give every word the most likely tag name.
-
   -# Apply a series of regular expressions that can change this tag to
      another more likely tag name based on prefixes and suffixes.
-
   -# Look up common words that will alter the tag to the most likely
      tag for this word.
-
   -# look up the previous tag and this word that will alter the tag to
      the most likely tag for this word.
 
@@ -380,10 +377,8 @@ Hello there, 1 2 3.
      using a \b lex tag and a \b pron attribute with a space separated
      series of valid phone symbols. Syllabic liaison can also be
      specified here (\sa idlaktxp_syl)
-
   -# If the word contains non lexical symbols, read them out character
      by character. Or if the attribute 
-
   -# Look the word up in a series of lexicons. In the prototype there
      is only one lexicon, but in a final system we can imagine a
      cascade of lexicons. A user lexicon for unusual user specific
@@ -394,7 +389,6 @@ Hello there, 1 2 3.
      entries. In a final system the entry type could be chosen based
      on context and POS. Alternatively it could be overridden using
      markup in the input.
-
   -# If the word is not in the lexicon apply letter to sound rules to
      the letters to produce a pronunciation. The LTS system is built
      offline using wagon from University of Edinburgh speech_tools
