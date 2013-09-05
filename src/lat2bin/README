@@ -1,0 +1,30 @@
+Some utils for processing Kaldi lattices.
+
+compactlattice44-arc.so lattice4-arc.so  Shared objects containing Kaldi
+lattice types to allow the OpenFst shell commands to directly manipulate the lattices.
+
+lattice-info. Displays OpenFst style info for each of the lattice in the
+archive
+
+lattice-filter. Applies a pipeline of commands to each of the lattices in the
+archive. For example the below would convert lattice to word level acceptor and
+extract the single best word sequence.
+
+ lattice-filter "fstproject --project_output | fstrmepsilon | fstshortestpath" \
+ ark:lat.1 ark:1best.1 
+
+
+lattice-filter-text. Same as above but assumes the last command in the pipeline
+outputs text (fstdraw, fstshortestdistance).
+
+
+For the lattice-filter commands the shared objects need to be on the
+LD_LIBRARY_PATH or in the working directory and OpenFst is commands are on the
+path.
+
+The filtering commands make use of the libexecstream library.
+http://libexecstream.sourceforge.net/
+
+
+
+
