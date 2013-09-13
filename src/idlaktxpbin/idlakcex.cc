@@ -39,7 +39,6 @@ int main(int argc, char *argv[]) {
   std::string tpdb;
   std::string configf;
   std::string input;
-  std::ostream *out;
   std::ofstream fout;
   // defaults to non-pretty XML output
   bool pretty = false;

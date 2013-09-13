@@ -425,7 +425,7 @@ pugi::xml_node TxpCexspecContext::GetPhone(const int32 idx,
 pugi::xml_node TxpCexspecContext::GetSyllable(const int32 idx,
                                               const bool pause_context) const {
   int32 i;
-  int32 pau_found = 0;
+  // int32 pau_found = 0;
   pugi::xml_node empty;
   // Get the parent syllable node of the current phone.
   if (idx >= 0) {
@@ -450,7 +450,7 @@ pugi::xml_node TxpCexspecContext::GetSyllable(const int32 idx,
 pugi::xml_node TxpCexspecContext::GetWord(const int32 idx,
                                           const bool pause_context) const {
   int32 i;
-  int32 pau_found = 0;
+  // int32 pau_found = 0;
   pugi::xml_node empty;
   // Get the parent token node of the current phone.
   if (idx >= 0) {
@@ -475,7 +475,7 @@ pugi::xml_node TxpCexspecContext::GetWord(const int32 idx,
 pugi::xml_node TxpCexspecContext::GetSpurt(const int32 idx,
                                            const bool pause_context) const {
   int32 i;
-  int32 pau_found = 0;
+  // int32 pau_found = 0;
   pugi::xml_node empty;
   // Get the parent token node of the current phone.
   if (idx >= 0) {
