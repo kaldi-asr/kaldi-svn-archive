@@ -71,7 +71,7 @@ $logfile = shift @ARGV;
 
 if (defined $jobname && $logfile !~ m/$jobname/
     && $jobend > $jobstart) {
-  print STDERR "run.pl: you are trying to run a parallel job but "
+  print STDERR "queue.pl: you are trying to run a parallel job but "
     . "you are putting the output into just one log file ($logfile)\n";
   exit(1);
 }
@@ -171,12 +171,13 @@ if (!defined $jobname) { # not an array job
 }
 print Q "exit \$[\$ret ? 1 : 0]\n"; # avoid status 100 which grid-engine
 print Q "## submitted with:\n";       # treats specially.
+$qsub_cmd = "qsub -S /bin/bash -v PATH -cwd -j y -o $queue_logfile $qsub_opts $queue_array_opt $queue_scriptfile >>$queue_logfile 2>&1";
 print Q "# $qsub_cmd\n";
 if (!close(Q)) { # close was not successful... || die "Could not close script file $shfile";
   die "Failed to close the script file (full disk?)";
 }
 
-$ret = system ("qsub -S /bin/bash -v PATH -cwd -j y -o $queue_logfile $qsub_opts $queue_array_opt $queue_scriptfile >>$queue_logfile 2>&1");
+$ret = system ($qsub_cmd);
 if ($ret != 0) {
   if ($sync && $ret == 256) { # this is the exit status when a job failed (bad exit status)
     if (defined $jobname) { $logfile =~ s/\$SGE_TASK_ID/*/g; }
@@ -199,14 +200,19 @@ if (! $sync) { # We're not submitting with -sync y, so we
       push @syncfiles, "$syncfile.$jobid";
     }
   }
+  # We will need the sge_job_id, to check that job still exists
+  $sge_job_id=`grep "Your job" $queue_logfile | awk '{ print \$3 }' | sed 's|\\\..*||'`;
+  chomp($sge_job_id);
+  $check_sge_job_ctr=1;
+  #
   $wait = 0.1;
   foreach $f (@syncfiles) {
     # wait for them to finish one by one.
     while (! -f $f) {
       sleep($wait);
       $wait *= 1.2;
-      if ($wait > 1.0) {
-        $wait = 1.0; # never wait more than 1 second.
+      if ($wait > 3.0) {
+        $wait = 3.0; # never wait more than 3 seconds.
         if (rand() > 0.5) {
           system("touch $qdir/.kick");
         } else {
@@ -216,6 +222,28 @@ if (! $sync) { # We're not submitting with -sync y, so we
         # directory.  I've seen cases where it would indefinitely fail to get
         # updated, even though the file exists on the server.
         system("ls $qdir >/dev/null");
+      }
+
+      # Check that the job exists in SGE. Job can be killed if duration 
+      # exceeds some hard limit, or in case of a machine shutdown. 
+      if(($check_sge_job_ctr++ % 10) == 0) { # Don't run qstat too often, avoid stress on SGE.
+        if ( -f $f ) { next; }; #syncfile appeared, ok
+        $ret = system("qstat -j $sge_job_id >/dev/null 2>/dev/null");
+        if($ret != 0) {
+          # Don't consider immediately missing job as error, first wait some  
+          # time to make sure it is not just delayed creation of the syncfile.
+          sleep(3);
+          if ( -f $f ) { next; }; #syncfile appeared, ok
+          sleep(7);
+          if ( -f $f ) { next; }; #syncfile appeared, ok
+          sleep(20);
+          if ( -f $f ) { next; }; #syncfile appeared, ok
+          #Otherwise it is an error
+          if (defined $jobname) { $logfile =~ s/\$SGE_TASK_ID/*/g; }
+          print STDERR "queue.pl: Error, unfinished job no longer exists, log is in $logfile\n";
+          print STDERR "          Possible reasons: a) Exceeded time limit? -> Use more jobs! b) Shutdown/Frozen machine? -> Run again!\n";
+          exit(1);
+        }
       }
     }
   }

@@ -30,9 +30,12 @@ stage=0
 cer=0
 decode_mbr=true
 lat_weights=
+word_ins_penalty=0.0
 min_lmwt=7
 max_lmwt=17
 parallel_opts="-pe smp 3"
+skip_scoring=false
+ctm_name=
 #end configuration section.
 
 help_message="Usage: "$(basename $0)" [options] <data-dir> <graph-dir|lang-dir> <decode-dir1>[:lmwt-bias] <decode-dir2>[:lmwt-bias] [<decode-dir3>[:lmwt-bias] ... ] <out-dir>
@@ -67,14 +70,21 @@ decode_dirs=( $@ )  # read the remaining arguments into an array
 unset decode_dirs[${#decode_dirs[@]}-1]  # 'pop' the last argument which is odir
 num_sys=${#decode_dirs[@]}  # number of systems to combine
 
+#Let the user to set the CTM file name 
+#use the data-dir name in case the user doesn't care
+if [ -z ${ctm_name} ] ; then
+  ctm_name=`basename $data`
+fi
 
 
-for f in $lang/words.txt $lang/phones/word_boundary.int $data/stm; do
+for f in $lang/words.txt $lang/phones/word_boundary.int ; do
   [ ! -f $f ] && echo "$0: file $f does not exist" && exit 1;
 done
-ScoringProgram=$KALDI_ROOT/tools/sctk-2.4.0/bin/sclite
-[ ! -f $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && exit 1;
-
+if ! $skip_scoring ; then
+  for f in  $data/stm; do
+    [ ! -f $f ] && echo "$0: file $f does not exist" && exit 1;
+  done
+fi
 
 
 mkdir -p $dir/log
@@ -85,7 +95,7 @@ for i in `seq 0 $[num_sys-1]`; do
   decode_dir=`echo $decode_dir | cut -d: -f1`
   [ -z "$offset" ] && offset=0
   
-  model=$decode_dir/../final.mdl  # model one level up from decode dir
+  model=`dirname $decode_dir`/final.mdl  # model one level up from decode dir
   for f in $model $decode_dir/lat.1.gz ; do
     [ ! -f $f ] && echo "$0: expecting file $f to exist" && exit 1;
   done
@@ -105,16 +115,13 @@ for i in `seq 0 $[num_sys-1]`; do
   # very long.
   for j in `seq $nj`; do file_list="$file_list $decode_dir/lat.$j.gz"; done
 
-  lats[$i]="ark,s,cs:lattice-prune --beam=$beam --inv-acoustic-scale=\$[$offset+LMWT] \
- 'ark:gunzip -c $file_list|' ark:- | \
- lattice-scale --inv-acoustic-scale=\$[$offset+LMWT] ark:- ark:- | \
+  lats[$i]="ark,s,cs:lattice-scale --inv-acoustic-scale=\$[$offset+LMWT] 'ark:gunzip -c $file_list|' ark:- | \
+ lattice-add-penalty --word-ins-penalty=$word_ins_penalty ark:- ark:- | \
+ lattice-prune --beam=$beam ark:- ark:- | \
  lattice-align-words $lang/phones/word_boundary.int $model ark:- ark:- |"
 done
 
 mkdir -p $dir/scoring/log
-
-cat $data/text | sed 's:<NOISE>::g' | sed 's:<SPOKEN_NOISE>::g' \
-  > $dir/scoring/test_filt.txt
 
 if [ -z "$lat_weights" ]; then
   lat_weights=1.0
@@ -128,13 +135,15 @@ if [ $stage -le 0 ]; then
     lattice-to-ctm-conf --decode-mbr=true ark:- - \| \
     utils/int2sym.pl -f 5 $lang/words.txt  \| \
     utils/convert_ctm.pl $data/segments $data/reco2file_and_channel \
-    '>' $dir/score_LMWT/$name.ctm || exit 1;
+    '>' $dir/score_LMWT/${ctm_name}.ctm || exit 1;
 fi
 
 
 if [ $stage -le 1 ]; then
-# Remove some stuff we don't want to score, from the ctm.
-  for x in $dir/score_*/$name.ctm; do
+  # Remove some stuff we don't want to score, from the ctm.
+  for lmwt in `seq $min_lmwt $max_lmwt`; do
+    x=$dir/score_${lmwt}/${ctm_name}.ctm
+    [ ! -f $x ] && echo "File $x does not exist! Exiting... " && exit 1
     cp $x $x.bkup1;
     cat $x.bkup1 | grep -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
       grep -v -E '<UNK>|%HESITATION|\(\(\)\)' | \
@@ -158,52 +167,13 @@ if [ $stage -le 1 ]; then
         }
       }' > $x;
     cp $x $x.bkup2;
-    y=${x%.ctm};
-    cat $x.bkup2 | \
-      perl -e '
-      use Encode;
-      while(<>) {
-        chomp;
-        @col = split(" ", $_);
-        @col == 6 || die "Bad number of columns!";
-        if ($col[4] =~ m/[\x80-\xff]{2}/) {
-          $word = decode("UTF8", $col[4]);
-          @char = split(//, $word);
-          $start = $col[2];
-          $dur = $col[3]/@char;
-          $start -= $dur;
-          foreach (@char) {
-            $char = encode("UTF8", $_);
-            $start += $dur;
-            # printf "$col[0] $col[1] $start $dur $char\n"; 
-            printf "%s %s %.2f %.2f %s %s\n", $col[0], $col[1], $start, $dur, $char, $col[5]; 
-          }
-        }
-      }' > $y.char.ctm
-    cp $y.char.ctm $y.char.ctm.bkup1
   done
 fi
 
-if [ $stage -le 2 ]; then
-  $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.log \
-    cp $data/stm $dir/score_LMWT/ '&&' cp $data/glm $dir/score_LMWT/ '&&'\
-    $ScoringProgram -s -r $dir/score_LMWT/stm stm -h $dir/score_LMWT/${name}.ctm ctm -o all -o dtl;
-
-  if [ $cer -eq 1 ]; then
-    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.char.log \
-      cp $data/char.stm $dir/score_LMWT/'&&'\
-      $ScoringProgram -s -r $dir/score_LMWT/char.stm stm -h $dir/score_LMWT/${name}.char.ctm ctm -o all -o dtl;
+if ! $skip_scoring ; then
+  if [ $stage -le 2 ]; then
+    local/score_stm.sh --min-lmwt $min_lmwt --max-lmwt $max_lmwt $data $lang $dir || exit 1
   fi
-  
-#  for x in $dir/score_*/*.ctm; do
-#    mv $x.filt $x;
-#    rm -f $x.filt*;
-#  done
-
-#  for x in $dir/score_*/*stm; do
-#    mv $x.filt $x;
-#    rm -f $x.filt*;
-#  done
 fi
 
 

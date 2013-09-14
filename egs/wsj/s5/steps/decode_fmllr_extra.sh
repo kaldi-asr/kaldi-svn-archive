@@ -8,7 +8,7 @@
 # script did-- it's for robustness in the case where your original cepstral mean
 # normalization was way off.
 # We also added a new option --distribute=true (by default) to 
-# weigh-silence-post.  This weights the silence frames in a different way,
+# weight-silence-post.  This weights the silence frames in a different way,
 # weighting all posteriors on the frame rather than just the silence ones, which
 # removes a particular kind of bias that the old approach suffered from.
 
@@ -56,6 +56,7 @@ fmllr_update_type=full
 skip_scoring=false
 num_threads=1 # if >1, will use gmm-latgen-faster-parallel
 parallel_opts=  # If you supply num-threads, you should supply this too.
+scoring_opts=
 
 # End configuration section
 
@@ -80,7 +81,7 @@ if [ $# != 3 ]; then
    echo "  --acwt <acoustic-weight>                 # default 0.08333 ... used to get posteriors"
    echo "  --num-threads <n>                        # number of threads to use, default 1."
    echo "  --parallel-opts <opts>                   # e.g. '-pe smp 4' if you supply --num-threads 4"
-
+   echo "  --scoring-opts <opts>                    # options to local/score.sh"
    exit 1;
 fi
 
@@ -120,7 +121,9 @@ fi
 if [ -z "$si_dir" ]; then # we need to do the speaker-independent decoding pass.
   si_dir=${dir}.si # Name it as our decoding dir, but with suffix ".si".
   if [ $stage -le 0 ]; then
-    steps/decode.sh --acwt $acwt --nj $nj --cmd "$cmd" --beam $first_beam --model $alignment_model --max-active $first_max_active $graphdir $data $si_dir || exit 1;
+    steps/decode.sh --acwt $acwt --nj $nj --cmd "$cmd" --beam $first_beam --model $alignment_model\
+      --max-active $first_max_active --parallel-opts "${parallel_opts}" --num-threads $num_threads\
+      --skip-scoring true $graphdir $data $si_dir || exit 1;
   fi
 fi
 ##
@@ -241,7 +244,7 @@ fi
 if ! $skip_scoring ; then
   [ ! -x local/score.sh ] && \
     echo "$0: not scoring because local/score.sh does not exist or not executable." && exit 1;
-  local/score.sh --cmd "$cmd" $data $graphdir $dir
+  local/score.sh $scoring_opts --cmd "$cmd" $data $graphdir $dir
 fi
 
 exit 0;

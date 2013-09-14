@@ -30,14 +30,17 @@ data=$3
 logdir=$4
 mfccdir=$5
 
+# make $mfccdir an absolute pathname.
+mfccdir=`perl -e '($dir,$pwd)= @ARGV; if($dir!~m:^/:) { $dir = "$pwd/$dir"; } print $dir; ' $mfccdir ${PWD}`
+
 utils/split_data.sh $data_src1 $nj || exit 1;
 utils/split_data.sh $data_src2 $nj || exit 1;
 
 mkdir -p $mfccdir $logdir
 
 mkdir -p $data 
-cp $data_src1/* $data/ # so we get the other files, such as utt2spk.
-rm $data/cmvn.scp
+cp $data_src1/* $data/ 2>/dev/null # so we get the other files, such as utt2spk.
+rm $data/cmvn.scp 2>/dev/null 
 rm -r $data/split* 2>/dev/null
 
 # use "name" as part of name of the archive.

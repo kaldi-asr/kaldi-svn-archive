@@ -36,7 +36,12 @@ class CuRand {
      host_(NULL), host_size_(0)
   { }
 
-  ~CuRand() { }
+  ~CuRand() {
+#if HAVE_CUDA == 1
+    cudaFree(z1_); cudaFree(z2_); cudaFree(z3_); cudaFree(z4_);
+#endif
+    delete[] host_;
+  }
 
   /// on demand seeding of all the buffers
   void SeedGpu(MatrixIndexT state_size);
@@ -72,7 +77,7 @@ class CuRand {
   uint32 *host_; ///< host bufer, used for initializing
   int32 host_size_; ///< size of the host buffer
 
-  CuMatrix<Real> tmp_;
+  CuMatrix<Real> tmp_; ///< auxiliary matrix
 };
 
 

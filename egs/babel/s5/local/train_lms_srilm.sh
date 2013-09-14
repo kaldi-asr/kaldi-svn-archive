@@ -1,6 +1,12 @@
 #!/bin/bash
 export LC_ALL=C
 
+words_file=
+train_text=
+dev_text=
+
+. ./utils/parse_options.sh
+
 echo "-------------------------------------"
 echo "Building an SRILM language model     "
 echo "-------------------------------------"
@@ -28,21 +34,29 @@ if [ -z $loc ]; then
   fi
 fi
 
+[ -z $words_file ] && words_file=$datadir/lang/words.txt 
+[ -z $train_text ] && train_text=$datadir/train/text
+[ -z $dev_text ] && dev_text=$datadir/dev2h/text
 
-words_file=$datadir/lang/words.txt 
-train_text=$datadir/train/text
-dev_text=$datadir/dev/text
+echo "Using words file: $words_file"
+echo "Using train text: $train_text"
+echo "Using dev text  : $dev_text"
+
+for f in $words_file $train_text $dev_text; do
+  [ ! -s $f ] && echo "No such file $f" && exit 1;
+done
+
 # Prepare the destination directory
 mkdir -p $tgtdir
 
 # Extract the word list from the training dictionary; exclude special symbols
 sort $words_file | cut -f1 -d' ' | grep -v '\#0' | grep -v '<eps>' > $tgtdir/vocab
 if (($?)); then
-    echo "Failed to create vocab from $words_file"
-    exit 1
+  echo "Failed to create vocab from $words_file"
+  exit 1
 else
-    # wc vocab # doesn't work due to some encoding issues
-    echo vocab contains `cat $tgtdir/vocab | perl -ne 'BEGIN{$l=$w=0;}{split; $w+=$#_; $w++; $l++;}END{print "$l lines, $w words\n";}'`
+  # wc vocab # doesn't work due to some encoding issues
+  echo vocab contains `cat $tgtdir/vocab | perl -ne 'BEGIN{$l=$w=0;}{split; $w+=$#_; $w++; $l++;}END{print "$l lines, $w words\n";}'`
 fi
 
 # Kaldi transcript files contain Utterance_ID as the first word; remove it

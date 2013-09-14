@@ -140,11 +140,8 @@ sil_label=`grep '!SIL' data/lang_test_tgpr/words.txt | awk '{print $2}'`
 steps/word_align_lattices.sh --cmd "$train_cmd" --silence-label $sil_label \
   data/lang_test_tgpr exp/tri1/decode_tgpr_dev93 exp/tri1/decode_tgpr_dev93_aligned || exit 1;
 
-
-# Align tri1 system with si84 data.
 steps/align_si.sh --nj 10 --cmd "$train_cmd" \
   data/train_si84 data/lang exp/tri1 exp/tri1_ali_si84 || exit 1;
-
 
 # Train tri2a, which is deltas + delta-deltas, on si84 data.
 steps/train_deltas.sh --cmd "$train_cmd" \
@@ -194,7 +191,7 @@ local/score_mbr.sh --cmd "$decode_cmd" \
 
 steps/decode_fromlats.sh --cmd "$decode_cmd" \
   data/test_dev93 data/lang_test_tgpr exp/tri2b/decode_tgpr_dev93 \
-  exp/tri2a/decode_tgpr_dev93_fromlats || exit 1;
+  exp/tri2a/decode_tgpr_dev93_fromlats || exit 1
 
 
 # Align tri2b system with si84 data.
@@ -267,7 +264,9 @@ steps/train_sat.sh  --cmd "$train_cmd" \
    exp/tri4a/graph_tgpr data/test_dev93 exp/tri4a/decode_tgpr_dev93 || exit 1;
  steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
    exp/tri4a/graph_tgpr data/test_eval92 exp/tri4a/decode_tgpr_eval92 || exit 1;
-) &
+) & 
+
+
 steps/train_quick.sh --cmd "$train_cmd" \
    4200 40000 data/train_si284 data/lang exp/tri3b_ali_si284 exp/tri4b || exit 1;
 
@@ -285,6 +284,28 @@ steps/train_quick.sh --cmd "$train_cmd" \
   exp/tri4b/graph_bd_tgpr data/test_eval92 exp/tri4b/decode_bd_tgpr_eval92 || exit 1;
 ) &
 
+
+( # run decoding with larger dictionary and pron-probs.  Need to get dict with
+  # pron-probs first.  [This seems to help by about 0.1% absolute in general.]
+  cp -rT data/local/dict_larger data/local/dict_larger_pp
+  rm -r data/local/dict_larger_pp/{b,f,*.gz,lexicon.txt}
+  steps/get_lexicon_probs.sh data/train_si284 data/lang exp/tri4b data/local/dict_larger/lexicon.txt \
+    exp/tri4b_lexprobs data/local/dict_larger_pp/lexiconp.txt || exit 1;
+  utils/prepare_lang.sh --share-silence-phones true \
+    data/local/dict_larger_pp "<SPOKEN_NOISE>" data/dict_larger/tmp data/lang_bd_pp
+  cmp data/lang_bd/words.txt data/lang_bd_pp/words.txt || exit 1;
+  for suffix in tg tgpr fg; do
+    cp -rT data/lang_bd_pp data/lang_test_bd_pp_${suffix}
+    cp data/lang_test_bd_${suffix}/G.fst data/lang_test_bd_pp_${suffix}/G.fst || exit 1;
+  done
+  utils/mkgraph.sh data/lang_test_bd_pp_tgpr exp/tri4b exp/tri4b/graph_bd_pp_tgpr || exit 1;
+  steps/decode_fmllr.sh --nj 10 --cmd "$decode_cmd" \
+    exp/tri4b/graph_bd_pp_tgpr data/test_dev93 exp/tri4b/decode_bd_pp_tgpr_dev93 
+  steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
+    exp/tri4b/graph_bd_pp_tgpr data/test_eval92 exp/tri4b/decode_bd_pp_tgpr_eval92
+)
+
+
 # Train and test MMI, and boosted MMI, on tri4b (LDA+MLLT+SAT on
 # all the data).  Use 30 jobs.
 steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
@@ -292,7 +313,7 @@ steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
 
 local/run_mmi_tri4b.sh
 
-#local/run_nnet_cpu.sh
+#local/run_nnet2.sh
 
 ## Segregated some SGMM builds into a separate file.
 #local/run_sgmm.sh

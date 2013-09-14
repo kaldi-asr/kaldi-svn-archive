@@ -22,6 +22,12 @@ cmd=run.pl
 model=
 skip_scoring=false
 stage=0
+strict=true
+skip_optimization=false
+max_states=150000
+word_ins_penalty=0
+index_only=false
+ntrue_scale=0.1
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -54,11 +60,15 @@ fi
 
 for splitdatadir in $@ ; do
     kwsdatadir=$splitdatadir/kws
-    if [ ! -d "$splitdatadir"  ] || [ ! -d "$kwsdatadir" ] ; then
-        echo "FATAL: the data directory does not exist"
+    if [ ! -d "$splitdatadir"  ]  ; then
+        echo "FATAL: the data directory $splitdatadir does not exist"
         exit 1;
     fi
-    if [[ ! -f "$kwsdatadir/ecf.xml"  ]] ; then
+    if [ ! -d "$kwsdatadir" ] ; then
+        echo "FATAL: the data directory $kwsdatadir does not exist"
+        exit 1;
+    fi
+    if [ ! -f "$kwsdatadir/ecf.xml"  ] ; then
         echo "FATAL: the $kwsdatadir does not contain the ecf.xml file"
         exit 1;
     fi
@@ -68,31 +78,46 @@ kwsdatadir=$datadir/kws
 
 ! durationA=`head -1 $datasetA/kws/ecf.xml |\
     grep -o -E "duration=\"[0-9]*[    \.]*[0-9]*\"" |\
-    grep -o -E "[0-9]*[\.]*[0-9]*" |\
-    perl -e 'while(<>) {print $_/2;}'` && \
+    perl -e 'while($m=<>) {$m=~s/.*\"([0-9.]+)\".*/\1/; print $m/2;}'` &&
    echo "Error getting duration from $datasetA/kws/ecf.xml" && exit 1;
 
 
 ! durationB=`head -1 $datasetB/kws/ecf.xml |\
     grep -o -E "duration=\"[0-9]*[    \.]*[0-9]*\"" |\
-    grep -o -E "[0-9]*[\.]*[0-9]*" |\
-    perl -e 'while(<>) {print $_/2;}'` && \
-   echo "Error getting duration from $datasetA/kws/ecf.xml" && exit 1;
+    perl -e 'while($m=<>) {$m=~s/.*\"([0-9.]+)\".*/\1/; print $m/2;}'` &&
+   echo "Error getting duration from $datasetB/kws/ecf.xml" && exit 1;
+
+[ -z $durationA ] &&  echo "Error getting duration from $datasetA/kws/ecf.xml" && exit 1;
+[ -z $durationB ] &&  echo "Error getting duration from $datasetB/kws/ecf.xml" && exit 1;
 
 if [ ! -z "$model" ]; then
     model_flags="--model $model"
 fi
 
+mkdir -p $decodedir/kws/
 if [ $stage -le 0 ] ; then
   echo "Making KWS indices..."
-  for lmwt in `seq $min_lmwt $max_lmwt` ; do
-      kwsoutdir=$decodedir/kws_$lmwt
-      mkdir -p $kwsoutdir
+  if [ ! -f $decodedir/kws/.done.index ] ; then
+    for lmwt in `seq $min_lmwt $max_lmwt` ; do
+        kwsoutdir=$decodedir/kws_$lmwt
+        mkdir -p $kwsoutdir
+  
+        acwt=`echo "scale=5; 1/$lmwt" | bc -l | sed "s/^./0./g"` 
+        steps/make_index.sh --strict $strict --cmd "$cmd" --max-states $max_states\
+          --acwt $acwt $model_flags --skip-optimization $skip_optimization \
+          --word_ins_penalty $word_ins_penalty \
+          $kwsdatadir $langdir $decodedir $kwsoutdir  || exit 1
+    done
+    touch $decodedir/kws/.done.index
+  else
+    echo "Assuming indexing has been aready done. If you really need to re-run "
+    echo "the indexing again, delete the file $decodedir/kws/.done.index"
+  fi
+fi
 
-      acwt=`echo "scale=5; 1/$lmwt" | bc -l | sed "s/^./0./g"` 
-      local/make_index.sh --cmd "$cmd" --acwt $acwt $model_flags\
-        $kwsdatadir $langdir $decodedir $kwsoutdir  || exit 1
-  done
+if $index_only ; then
+  echo "Indexing only was requested, existing now..."
+  exit 0
 fi
 
 if [ $stage -le 1 ] ; then
@@ -104,7 +129,7 @@ if [ $stage -le 1 ] ; then
       mkdir -p $dirA
       mkdir -p $dirB
       
-      local/search_index.sh --cmd "$cmd" $kwsdatadir $kwsoutdir  || exit 1
+      steps/search_index.sh --cmd "$cmd" $kwsdatadir $kwsoutdir  || exit 1
 
       [ ! -f $datasetA/kws/utter_id ] && echo "File $datasetA/kws/utter_id must exist!" && exit 1;
       
@@ -130,19 +155,17 @@ if [ $stage -le 2 ] ; then
     set -e';' set -o pipefail';' \
     cat $rootdirA/kws_LMWT/results \| \
     utils/write_kwslist.pl --flen=0.01 --duration=$durationA \
-      --segments=$datadir/segments --normalize=true \
-      --map-utter=$kwsdatadir/utter_map \
-      - - \| local/filter_kwslist.pl $duptime \> $rootdirA/kws_LMWT/kwslist.xml || exit 1
+      --segments=$datadir/segments --normalize=true --remove-dup=true\
+      --map-utter=$kwsdatadir/utter_map  --digits=3 - $rootdirA/kws_LMWT/kwslist.xml || exit 1
 fi
 
 if [ $stage -le 3 ] ; then
   $cmd LMWT=$min_lmwt:$max_lmwt $rootdirA/kws/kws_write_unnormalized.LMWT.log \
     set -e';' set -o pipefail';' \
     cat $rootdirA/kws_LMWT/results \| \
-    utils/write_kwslist.pl --flen=0.01 --duration=$durationA \
-      --segments=$datadir/segments --normalize=false \
-      --map-utter=$kwsdatadir/utter_map \
-      - - \| local/filter_kwslist.pl $duptime \> $rootdirA/kws_LMWT/kwslist.unnormalized.xml || exit 1
+    utils/write_kwslist.pl --Ntrue-scale=$ntrue_scale --flen=0.01 --duration=$durationA \
+      --segments=$datadir/segments --normalize=false --remove-dup=true\
+      --map-utter=$kwsdatadir/utter_map - $rootdirA/kws_LMWT/kwslist.unnormalized.xml || exit 1
 fi
 
 echo "Scoring $datasetA"
@@ -153,7 +176,7 @@ if [ $stage -le 4 ] ; then
   elif [ ! -f $datasetA/kws/rttm ] ; then
       echo "Not scoring, because the file $datasetA/kws/rttm is not present"
   else
-    $decode_cmd LMWT=7:17 $rootdirA/kws/kws_scoring.LMWT.log \
+    $cmd LMWT=$min_lmwt:$max_lmwt $rootdirA/kws/kws_scoring.LMWT.log \
       local/kws_score.sh $datasetA $rootdirA/kws_LMWT 
   fi
 fi
@@ -164,19 +187,17 @@ if [ $stage -le 5 ] ; then
     set -e';' set -o pipefail';' \
     cat $rootdirB/kws_LMWT/results \| \
     utils/write_kwslist.pl --flen=0.01 --duration=$durationB \
-      --segments=$datadir/segments --normalize=true \
-      --map-utter=$kwsdatadir/utter_map \
-      - - \| local/filter_kwslist.pl $duptime \> $rootdirB/kws_LMWT/kwslist.xml || exit 1
+      --segments=$datadir/segments --normalize=true --digits=3  --remove-dup=true\
+      --map-utter=$kwsdatadir/utter_map - $rootdirB/kws_LMWT/kwslist.xml || exit 1
 fi
 
 if [ $stage -le 6 ] ; then
   $cmd LMWT=$min_lmwt:$max_lmwt $rootdirB/kws/kws_write_unnormalized.LMWT.log \
     set -e';' set -o pipefail';' \
     cat $rootdirB/kws_LMWT/results \| \
-    utils/write_kwslist.pl --flen=0.01 --duration=$durationB \
-      --segments=$datadir/segments --normalize=false \
-      --map-utter=$kwsdatadir/utter_map \
-      - - \| local/filter_kwslist.pl $duptime \> $rootdirB/kws_LMWT/kwslist.unnormalized.xml || exit 1
+    utils/write_kwslist.pl --Ntrue-scale=$ntrue_scale --flen=0.01 --duration=$durationB \
+      --segments=$datadir/segments --normalize=false --remove-dup=true\
+      --map-utter=$kwsdatadir/utter_map - $rootdirB/kws_LMWT/kwslist.unnormalized.xml || exit 1
 fi
 
 echo "Scoring $datasetB"
@@ -186,7 +207,7 @@ if [ $stage -le 7 ] ; then
   elif [ ! -f $datasetB/kws/rttm ] ; then
       echo "Not scoring, because the file $datasetB/kws/rttm is not present"
   else
-    $decode_cmd LMWT=7:17 $rootdirB/kws/kws_scoring.LMWT.log \
+    $cmd LMWT=$min_lmwt:$max_lmwt $rootdirB/kws/kws_scoring.LMWT.log \
       local/kws_score.sh $datasetB $rootdirB/kws_LMWT || exit 1
   fi
 fi

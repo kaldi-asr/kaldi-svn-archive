@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Copyright 2012  Johns Hopkins University (Author: Yenda Trmal)
 # Apache 2.0.
@@ -7,12 +7,14 @@ use strict;
 use warnings;
 use Getopt::Long;
 use XML::Simple;
-use Data::Dumper;
 
 my $data = XMLin(\*STDIN);
 my $duptime= $ARGV[0];
 
 #print Dumper($data);
+
+# Filters duplicate keywords that have the same keyword and about the same time.
+# Relies on the fact that its input is sorted from largest to smallest score.
 
 foreach my $kwentry (@{$data->{detected_kwlist}}) {
   #print "$kwentry->{kwid}\n";
@@ -22,7 +24,7 @@ foreach my $kwentry (@{$data->{detected_kwlist}}) {
   if(ref($kwentry->{kw}) eq 'ARRAY'){
     my @arr = @{$kwentry->{kw}};
     my @newarray = ();
-  
+    
     push @newarray, $arr[0];
     #$arr[0]->{tbeg} . "\n";
     for (my $i = 1; $i < scalar(@arr); $i +=1) {
@@ -34,9 +36,9 @@ foreach my $kwentry (@{$data->{detected_kwlist}}) {
             ( $arr[$i]->{file} eq  $kw->{file}) ) {
 
           $found = 1;
-
+          
         #print $arr[$i]->{tbeg} . "\n";
-        }      
+        }
       }
       if ( $found == 0 ) {
         push @newarray, $arr[$i];

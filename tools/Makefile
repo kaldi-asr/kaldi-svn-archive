@@ -1,6 +1,16 @@
 # SHELL += -x
 
-all: sph2pipe atlas irstlm_tgt sclite_tgt openfst_tgt
+all: check_required_programs sph2pipe atlas irstlm_tgt sclite_tgt openfst_tgt
+
+
+check_required_programs:
+	which aclocal
+	which automake
+	which autoconf
+	which libtoolize || which glibtoolize
+	which svn
+	which gcc
+	which g++
 
 clean: openfst_cleaned sclite_cleaned  irstlm_cleaned
 
@@ -25,16 +35,19 @@ distclean:
 		rm -rf openfst-1.3.2.tar.gz
 		rm -f openfst
 
-openfst_tgt: openfst_compiled
+openfst_tgt: openfst_compiled openfst/lib
 
 .PHONY: openfst_compiled
 openfst_compiled: openfst-1.3.2/Makefile
-		cd openfst-1.3.2/; \
-		$(MAKE) install
+	cd openfst-1.3.2/ && \
+	$(MAKE) install
+
+openfst/lib:
+	-cd openfst && [ -d lib64 -a ! -d lib ] && ln -s lib64 lib
 
 openfst-1.3.2/Makefile: openfst-1.3.2/.patched
 		cd openfst-1.3.2/; \
-		./configure --prefix=`pwd` --enable-static --disable-shared --enable-far --enable-ngram-fsts
+		./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts
 
 
 .PHONY: openfst-1.3.2/.patched
@@ -57,7 +70,7 @@ sclite_tgt: sclite_compiled
 .PHONY: sclite_compiled
 sclite_compiled: sctk_patched
 		cd sctk-2.4.0; \
-		$(MAKE) config && $(MAKE) all && $(MAKE) install && $(MAKE) doc
+		{ . ../extras/install_sctk_patched.sh; } && $(MAKE) config && $(MAKE) all && $(MAKE) install && $(MAKE) doc
 
 .PHONY: sctk_patched
 sctk_patched: | sctk-2.4.0
@@ -65,7 +78,7 @@ sctk_patched: | sctk-2.4.0
 		for x in src/asclite/core/recording.h src/asclite/core/recording.cpp; do \
 			sed 's/Filter::Filter/::Filter/' $$x > tmpf; mv tmpf $$x; \
 		done;
- 
+
 sctk-2.4.0: sctk-2.4.0-20091110-0958.tar.bz2
 		tar xojf sctk-2.4.0-20091110-0958.tar.bz2
 
@@ -92,7 +105,7 @@ irstlm/.patched: | irstlm
 		touch $@ 		
 
 irstlm:
-		svn -r 398 co https://irstlm.svn.sourceforge.net/svnroot/irstlm/trunk irstlm
+		svn -r 398 co https://svn.code.sf.net/p/irstlm/code/trunk irstlm
 
 atlas: ATLAS/include/cblas.h
 
