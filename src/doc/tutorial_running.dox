@@ -294,7 +294,7 @@ Kaldi is not big, you might want to make exp/ a soft link to a directory somewhe
 on a big disk (if you run all the experiments and don't clean up, it can get up 
 to a few gigabytes).  Type
 \verbatim
-nohup steps/train_mono.sh &
+nohup steps/train_mono.sh --nj 4 --cmd "$train_cmd" data/train.1k data/lang exp/mono&
 \endverbatim
 You can view the most recent output of this by typing
 \verbatim
