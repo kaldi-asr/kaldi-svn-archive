@@ -19,6 +19,7 @@
 #define KALDI_FEAT_FEATURE_APERIODIC_H_
 
 #include <string>
+#include <vector>
 
 #include "feat/feature-functions.h"
 #include "feat/mel-computations.h"

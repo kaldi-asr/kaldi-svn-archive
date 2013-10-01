@@ -153,7 +153,7 @@ void AperiodicEnergy::IdentifyNoiseRegions(
   noise_spectrum.Range(0, max_f0_index-1).SetZero();
   noise_spectrum.Max(&peak_index);
   peak_index += max_f0_index;
-  f0_index = peak_index;  //TODO(arnab): remove this: it is only for testing.
+  f0_index = peak_index;  // TODO(arnab): remove this: it is only for testing.
   if (peak_index < f0_index-1 || peak_index > f0_index+1)
     KALDI_ERR << "Actual cepstral peak (index=" << peak_index << ") occurs too "
               << " far from F0 (index=" << f0_index << ").";

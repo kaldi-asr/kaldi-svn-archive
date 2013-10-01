@@ -63,7 +63,8 @@ TxpParseOptions::TxpParseOptions(const char *usage)
     if (line.length() == 0) continue;
 
     // parse option
-    SplitLongArg(line, &key, &value);
+    bool has_equal_sign;
+    SplitLongArg(line, &key, &value, &has_equal_sign);
     NormalizeArgName(&key);
     Trim(&value);
     stringptr = new std::string(value);
@@ -86,7 +87,8 @@ int TxpParseOptions::Read(int argc, const char* argv[]) {
   // first pass: look for tpdb parameter
   for (i = 1; i < argc; i++) {
     if (std::strncmp(argv[i], "--", 2) == 0) {
-      SplitLongArg(argv[i], &key, &value);
+      bool has_equal_sign;
+      SplitLongArg(argv[i], &key, &value, &has_equal_sign);
       NormalizeArgName(&key);
       Trim(&value);
       if (key.compare("tpdb") == 0) {
