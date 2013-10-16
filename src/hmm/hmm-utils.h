@@ -281,6 +281,21 @@ bool ConvertFullCtxAlignment(const TransitionModel &old_trans_model,
                              const std::vector< std::vector <int32> > &full_ali,
                              std::vector<int32> *new_tid_ali);
 
+/**
+ * GetPhoneWindows takes an alignment in terms of transition-ids and works out
+ * the phonetic context windows for a given context-width and central position.
+ * It also returns the list of phones seen in the alignment if the 'phones'
+ * argument is not NULL. If the 'per_frame' option is true, then the phonetic
+ * context windows (and phones) are repeated for the number of frames they span.
+ */
+bool GetPhoneWindows(const TransitionModel &trans_model,
+                     const std::vector<int32> &alignment,
+                     int32 context_width,
+                     int32 central_pos,
+                     bool per_frame,
+                     std::vector< std::vector<int32> > *phone_windows,
+                     std::vector< std::vector<int32> > *phones);
+
 // ConvertPhnxToProns is only needed in bin/phones-to-prons.cc and
 // isn't closely related with HMMs, but we put it here as there isn't
 // any other obvious place for it and it needs to be tested.

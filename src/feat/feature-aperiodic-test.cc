@@ -24,19 +24,35 @@
 namespace kaldi {
 
 static void UnitTestAperiodic() {
-  std::ifstream is("test_data/test.wav");
   WaveData wave;
-  wave.Read(is);
+  {
+    std::ifstream is("test_data/test.wav");
+    wave.Read(is);
+  }
   KALDI_ASSERT(wave.Data().NumRows() == 1);
   SubVector<BaseFloat> waveform(wave.Data(), 0);
 
+  Matrix<BaseFloat> f0_info;
+  {
+    bool binary;
+    Input in("test_data/test.f0", &binary);
+    f0_info.Read(in.Stream(), binary);
+  }
+
   AperiodicEnergyOptions opts;
+  opts.frame_opts.frame_length_ms = 30;  // That's what was used for get_f0
   AperiodicEnergy ap_energy(opts);
   int32 num_frames = NumFrames(waveform.Dim(), opts.frame_opts);
-  Vector<BaseFloat> unit_vector(num_frames);
-  unit_vector.Set(1.0);
+  int32 num_frames_f0 = f0_info.NumRows();
+  KALDI_LOG << "NF = " << num_frames << "; NR = " << f0_info.NumRows();
+//  KALDI_ASSERT(f0_info.NumRows() == num_frames);
+  Vector<BaseFloat> f0(num_frames_f0);
+  f0.CopyColFromMat(f0_info, 0);
+  Vector<BaseFloat> pov(num_frames_f0);
+  pov.CopyColFromMat(f0_info, 1);
+
   Matrix<BaseFloat> m;
-  ap_energy.Compute(waveform, unit_vector, unit_vector, &m, NULL);
+  ap_energy.Compute(waveform, pov, f0, &m, NULL);
 }
 
 }

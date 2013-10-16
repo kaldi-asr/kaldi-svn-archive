@@ -18,6 +18,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <iostream>
+
 #include "feat/feature-functions.h"
 
 using kaldi::int32;
@@ -42,35 +44,37 @@ template<class Real> void GenerateSinusoid(const VectorBase<Real> &sample_times,
 }
 
 template<class Real> static void UnitTestRealCepstrum() {
-  Real frequency = 100.0 + 100.0 * RandUniform();  // random freq. in 100-200Hz
-  Real sampling_freq = 10 * frequency;
-  Real sample_period = 1/sampling_freq;
-  int32 num_samples = static_cast<int32>(RandInt(1, 5)*frequency);  // 1-5s
-  Vector<Real> sample_times(num_samples);
-  for (int32 i = 0; i < num_samples; ++i)
-    sample_times(i) = i * sample_period;
-  Vector<Real> x(num_samples);
-  GenerateSinusoid(sample_times, frequency, &x, false /*don't add*/);
-  x.Scale(2.0);
-  for (int32 i = 2; i <= 4; ++i)  // add some harmonics
-    GenerateSinusoid(sample_times, (i*frequency), &x, true /*add to x*/);
-  Vector<Real> y(RoundUpToNearestPowerOfTwo(num_samples), kSetZero);
-  y.Range(0, num_samples).CopyFromVec(x);
-  RealFft(&y, true);
-  ComputePowerSpectrum(&y);
-  Vector<Real> power_spectrum(y.Range(0, y.Dim()/2+1));
-  PowerSpecToRealCeps(&y);
-  Vector<Real> z(y);
-  RealCepsToMagnitudeSpec(&y, false /*log magnitude*/);
-  SubVector<Real> recons_spec(y, 0, y.Dim()/2+1);
-  recons_spec.Scale(2.0);
-  recons_spec.ApplyExp();
-  KALDI_ASSERT(recons_spec.ApproxEqual(power_spectrum, 1e-5));
+  for (int32 i = 0; i < 1000; i++) {
+    Real frequency = 100.0 + 100.0 * RandUniform();  // random freq. in 100-200Hz
+    Real sampling_freq = 10 * frequency;
+    Real sample_period = 1/sampling_freq;
+    int32 num_samples = static_cast<int32>(RandInt(1, 5)*frequency);  // 1-5s
+    Vector<Real> sample_times(num_samples);
+    for (int32 i = 0; i < num_samples; ++i)
+      sample_times(i) = i * sample_period;
+    Vector<Real> x(num_samples);
+    GenerateSinusoid(sample_times, frequency, &x, false /*don't add*/);
+    x.Scale(2.0);
+    for (int32 i = 2; i <= 4; ++i)  // add some harmonics
+      GenerateSinusoid(sample_times, (i*frequency), &x, true /*add to x*/);
+    Vector<Real> y(RoundUpToNearestPowerOfTwo(num_samples), kSetZero);
+    y.Range(0, num_samples).CopyFromVec(x);
+    RealFft(&y, true);
+    ComputePowerSpectrum(&y);
+    Vector<Real> power_spectrum(y.Range(0, y.Dim()/2+1));
+    PowerSpecToRealCeps(&y);
+    Vector<Real> z(y);
+    RealCepsToMagnitudeSpec(&y, false /*log magnitude*/);
+    SubVector<Real> recons_spec(y, 0, y.Dim()/2+1);
+    recons_spec.Scale(2.0);
+    recons_spec.ApplyExp();
+    KALDI_ASSERT(recons_spec.ApproxEqual(power_spectrum, 1e-4));
 
-  RealCepsToMagnitudeSpec(&z, true /*magnitude*/);
-  SubVector<Real> recons_spec2(z, 0, z.Dim()/2+1);
-  recons_spec2.ApplyPow(2.0);
-  KALDI_ASSERT(recons_spec2.ApproxEqual(power_spectrum, 1e-5));
+    RealCepsToMagnitudeSpec(&z, true /*magnitude*/);
+    SubVector<Real> recons_spec2(z, 0, z.Dim()/2+1);
+    recons_spec2.ApplyPow(2.0);
+    KALDI_ASSERT(recons_spec2.ApproxEqual(power_spectrum, 1e-4));
+  }
 }
 
 void UnitTestOnlineCmvn() {
@@ -135,10 +139,16 @@ void UnitTestOnlineCmvn() {
 }
 
 int main() {
-  kaldi::g_kaldi_verbose_level = 3;
-  kaldi::UnitTestOnlineCmvn();
-  kaldi::UnitTestRealCepstrum<float>();
-  kaldi::UnitTestRealCepstrum<double>();
-  std::cout << "Test OK.\n";
-  return 0;
+  try {
+    kaldi::g_kaldi_verbose_level = 3;
+    kaldi::UnitTestRealCepstrum<float>();
+    kaldi::UnitTestRealCepstrum<double>();
+    kaldi::UnitTestOnlineCmvn();
+    std::cout << "Test OK.\n";
+    return 0;
+  } catch (const std::exception &e) {
+    std::cerr << e.what();
+    return 1;
+  }
+
 }

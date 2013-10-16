@@ -37,13 +37,17 @@ struct AperiodicEnergyOptions {
   int32 max_iters;  // Max iterations to refine the aperiodic energy estimate
   int32 min_sq_error;  // Minimum squared error between the aperiodic spectrum
                        // estimates in successive iterations to stop iterating.
+  int32 frame_diff_tolerance;  // Tolerate some difference between #frames
+                               // extracted by Kaldi and get_f0. This will be
+                               // ultimately removed when using Kaldi F0.
 
   AperiodicEnergyOptions() : mel_opts(5),
                              energy_floor(FLT_EPSILON),
-                             f0_max(500.0),
-                             f0_min(50.0),
-                             max_iters(10),
-                             min_sq_error(1e-6) {
+                             f0_max(200.0),
+                             f0_min(70.0),
+                             max_iters(100),
+                             min_sq_error(1e-6),
+                             frame_diff_tolerance(1) {
     frame_opts.round_to_power_of_two = false;
   }
 

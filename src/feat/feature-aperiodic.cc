@@ -57,6 +57,11 @@ AperiodicEnergy::~AperiodicEnergy() {
   delete mel_banks_;
 }
 
+// Note that right now the number of frames in f0 and voicing_prob may be
+// different from what Kaldi extracts (due to different windowing in ESPS
+// get_f0). There is code to ignore some trailing frames if the difference
+// is not large, but those code should be removed once we have a native Kaldi
+// F0 extractor.
 void AperiodicEnergy::Compute(const VectorBase<BaseFloat> &wave,
                               const VectorBase<BaseFloat> &voicing_prob,
                               const VectorBase<BaseFloat> &f0,
@@ -71,16 +76,21 @@ void AperiodicEnergy::Compute(const VectorBase<BaseFloat> &wave,
       dim_out = opts_.mel_opts.num_bins;
   if (frames_out == 0)
     KALDI_ERR << "No frames fit in file (#samples is " << wave.Dim() << ")";
-  if (voicing_prob.Dim() != frames_out) {
+  //  if (voicing_prob.Dim() != frames_out) {
+  // The following line should be replaced with the line above eventually
+  if (std::abs(voicing_prob.Dim() - frames_out) > opts_.frame_diff_tolerance) {
     KALDI_ERR << "#frames in probability of voicing vector ("
               << voicing_prob.Dim() << ") doesn't match #frames in data ("
               << frames_out << ").";
   }
-  if (f0.Dim() != frames_out) {
+  //  if (f0.Dim() != frames_out) {
+  // The following line should be replaced with the line above eventually
+  if (std::abs(f0.Dim() - frames_out) > opts_.frame_diff_tolerance) {
     KALDI_ERR << "#frames in F0 vector (" << f0.Dim() << ") doesn't match "
               << "#frames in data (" << frames_out << ").";
   }
 
+  frames_out = std::min(frames_out, f0.Dim());  // will be removed eventually
   output->Resize(frames_out, dim_out);
   if (wave_remainder != NULL)
     ExtractWaveformRemainder(wave, opts_.frame_opts, wave_remainder);
@@ -152,15 +162,17 @@ void AperiodicEnergy::IdentifyNoiseRegions(
   // the initial harmonic to noise ratio calculation.
   noise_spectrum.Range(0, max_f0_index-1).SetZero();
   noise_spectrum.Max(&peak_index);
-  peak_index += max_f0_index;
-  f0_index = peak_index;  // TODO(arnab): remove this: it is only for testing.
-  if (peak_index < f0_index-1 || peak_index > f0_index+1)
-    KALDI_ERR << "Actual cepstral peak (index=" << peak_index << ") occurs too "
-              << " far from F0 (index=" << f0_index << ").";
+//  peak_index += max_f0_index;
+  if (peak_index < f0_index-1 || peak_index > f0_index+1) {
+    KALDI_LOG << "Actual cepstral peak (index=" << peak_index << "; value = "
+              << noise_spectrum(peak_index) << ") occurs too far from F0 (index="
+              << f0_index << "; value = " << noise_spectrum(f0_index) << ").";
+//    f0_index = peak_index;  // TODO(arnab): remove this: it is only for testing.
+  }
 
   Vector<BaseFloat> harmonic_spectrum(padded_window_size_, kSetZero);
   // Note that at this point noise_spectrum contains cepstral coeffs
-  for (int32 i = f0_index-1; i <= f0_index+1; ++i) {
+  for (int32 i = f0_index-0; i <= f0_index+0; ++i) {
     harmonic_spectrum(i) = noise_spectrum(i);
     noise_spectrum(i) = 0.0;
   }
@@ -199,6 +211,8 @@ void AperiodicEnergy::ObtainNoiseSpectrum(
     if (iter > 0) {  // calculate the squared error (in time domain)
       prev_estimate.AddVec(-1.0, *noise_spectrum);
       BaseFloat err = prev_estimate.SumPower(2.0) / ifft_scale;
+      KALDI_LOG << "Iteration " << iter
+                << ": Aperiodic component squared error = " << err;
       if (err < opts_.min_sq_error) {  // converged
         // noise_spectrum is still in time domain; convert to frequency domain
         srfft_->Compute(noise_spectrum->Data(), true /*do FFT*/);
