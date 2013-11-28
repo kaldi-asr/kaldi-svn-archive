@@ -37,7 +37,7 @@ namespace kaldi {
 // whether to allow cross pause context across breaks < 4
 // SPT (default) no, UTT yes.
 enum CEXSPECPAU_HANDLER {CEXSPECPAU_HANDLER_SPURT = 0,
-                      CEXSPECPAU_HANDLER_UTTERANCE = 1};
+                         CEXSPECPAU_HANDLER_UTTERANCE = 1};
 
 // Is the feature result a string or an integer
 enum CEXSPEC_TYPE {CEXSPEC_TYPE_STR = 0,
@@ -69,7 +69,8 @@ typedef std::deque<pugi::xml_node> XmlNodeVector;
 
 // a feature function
 typedef bool (* cexfunction)
-(const TxpCexspec*, const TxpCexspecFeat*, const TxpCexspecContext*, std::string*);
+(const TxpCexspec*, const TxpCexspecFeat*,
+ const TxpCexspecContext*, std::string*);
 
 // array of feature functiion names
 extern const char* const CEXFUNCLBL[];
@@ -87,8 +88,13 @@ typedef std::vector<TxpCexspecFeat> TxpCexspecFeatVector;
 
 class TxpCexspec: public TxpXmlData {
  public:
-  explicit TxpCexspec(const TxpConfig &config, const std::string &tpdb, const std::string &architecture);
-  explicit TxpCexspec() : TxpXmlData() {}
+  explicit TxpCexspec(const TxpConfig &config,
+                      const std::string &tpdb, const std::string &architecture);
+  explicit TxpCexspec() :
+      TxpXmlData(),
+      cexspec_maxfieldlen_(CEXSPEC_MAXFIELDLEN),
+      pauhand_(CEXSPECPAU_HANDLER_SPURT)
+  {}
   ~TxpCexspec() {}
   // calculate biggest buffer required for feature output
   int32 MaxFeatureSize();
@@ -109,7 +115,10 @@ class TxpCexspec: public TxpXmlData {
   // append an error value
   bool AppendError(const TxpCexspecFeat &feat, std::string* buf) const;
   // return feature specific mapping between cex value and desired value
-  const std::string Mapping(const TxpCexspecFeat &feat, const std::string &instr) const;
+  const std::string Mapping(const TxpCexspecFeat &feat,
+                            const std::string &instr) const;
+  // set list of extraction functions used in cex in a delimited string
+  void GetFunctionNames(std::string* result);
 
  private:
   // configuration file object

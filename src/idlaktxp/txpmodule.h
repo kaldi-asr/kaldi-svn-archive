@@ -60,6 +60,8 @@ class TxpModule {
   bool GetConfigValueBool(const std::string &key);
   /// Get the name of the module
   const std::string&  GetName() const {return name_;}
+  /// Gets or adds a module header to txpheader
+  pugi::xml_node GetHeader(pugi::xml_document* input);
 
  protected:
   /// Configuration structure for the module

@@ -31,6 +31,11 @@ TxpCex::~TxpCex() {
 
 bool TxpCex::Process(pugi::xml_document* input) {
   std::string* model = new std::string();
+  std::string cexfunctions;
+  cexspec_.GetFunctionNames(&cexfunctions);
+  pugi::xml_node header = GetHeader(input);
+  header.append_attribute("cexfunctions");
+  header.attribute("cexfunctions").set_value(cexfunctions.c_str());
   cexspec_.AddPauseNodes(input);
   pugi::xpath_node_set tks =
       input->document_element().select_nodes("//phon");

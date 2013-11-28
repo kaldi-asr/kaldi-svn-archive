@@ -40,4 +40,15 @@ bool TxpModule::GetConfigValueBool(const std::string &key) {
   return false;
 }
 
+pugi::xml_node TxpModule::GetHeader(pugi::xml_document* input) {
+  // check we have a txpheader node for definition information
+  pugi::xml_node txpheader =
+      input->document_element().child("txpheader");
+  if (!txpheader) txpheader =
+                      input->document_element().prepend_child("txpheader");
+  // remove a module entry if it is already present
+  txpheader.remove_child(name_.c_str());
+  return txpheader.append_child(name_.c_str());
+}
+
 }  // namespace kaldi

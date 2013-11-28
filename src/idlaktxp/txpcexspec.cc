@@ -83,6 +83,7 @@ void TxpCexspec::StartElement(const char* name, const char** atts) {
     set->insert(att);
   } else if (!strcmp(name, "feat")) {
     SetAttribute("name", atts, &att);
+    feat.name = att;
     if (att.empty()) {
       // throw an error
       KALDI_WARN << "Badly formed cex set item: "
@@ -191,6 +192,15 @@ int32 TxpCexspec::MaxFeatureSize() {
     maxsize += (*iter).delim.size();
   }
   return maxsize;
+}
+
+void TxpCexspec::GetFunctionNames(std::string* result) {
+  TxpCexspecFeatVector::iterator iter;
+  // iterate through features and add max size and delimiters
+  for (iter = cexspecfeats_.begin(); iter != cexspecfeats_.end(); ++iter) {
+    *result += (*iter).name;
+    *result += ";";
+  }  
 }
 
 // Add pause tk, syl, phon to break tags and information
