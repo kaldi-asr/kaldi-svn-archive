@@ -63,7 +63,8 @@ def create_params_file(params_file, frame_step, minf0, maxf0):
 def run_f0_pass(wavdir, outdir, getf0_path, pplain_path, params_file, input_files):
     # Keep f0s for analysis
     f0s = []
-
+    input_files = input_files.keys()
+    input_files.sort()
     for f in input_files:
         f = f.strip()
         infile = os.path.join(wavdir, f + ".wav")
@@ -93,6 +94,9 @@ def run_f0_pass(wavdir, outdir, getf0_path, pplain_path, params_file, input_file
         stdin.close()
         fp = open(outfile, 'w')
         fp.write("[ ");
+        # HACK get_f0 seems to lose 2 frames at 5ms add a zero vlaue at front
+        # and back
+        fp.write("%s %s\n" % (0.0, 0.0))
         for l in stdout.readlines():
             firstcol = l.strip().split()[0]
             secondcol = l.strip().split()[1]
@@ -102,6 +106,9 @@ def run_f0_pass(wavdir, outdir, getf0_path, pplain_path, params_file, input_file
             f0val = float(firstcol)
             if f0val > 0:
                 f0s.append(float(firstcol))
+        # HACK get_f0 seems to lose 2 frames at 5ms add a zero vlaue at front
+        # and back
+        fp.write("%s %s\n" % (0.0, 0.0))
         fp.write("]");
         stdout.close()
         fp.close()
@@ -158,8 +165,8 @@ def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir, fo
     params_file = os.path.join(pass1_outdir, 'params')
     create_params_file(params_file, frame_step, None, None)
 
+    # Returns only non-zero (voiced values)
     f0s = run_f0_pass(wavdir, pass1_outdir, getf0_path, pplain_path, params_file, valid_ids)
-
 
     # We now want to log the values and find the +/-3 std. devs boundary.
     f0s_log = []

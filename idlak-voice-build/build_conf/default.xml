@@ -62,11 +62,14 @@
   <!-- Modules may have module specific options, if they are set in module
        with a dependency or in the master build they will override
        defaults and user build conf file values -->
+  <tree_def
+      depend="align_def,cex_def,pitch_def"
+      />
   <pitch_def
       options="getf0,pplain"
-      getf0=""
+      getf0="/home/matthewa/kaldi/esps/5.3.1/get_f0"
       getf0_desc="The location of the get_f0 binary."
-      pplain=""
+      pplain="/home/matthewa/kaldi/esps/5.3.1/pplain"
       pplain_desc="The location of the pplain binary."
       />    
   <cex_def

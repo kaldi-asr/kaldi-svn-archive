@@ -101,6 +101,8 @@ def kaldidata(datadir, wavdir, spk, flist, force=False):
         fp = open(os.path.join(datadir, "train", "text"), 'w') 
         for i in range(len(handler.ids)):
             if valid_ids.has_key(handler.ids[i]):
+                # If we are forcing beginning and end silences add <SIL>s
+                # fp.write("%s <SIL> %s <SIL>\n" % (spk + '_' + handler.ids[i], ' '.join(handler.data[i])))
                 fp.write("%s %s\n" % (spk + '_' + handler.ids[i], ' '.join(handler.data[i])))
         fp.close()
         #write wav list and utt 2 spk mapping (all same speaker)
@@ -118,6 +120,9 @@ def kaldidata(datadir, wavdir, spk, flist, force=False):
         fplex = open(os.path.join(datadir, "lexicon.txt"), 'w')
         # add oov word and phone (should never be required!
         fplex.write("<OOV> oov\n")
+        # If we are forcing beginning and end silences make lexicon
+        # entry for <SIL>
+        # fplex.write("<SIL> sil\n")
         # write transcription lexicon and oov lexicon for info
         words = handler.lex.keys()
         words.sort()

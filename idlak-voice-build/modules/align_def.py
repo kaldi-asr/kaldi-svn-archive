@@ -23,7 +23,9 @@ from xml.dom.minidom import getDOMImplementation
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
 DESCRIPTION = 'Triphone speake specific aligner using kaldi'
-
+FRAMESHIFT = 0.005
+NOSTATES = 6
+STARTENDMINSIL = 0.01
 # Add to path
 sys.path = sys.path + [SCRIPT_DIR + '/../utils']
 sys.path = sys.path + [SCRIPT_DIR]
@@ -54,60 +56,83 @@ def gettimes(frames, framesz = 0.01):
         t  += dur
     return times
 
-def write_as_labs(kaldialign, wavdurations, dirout):
+def write_as_labs(kaldialign, frameshift, wavdurations, dirout):
     lines = open(kaldialign).readlines()
-    for lno in range(0, len(lines), 3):
-        times = gettimes(lines[lno])
-        labs = lines[lno + 1].split()
-        uttid = labs[0]
-        labs = labs[1:]
-        duration = wavdurations[uttid]
-        duration = "%.3f" % float(duration)
-        # fix end point
-        if labs[-1] == 'sp':
-            start, end = times[-1].split()
-            end = duration
-            times[-1] = start + ' ' + end
-        else:
-            start, end = times[-1].split()
-            if float(end) < float(duration):
-                labs.append('sp')
-                times.append(end + ' ' + duration)
-        # write lab files
+    for l in lines:
+        ll = l.split()
+        uttid = ll[0]
+        duration = float(wavdurations[uttid])
         fp = open(dirout + '/' + uttid + '.lab', 'w')
-        for i in range(len(labs)):
-            fp.write("%s %s\n" % (times[i], labs[i].split('_')[0]))
-        fp.close()
-        
+        labs = ll[1:]
+        prvphon = None
+        start = 0.0
+        time = 0.0
+        for p in labs:
+            if p == 'sp': p = 'sil_S'
+            if prvphon and p != prvphon:
+                fp.write('%.3f %.3f %s\n' % (start, time, prvphon.split('_')[0]))
+                start = time
+            prvphon = p
+            time += frameshift
+        fp.write('%.3f %.3f %s\n' % (start, time, prvphon.split('_')[0]))
+        fp.close()            
+            
 def write_as_wrdlabs(kaldialign, wavdurations, labdir, dirout):
     lastid = ''
-    lasttime = 0.0
+    # read data into lists by file id
     lines = open(kaldialign).readlines()
-    print kaldialign
+    wrds = {}
+    wrdtimes = []
     for l in lines:
         ll = l.split()
         if ll[0] != lastid:
             if lastid:
-                labs = open(os.path.join(labdir, lastid + '.lab')).readlines()
-                etime = float(labs[-1].split()[1])
-                fp.write("%.3f %.3f SIL\n" % (lasttime, etime))
-                fp.close()
-            fp = open(dirout + '/' + ll[0] + '.wrd', 'w')
+                wrds[lastid] = wrdtimes
+                wrdtimes = []
             lastid = ll[0]
-            lasttime = 0.0
-        stime = float(ll[2])
-        etime = stime + float(ll[3])
-        # output a silence symbol if there is a gap
-        if "%.3f" % stime != "%.3f" % lasttime:
-            fp.write("%.3f %.3f SIL\n" % (lasttime, stime))
+        wrdtimes.append([float(ll[2]), float(ll[3]), ll[4].lower()])
+    wrds[lastid] = wrdtimes
+    # write out adding silences were required
+    fileids = wrds.keys()
+    fileids.sort()
+    for fileid in fileids:
+        lasttime = 0.0
+        fp = open(dirout + '/' + fileid + '.wrd', 'w')
+        #print fileid
+        #print wrds[fileid]
+        for wrd in wrds[fileid]:
+            if wrd[2] != '<sil>':
+                if wrd[0] > lasttime and ("%.3f" % wrd[0]) != ("%.3f" % lasttime):
+                    fp.write("%.3f %.3f SIL\n" % (lasttime, wrd[0]))
+                fp.write("%.3f %.3f %s\n" % (wrd[0], wrd[0] + wrd[1], wrd[2]))
+                lasttime = wrd[0] + wrd[1]
+        labs = open(os.path.join(labdir, fileid + '.lab')).readlines()
+        etime = float(labs[-1].split()[1])
+        if etime > lasttime and  ("%.3f" % etime) != ("%.3f" % lasttime):
+            fp.write("%.3f %.3f SIL\n" % (lasttime, etime))
+        fp.close()
         
-        fp.write("%.3f %.3f %s\n" % (stime, etime, ll[4].lower()))
-        lasttime = etime
-    labs = open(os.path.join(labdir, lastid + '.lab')).readlines()
-    etime = float(labs[-1].split()[1])
-    fp.write("%.3f %.3f SIL\n" % (lasttime, etime))
-    fp.close()
-
+def write_as_statelabs(kaldialign, frameshift, nstates, wavdurations, labdir, dirout):
+    lines = open(kaldialign).readlines()
+    for l in lines:
+        ll = l.split()
+        uttid = ll[0]
+        plabs = open(os.path.join(labdir, uttid + '.lab')).readlines()
+        fp = open(dirout + '/' + uttid + '.stt', 'w')
+        labs = ll[1:]
+        prvstt = None
+        start = 0.0
+        time = 0.0
+        p = 0
+        for stt in labs:
+            if prvstt and stt != prvstt:
+                fp.write('%.3f %.3f %s\n' % (start, time, prvstt))
+                start = time
+            prvstt = stt
+            time += frameshift
+        fp.write('%.3f %.3f %s\n' % (start, time, prvstt))
+        fp.close()           
+    
 # TODO given the silence duration and location it is possible to look at f0
 # across recent phonetic material to decide if a break is a rising or falling
 def write_xml_textalign(breaktype, breakdef, labdir, wrddir, output):
@@ -118,13 +143,15 @@ def write_xml_textalign(breaktype, breakdef, labdir, wrddir, output):
     
     labs = glob.glob(labdir + '/*.lab')
     labs.sort()
+    f = open(output, 'w')
+    f.write('<document>\n')
     for l in labs:
         stem = os.path.splitext(os.path.split(l)[1])[0]
 
         fileid_element = document.createElement("fileid")
         doc_element.appendChild(fileid_element)
         fileid_element.setAttribute('id', stem)
-
+        
         words = open(os.path.join(wrddir, stem + '.wrd')).readlines()
         phones = open(l).readlines()
         pidx = 0
@@ -161,9 +188,9 @@ def write_xml_textalign(breaktype, breakdef, labdir, wrddir, output):
                     break_element = document.createElement("break")
                     fileid_element.appendChild(break_element)
                     break_element.setAttribute('type', btype)
+        f.write(fileid_element.toxml() + '\n')
 
-    f = open(output, 'w')
-    f.write(document.toprettyxml())
+    f.write('</document>')
     f.close()
                 
 def main():
@@ -236,19 +263,29 @@ def main():
     os.environ["PATH"] += os.pathsep + os.pathsep.join(pathlist)
     datadir = os.path.join(build_conf.outdir, 'output', 'data')
     # create lang directory using kaldi script
-    com = "cd %s/output; utils/prepare_lang.sh --num-nonsil-states 6 data '<OOV>' data/lang data/lang" % (build_conf.outdir)
+    com = "cd %s/output; utils/prepare_lang.sh --num-nonsil-states %d data '<OOV>' data/lang data/lang" % (build_conf.outdir, NOSTATES)
     build_conf.logger.log('info', 'running kaldi script to build lang subdir')
     os.system(com)
     # extract mfccs
-    com = "cd %s/output; steps/make_mfcc.sh --nj 1 data/train data/mfcc_log data/mfcc" % (build_conf.outdir)
-    build_conf.logger.log('info', 'running kaldi script to extract mfccs')
+    #com = "cd %s/output; steps/make_mfcc.sh --nj 1 data/train data/mfcc_log data/mfcc" % (build_conf.outdir)
+    #build_conf.logger.log('info', 'running kaldi script to extract mfccs')
+    build_conf.logger.log('info', 'making mfcc directory')
+    mfccdir = os.path.join(build_conf.outdir, 'output', 'data', 'mfcc')
+    if not os.path.isdir(mfccdir):
+        os.mkdir(mfccdir)
+    build_conf.logger.log('info', 'extracting mfccs')
+    com = "cd %s/output; compute-mfcc-feats --frame-shift=%d --verbose=0 --config=%s scp:%s ark:- | copy-feats --compress=false ark:- ark,scp:%s,%s" % (build_conf.outdir, int(FRAMESHIFT * 1000), "conf/mfcc.conf", "data/train/wav.scp", "data/mfcc/raw_mfcc_train.1.ark", "data/mfcc/raw_mfcc_train.1.scp")
     os.system(com)
     # build dummy spk to utt file
     com = "cd %s/output; utt2spk_to_spk2utt.pl data/train/utt2spk > data/train/spk2utt" % (build_conf.outdir)
     build_conf.logger.log('info', 'running kaldi script to compute dummy spk2utt file')
     os.system(com)
     # compute feature stats
-    com = "cd %s/output; steps/compute_cmvn_stats.sh data/train data/mfcc_log data/mfcc" % (build_conf.outdir)
+    #copy scp file to train/feats.scp
+    build_conf.logger.log('info', 'copying mfcc scp to feats scp')
+    com = "cd %s/output; cp data/mfcc/raw_mfcc_train.1.scp data/train/feats.scp" % (build_conf.outdir)
+    os.system(com)
+    com = "cd %s/output; steps/compute_cmvn_stats.sh data/train data/mfcc data/mfcc" % (build_conf.outdir)
     build_conf.logger.log('info', 'running kaldi script to compute feature statistics')
     os.system(com)
     # mono train
@@ -264,11 +301,16 @@ def main():
     build_conf.logger.log('info', 'running kaldi script to compute flat start quinphone models')
     os.system(com)
     # extract the phone alignment
-    com = 'cd %s/output; show-alignments data/lang/phones.txt kaldidelta_quin_output/35.mdl "ark:gunzip -c kaldidelta_quin_output/ali.1.gz|" > align.dat' % (build_conf.outdir)
+    com = 'cd %s/output; ali-to-phones --per-frame kaldidelta_quin_output/35.mdl "ark:gunzip -c kaldidelta_quin_output/ali.1.gz|" ark,t:- |  utils/int2sym.pl -f 2- data/lang/phones.txt > align.dat' % (build_conf.outdir)
+    # com = 'cd %s/output; show-alignments data/lang/phones.txt kaldidelta_quin_output/35.mdl "ark:gunzip -c kaldidelta_quin_output/ali.1.gz|" > align.dat' % (build_conf.outdir)
     build_conf.logger.log('info', 'running kaldi script to extract alignment')
     os.system(com)
+    # extract the state alignment
+    com = 'cd %s/output; ali-to-hmmstate kaldidelta_quin_output/35.mdl "ark:gunzip -c kaldidelta_quin_output/ali.1.gz|" ark,t:- > sttalign.dat' % (build_conf.outdir)
+    build_conf.logger.log('info', 'running kaldi script to extract state alignment')
+    os.system(com)
     #extract the word alignment
-    com = 'cd %s/output; linear-to-nbest "ark:gunzip -c kaldidelta_quin_output/ali.1.gz|" "ark:utils/sym2int.pl --map-oov 1669 -f 2- data/lang/words.txt < data/train/text |" \'\' \'\' ark:- | lattice-align-words data/lang/phones/word_boundary.int kaldidelta_quin_output/35.mdl ark:- ark:- | nbest-to-ctm ark:- - | utils/int2sym.pl -f 5 data/lang/words.txt > wrdalign.dat' % (build_conf.outdir)
+    com = 'cd %s/output; linear-to-nbest "ark:gunzip -c kaldidelta_quin_output/ali.1.gz|" "ark:utils/sym2int.pl --map-oov 1669 -f 2- data/lang/words.txt < data/train/text |" \'\' \'\' ark:- | lattice-align-words data/lang/phones/word_boundary.int kaldidelta_quin_output/35.mdl ark:- ark:- | nbest-to-ctm --frame-shift=%f --precision=3 ark:- - | utils/int2sym.pl -f 5 data/lang/words.txt > wrdalign.dat' % (build_conf.outdir, FRAMESHIFT)
     build_conf.logger.log('info', 'running kaldi scripts to extract word alignment')
     os.system(com)
     # get actual duration times of all wav files
@@ -279,11 +321,15 @@ def main():
     labdir = os.path.join(build_conf.outdir, 'output', 'labs')
     if not os.path.isdir(labdir):
         os.mkdir(labdir)
-    write_as_labs(os.path.join(build_conf.outdir, 'output', 'align.dat'), wavdurations, labdir)
+    write_as_labs(os.path.join(build_conf.outdir, 'output', 'align.dat'), FRAMESHIFT, wavdurations, labdir)
     wrddir = os.path.join(build_conf.outdir, 'output', 'wrds')
     if not os.path.isdir(wrddir):
         os.mkdir(wrddir)
     write_as_wrdlabs(os.path.join(build_conf.outdir, 'output', 'wrdalign.dat'), wavdurations, labdir, wrddir)
+    statedir = os.path.join(build_conf.outdir, 'output', 'stts')
+    if not os.path.isdir(statedir):
+        os.mkdir(statedir)
+    write_as_statelabs(os.path.join(build_conf.outdir, 'output', 'sttalign.dat'), FRAMESHIFT, NOSTATES, wavdurations, labdir, statedir)
     #write alignment based xml text file
     write_xml_textalign(breaktype, breakdef, labdir, wrddir, os.path.join(build_conf.outdir, 'output', 'text.xml'))
     # END OF MODULE SPECIFIC CODE

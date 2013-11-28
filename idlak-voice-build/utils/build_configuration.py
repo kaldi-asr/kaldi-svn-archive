@@ -220,7 +220,7 @@ class BuildConfig(xml.sax.ContentHandler):
             dep_modules = self.dependent_modules(module).keys()
             dep_modules.sort()
             for dep in dep_modules:
-                if not os.path.isdir(os.path.join(self.idlakscratch, self.lang, self. acc,
+                if not os.path.isfile(os.path.join(self.idlakscratch, self.lang, self. acc,
                                                   self.spk, dep, self.buildid, 'complete')):
                     com = os.path.join(self.idlakvoicebuild, 'modules', dep + '.py') + ' ' + ' '.join(sys.argv[1:])
                     self.logger.log('info', 'Running dependent: %s' % com)
