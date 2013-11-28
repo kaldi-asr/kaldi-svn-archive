@@ -294,7 +294,7 @@ bool GetPhoneWindows(const TransitionModel &trans_model,
                      int32 central_pos,
                      bool per_frame,
                      std::vector< std::vector<int32> > *phone_windows,
-                     std::vector< std::vector<int32> > *phones);
+                     std::vector<int32> *phones);
 
 // ConvertPhnxToProns is only needed in bin/phones-to-prons.cc and
 // isn't closely related with HMMs, but we put it here as there isn't
