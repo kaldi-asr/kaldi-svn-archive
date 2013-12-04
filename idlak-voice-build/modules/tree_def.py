@@ -73,23 +73,25 @@ def main():
                                                          quinphonealign,
                                                          contextdata,
                                                          fullctxali)
-    #os.system(com)
+    os.system(com)
     # compile context question sets from cex_def
     compilequestions = os.path.join(build_conf.kaldidir, 'src', 'bin',
                                     'compile-questions')
     ctxqset = os.path.join(cexdir, 'qset.dat')
-    quinqset = os.path.join(aligndir, 'kaldidelta_quin_output',
-                                  'questions.int')
+    # dummy questions.int
+    dummyqset = os.path.join(build_conf.outdir, 'output', 'questions.int')
+    os.system("touch %s" % (dummyqset))
     topo =  os.path.join(aligndir, 'data', 'lang', 'topo')
     ctxqsetbin = os.path.join(build_conf.outdir, 'output', 'qset_binary.dat')
+    # unclear how the topology affects the pdf generation here
     com = "%s --central-position=2 --context-width=5 --keyed-questions=%s %s %s %s" % (compilequestions,
                                                                                        ctxqset,
                                                                                        topo,
-                                                                                       quinqset,
+                                                                                       dummyqset,
                                                                                        ctxqsetbin)
-    #os.system(com)
+    os.system(com)
 
-    # accumalate statistics for pitch
+    # accumulate statistics for pitch
     fullctxacc = os.path.join(build_conf.kaldidir, 'src', 'bin',
                                'acc-fullctx-stats')
     pitchfeatures = os.path.join(pitchdir, 'output.ark')
@@ -98,7 +100,7 @@ def main():
                                                     pitchfeatures,
                                                     fullctxali,
                                                     pitchacc)
-    #os.system(com)
+    os.system(com)
 
     # build a tree
     buildtree = os.path.join(build_conf.kaldidir, 'src', 'bin',
@@ -111,7 +113,6 @@ def main():
                                                                                     ctxqsetbin,
                                                                                     topo,
                                                                                     treeout)
-    print com
     os.system(com)
     
     # make a model from the tree and the statistics
