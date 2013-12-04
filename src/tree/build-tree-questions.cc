@@ -174,14 +174,21 @@ void Questions::InitRand(const BuildTreeStatsType &stats, int32 num_quest,
 
 void ReadKeyedQuestions(std::istream &is, Questions *qst) {
   std::string line;
+  std::vector<std::string> stringvector;
   while (std::getline(is, line)) {
     std::istringstream iss(line);
-    EventKeyType key;
-    iss >> key;
-    ExpectToken(iss, false, "?");
+    EventKeyType key, val;
     std::vector<EventValueType> v;
-    if (!SplitStringToIntegers(iss.str(), " \t\r", true, &v)) {
+    SplitStringToVector(iss.str(), " \t\r", true, &stringvector);
+    if (stringvector.size() < 3 || stringvector[01] != "?" ||
+        !ConvertStringToInteger(stringvector[0], &key)) {
       KALDI_ERR << "Unexpected line : " << line;
+    }
+    for (int32 i = 2; i < stringvector.size(); i++) {
+      if (!ConvertStringToInteger(stringvector[i], &val)) {
+        KALDI_ERR << "Unexpected line : " << line;
+      }
+      v.push_back(val);
     }
     std::sort(v.begin(), v.end());
     qst->AddQuestion(key, v);
