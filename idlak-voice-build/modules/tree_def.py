@@ -73,20 +73,54 @@ def main():
                                                          quinphonealign,
                                                          contextdata,
                                                          fullctxali)
-    os.system(com)
+    #os.system(com)
+    # compile context question sets from cex_def
+    compilequestions = os.path.join(build_conf.kaldidir, 'src', 'bin',
+                                    'compile-questions')
+    ctxqset = os.path.join(cexdir, 'qset.dat')
+    quinqset = os.path.join(aligndir, 'kaldidelta_quin_output',
+                                  'questions.int')
+    topo =  os.path.join(aligndir, 'data', 'lang', 'topo')
+    ctxqsetbin = os.path.join(build_conf.outdir, 'output', 'qset_binary.dat')
+    com = "%s --central-position=2 --context-width=5 --keyed-questions=%s %s %s %s" % (compilequestions,
+                                                                                       ctxqset,
+                                                                                       topo,
+                                                                                       quinqset,
+                                                                                       ctxqsetbin)
+    #os.system(com)
+
     # accumalate statistics for pitch
     fullctxacc = os.path.join(build_conf.kaldidir, 'src', 'bin',
                                'acc-fullctx-stats')
     pitchfeatures = os.path.join(pitchdir, 'output.ark')
     pitchacc = os.path.join(build_conf.outdir, 'output', 'pitch_acc.dat')
-    com = '%s 2 ark:%s ark:%s %s' % (fullctxacc,
-                                     pitchfeatures,
-                                     fullctxali,
-                                     pitchacc)
+    com = '%s --binary=false 2 ark:%s ark:%s %s' % (fullctxacc,
+                                                    pitchfeatures,
+                                                    fullctxali,
+                                                    pitchacc)
+    #os.system(com)
+
+    # build a tree
+    buildtree = os.path.join(build_conf.kaldidir, 'src', 'bin',
+                             'build-tree')
+    roots = os.path.join(aligndir, 'data', 'lang', 'phones', 'roots.int')
+    treeout = os.path.join(build_conf.outdir, 'output', 'pitch.tree')
+    com = "%s --verbose=1 --context-width=5 --central-position=2 %s %s %s %s %s" % (buildtree,
+                                                                                    pitchacc,
+                                                                                    roots,
+                                                                                    ctxqsetbin,
+                                                                                    topo,
+                                                                                    treeout)
     print com
     os.system(com)
-                                                
     
+    # make a model from the tree and the statistics
+    gmminitmodel = os.path.join(build_conf.kaldidir, 'src', 'gmmbin',
+                                                 'gmm-init-model')
+    modelout = os.path.join(build_conf.outdir, 'output', 'pitch.mdl')
+    com = "%s %s %s %s %s" % (gmminitmodel, treeout, pitchacc, topo, modelout)
+    os.system(com)
+
     # END OF MODULE SPECIFIC CODE
     
     build_conf.end_processing(SCRIPT_NAME)
