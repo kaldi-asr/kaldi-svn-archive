@@ -150,6 +150,14 @@ class EventMap {
     else { return * std::max_element(tmp.begin(), tmp.end()); }
   }
 
+  virtual EventKeyType EventKey() const {
+    return 0;
+  }
+
+  virtual const ConstIntegerSet<EventValueType> * YesSet() const {
+    return NULL;
+  }
+  
   /// Write to stream.
   virtual void Write(std::ostream &os, bool binary) = 0;
 
@@ -196,6 +204,14 @@ class ConstantEventMap: public EventMap {
   
   explicit ConstantEventMap(EventAnswerType answer): answer_(answer) { }
   
+  virtual EventKeyType EventKey() const {
+    return 0;
+  }
+
+  virtual const ConstIntegerSet<EventValueType> * YesSet() const {
+    return NULL;
+  }
+
   virtual void Write(std::ostream &os, bool binary);
   static ConstantEventMap *Read(std::istream &is, bool binary);
  private:
@@ -245,6 +261,14 @@ class TableEventMap: public EventMap {
   explicit TableEventMap(EventKeyType key, const std::map<EventValueType, EventMap*> &map_in);
   /// This initializer creates a ConstantEventMap for each value in the map.
   explicit TableEventMap(EventKeyType key, const std::map<EventValueType, EventAnswerType> &map_in);
+
+  virtual EventKeyType EventKey() const {
+    return key_;
+  }
+
+  virtual const ConstIntegerSet<EventValueType> * YesSet() const {
+    return NULL;
+  }
 
   virtual void Write(std::ostream &os, bool binary);
   static TableEventMap *Read(std::istream &is, bool binary);
@@ -302,6 +326,14 @@ class SplitEventMap: public EventMap {  // A decision tree [non-leaf] node.
 
   virtual EventMap *Copy(const std::vector<EventMap*> &new_leaves) const {
     return new SplitEventMap(key_, yes_set_, yes_->Copy(new_leaves), no_->Copy(new_leaves));
+  }
+
+  virtual EventKeyType EventKey() const {
+    return key_;
+  }
+
+  virtual const ConstIntegerSet<EventValueType> * YesSet() const {
+    return &yes_set_;
   }
 
   virtual void Write(std::ostream &os, bool binary);
