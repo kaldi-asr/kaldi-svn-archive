@@ -23,7 +23,7 @@
 
 namespace kaldi {
 
-template<class Real>
+template<typename Real>
 void CompressedMatrix::CopyFromMat(
     const MatrixBase<Real> &mat) {
   if (data_ != NULL) {
@@ -95,6 +95,20 @@ void CompressedMatrix::CopyFromMat(const MatrixBase<float> &mat);
 template
 void CompressedMatrix::CopyFromMat(const MatrixBase<double> &mat);
 
+
+template<typename Real>
+CompressedMatrix &CompressedMatrix::operator =(const MatrixBase<Real> &mat) {
+  this->CopyFromMat(mat);
+  return *this;
+}
+
+// Instantiate the template for float and double.
+template
+CompressedMatrix& CompressedMatrix::operator =(const MatrixBase<float> &mat);
+
+template
+CompressedMatrix& CompressedMatrix::operator =(const MatrixBase<double> &mat);
+
 inline uint16 CompressedMatrix::FloatToUint16(
     const GlobalHeader &global_header,
     float value) {
@@ -114,12 +128,12 @@ inline float CompressedMatrix::Uint16ToFloat(
       + global_header.range * 1.52590218966964e-05 * value;
 }
 
-template<class Real>  // static
+template<typename Real>  // static
 void CompressedMatrix::ComputeColHeader(
     const GlobalHeader &global_header,
     const Real *data, MatrixIndexT stride,
     int32 num_rows, CompressedMatrix::PerColHeader *header) {
-  assert(num_rows > 0);
+  KALDI_ASSERT(num_rows > 0);
   std::vector<Real> sdata(num_rows); // the sorted data.
   for (size_t i = 0, size = sdata.size(); i < size; i++)
     sdata[i] = data[i*stride];
@@ -229,7 +243,7 @@ inline float CompressedMatrix::CharToFloat(
 }
 
 
-template<class Real>  // static
+template<typename Real>  // static
 void CompressedMatrix::CompressColumn(
     const GlobalHeader &global_header,
     const Real *data, MatrixIndexT stride,
@@ -317,19 +331,33 @@ void CompressedMatrix::Read(std::istream &is, bool binary) {
   if (binary) {  // Binary-mode read.
     // Caution: the following is not back compatible, if you were using
     // CompressedMatrix before, the old format will not be readable.
-    ExpectToken(is, binary, "CM"); 
-    GlobalHeader h;
-    is.read(reinterpret_cast<char*>(&h), sizeof(h));
-    if (is.fail())
-      KALDI_ERR << "Failed to read header";
-    if (h.num_cols == 0) {  // empty matrix.
-      return;
+
+    int peekval = Peek(is, binary);
+    if (peekval == 'C') {
+      ExpectToken(is, binary, "CM"); 
+      GlobalHeader h;
+      is.read(reinterpret_cast<char*>(&h), sizeof(h));
+      if (is.fail())
+        KALDI_ERR << "Failed to read header";
+      if (h.num_cols == 0) {  // empty matrix.
+        return;
+      }
+      int32 size = DataSize(h), remaining_size = size - sizeof(GlobalHeader);
+      data_ = AllocateData(size);
+      *(reinterpret_cast<GlobalHeader*>(data_)) = h;
+      is.read(reinterpret_cast<char*>(data_) + sizeof(GlobalHeader),
+              remaining_size);
+    } else {
+      // Assume that what we're reading is a regular Matrix.  This might be the
+      // case if you changed your code, making a Matrix into a CompressedMatrix,
+      // and you want back-compatibility for reading.
+      Matrix<BaseFloat> M;
+      M.Read(is, binary); // This will crash if it was not a Matrix.  This might happen,
+                          // for instance, if the CompressedMatrix was written using the
+                          // older code where we didn't write the token "CM", we just
+                          // wrote the binary data directly.
+      this->CopyFromMat(M);
     }
-    int32 size = DataSize(h), remaining_size = size - sizeof(GlobalHeader);
-    data_ = AllocateData(size);
-    *(reinterpret_cast<GlobalHeader*>(data_)) = h;
-    is.read(reinterpret_cast<char*>(data_) + sizeof(GlobalHeader),
-            remaining_size);
   } else {  // Text-mode read.
 #if DEBUG_COMPRESSED_MATRIX == 0    
     Matrix<BaseFloat> temp;
@@ -359,7 +387,7 @@ void CompressedMatrix::Read(std::istream &is, bool binary) {
       for (int32 j = 0; j < h.num_rows; j++, c++) {
         int i;
         is >> i;
-        assert(i >= 0 && i <= 255);
+        KALDI_ASSERT(i >= 0 && i <= 255);
         *c = static_cast<unsigned char>(i);
       }
     }
@@ -369,7 +397,7 @@ void CompressedMatrix::Read(std::istream &is, bool binary) {
     KALDI_ERR << "Failed to read data.";
 }
 
-template<class Real>
+template<typename Real>
 void CompressedMatrix::CopyToMat(MatrixBase<Real> *mat) const {
   if (data_ == NULL) {
     KALDI_ASSERT(mat->NumRows() == 0);

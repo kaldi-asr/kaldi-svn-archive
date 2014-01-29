@@ -1,6 +1,6 @@
 // nnet/nnet-cache-tgtmat.h
 
-// Copyright 2012  Karel Vesely
+// Copyright 2012  Brno University of Technology (author: Karel Vesely)
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -94,7 +94,7 @@ class CacheTgtMat {
   CuMatrix<BaseFloat> targets_leftover_;  ///< Desired vector cache
 
   std::vector<int32> randmask_;
-  CuStlVector<int32> randmask_device_;
+  CuArray<int32> randmask_device_;
 
 }; 
  

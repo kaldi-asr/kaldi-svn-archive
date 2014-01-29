@@ -3,9 +3,10 @@
 
 
 # Train a model on top of existing features (no feature-space learning of any
-# kind is done).  This script initializes the model from each stage of the
-# previous system's model, judging the similarities based on overlap of counts
-# in the tree stats.
+# kind is done).  This script initializes the model (i.e., the GMMs) from the
+# previous system's model.  That is: for each state in the current model (after
+# tree building), it chooses the closes state in the old model, judging the
+# similarities based on overlap of counts in the tree stats.
 
 # Begin configuration..
 cmd=run.pl
@@ -57,10 +58,12 @@ incgauss=$[($totgauss-$numgauss)/$maxiterinc] # per-iter increment for #Gauss
 nj=`cat $alidir/num_jobs` || exit 1;
 sdata=$data/split$nj
 splice_opts=`cat $alidir/splice_opts 2>/dev/null` # frame-splicing options.
+norm_vars=`cat $alidir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
 
 mkdir -p $dir/log
 echo $nj >$dir/num_jobs
 cp $alidir/splice_opts $dir 2>/dev/null
+cp $alidir/norm_vars $dir 2>/dev/null # cmn/cmvn option.
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
 ## Set up features.
@@ -68,9 +71,10 @@ if [ -f $alidir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
 case $feat_type in
-  delta) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  delta) sifeats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) sifeats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
+    cp $alidir/full.mat $dir 2>/dev/null
     ;;
   *) echo "Invalid feature type $feat_type" && exit 1;
 esac

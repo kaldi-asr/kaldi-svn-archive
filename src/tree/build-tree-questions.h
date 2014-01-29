@@ -66,8 +66,7 @@ struct QuestionsForKey {  // Configuration class associated with a particular ke
     : refine_opts(num_iters, 2) {}
 
   void Check() const {
-    for (size_t i = 0; i < initial_questions.size(); i++)
-      KALDI_ASSERT(IsSorted(initial_questions[i]));
+    for (size_t i = 0;i < initial_questions.size();i++) KALDI_ASSERT(IsSorted(initial_questions[i]));
   }
 
   void Write(std::ostream &os, bool binary) const;

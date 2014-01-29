@@ -19,7 +19,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "lat/kaldi-lattice.h"
-#include "fstext/determinize-lattice-pruned.h"
+#include "lat/determinize-lattice-pruned.h"
 #include "lat/lattice-functions.h"
 #include "lat/push-lattice.h"
 #include "lat/minimize-lattice.h"
@@ -80,6 +80,9 @@ int main(int argc, char *argv[]) {
     for (; !lat_reader.Done(); lat_reader.Next()) {
       std::string key = lat_reader.Key();
       Lattice lat = lat_reader.Value();
+
+      KALDI_VLOG(2) << "Processing lattice " << key;
+
       Invert(&lat); // so word labels are on the input side.
       lat_reader.FreeCurrent();
       fst::ScaleLattice(fst::AcousticLatticeScale(acoustic_scale), &lat);

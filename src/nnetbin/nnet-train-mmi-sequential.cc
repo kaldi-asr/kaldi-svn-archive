@@ -1,6 +1,6 @@
 // nnetbin/nnet-train-mmi-sequential.cc
 
-// Copyright 2012-2013  Karel Vesely
+// Copyright 2012-2013  Brno University of Technology (author: Karel Vesely)
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -128,16 +128,9 @@ int main(int argc, char *argv[]) {
     po.Register("drop-frames", &drop_frames, 
                 "Drop frames, where is zero den-posterior under numerator path "
                 "(ie. path not in lattice)");
-    
 
-#if HAVE_CUDA == 1
-    kaldi::int32 use_gpu_id=-2;
-    po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID "
-                "(-2 automatic selection, -1 disable GPU, 0..N select GPU)");
-#else
-    int32 use_gpu_id=0;
-    po.Register("use-gpu-id", &use_gpu_id, "Unused, kaldi is compiled w/o CUDA");
-#endif
+    std::string use_gpu="yes";
+    po.Register("use-gpu", &use_gpu, "yes|no|optional, only has effect if compiled with CUDA"); 
 
     po.Read(argc, argv);
 
@@ -162,7 +155,8 @@ int main(int argc, char *argv[]) {
 
     // Select the GPU
 #if HAVE_CUDA == 1
-    CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+    CuDevice::Instantiate().SelectGpuId(use_gpu);
+    CuDevice::Instantiate().DisableCaching();
 #endif
 
     Nnet nnet_transf;
@@ -173,9 +167,9 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
     // using activations directly: remove softmax, if present
-    if (nnet.Layer(nnet.LayerCount()-1)->GetType() == Component::kSoftmax) {
+    if (nnet.GetComponent(nnet.NumComponents()-1).GetType() == Component::kSoftmax) {
       KALDI_LOG << "Removing softmax from the nnet " << model_filename;
-      nnet.RemoveLayer(nnet.LayerCount()-1);
+      nnet.RemoveComponent(nnet.NumComponents()-1);
     } else {
       KALDI_LOG << "The nnet was without softmax " << model_filename;
     }
@@ -257,7 +251,7 @@ int main(int argc, char *argv[]) {
       if (old_acoustic_scale != 1.0) {
         fst::ScaleLattice(fst::AcousticLatticeScale(old_acoustic_scale), &den_lat);
       }
-      // optionaly sort it topologically
+      // optional sort it topologically
       kaldi::uint64 props = den_lat.Properties(fst::kFstProperties, false);
       if (!(props & fst::kTopSorted)) {
         if (fst::TopSort(&den_lat) == false)
@@ -424,7 +418,7 @@ int main(int argc, char *argv[]) {
        
     //add back the softmax
     KALDI_LOG << "Appending the softmax " << target_model_filename;
-    nnet.AppendLayer(new Softmax(nnet.OutputDim(),nnet.OutputDim(),&nnet));
+    nnet.AppendComponent(new Softmax(nnet.OutputDim(),nnet.OutputDim()));
     //store the nnet
     nnet.Write(target_model_filename, binary);
 

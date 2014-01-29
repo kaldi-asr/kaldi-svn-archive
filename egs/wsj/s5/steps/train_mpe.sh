@@ -55,8 +55,10 @@ nj=`cat $alidir/num_jobs` || exit 1;
 
 sdata=$data/split$nj
 splice_opts=`cat $alidir/splice_opts 2>/dev/null`
+norm_vars=`cat $alidir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
 mkdir -p $dir/log
 cp $alidir/splice_opts $dir 2>/dev/null
+cp $alidir/norm_vars $dir 2>/dev/null # cmn/cmvn option.
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 echo $nj > $dir/num_jobs
 
@@ -70,8 +72,8 @@ if [ -f $alidir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "Invalid feature type $feat_type" && exit 1;
@@ -96,7 +98,7 @@ while [ $x -lt $num_iters ]; do
     $cmd JOB=1:$nj $dir/log/acc.$x.JOB.log \
       gmm-rescore-lattice $cur_mdl "$lats" "$feats" ark:- \| \
       lattice-to-mpe-post --acoustic-scale=$acwt $cur_mdl \
-        "ark,s,cs:gunzip -c $alidir/ali.JOB.gz | ali-to-post ark:- ark:- |" ark:- ark:- \| \
+        "ark,s,cs:gunzip -c $alidir/ali.JOB.gz |" ark:- ark:- \| \
       gmm-acc-stats2 $cur_mdl "$feats" ark,s,cs:- \
         $dir/num_acc.$x.JOB.acc $dir/den_acc.$x.JOB.acc || exit 1;
 
@@ -110,11 +112,11 @@ while [ $x -lt $num_iters ]; do
       gmm-sum-accs $dir/num_acc.$x.acc $dir/num_acc.$x.*.acc || exit 1;
     rm $dir/num_acc.$x.*.acc
 
-  # note: this tau value is for smoothing towards model parameters, not
-  # as in the Boosted MMI paper, not towards the ML stats as in the earlier
-  # work on discriminative training (e.g. my thesis).  
-  # You could use gmm-ismooth-stats to smooth to the ML stats, if you had
-  # them available [here they're not available if cancel=true].
+    # note: this tau value is for smoothing towards model parameters, not
+    # as in the Boosted MMI paper, not towards the ML stats as in the earlier
+    # work on discriminative training (e.g. my thesis).  
+    # You could use gmm-ismooth-stats to smooth to the ML stats, if you had
+    # them available [here they're not available if cancel=true].
     if ! $smooth_to_model; then
       echo "Iteration $x of MPE: computing ml (smoothing) stats"
       $cmd JOB=1:$nj $dir/log/acc_ml.$x.JOB.log \
