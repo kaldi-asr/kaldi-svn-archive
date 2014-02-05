@@ -19,8 +19,7 @@
 #include <pugixml.hpp>
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "idlaktxp/txpmodule.h"
-#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/idlaktxp.h"
 
 /// Takes output from idalktxp adds structure for pauses
 /// and creates full context model names for each phone

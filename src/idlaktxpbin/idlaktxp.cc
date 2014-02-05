@@ -19,8 +19,7 @@
 #include <pugixml.hpp>
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "idlaktxp/txpmodule.h"
-#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/idlaktxp.h"
 
 /// Example program that runs all modules in idlaktxp and produces
 /// XML output

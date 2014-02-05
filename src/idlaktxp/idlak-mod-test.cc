@@ -37,8 +37,7 @@
 #include <pugixml.hpp>
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "idlaktxp/txpmodule.h"
-#include "idlaktxp/idlak-common.h"
+#include "idlaktxp/idlaktxp.h"
 
 static void getTestFileName(int fno, std::string* fname,
                             const std::string &basename,

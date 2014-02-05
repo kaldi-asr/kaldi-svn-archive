@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-#include "idlaktxp/txpmodule.h"
+#include "idlaktxp/mod-syllabify.h"
 
 namespace kaldi {
 

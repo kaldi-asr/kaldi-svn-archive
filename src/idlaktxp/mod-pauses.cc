@@ -17,6 +17,7 @@
 //
 
 #include "idlaktxp/txpmodule.h"
+#include "idlaktxp/mod-pauses.h"
 
 namespace kaldi {
 
