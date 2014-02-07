@@ -24,10 +24,6 @@
 // containing tox tokens.
 
 #include <string>
-#include "pugixml.hpp"
-
-#include "base/kaldi-common.h"
-#include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpmodule.h"
 #include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txppos.h"
@@ -40,7 +36,9 @@ class TxpPosTag : public TxpModule {
  public:
   explicit TxpPosTag(const std::string &tpdb,
                      const std::string &configf = "");
+  explicit TxpPosTag();
   ~TxpPosTag();
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
 
  private:

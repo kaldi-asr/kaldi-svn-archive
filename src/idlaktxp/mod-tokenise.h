@@ -24,10 +24,6 @@
 // containing tox tokens.
 
 #include <string>
-#include "pugixml.hpp"
-
-#include "base/kaldi-common.h"
-#include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpmodule.h"
 #include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpnrules.h"
@@ -38,9 +34,10 @@ namespace kaldi {
 /// \ref idlaktxp_token
 class TxpTokenise : public TxpModule {
  public:
-  explicit TxpTokenise(const std::string &tpdb,
-                       const std::string &configf = "");
-  ~TxpTokenise();
+  explicit TxpTokenise(const std::string &tpdb, const std::string &configf);
+  explicit TxpTokenise();
+  ~TxpTokenise() {}
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
 
  private:

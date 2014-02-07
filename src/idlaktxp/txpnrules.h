@@ -69,9 +69,14 @@ struct TxpCaseInfo;
 */  
 class TxpNRules: public TxpXmlData {
  public:
-  /// Set up hard coded regular expresisons and lookups
-  explicit TxpNRules(const TxpConfig &config, const std::string &type, const std::string &name);
+  /// Construct without loading voice data
+  explicit TxpNRules();
+  /// Set up hard coded regular expressions and lookups (rendundant)
+  explicit TxpNRules(const TxpConfig &config, const std::string &type,
+                     const std::string &name);
   ~TxpNRules();
+  /// Set up hard coded regular expressions and lookups
+  void Init(const TxpParseOptions &opts, const std::string &name);
   /// Checks to see what regexs have been found to determine whether to use
   /// hard coded defaults
   bool Parse(const std::string &tpdb);

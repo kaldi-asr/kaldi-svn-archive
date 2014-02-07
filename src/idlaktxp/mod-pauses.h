@@ -40,7 +40,9 @@ class TxpPauses : public TxpModule {
  public:
   explicit TxpPauses(const std::string &tpdb,
                      const std::string &configf = "");
+  explicit TxpPauses();
   ~TxpPauses();
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
 
  private:

@@ -50,7 +50,11 @@ class TxpLts: public TxpXmlData {
  public:
   explicit TxpLts(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name) {}
+  explicit TxpLts() {}
   ~TxpLts() {}
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "ccart", name);
+  }
   /// Given a word return the result of looking up the pronciation of
   /// of each letter in a cart tree
   int GetPron(const std::string &word, TxpLexiconLkp* lkp);

@@ -50,7 +50,11 @@ class TxpSylmax: public TxpXmlData {
   explicit TxpSylmax(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name), stress_(false), max_onset_(0),
         max_nucleus_(0) {}
+  explicit TxpSylmax() : stress_(false), max_onset_(0), max_nucleus_(0) {}
   ~TxpSylmax() {}
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "sylmax", name);
+  }
   bool Parse(const std::string &tpdb);
   /// Apply maximal onset rules to the phones in the array
   void Maxonset(PhoneVector* pronptr);

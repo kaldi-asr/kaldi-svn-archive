@@ -36,6 +36,7 @@
 		<ws col="48">
 </ws>
 	</tk>
+	<break type="4" time="0.4" />
 	<tk norm="the" lc="true" uc="true" pos="DT" posset="3">
 		The
 		<ws> </ws>
@@ -889,6 +890,7 @@
 		<ws col="72">
 </ws>
 	</tk>
+	<break type="4" time="0.4" />
 	<tk norm="at" lc="true" uc="true" pos="IN" posset="3">
 		At
 		<ws> </ws>

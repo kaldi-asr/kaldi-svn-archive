@@ -32,7 +32,14 @@ TxpPhrasing::TxpPhrasing(const std::string &tpdb, const std::string &configf)
     : TxpModule("phrasing", tpdb, configf) {
 }
 
+TxpPhrasing::TxpPhrasing() : TxpModule("phrasing") {}
+
 TxpPhrasing::~TxpPhrasing() {
+}
+
+bool TxpPhrasing::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
 }
 
 bool TxpPhrasing::Process(pugi::xml_document* input) {

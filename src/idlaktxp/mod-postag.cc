@@ -28,7 +28,18 @@ TxpPosTag::TxpPosTag(const std::string &tpdb, const std::string &configf)
   posset_.Parse(tpdb.c_str());
 }
 
+TxpPosTag::TxpPosTag() : TxpModule("postag") {}
+
 TxpPosTag::~TxpPosTag() {
+}
+
+bool TxpPosTag::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
+  tagger_.Init(opts, std::string(GetOptValue("arch")));
+  posset_.Init(opts, std::string(GetOptValue("arch")));
+  if (tagger_.Parse(tpdb_) && posset_.Parse(tpdb_)) return true;
+  return false;
 }
 
 bool TxpPosTag::Process(pugi::xml_document* input) {

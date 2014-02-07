@@ -29,9 +29,9 @@
 int main(int argc, char *argv[]) {
   const char *usage =
       "Tokenise utf8 input xml\n"
-      "Usage:  idlaktxp [options] xml_input xml_output\n"
-      "e.g.: ./idlaktxp --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/test_data/mod-syllabify-out002.xml output.xml\n" //NOLINT
-      "e.g.: cat  ../idlaktxp/test_data/mod-syllabify-out002.xml output.xml | idlaktxp --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
+      "Usage:  idlakcex [options] xml_input xml_output\n"
+      "e.g.: ./idlakcex --pretty --tpdb=../../idlak-data/en/ga ../idlaktxp/test_data/mod-syllabify-out002.xml output.xml\n" //NOLINT
+      "e.g.: cat  ../idlaktxp/test_data/mod-syllabify-out002.xml output.xml | idlakcex --pretty --tpdb=../../idlak-data/en/ga - - > output.xml\n"; //NOLINT
   // input output variables
   std::string filein;
   std::string fileout;
@@ -43,11 +43,8 @@ int main(int argc, char *argv[]) {
   bool pretty = false;
 
   try {
-    kaldi::ParseOptions po(usage);
-    po.Register("tpdb", &tpdb,
-                "Text processing database (directory XML language/speaker files)"); //NOLINT
-    po.Register("txpconfig", &configf,
-                "XML configuration file for text processing");
+    kaldi::TxpParseOptions po(usage);
+    po.SetTpdb(tpdb);
     po.Register("pretty", &pretty,
                 "Output XML with tabbing and line breaks to make it readable");
     po.Read(argc, argv);
@@ -63,7 +60,7 @@ int main(int argc, char *argv[]) {
     kaldi::Input ki(filein, &binary);
     kaldi::Output kio(fileout, binary);
     // Set up each module
-    kaldi::TxpCex fx(tpdb, configf);
+    kaldi::TxpCex cx;
     // Use pujiXMl to read input file
     pugi::xml_document doc;
     pugi::xml_parse_result r = doc.load(ki.Stream(), pugi::encoding_utf8);
@@ -71,8 +68,10 @@ int main(int argc, char *argv[]) {
       KALDI_ERR << "PugiXML Parse Error in Input Stream" << r.description()
                 << "Error offset: " << r.offset;
     }
+    // Initialise each module
+    cx.Init(po);
     // Run each module on the input XML
-    fx.Process(&doc);
+    cx.Process(&doc);
     // Output result
     if (!pretty)
       doc.save(kio.Stream(), "", pugi::format_raw);

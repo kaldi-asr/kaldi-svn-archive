@@ -39,7 +39,9 @@ class TxpPhrasing : public TxpModule {
  public:
   explicit TxpPhrasing(const std::string &tpdb,
                        const std::string &configf = "");
+  explicit TxpPhrasing();
   ~TxpPhrasing();
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
 
  private:

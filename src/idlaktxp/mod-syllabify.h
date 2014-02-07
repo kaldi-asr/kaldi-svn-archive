@@ -40,7 +40,9 @@ class TxpSyllabify : public TxpModule {
  public:
   explicit TxpSyllabify(const std::string &tpdb,
                         const std::string &configf = "");
+  explicit TxpSyllabify();
   ~TxpSyllabify();
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
 
  private:

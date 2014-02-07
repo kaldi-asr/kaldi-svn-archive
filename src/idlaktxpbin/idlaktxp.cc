@@ -35,18 +35,14 @@ int main(int argc, char *argv[]) {
   std::string filein;
   std::string fileout;
   std::string tpdb;
-  std::string configf;
   std::string input;
   std::ofstream fout;
   // defaults to non-pretty XML output
   bool pretty = false;
 
   try {
-    kaldi::ParseOptions po(usage);
-    po.Register("tpdb", &tpdb,
-                "Text processing database (directory XML language/speaker files)"); //NOLINT
-    po.Register("txpconfig", &configf,
-                "XML configuration file for text processing");
+    kaldi::TxpParseOptions po(usage);
+    po.SetTpdb(tpdb);
     po.Register("pretty", &pretty,
                 "Output XML with tabbing and line breaks to make it readable");
     po.Read(argc, argv);
@@ -62,12 +58,12 @@ int main(int argc, char *argv[]) {
     kaldi::Input ki(filein, &binary);
     kaldi::Output kio(fileout, binary);
     // Set up each module
-    kaldi::TxpTokenise t(tpdb, configf);
-    kaldi::TxpPosTag p(tpdb, configf);
-    kaldi::TxpPauses pz(tpdb, configf);
-    kaldi::TxpPhrasing ph(tpdb, configf);
-    kaldi::TxpPronounce pr(tpdb, configf);
-    kaldi::TxpSyllabify sy(tpdb, configf);
+    kaldi::TxpTokenise t;
+    kaldi::TxpPosTag p;
+    kaldi::TxpPauses pz;
+    kaldi::TxpPhrasing ph;
+    kaldi::TxpPronounce pr;
+    kaldi::TxpSyllabify sy;
     // Use pujiXMl to read input file
     pugi::xml_document doc;
     pugi::xml_parse_result r = doc.load(ki.Stream(), pugi::encoding_utf8);
@@ -75,6 +71,13 @@ int main(int argc, char *argv[]) {
       KALDI_ERR << "PugiXML Parse Error in Input Stream" << r.description()
                 << "Error offset: " << r.offset;
     }
+    // Initialise each module
+    t.Init(po);
+    p.Init(po);
+    pz.Init(po);
+    ph.Init(po);
+    pr.Init(po);
+    sy.Init(po);    
     // Run each module on the input XML
     t.Process(&doc);
     p.Process(&doc);

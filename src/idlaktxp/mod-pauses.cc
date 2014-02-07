@@ -36,6 +36,18 @@ TxpPauses::TxpPauses(const std::string &tpdb, const std::string &configf)
   hzone_end_ = atoi(GetConfigValue("hzone_end").c_str());
 }
 
+TxpPauses::TxpPauses() : TxpModule("pauses") {}
+
+bool TxpPauses::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
+  pbreak_.Init(opts, std::string(GetOptValue("arch")));
+  hzone_ = GetOptValueBool("hzone");
+  hzone_start_ = atoi(GetOptValue("hzone_start"));
+  hzone_end_ = atoi(GetOptValue("hzone_end"));
+  return pbreak_.Parse(tpdb_);
+}
+
 TxpPauses::~TxpPauses() {
 }
 

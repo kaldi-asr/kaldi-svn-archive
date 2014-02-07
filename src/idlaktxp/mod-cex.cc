@@ -26,7 +26,16 @@ TxpCex::TxpCex(const std::string &tpdb, const std::string &configf)
   cexspec_.Parse(tpdb.c_str());
 }
 
+TxpCex::TxpCex() : TxpModule("cex") {}
+
 TxpCex::~TxpCex() {
+}
+
+bool TxpCex::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
+  cexspec_.Init(opts, std::string(GetOptValue("arch")));
+  return cexspec_.Parse(tpdb_);
 }
 
 bool TxpCex::Process(pugi::xml_document* input) {

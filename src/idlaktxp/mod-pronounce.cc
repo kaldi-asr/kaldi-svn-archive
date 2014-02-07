@@ -22,7 +22,7 @@ namespace kaldi {
 
 TxpPronounce::TxpPronounce(const std::string &tpdb, const std::string &configf)
     : TxpModule("pronounce", tpdb, configf),
-      nrules_(config_, std::string("lexicon"), std::string("default")),
+      nrules_(config_, std::string("nrules"), std::string("default")),
       lex_(config_, std::string("lexicon"), std::string("default")),
       lts_(config_, std::string("ccart"), std::string("default")) {
   nrules_.Parse(tpdb.c_str());
@@ -30,7 +30,19 @@ TxpPronounce::TxpPronounce(const std::string &tpdb, const std::string &configf)
   lts_.Parse(tpdb.c_str());
 }
 
+TxpPronounce::TxpPronounce() : TxpModule("pronounce") {}
+    
 TxpPronounce::~TxpPronounce() {
+}
+
+bool TxpPronounce::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
+  nrules_.Init(opts, std::string(GetOptValue("arch")));
+  lex_.Init(opts, std::string(GetOptValue("arch")));
+  lts_.Init(opts, std::string(GetOptValue("arch")));
+  if (nrules_.Parse(tpdb_) && lex_.Parse(tpdb_) && lts_.Parse(tpdb_)) return true;
+  return false;
 }
 
 bool TxpPronounce::Process(pugi::xml_document* input) {

@@ -93,9 +93,15 @@ class TxpCexspec: public TxpXmlData {
   explicit TxpCexspec() :
       TxpXmlData(),
       cexspec_maxfieldlen_(CEXSPEC_MAXFIELDLEN),
-      pauhand_(CEXSPECPAU_HANDLER_SPURT)
-  {}
+      pauhand_(CEXSPECPAU_HANDLER_SPURT) {}
   ~TxpCexspec() {}
+  void Init(const TxpConfig &config, const std::string &type,
+                      const std::string &name) {
+    TxpXmlData::Init(config, type, name);
+  }
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "cex", name);
+  }
   // calculate biggest buffer required for feature output
   int32 MaxFeatureSize();
   // return pause handling strategy

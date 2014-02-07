@@ -22,7 +22,7 @@ namespace kaldi {
 
 TxpModule::TxpModule(const std::string &name, const std::string &tpdb,
                      const std::string &configf)
-    : name_(name), tpdb_(tpdb), configf_(configf) {
+    : tpdb_(tpdb), name_(name), configf_(configf) {
   // Load configuration
   config_.Parse(TXPCONFIG_LVL_SYSTEM, tpdb);
   if (!configf.empty()) config_.Parse(TXPCONFIG_LVL_USER, configf);
@@ -32,9 +32,21 @@ const std::string TxpModule::GetConfigValue(const std::string &key) {
   return config_.GetValue(name_, key);
 }
 
+const char * TxpModule::GetOptValue(const char *key) {
+  return opts_->GetValue(name_.c_str(), key);
+}
+
+// True/true/TRUE -> true, False, false, FALSE, anything else -> false
+bool TxpModule::GetOptValueBool(const char *key) {
+  const std::string val = opts_->GetValue(name_.c_str(), key);
+  if ((val == "True") || (val == "true") || (val == "TRUE"))
+    return true;
+  return false;
+}
+
 // True/true/TRUE -> true, False, false, FALSE, anything else -> false
 bool TxpModule::GetConfigValueBool(const std::string &key) {
-  const std::string val = config_.GetValue(name_, key);
+  const std::string val = config_.GetValue(name_.c_str(), key);
   if ((val == "True") || (val == "true") || (val == "TRUE"))
     return true;
   return false;

@@ -24,10 +24,6 @@
 // containing tox tokens.
 
 #include <string>
-#include "pugixml.hpp"
-
-#include "base/kaldi-common.h"
-#include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpmodule.h"
 #include "idlaktxp/txpcexspec.h"
@@ -40,7 +36,9 @@ class TxpCex : public TxpModule {
  public:
   explicit TxpCex(const std::string &tpdb,
                   const std::string &configf = "");
+  explicit TxpCex();
   ~TxpCex();
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
   /// Returns true if the system is splitting mid phrase pauses to allow
   /// spurt processing of model names

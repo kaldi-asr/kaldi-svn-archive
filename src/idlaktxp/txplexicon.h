@@ -69,7 +69,11 @@ class TxpLexicon: public TxpXmlData {
  public:
   explicit TxpLexicon(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name), inlex_(false) {}
+  explicit TxpLexicon() : inlex_(false) {}
   ~TxpLexicon() {}
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "lexicon", name);
+  }
   /// Fill the lexicon lookup structure with the correct pronunciation
   int GetPron(const std::string &word,
               const std::string &entry,

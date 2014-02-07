@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <parent>
 	<utt uttid="1" no_phrases="1">
-		<spt phraseid="1" no_wrds="37">
+		<spt phraseid="1" no_wrds="8">
 			<ws col="0">
 </ws>
 			<break type="4" time="0.011" />
@@ -97,7 +97,13 @@
 					<phon val="t" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="9" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt uttid="2" no_phrases="1">
+		<spt phraseid="1" no_wrds="29">
+			<break type="4" time="0.2" />
+			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				The
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -105,7 +111,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="family" lc="true" pos="RB" posset="1" wordid="10" pron="f ae1 m ah0 l iy0" altprons="f ae1 m l iy0, f ae1 m ah0 l iy0" spron="f+ae1|m+ah0|l+iy0|" nosyl="3">
+			<tk norm="family" lc="true" pos="RB" posset="1" wordid="2" pron="f ae1 m ah0 l iy0" altprons="f ae1 m l iy0, f ae1 m ah0 l iy0" spron="f+ae1|m+ah0|l+iy0|" nosyl="3">
 				family
 				<ws> </ws>
 				<syl val="f+ae1" stress="1" sylid="1" nophons="2">
@@ -121,7 +127,7 @@
 					<phon val="iy" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="of" lc="true" pos="IN" posset="3" wordid="11" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
+			<tk norm="of" lc="true" pos="IN" posset="3" wordid="3" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
 				of
 				<ws> </ws>
 				<syl val="ah1+v" stress="1" sylid="1" nophons="2">
@@ -129,7 +135,7 @@
 					<phon val="v" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="12" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="4" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -137,7 +143,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="last" lc="true" pos="JJ" posset="1" wordid="13" pron="l ae1 s t" altprons="l ao1 s t, l ae1 s, l ae1 s t" spron="l+ae1+s_t|" nosyl="1">
+			<tk norm="last" lc="true" pos="JJ" posset="1" wordid="5" pron="l ae1 s t" altprons="l ao1 s t, l ae1 s, l ae1 s t" spron="l+ae1+s_t|" nosyl="1">
 				last
 				<ws> </ws>
 				<syl val="l+ae1+s_t" stress="1" sylid="1" nophons="4">
@@ -147,7 +153,7 @@
 					<phon val="t" type="coda" phonid="4" />
 				</syl>
 			</tk>
-			<tk norm="person" lc="true" pos="NN" posset="1" wordid="14" pron="p er1 s ah0 n" spron="p+er1|s+ah0+n|" nosyl="2">
+			<tk norm="person" lc="true" pos="NN" posset="1" wordid="6" pron="p er1 s ah0 n" spron="p+er1|s+ah0+n|" nosyl="2">
 				person
 				<ws> </ws>
 				<syl val="p+er1" stress="1" sylid="1" nophons="2">
@@ -160,7 +166,7 @@
 					<phon val="n" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="in" lc="true" pos="IN" posset="3" wordid="15" pron="ih0 n" altprons="ih1 n, ih0 n" spron="ih0+n|" nosyl="1">
+			<tk norm="in" lc="true" pos="IN" posset="3" wordid="7" pron="ih0 n" altprons="ih1 n, ih0 n" spron="ih0+n|" nosyl="1">
 				in
 				<ws> </ws>
 				<syl val="ih0+n" stress="0" sylid="1" nophons="2">
@@ -168,7 +174,7 @@
 					<phon val="n" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="16" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="8" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -176,7 +182,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="uk" lc="true" uc="true" pos="NN" posset="1" wordid="17" pron="uw0 k" lts="true" spron="uw0+k|" nosyl="1">
+			<tk norm="uk" lc="true" uc="true" pos="NN" posset="1" wordid="9" pron="uw0 k" lts="true" spron="uw0+k|" nosyl="1">
 				UK
 				<ws> </ws>
 				<syl val="uw0+k" stress="0" sylid="1" nophons="2">
@@ -184,7 +190,7 @@
 					<phon val="k" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="to" lc="true" pos="TO" posset="3" wordid="18" pron="t uw1" altprons="t ih0, t ah0, t uw1" spron="t+uw1|" nosyl="1">
+			<tk norm="to" lc="true" pos="TO" posset="3" wordid="10" pron="t uw1" altprons="t ih0, t ah0, t uw1" spron="t+uw1|" nosyl="1">
 				to
 				<ws> </ws>
 				<syl val="t+uw1" stress="1" sylid="1" nophons="2">
@@ -192,7 +198,7 @@
 					<phon val="uw" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="be" lc="true" pos="VB" posset="3" wordid="19" pron="b iy1" altprons="b iy0, b iy1" spron="b+iy1|" nosyl="1">
+			<tk norm="be" lc="true" pos="VB" posset="3" wordid="11" pron="b iy1" altprons="b iy0, b iy1" spron="b+iy1|" nosyl="1">
 				be
 				<ws> </ws>
 				<syl val="b+iy1" stress="1" sylid="1" nophons="2">
@@ -200,7 +206,7 @@
 					<phon val="iy" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="prosecuted" lc="true" pos="VVN" posset="1" wordid="20" pron="p r aa1 s ih0 k y uw2 t ih0 d" spron="p_r+aa1|s+ih0+k|y+uw2|t+ih0+d|" nosyl="4">
+			<tk norm="prosecuted" lc="true" pos="VVN" posset="1" wordid="12" pron="p r aa1 s ih0 k y uw2 t ih0 d" spron="p_r+aa1|s+ih0+k|y+uw2|t+ih0+d|" nosyl="4">
 				prosecuted
 				<ws> </ws>
 				<syl val="p_r+aa1" stress="1" sylid="1" nophons="3">
@@ -223,7 +229,7 @@
 					<phon val="d" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="under" lc="true" pos="IN" posset="3" wordid="21" pron="ah1 n d er0" spron="ah1+n|d+er0|" nosyl="2">
+			<tk norm="under" lc="true" pos="IN" posset="3" wordid="13" pron="ah1 n d er0" spron="ah1+n|d+er0|" nosyl="2">
 				under
 				<ws> </ws>
 				<syl val="ah1+n" stress="1" sylid="1" nophons="2">
@@ -235,7 +241,7 @@
 					<phon val="er" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="22" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="14" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -243,7 +249,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="witchcraft" lc="true" uc="true" pos="NN" posset="1" wordid="23" pron="w ih1 ch k r ae2 f t" spron="w+ih1+ch|k_r+ae2+f_t|" nosyl="2">
+			<tk norm="witchcraft" lc="true" uc="true" pos="NN" posset="1" wordid="15" pron="w ih1 ch k r ae2 f t" spron="w+ih1+ch|k_r+ae2+f_t|" nosyl="2">
 				Witchcraft
 				<ws> </ws>
 				<syl val="w+ih1+ch" stress="1" sylid="1" nophons="3">
@@ -259,7 +265,7 @@
 					<phon val="t" type="coda" phonid="5" />
 				</syl>
 			</tk>
-			<tk norm="act" lc="true" uc="true" pos="NN" posset="1" wordid="24" pron="ae1 k t" spron="ae1+k_t|" nosyl="1">
+			<tk norm="act" lc="true" uc="true" pos="NN" posset="1" wordid="16" pron="ae1 k t" spron="ae1+k_t|" nosyl="1">
 				Act
 				<ws> </ws>
 				<syl val="ae1+k_t" stress="1" sylid="1" nophons="3">
@@ -268,7 +274,7 @@
 					<phon val="t" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="will" lc="true" pos="MD" posset="3" wordid="25" pron="w ih1 l" altprons="w ah0 l, w ih1 l" spron="w+ih1+l|" nosyl="1">
+			<tk norm="will" lc="true" pos="MD" posset="3" wordid="17" pron="w ih1 l" altprons="w ah0 l, w ih1 l" spron="w+ih1+l|" nosyl="1">
 				will
 				<ws> </ws>
 				<syl val="w+ih1+l" stress="1" sylid="1" nophons="3">
@@ -277,7 +283,7 @@
 					<phon val="l" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="mark" lc="true" pos="NN" posset="1" wordid="26" pron="m aa1 r k" spron="m+aa1+r_k|" nosyl="1">
+			<tk norm="mark" lc="true" pos="NN" posset="1" wordid="18" pron="m aa1 r k" spron="m+aa1+r_k|" nosyl="1">
 				mark
 				<ws> </ws>
 				<syl val="m+aa1+r_k" stress="1" sylid="1" nophons="4">
@@ -287,7 +293,7 @@
 					<phon val="k" type="coda" phonid="4" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="27" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="19" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -295,7 +301,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="50th" lc="true" symbols="true" pos="NN" posset="1" wordid="28" pron="f ay1 v ow1 t iy1 ey1 ch" spron="f+ay1|v+ow1|t+iy1+ey1_ch|" nosyl="3">
+			<tk norm="50th" lc="true" symbols="true" pos="NN" posset="1" wordid="20" pron="f ay1 v ow1 t iy1 ey1 ch" spron="f+ay1|v+ow1|t+iy1+ey1_ch|" nosyl="3">
 				50th
 				<ws> </ws>
 				<syl val="f+ay1" stress="1" sylid="1" nophons="2">
@@ -313,7 +319,7 @@
 					<phon val="ch" type="nucleus" phonid="4" />
 				</syl>
 			</tk>
-			<tk norm="anniversary" lc="true" pos="NN" posset="1" wordid="29" pron="ae2 n ah0 v er1 s er0 iy0" spron="ae2|n+ah0|v+er1|s+er0+iy0|" nosyl="4">
+			<tk norm="anniversary" lc="true" pos="NN" posset="1" wordid="21" pron="ae2 n ah0 v er1 s er0 iy0" spron="ae2|n+ah0|v+er1|s+er0+iy0|" nosyl="4">
 				anniversary
 				<ws> </ws>
 				<syl val="ae2" stress="2" sylid="1" nophons="1">
@@ -333,7 +339,7 @@
 					<phon val="iy" type="nucleus" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="of" lc="true" pos="IN" posset="3" wordid="30" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
+			<tk norm="of" lc="true" pos="IN" posset="3" wordid="22" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
 				of
 				<ws> </ws>
 				<syl val="ah1+v" stress="1" sylid="1" nophons="2">
@@ -341,7 +347,7 @@
 					<phon val="v" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="31" pron="hh er0" altprons="hh er1, hh er0" spron="hh+er0|" nosyl="1">
+			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="23" pron="hh er0" altprons="hh er1, hh er0" spron="hh+er0|" nosyl="1">
 				her
 				<ws> </ws>
 				<syl val="hh+er0" stress="0" sylid="1" nophons="2">
@@ -349,7 +355,7 @@
 					<phon val="er" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="death" lc="true" pos="NN" posset="1" wordid="32" pron="d eh1 th" spron="d+eh1+th|" nosyl="1">
+			<tk norm="death" lc="true" pos="NN" posset="1" wordid="24" pron="d eh1 th" spron="d+eh1+th|" nosyl="1">
 				death
 				<ws> </ws>
 				<syl val="d+eh1+th" stress="1" sylid="1" nophons="3">
@@ -358,7 +364,7 @@
 					<phon val="th" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="by" lc="true" pos="IN" posset="3" wordid="33" pron="b ay1" spron="b+ay1|" nosyl="1">
+			<tk norm="by" lc="true" pos="IN" posset="3" wordid="25" pron="b ay1" spron="b+ay1|" nosyl="1">
 				by
 				<ws> </ws>
 				<syl val="b+ay1" stress="1" sylid="1" nophons="2">
@@ -366,7 +372,7 @@
 					<phon val="ay" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="calling" lc="true" pos="VVG" posset="1" wordid="34" pron="k ao1 l ih0 ng" spron="k+ao1|l+ih0+ng|" nosyl="2">
+			<tk norm="calling" lc="true" pos="VVG" posset="1" wordid="26" pron="k ao1 l ih0 ng" spron="k+ao1|l+ih0+ng|" nosyl="2">
 				calling
 				<ws> </ws>
 				<syl val="k+ao1" stress="1" sylid="1" nophons="2">
@@ -379,7 +385,7 @@
 					<phon val="ng" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="for" lc="true" pos="IN" posset="3" wordid="35" pron="f ao1 r" altprons="f er0, f r er0, f ao1 r" spron="f+ao1+r|" nosyl="1">
+			<tk norm="for" lc="true" pos="IN" posset="3" wordid="27" pron="f ao1 r" altprons="f er0, f r er0, f ao1 r" spron="f+ao1+r|" nosyl="1">
 				for
 				<ws> </ws>
 				<syl val="f+ao1+r" stress="1" sylid="1" nophons="3">
@@ -388,7 +394,7 @@
 					<phon val="r" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="36" pron="hh er0" altprons="hh er1, hh er0" spron="hh+er0|" nosyl="1">
+			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="28" pron="hh er0" altprons="hh er1, hh er0" spron="hh+er0|" nosyl="1">
 				her
 				<ws> </ws>
 				<syl val="hh+er0" stress="0" sylid="1" nophons="2">
@@ -396,7 +402,7 @@
 					<phon val="er" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="pardon" pstpunc="." lc="true" pos="NN" posset="1" wordid="37" pron="p aa1 r d ah0 n" spron="p+aa1+r|d+ah0+n|" nosyl="2">
+			<tk norm="pardon" pstpunc="." lc="true" pos="NN" posset="1" wordid="29" pron="p aa1 r d ah0 n" spron="p+aa1+r|d+ah0+n|" nosyl="2">
 				pardon.
 				<ws col="153">
 </ws>
@@ -414,8 +420,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="2" no_phrases="5">
-		<spt phraseid="2" no_wrds="3">
+	<utt uttid="3" no_phrases="4">
+		<spt phraseid="1" no_wrds="3">
 			<break type="4" time="0.2" />
 			<tk norm="medium" lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="m iy1 d iy0 ah0 m" spron="m+iy1|d+iy0+ah0_m|" nosyl="2">
 				Medium
@@ -460,7 +466,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="5">
+		<spt phraseid="2" no_wrds="5">
 			<break type="3" time="0.1" />
 			<tk norm="who" lc="true" pos="WP" posset="3" wordid="1" pron="hh uw1" spron="hh+uw1|" nosyl="1">
 				who
@@ -516,7 +522,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="4" no_wrds="1">
+		<spt phraseid="3" no_wrds="1">
 			<break type="3" time="0.1" />
 			<tk norm="perthshire" pstpunc="," lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="p er1 th hh s hh iy1 r eh1" lts="true" spron="p+er1+th_hh_s|hh+iy1|r+eh1|" nosyl="3">
 				Perthshire,
@@ -539,7 +545,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="5" no_wrds="9">
+		<spt phraseid="4" no_wrds="9">
 			<break type="3" time="0.1" />
 			<tk norm="was" lc="true" pos="VBD" posset="3" wordid="1" pron="w aa1 z" altprons="w ah1 z, w ah0 z, w ao1 z, w aa1 z" spron="w+aa1+z|" nosyl="1">
 				was
@@ -642,8 +648,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="3" no_phrases="2">
-		<spt phraseid="2" no_wrds="26">
+	<utt uttid="4" no_phrases="1">
+		<spt phraseid="1" no_wrds="26">
 			<break type="4" time="0.2" />
 			<tk norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1" spron="sh+iy1|" nosyl="1">
 				She
@@ -928,8 +934,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="4" no_phrases="2">
-		<spt phraseid="2" no_wrds="10">
+	<utt uttid="5" no_phrases="1">
+		<spt phraseid="1" no_wrds="10">
 			<break type="4" time="0.2" />
 			<tk norm="her" lc="true" uc="true" pos="PP$" posset="3" wordid="1" pron="hh er0" altprons="hh er1, hh er0" spron="hh+er0|" nosyl="1">
 				Her
@@ -1093,8 +1099,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="5" no_phrases="4">
-		<spt phraseid="2" no_wrds="2">
+	<utt uttid="6" no_phrases="3">
+		<spt phraseid="1" no_wrds="2">
 			<break type="4" time="0.2" />
 			<tk norm="mary" lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="m eh1 r iy0" spron="m+eh1|r+iy0|" nosyl="2">
 				Mary
@@ -1124,7 +1130,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="2">
+		<spt phraseid="2" no_wrds="2">
 			<break type="3" time="0.1" />
 			<tk norm="of" lc="true" pos="IN" posset="3" wordid="1" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
 				of
@@ -1153,7 +1159,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="4" no_wrds="10">
+		<spt phraseid="3" no_wrds="10">
 			<break type="3" time="0.1" />
 			<tk norm="said" lc="true" pos="VVD" posset="1" wordid="1" pron="s eh1 d" spron="s+eh1+d|" nosyl="1">
 				said
@@ -1265,8 +1271,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="6" no_phrases="2">
-		<spt phraseid="2" no_wrds="13">
+	<utt uttid="7" no_phrases="1">
+		<spt phraseid="1" no_wrds="13">
 			<break type="4" time="0.2" />
 			<tk prepunc="&quot;" norm="when" lc="true" uc="true" pos="WRB" posset="3" wordid="1" pron="w eh1 n" altprons="hh w eh1 n, w ih1 n, hh w ih1 n, w eh1 n" spron="w+eh1+n|" nosyl="1">
 				"When
@@ -1398,8 +1404,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="7" no_phrases="2">
-		<spt phraseid="2" no_wrds="17">
+	<utt uttid="8" no_phrases="1">
+		<spt phraseid="1" no_wrds="17">
 			<break type="4" time="0.2" />
 			<tk prepunc="&quot;" norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1" spron="sh+iy1|" nosyl="1">
 				"She
@@ -1558,8 +1564,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="8" no_phrases="2">
-		<spt phraseid="2" no_wrds="6">
+	<utt uttid="9" no_phrases="1">
+		<spt phraseid="1" no_wrds="6">
 			<break type="4" time="0.2" />
 			<tk prepunc="&quot;" norm="some" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="s ah1 m" spron="s+ah1+m|" nosyl="1">
 				"Some
@@ -1626,8 +1632,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="9" no_phrases="2">
-		<spt phraseid="2" no_wrds="25">
+	<utt uttid="10" no_phrases="1">
+		<spt phraseid="1" no_wrds="25">
 			<break type="4" time="0.2" />
 			<tk norm="my" lc="true" uc="true" pos="PP$" posset="3" wordid="1" pron="m ay1" spron="m+ay1|" nosyl="1">
 				My
@@ -1886,8 +1892,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="10" no_phrases="3">
-		<spt phraseid="2" no_wrds="12">
+	<utt uttid="11" no_phrases="2">
+		<spt phraseid="1" no_wrds="12">
 			<break type="4" time="0.2" />
 			<tk norm="mrs" lc="true" uc="true" pos="NNS" posset="1" wordid="1" pron="m ih1 s ih0 z" spron="m+ih1|s+ih0+z|" nosyl="2">
 				Mrs
@@ -2019,7 +2025,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="6">
+		<spt phraseid="2" no_wrds="6">
 			<break type="3" time="0.1" />
 			<tk norm="heading" lc="true" pos="VVG" posset="1" wordid="1" pron="hh eh1 d ih0 ng" spron="hh+eh1|d+ih0+ng|" nosyl="2">
 				heading
@@ -2107,8 +2113,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="11" no_phrases="3">
-		<spt phraseid="2" no_wrds="7">
+	<utt uttid="12" no_phrases="2">
+		<spt phraseid="1" no_wrds="7">
 			<break type="4" time="0.2" />
 			<tk norm="during" lc="true" uc="true" pos="IN" posset="3" wordid="1" pron="d uh1 r ih0 ng" altprons="d y uh1 r ih0 ng, d er1 ih0 ng, d uh1 r ih0 ng" spron="d+uh1|r+ih0+ng|" nosyl="2">
 				During
@@ -2184,7 +2190,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="6">
+		<spt phraseid="2" no_wrds="6">
 			<break type="3" time="0.1" />
 			<tk norm="the" lc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
@@ -2245,8 +2251,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="12" no_phrases="2">
-		<spt phraseid="2" no_wrds="36">
+	<utt uttid="13" no_phrases="1">
+		<spt phraseid="1" no_wrds="17">
 			<break type="4" time="0.2" />
 			<tk norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1" spron="sh+iy1|" nosyl="1">
 				She
@@ -2401,17 +2407,23 @@
 					<phon val="uw" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="act" lc="true" pos="NN" posset="1" wordid="17" pron="ae1 k t" spron="ae1+k_t|" nosyl="1">
+			<tk norm="act" lc="true" pos="NN" posset="1" wordid="17" pron="ae1 k t" spron="ae1_k_t|" nosyl="1">
 				act
 				<ws col="72">
 </ws>
-				<syl val="ae1+k_t" stress="1" sylid="1" nophons="3">
+				<syl val="ae1_k_t" stress="1" sylid="1" nophons="3">
 					<phon val="ae" type="nucleus" phonid="1" />
-					<phon val="k" type="coda" phonid="2" />
-					<phon val="t" type="coda" phonid="3" />
+					<phon val="k" type="nucleus" phonid="2" />
+					<phon val="t" type="nucleus" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="at" lc="true" uc="true" pos="IN" posset="3" wordid="18" pron="ae1 t" spron="ae1+t|" nosyl="1">
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt uttid="14" no_phrases="1">
+		<spt phraseid="1" no_wrds="19">
+			<break type="4" time="0.2" />
+			<tk norm="at" lc="true" uc="true" pos="IN" posset="3" wordid="1" pron="ae1 t" spron="ae1+t|" nosyl="1">
 				At
 				<ws> </ws>
 				<syl val="ae1+t" stress="1" sylid="1" nophons="2">
@@ -2419,14 +2431,14 @@
 					<phon val="t" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="a" lc="true" pos="DT" posset="3" wordid="19" pron="ah0" altprons="ey1, ah0" spron="ah0|" nosyl="1">
+			<tk norm="a" lc="true" pos="DT" posset="3" wordid="2" pron="ah0" altprons="ey1, ah0" spron="ah0|" nosyl="1">
 				a
 				<ws> </ws>
 				<syl val="ah0" stress="0" sylid="1" nophons="1">
 					<phon val="ah" type="nucleus" phonid="1" />
 				</syl>
 			</tk>
-			<tk norm="seance" lc="true" foreign="true" pos="NN" posset="1" wordid="20" pron="s ey1 aa0 n s" spron="s+ey1+aa0_n_s|" nosyl="1">
+			<tk norm="seance" lc="true" foreign="true" pos="NN" posset="1" wordid="3" pron="s ey1 aa0 n s" spron="s+ey1+aa0_n_s|" nosyl="1">
 				séance
 				<ws> </ws>
 				<syl val="s+ey1+aa0_n_s" stress="0" sylid="1" nophons="5">
@@ -2437,7 +2449,7 @@
 					<phon val="s" type="nucleus" phonid="5" />
 				</syl>
 			</tk>
-			<tk norm="in" lc="true" pos="IN" posset="3" wordid="21" pron="ih0 n" altprons="ih1 n, ih0 n" spron="ih0+n|" nosyl="1">
+			<tk norm="in" lc="true" pos="IN" posset="3" wordid="4" pron="ih0 n" altprons="ih1 n, ih0 n" spron="ih0+n|" nosyl="1">
 				in
 				<ws> </ws>
 				<syl val="ih0+n" stress="0" sylid="1" nophons="2">
@@ -2445,7 +2457,7 @@
 					<phon val="n" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="1943" symbols="true" pos="NN" posset="1" wordid="22" pron="w ah1 n n ay1 n f ao1 r th r iy1" spron="w+ah1+n|n+ay1+n|f+ao1+r|th_r+iy1|" nosyl="4">
+			<tk norm="1943" symbols="true" pos="NN" posset="1" wordid="5" pron="w ah1 n n ay1 n f ao1 r th r iy1" spron="w+ah1+n|n+ay1+n|f+ao1+r|th_r+iy1|" nosyl="4">
 				1943
 				<ws> </ws>
 				<syl val="w+ah1+n" stress="1" sylid="1" nophons="3">
@@ -2469,7 +2481,7 @@
 					<phon val="iy" type="nucleus" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="it" lc="true" pos="PP" posset="3" wordid="23" pron="ih1 t" altprons="ih0 t, ih1 t" spron="ih1+t|" nosyl="1">
+			<tk norm="it" lc="true" pos="PP" posset="3" wordid="6" pron="ih1 t" altprons="ih0 t, ih1 t" spron="ih1+t|" nosyl="1">
 				it
 				<ws> </ws>
 				<syl val="ih1+t" stress="1" sylid="1" nophons="2">
@@ -2477,7 +2489,7 @@
 					<phon val="t" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="was" lc="true" pos="VBD" posset="3" wordid="24" pron="w aa1 z" altprons="w ah1 z, w ah0 z, w ao1 z, w aa1 z" spron="w+aa1+z|" nosyl="1">
+			<tk norm="was" lc="true" pos="VBD" posset="3" wordid="7" pron="w aa1 z" altprons="w ah1 z, w ah0 z, w ao1 z, w aa1 z" spron="w+aa1+z|" nosyl="1">
 				was
 				<ws> </ws>
 				<syl val="w+aa1+z" stress="1" sylid="1" nophons="3">
@@ -2486,7 +2498,7 @@
 					<phon val="z" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="claimed" lc="true" pos="VVN" posset="1" wordid="25" pron="k l ey1 m d" spron="k_l+ey1+m_d|" nosyl="1">
+			<tk norm="claimed" lc="true" pos="VVN" posset="1" wordid="8" pron="k l ey1 m d" spron="k_l+ey1+m_d|" nosyl="1">
 				claimed
 				<ws> </ws>
 				<syl val="k_l+ey1+m_d" stress="1" sylid="1" nophons="5">
@@ -2497,7 +2509,7 @@
 					<phon val="d" type="coda" phonid="5" />
 				</syl>
 			</tk>
-			<tk norm="that" lc="true" pos="IN/that" posset="3" wordid="26" pron="dh ae1 t" altprons="dh ah0 t, dh ae1 t" spron="dh+ae1+t|" nosyl="1">
+			<tk norm="that" lc="true" pos="IN/that" posset="3" wordid="9" pron="dh ae1 t" altprons="dh ah0 t, dh ae1 t" spron="dh+ae1+t|" nosyl="1">
 				that
 				<ws> </ws>
 				<syl val="dh+ae1+t" stress="1" sylid="1" nophons="3">
@@ -2506,7 +2518,7 @@
 					<phon val="t" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="27" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="10" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -2514,7 +2526,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="spirit" lc="true" pos="NN" posset="1" wordid="28" pron="s p ih1 r ah0 t" altprons="s p ih1 r ih0 t, s p ih1 r ah0 t" spron="s_p+ih1|r+ah0+t|" nosyl="2">
+			<tk norm="spirit" lc="true" pos="NN" posset="1" wordid="11" pron="s p ih1 r ah0 t" altprons="s p ih1 r ih0 t, s p ih1 r ah0 t" spron="s_p+ih1|r+ah0+t|" nosyl="2">
 				spirit
 				<ws> </ws>
 				<syl val="s_p+ih1" stress="1" sylid="1" nophons="3">
@@ -2528,7 +2540,7 @@
 					<phon val="t" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="of" lc="true" pos="IN" posset="3" wordid="29" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
+			<tk norm="of" lc="true" pos="IN" posset="3" wordid="12" pron="ah1 v" altprons="ah0 v, ah1 v" spron="ah1+v|" nosyl="1">
 				of
 				<ws> </ws>
 				<syl val="ah1+v" stress="1" sylid="1" nophons="2">
@@ -2536,14 +2548,14 @@
 					<phon val="v" type="coda" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="a" lc="true" pos="DT" posset="3" wordid="30" pron="ah0" altprons="ey1, ah0" spron="ah0|" nosyl="1">
+			<tk norm="a" lc="true" pos="DT" posset="3" wordid="13" pron="ah0" altprons="ey1, ah0" spron="ah0|" nosyl="1">
 				a
 				<ws> </ws>
 				<syl val="ah0" stress="0" sylid="1" nophons="1">
 					<phon val="ah" type="nucleus" phonid="1" />
 				</syl>
 			</tk>
-			<tk norm="sailor" lc="true" pos="NN" posset="1" wordid="31" pron="s ey1 l er0" spron="s+ey1|l+er0|" nosyl="2">
+			<tk norm="sailor" lc="true" pos="NN" posset="1" wordid="14" pron="s ey1 l er0" spron="s+ey1|l+er0|" nosyl="2">
 				sailor
 				<ws> </ws>
 				<syl val="s+ey1" stress="1" sylid="1" nophons="2">
@@ -2555,7 +2567,7 @@
 					<phon val="er" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="from" lc="true" pos="IN" posset="3" wordid="32" pron="f r ah1 m" altprons="f er0 m, f r ah1 m" spron="f_r+ah1+m|" nosyl="1">
+			<tk norm="from" lc="true" pos="IN" posset="3" wordid="15" pron="f r ah1 m" altprons="f er0 m, f r ah1 m" spron="f_r+ah1+m|" nosyl="1">
 				from
 				<ws> </ws>
 				<syl val="f_r+ah1+m" stress="1" sylid="1" nophons="4">
@@ -2565,7 +2577,7 @@
 					<phon val="m" type="coda" phonid="4" />
 				</syl>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="33" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="16" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				the
 				<ws> </ws>
 				<syl val="dh+ah0" stress="0" sylid="1" nophons="2">
@@ -2573,7 +2585,7 @@
 					<phon val="ah" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="hms" lc="true" uc="true" pos="NNS" posset="1" wordid="34" pron="hh m s" lts="true" spron="hh_m_s|" nosyl="1">
+			<tk norm="hms" lc="true" uc="true" pos="NNS" posset="1" wordid="17" pron="hh m s" lts="true" spron="hh_m_s|" nosyl="1">
 				HMS
 				<ws> </ws>
 				<syl val="hh_m_s" stress="" sylid="1" nophons="3">
@@ -2582,7 +2594,7 @@
 					<phon val="s" type="onset" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="barham" lc="true" uc="true" pos="NN" posset="1" wordid="35" pron="b aa1 r hh ah0 m" spron="b+aa1+r|hh+ah0+m|" nosyl="2">
+			<tk norm="barham" lc="true" uc="true" pos="NN" posset="1" wordid="18" pron="b aa1 r hh ah0 m" spron="b+aa1+r|hh+ah0+m|" nosyl="2">
 				Barham
 				<ws> </ws>
 				<syl val="b+aa1+r" stress="1" sylid="1" nophons="3">
@@ -2596,7 +2608,7 @@
 					<phon val="m" type="coda" phonid="3" />
 				</syl>
 			</tk>
-			<tk norm="appeared" pstpunc="." lc="true" pos="VVN" posset="1" wordid="36" pron="ah0 p ih1 r d" spron="ah0|p+ih1+r_d|" nosyl="2">
+			<tk norm="appeared" pstpunc="." lc="true" pos="VVN" posset="1" wordid="19" pron="ah0 p ih1 r d" spron="ah0|p+ih1+r_d|" nosyl="2">
 				appeared.
 				<ws col="94">
 </ws>
@@ -2613,8 +2625,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="13" no_phrases="2">
-		<spt phraseid="2" no_wrds="10">
+	<utt uttid="15" no_phrases="1">
+		<spt phraseid="1" no_wrds="10">
 			<break type="4" time="0.2" />
 			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				The
@@ -2743,8 +2755,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="14" no_phrases="2">
-		<spt phraseid="2" no_wrds="24">
+	<utt uttid="16" no_phrases="1">
+		<spt phraseid="1" no_wrds="24">
 			<break type="4" time="0.2" />
 			<tk norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1" spron="sh+iy1|" nosyl="1">
 				She
@@ -3026,8 +3038,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="15" no_phrases="2">
-		<spt phraseid="2" no_wrds="9">
+	<utt uttid="17" no_phrases="1">
+		<spt phraseid="1" no_wrds="9">
 			<break type="4" time="0.2" />
 			<tk norm="while" lc="true" uc="true" pos="IN" posset="3" wordid="1" pron="w ay1 l" altprons="hh w ay1 l, w ay1 l" spron="w+ay1+l|" nosyl="1">
 				While
@@ -3134,8 +3146,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="16" no_phrases="2">
-		<spt phraseid="2" no_wrds="22">
+	<utt uttid="18" no_phrases="1">
+		<spt phraseid="1" no_wrds="22">
 			<break type="4" time="0.2" />
 			<tk norm="when" lc="true" uc="true" pos="WRB" posset="3" wordid="1" pron="w eh1 n" altprons="hh w eh1 n, w ih1 n, hh w ih1 n, w eh1 n" spron="w+eh1+n|" nosyl="1">
 				When
@@ -3432,8 +3444,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="17" no_phrases="2">
-		<spt phraseid="2" no_wrds="11">
+	<utt uttid="19" no_phrases="1">
+		<spt phraseid="1" no_wrds="11">
 			<break type="4" time="0.2" />
 			<tk norm="campaigners" lc="true" uc="true" pos="NNS" posset="1" wordid="1" pron="k ae0 m p ey1 n er0 z" spron="k+ae0+m|p+ey1|n+er0+z|" nosyl="3">
 				Campaigners
@@ -3570,8 +3582,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="18" no_phrases="2">
-		<spt phraseid="2" no_wrds="11">
+	<utt uttid="20" no_phrases="1">
+		<spt phraseid="1" no_wrds="11">
 			<break type="4" time="0.2" />
 			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0" spron="dh+ah0|" nosyl="1">
 				The
@@ -3708,8 +3720,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="19" no_phrases="5">
-		<spt phraseid="2" no_wrds="3">
+	<utt uttid="21" no_phrases="4">
+		<spt phraseid="1" no_wrds="3">
 			<break type="4" time="0.2" />
 			<tk norm="medium" lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="m iy1 d iy0 ah0 m" spron="m+iy1|d+iy0+ah0_m|" nosyl="2">
 				Medium
@@ -3751,7 +3763,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="4">
+		<spt phraseid="2" no_wrds="4">
 			<break type="3" time="0.1" />
 			<tk norm="who" lc="true" pos="WP" posset="3" wordid="1" pron="hh uw1" spron="hh+uw1|" nosyl="1">
 				who
@@ -3798,7 +3810,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="4" no_wrds="1">
+		<spt phraseid="3" no_wrds="1">
 			<break type="3" time="0.1" />
 			<tk norm="said" pstpunc=":" lc="true" pos="VVD" posset="1" wordid="1" pron="s eh1 d" spron="s+eh1+d|" nosyl="1">
 				said:
@@ -3811,7 +3823,7 @@
 			</tk>
 			<break type="3" time="0.15" />
 		</spt>
-		<spt phraseid="5" no_wrds="17">
+		<spt phraseid="4" no_wrds="17">
 			<break type="3" time="0.15" />
 			<tk prepunc="&quot;" norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1" spron="sh+iy1|" nosyl="1">
 				"She

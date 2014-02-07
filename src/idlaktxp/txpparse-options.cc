@@ -29,21 +29,25 @@ const std::string txpconfigdefault =
     "--general-lang=en\n"
     "--general-region=us\n"
     "--general-acc=ga\n"
-    "--general-spk=/>\n"
-    "--tokenise-processing-mode=lax/>\n"
+    "--general-spk=\n"
+    "--tokenise-arch=default\n"
+    "--tokenise-processing-mode=lax\n"
+    "--pauses-arch=default\n"
     "--pauses-hzone=True\n"
-    "--pauses hzone-start=45\n"
-    "--pauses-hzone-end=100/>\n"
-    "--toxparselite max-token-length=30/>\n"
+    "--pauses-hzone-start=45\n"
+    "--pauses-hzone-end=100\n"
+    "--postag-arch=default\n"
     "--phrasing-max-phrase-length=30\n"
     "--phrasing-by-utterance=True\n"
     "--phrasing-max-utterance-length=10\n"
-    "--phrasing-phrase-length-window=10/>\n"
+    "--phrasing-phrase-length-window=10\n"
     "--normalise-trace=0\n"
-    "--normalise-active=True/>\n"
-    "--pronounce-novowel-spell=True/>\n"
-    "--syllabify-slang=/>\n"
-    "--archiphone-match-all-phones=False/>\n";
+    "--normalise-active=True\n"
+    "--pronounce-arch=default\n"
+    "--pronounce-novowel-spell=True\n"
+    "--syllabify-arch=default\n"
+    "--syllabify-slang=\n"
+    "--cex-arch=default\n";
 
 TxpParseOptions::TxpParseOptions(const char *usage)
     : ParseOptions(usage) {
@@ -70,7 +74,7 @@ TxpParseOptions::TxpParseOptions(const char *usage)
     stringptr = new std::string(value);
     txpoptions_.insert(LookupItemPtr(key, stringptr));
     Register(key.c_str(), stringptr,
-             "Idlak Text Processing Option : See Idlak Documentation");
+             "Idlak Text Processing Option");
   }
 }
 
@@ -81,7 +85,7 @@ TxpParseOptions::~TxpParseOptions() {
   }
 }
 
-int TxpParseOptions::Read(int argc, const char* argv[]) {
+int TxpParseOptions::Read(int argc, const char *const *argv) {
   std::string key, value;
   int i;
   // first pass: look for tpdb parameter
@@ -92,7 +96,12 @@ int TxpParseOptions::Read(int argc, const char* argv[]) {
       NormalizeArgName(&key);
       Trim(&value);
       if (key.compare("tpdb") == 0) {
-        ReadConfigFile(value + "/default.conf");
+        // check for tpdb configuration file
+        std::ifstream is((value + "/default.conf").c_str(), std::ifstream::in);
+        if (is.good()) {
+          is.close();
+          ReadConfigFile(value + "/default.conf");
+        }
       }
       if (key.compare("help") == 0) {
         PrintUsage();
@@ -103,18 +112,26 @@ int TxpParseOptions::Read(int argc, const char* argv[]) {
   return ParseOptions::Read(argc, argv);
 }
 
-const char* TxpParseOptions::GetValue(const char* module, const char* key) {
-  LookupMapPtr::iterator lookup;
+// key --<key> is treated as --general-<key> 
+const char* TxpParseOptions::GetValue(const char* module, const char* key) const {
+  LookupMapPtr::const_iterator lookup;
   std::string optkey(module);
   optkey = optkey + "-" + key;
   lookup = txpoptions_.find(optkey);
-  if (lookup == txpoptions_.end()) return NULL;
+  if (lookup == txpoptions_.end()) {
+    // if general section also look for field without section
+    // description
+    if (!strcmp(module, "general")) {
+      optkey = key;
+      lookup = txpoptions_.find(optkey);
+      if (lookup == txpoptions_.end()) return NULL;
+      else return (lookup->second)->c_str();   
+    }
+  }
   return (lookup->second)->c_str();
 }
-const char* TxpParseOptions::GetTpdb() {
-  LookupMapPtr::iterator lookup;
-  lookup = txpoptions_.find(std::string("tpdb"));
-  return (lookup->second)->c_str();
+const char* TxpParseOptions::GetTpdb() const {
+  return tpdb_.c_str();
 }
 
 }  // namespace kaldi

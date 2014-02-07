@@ -52,11 +52,13 @@ class TxpParseOptions : public ParseOptions {
   /// Delete added switches in txpoptions_
   ~TxpParseOptions();
   /// Read in tpdb path, set tpdb, load default.conf from voice
-  int Read(int argc, const char* argv[]);
+  int Read(int argc, const char *const *argv);
   /// Return txp switch value used by txp modules
-  const char* GetValue(const char* module, const char* key);
+  const char* GetValue(const char* module, const char* key) const;
   /// Return path to tpdb
-  const char* GetTpdb();
+  const char* GetTpdb() const;
+  /// Override path to tpdb
+  void SetTpdb(const std::string &tpdb) {tpdb_ = tpdb;}
  private:
   /// Path to tpdb (text processing database) used by the voice
   std::string tpdb_;

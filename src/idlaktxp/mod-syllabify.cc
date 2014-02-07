@@ -30,7 +30,16 @@ TxpSyllabify::TxpSyllabify(const std::string &tpdb, const std::string &configf)
   sylmax_.Parse(tpdb.c_str());
 }
 
+TxpSyllabify::TxpSyllabify() : TxpModule("syllabify") {}
+
 TxpSyllabify::~TxpSyllabify() {
+}
+
+bool TxpSyllabify::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
+  sylmax_.Init(opts, std::string(GetOptValue("arch")));
+  return sylmax_.Parse(tpdb_);
 }
 
 bool TxpSyllabify::Process(pugi::xml_document* input) {

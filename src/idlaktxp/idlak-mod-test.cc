@@ -65,41 +65,43 @@ int main(int argc, char *argv[]) {
   std::string tpdb = "../../idlak-data/en/ga";
   std::string configf;
   kaldi::int32 i, fno = 0;
-  bool error = false;
+  bool error = false, anyerror = false;
   std::vector<kaldi::TxpModule*> modules;
 
   try {
-    kaldi::ParseOptions po(usage);
-    po.Register("tpdb", &tpdb,
-                "Text processing database (directory XML language/speaker files)");//NOLINT
-    po.Register("txpconfig", &configf,
-                "XML configuration file for text processing");
-
+    kaldi::TxpParseOptions po(usage);
+    po.SetTpdb(tpdb);
     po.Read(argc, argv);
     if (po.NumArgs() == 2) {
       dirin = po.GetArg(1);
       dirout = po.GetArg(2);
     }
 
-    kaldi::TxpTokenise t(tpdb, configf);
+    kaldi::TxpTokenise t;
     modules.push_back(&t);
-    kaldi::TxpPauses pz(tpdb, configf);
+    kaldi::TxpPauses pz;
     modules.push_back(&pz);
-    kaldi::TxpPosTag p(tpdb, configf);
+    kaldi::TxpPosTag p;
     modules.push_back(&p);
-    kaldi::TxpPhrasing ph(tpdb, configf);
+    kaldi::TxpPhrasing ph;
     modules.push_back(&ph);
-    kaldi::TxpPronounce pr(tpdb, configf);
+    kaldi::TxpPronounce pr;
     modules.push_back(&pr);
-    kaldi::TxpSyllabify sy(tpdb, configf);
+    kaldi::TxpSyllabify sy;
     modules.push_back(&sy);
+    kaldi::TxpCex cx;
+    modules.push_back(&cx);
 
+    for (i = 0; i < modules.size(); i++) {
+      modules[i]->Init(po);
+    }
     // increment through test files until we can't open one
     while (1) {
       getTestFileName(fno, &filein, dirin + "/mod-test", std::string(".xml"));
       if (!canOpenIn(filein)) break;
       for (i = 0; i < modules.size(); i++) {
         error = testModule(modules[i], dirin, filein, fno, &filein);
+        if (error) anyerror = true;
       }
       fno++;
     }
@@ -107,7 +109,7 @@ int main(int argc, char *argv[]) {
     std::cerr << e.what() << '\n';
     return -1;
   }
-  return error;
+  return anyerror;
 }
 
 static void getTestFileName(int fno, std::string* fname,
@@ -134,7 +136,7 @@ static bool canOpenIn(const std::string & fname) {
 static bool testModule(kaldi::TxpModule* mod, const std::string &dirin,
                        const std::string &input, kaldi::int32 fno,
                        std::string* new_output_file) {
-  bool error;
+  bool error = false;
   const std::string* name;
   std::string filereg;
   std::string file_output_verbose;
@@ -142,7 +144,7 @@ static bool testModule(kaldi::TxpModule* mod, const std::string &dirin,
 
   name = &mod->GetName();
   kaldi::Input ki(input, &binary);
-  std::cout << input << std::endl;
+  std::cout << "MODULE:" << mod->GetName() << " INPUT: " << input << std::endl;
   pugi::xml_document doc;
   pugi::xml_parse_result r = doc.load(ki.Stream(),
                                       pugi::encoding_utf8 |
@@ -167,7 +169,7 @@ static bool testModule(kaldi::TxpModule* mod, const std::string &dirin,
   getTestFileName(fno, &filereg, dirin + "/mod-" + *name + "-reg",
                   std::string(".xml"));
   if (canOpenIn(filereg)) {
-    std::cout << new_output_file << " " << filereg << std::endl;
+    std::cout << "REGRESSION TEST: " << file_output_verbose << " " << filereg << std::endl << std::flush;
     if (!regressionTest(file_output_verbose, filereg)) error = true;
   }
   return error;

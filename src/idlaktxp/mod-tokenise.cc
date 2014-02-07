@@ -28,7 +28,13 @@ TxpTokenise::TxpTokenise(const std::string &tpdb, const std::string &configf)
   nrules_.Parse(tpdb.c_str());
 }
 
-TxpTokenise::~TxpTokenise() {
+TxpTokenise::TxpTokenise() : TxpModule("tokenise") {}
+
+bool TxpTokenise::Init(const TxpParseOptions &opts) {
+  opts_ = &opts;
+  tpdb_ = opts.GetTpdb();
+  nrules_.Init(opts, std::string(opts_->GetValue(GetName().c_str(), "arch")));
+  return nrules_.Parse(tpdb_);
 }
 
 bool TxpTokenise::Process(pugi::xml_document* input) {

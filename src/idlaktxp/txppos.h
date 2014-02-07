@@ -50,7 +50,11 @@ class TxpPos: public TxpXmlData {
  public:
   explicit TxpPos(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name) {}
+  explicit TxpPos() {}
   ~TxpPos() {}
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "postags", name);
+  }
   bool Parse(const std::string &tpdb);
   /// Return the part of speech for word current with previous
   /// context POS prev
@@ -87,7 +91,11 @@ class TxpPosSet: public TxpXmlData {
  public:
   explicit TxpPosSet(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name) {}
+  explicit TxpPosSet() {}
   ~TxpPosSet() {}
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "posset", name);
+  }
   bool Parse(const std::string &tpdb);
   /// Return the part of speech for word current with previous
   /// context POS prev

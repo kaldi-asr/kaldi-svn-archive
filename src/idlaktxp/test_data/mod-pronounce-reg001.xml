@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <parent>
 	<utt uttid="1" no_phrases="1">
-		<spt phraseid="1" no_wrds="37">
+		<spt phraseid="1" no_wrds="8">
 			<ws col="0">
 </ws>
 			<break type="4" time="0.011" />
@@ -38,119 +38,125 @@
 				<ws col="48">
 </ws>
 			</tk>
-			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="9" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt uttid="2" no_phrases="1">
+		<spt phraseid="1" no_wrds="29">
+			<break type="4" time="0.2" />
+			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				The
 				<ws> </ws>
 			</tk>
-			<tk norm="family" lc="true" pos="RB" posset="1" wordid="10" pron="f ae1 m ah0 l iy0" altprons="f ae1 m l iy0, f ae1 m ah0 l iy0">
+			<tk norm="family" lc="true" pos="RB" posset="1" wordid="2" pron="f ae1 m ah0 l iy0" altprons="f ae1 m l iy0, f ae1 m ah0 l iy0">
 				family
 				<ws> </ws>
 			</tk>
-			<tk norm="of" lc="true" pos="IN" posset="3" wordid="11" pron="ah1 v" altprons="ah0 v, ah1 v">
+			<tk norm="of" lc="true" pos="IN" posset="3" wordid="3" pron="ah1 v" altprons="ah0 v, ah1 v">
 				of
 				<ws> </ws>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="12" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="4" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
 				<ws> </ws>
 			</tk>
-			<tk norm="last" lc="true" pos="JJ" posset="1" wordid="13" pron="l ae1 s t" altprons="l ao1 s t, l ae1 s, l ae1 s t">
+			<tk norm="last" lc="true" pos="JJ" posset="1" wordid="5" pron="l ae1 s t" altprons="l ao1 s t, l ae1 s, l ae1 s t">
 				last
 				<ws> </ws>
 			</tk>
-			<tk norm="person" lc="true" pos="NN" posset="1" wordid="14" pron="p er1 s ah0 n">
+			<tk norm="person" lc="true" pos="NN" posset="1" wordid="6" pron="p er1 s ah0 n">
 				person
 				<ws> </ws>
 			</tk>
-			<tk norm="in" lc="true" pos="IN" posset="3" wordid="15" pron="ih0 n" altprons="ih1 n, ih0 n">
+			<tk norm="in" lc="true" pos="IN" posset="3" wordid="7" pron="ih0 n" altprons="ih1 n, ih0 n">
 				in
 				<ws> </ws>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="16" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="8" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
 				<ws> </ws>
 			</tk>
-			<tk norm="uk" lc="true" uc="true" pos="NN" posset="1" wordid="17" pron="uw0 k" lts="true">
+			<tk norm="uk" lc="true" uc="true" pos="NN" posset="1" wordid="9" pron="uw0 k" lts="true">
 				UK
 				<ws> </ws>
 			</tk>
-			<tk norm="to" lc="true" pos="TO" posset="3" wordid="18" pron="t uw1" altprons="t ih0, t ah0, t uw1">
+			<tk norm="to" lc="true" pos="TO" posset="3" wordid="10" pron="t uw1" altprons="t ih0, t ah0, t uw1">
 				to
 				<ws> </ws>
 			</tk>
-			<tk norm="be" lc="true" pos="VB" posset="3" wordid="19" pron="b iy1" altprons="b iy0, b iy1">
+			<tk norm="be" lc="true" pos="VB" posset="3" wordid="11" pron="b iy1" altprons="b iy0, b iy1">
 				be
 				<ws> </ws>
 			</tk>
-			<tk norm="prosecuted" lc="true" pos="VVN" posset="1" wordid="20" pron="p r aa1 s ih0 k y uw2 t ih0 d">
+			<tk norm="prosecuted" lc="true" pos="VVN" posset="1" wordid="12" pron="p r aa1 s ih0 k y uw2 t ih0 d">
 				prosecuted
 				<ws> </ws>
 			</tk>
-			<tk norm="under" lc="true" pos="IN" posset="3" wordid="21" pron="ah1 n d er0">
+			<tk norm="under" lc="true" pos="IN" posset="3" wordid="13" pron="ah1 n d er0">
 				under
 				<ws> </ws>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="22" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="14" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
 				<ws> </ws>
 			</tk>
-			<tk norm="witchcraft" lc="true" uc="true" pos="NN" posset="1" wordid="23" pron="w ih1 ch k r ae2 f t">
+			<tk norm="witchcraft" lc="true" uc="true" pos="NN" posset="1" wordid="15" pron="w ih1 ch k r ae2 f t">
 				Witchcraft
 				<ws> </ws>
 			</tk>
-			<tk norm="act" lc="true" uc="true" pos="NN" posset="1" wordid="24" pron="ae1 k t">
+			<tk norm="act" lc="true" uc="true" pos="NN" posset="1" wordid="16" pron="ae1 k t">
 				Act
 				<ws> </ws>
 			</tk>
-			<tk norm="will" lc="true" pos="MD" posset="3" wordid="25" pron="w ih1 l" altprons="w ah0 l, w ih1 l">
+			<tk norm="will" lc="true" pos="MD" posset="3" wordid="17" pron="w ih1 l" altprons="w ah0 l, w ih1 l">
 				will
 				<ws> </ws>
 			</tk>
-			<tk norm="mark" lc="true" pos="NN" posset="1" wordid="26" pron="m aa1 r k">
+			<tk norm="mark" lc="true" pos="NN" posset="1" wordid="18" pron="m aa1 r k">
 				mark
 				<ws> </ws>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="27" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="19" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
 				<ws> </ws>
 			</tk>
-			<tk norm="50th" lc="true" symbols="true" pos="NN" posset="1" wordid="28" pron="f ay1 v ow1 t iy1 ey1 ch">
+			<tk norm="50th" lc="true" symbols="true" pos="NN" posset="1" wordid="20" pron="f ay1 v ow1 t iy1 ey1 ch">
 				50th
 				<ws> </ws>
 			</tk>
-			<tk norm="anniversary" lc="true" pos="NN" posset="1" wordid="29" pron="ae2 n ah0 v er1 s er0 iy0">
+			<tk norm="anniversary" lc="true" pos="NN" posset="1" wordid="21" pron="ae2 n ah0 v er1 s er0 iy0">
 				anniversary
 				<ws> </ws>
 			</tk>
-			<tk norm="of" lc="true" pos="IN" posset="3" wordid="30" pron="ah1 v" altprons="ah0 v, ah1 v">
+			<tk norm="of" lc="true" pos="IN" posset="3" wordid="22" pron="ah1 v" altprons="ah0 v, ah1 v">
 				of
 				<ws> </ws>
 			</tk>
-			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="31" pron="hh er0" altprons="hh er1, hh er0">
+			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="23" pron="hh er0" altprons="hh er1, hh er0">
 				her
 				<ws> </ws>
 			</tk>
-			<tk norm="death" lc="true" pos="NN" posset="1" wordid="32" pron="d eh1 th">
+			<tk norm="death" lc="true" pos="NN" posset="1" wordid="24" pron="d eh1 th">
 				death
 				<ws> </ws>
 			</tk>
-			<tk norm="by" lc="true" pos="IN" posset="3" wordid="33" pron="b ay1">
+			<tk norm="by" lc="true" pos="IN" posset="3" wordid="25" pron="b ay1">
 				by
 				<ws> </ws>
 			</tk>
-			<tk norm="calling" lc="true" pos="VVG" posset="1" wordid="34" pron="k ao1 l ih0 ng">
+			<tk norm="calling" lc="true" pos="VVG" posset="1" wordid="26" pron="k ao1 l ih0 ng">
 				calling
 				<ws> </ws>
 			</tk>
-			<tk norm="for" lc="true" pos="IN" posset="3" wordid="35" pron="f ao1 r" altprons="f er0, f r er0, f ao1 r">
+			<tk norm="for" lc="true" pos="IN" posset="3" wordid="27" pron="f ao1 r" altprons="f er0, f r er0, f ao1 r">
 				for
 				<ws> </ws>
 			</tk>
-			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="36" pron="hh er0" altprons="hh er1, hh er0">
+			<tk norm="her" lc="true" pos="PP$" posset="3" wordid="28" pron="hh er0" altprons="hh er1, hh er0">
 				her
 				<ws> </ws>
 			</tk>
-			<tk norm="pardon" pstpunc="." lc="true" pos="NN" posset="1" wordid="37" pron="p aa1 r d ah0 n">
+			<tk norm="pardon" pstpunc="." lc="true" pos="NN" posset="1" wordid="29" pron="p aa1 r d ah0 n">
 				pardon.
 				<ws col="153">
 </ws>
@@ -158,8 +164,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="2" no_phrases="5">
-		<spt phraseid="2" no_wrds="3">
+	<utt uttid="3" no_phrases="4">
+		<spt phraseid="1" no_wrds="3">
 			<break type="4" time="0.2" />
 			<tk norm="medium" lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="m iy1 d iy0 ah0 m">
 				Medium
@@ -175,7 +181,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="5">
+		<spt phraseid="2" no_wrds="5">
 			<break type="3" time="0.1" />
 			<tk norm="who" lc="true" pos="WP" posset="3" wordid="1" pron="hh uw1">
 				who
@@ -199,7 +205,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="4" no_wrds="1">
+		<spt phraseid="3" no_wrds="1">
 			<break type="3" time="0.1" />
 			<tk norm="perthshire" pstpunc="," lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="p er1 th hh s hh iy1 r eh1" lts="true">
 				Perthshire,
@@ -207,7 +213,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="5" no_wrds="9">
+		<spt phraseid="4" no_wrds="9">
 			<break type="3" time="0.1" />
 			<tk norm="was" lc="true" pos="VBD" posset="3" wordid="1" pron="w aa1 z" altprons="w ah1 z, w ah0 z, w ao1 z, w aa1 z">
 				was
@@ -249,8 +255,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="3" no_phrases="2">
-		<spt phraseid="2" no_wrds="26">
+	<utt uttid="4" no_phrases="1">
+		<spt phraseid="1" no_wrds="26">
 			<break type="4" time="0.2" />
 			<tk norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1">
 				She
@@ -360,8 +366,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="4" no_phrases="2">
-		<spt phraseid="2" no_wrds="10">
+	<utt uttid="5" no_phrases="1">
+		<spt phraseid="1" no_wrds="10">
 			<break type="4" time="0.2" />
 			<tk norm="her" lc="true" uc="true" pos="PP$" posset="3" wordid="1" pron="hh er0" altprons="hh er1, hh er0">
 				Her
@@ -407,8 +413,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="5" no_phrases="4">
-		<spt phraseid="2" no_wrds="2">
+	<utt uttid="6" no_phrases="3">
+		<spt phraseid="1" no_wrds="2">
 			<break type="4" time="0.2" />
 			<tk norm="mary" lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="m eh1 r iy0">
 				Mary
@@ -420,7 +426,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="2">
+		<spt phraseid="2" no_wrds="2">
 			<break type="3" time="0.1" />
 			<tk norm="of" lc="true" pos="IN" posset="3" wordid="1" pron="ah1 v" altprons="ah0 v, ah1 v">
 				of
@@ -432,7 +438,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="4" no_wrds="10">
+		<spt phraseid="3" no_wrds="10">
 			<break type="3" time="0.1" />
 			<tk norm="said" lc="true" pos="VVD" posset="1" wordid="1" pron="s eh1 d">
 				said
@@ -478,8 +484,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="6" no_phrases="2">
-		<spt phraseid="2" no_wrds="13">
+	<utt uttid="7" no_phrases="1">
+		<spt phraseid="1" no_wrds="13">
 			<break type="4" time="0.2" />
 			<tk prepunc="&quot;" norm="when" lc="true" uc="true" pos="WRB" posset="3" wordid="1" pron="w eh1 n" altprons="hh w eh1 n, w ih1 n, hh w ih1 n, w eh1 n">
 				"When
@@ -537,8 +543,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="7" no_phrases="2">
-		<spt phraseid="2" no_wrds="17">
+	<utt uttid="8" no_phrases="1">
+		<spt phraseid="1" no_wrds="17">
 			<break type="4" time="0.2" />
 			<tk prepunc="&quot;" norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1">
 				"She
@@ -612,8 +618,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="8" no_phrases="2">
-		<spt phraseid="2" no_wrds="6">
+	<utt uttid="9" no_phrases="1">
+		<spt phraseid="1" no_wrds="6">
 			<break type="4" time="0.2" />
 			<tk prepunc="&quot;" norm="some" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="s ah1 m">
 				"Some
@@ -642,8 +648,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="9" no_phrases="2">
-		<spt phraseid="2" no_wrds="25">
+	<utt uttid="10" no_phrases="1">
+		<spt phraseid="1" no_wrds="25">
 			<break type="4" time="0.2" />
 			<tk norm="my" lc="true" uc="true" pos="PP$" posset="3" wordid="1" pron="m ay1">
 				My
@@ -749,8 +755,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="10" no_phrases="3">
-		<spt phraseid="2" no_wrds="12">
+	<utt uttid="11" no_phrases="2">
+		<spt phraseid="1" no_wrds="12">
 			<break type="4" time="0.2" />
 			<tk norm="mrs" lc="true" uc="true" pos="NNS" posset="1" wordid="1" pron="m ih1 s ih0 z">
 				Mrs
@@ -802,7 +808,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="6">
+		<spt phraseid="2" no_wrds="6">
 			<break type="3" time="0.1" />
 			<tk norm="heading" lc="true" pos="VVG" posset="1" wordid="1" pron="hh eh1 d ih0 ng">
 				heading
@@ -832,8 +838,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="11" no_phrases="3">
-		<spt phraseid="2" no_wrds="7">
+	<utt uttid="12" no_phrases="2">
+		<spt phraseid="1" no_wrds="7">
 			<break type="4" time="0.2" />
 			<tk norm="during" lc="true" uc="true" pos="IN" posset="3" wordid="1" pron="d uh1 r ih0 ng" altprons="d y uh1 r ih0 ng, d er1 ih0 ng, d uh1 r ih0 ng">
 				During
@@ -865,7 +871,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="6">
+		<spt phraseid="2" no_wrds="6">
 			<break type="3" time="0.1" />
 			<tk norm="the" lc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
@@ -895,8 +901,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="12" no_phrases="2">
-		<spt phraseid="2" no_wrds="36">
+	<utt uttid="13" no_phrases="1">
+		<spt phraseid="1" no_wrds="17">
 			<break type="4" time="0.2" />
 			<tk norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1">
 				She
@@ -967,79 +973,85 @@
 				<ws col="72">
 </ws>
 			</tk>
-			<tk norm="at" lc="true" uc="true" pos="IN" posset="3" wordid="18" pron="ae1 t">
+			<break type="4" time="0.2" />
+		</spt>
+	</utt>
+	<utt uttid="14" no_phrases="1">
+		<spt phraseid="1" no_wrds="19">
+			<break type="4" time="0.2" />
+			<tk norm="at" lc="true" uc="true" pos="IN" posset="3" wordid="1" pron="ae1 t">
 				At
 				<ws> </ws>
 			</tk>
-			<tk norm="a" lc="true" pos="DT" posset="3" wordid="19" pron="ah0" altprons="ey1, ah0">
+			<tk norm="a" lc="true" pos="DT" posset="3" wordid="2" pron="ah0" altprons="ey1, ah0">
 				a
 				<ws> </ws>
 			</tk>
-			<tk norm="seance" lc="true" foreign="true" pos="NN" posset="1" wordid="20" pron="s ey1 aa0 n s">
+			<tk norm="seance" lc="true" foreign="true" pos="NN" posset="1" wordid="3" pron="s ey1 aa0 n s">
 				séance
 				<ws> </ws>
 			</tk>
-			<tk norm="in" lc="true" pos="IN" posset="3" wordid="21" pron="ih0 n" altprons="ih1 n, ih0 n">
+			<tk norm="in" lc="true" pos="IN" posset="3" wordid="4" pron="ih0 n" altprons="ih1 n, ih0 n">
 				in
 				<ws> </ws>
 			</tk>
-			<tk norm="1943" symbols="true" pos="NN" posset="1" wordid="22" pron="w ah1 n n ay1 n f ao1 r th r iy1">
+			<tk norm="1943" symbols="true" pos="NN" posset="1" wordid="5" pron="w ah1 n n ay1 n f ao1 r th r iy1">
 				1943
 				<ws> </ws>
 			</tk>
-			<tk norm="it" lc="true" pos="PP" posset="3" wordid="23" pron="ih1 t" altprons="ih0 t, ih1 t">
+			<tk norm="it" lc="true" pos="PP" posset="3" wordid="6" pron="ih1 t" altprons="ih0 t, ih1 t">
 				it
 				<ws> </ws>
 			</tk>
-			<tk norm="was" lc="true" pos="VBD" posset="3" wordid="24" pron="w aa1 z" altprons="w ah1 z, w ah0 z, w ao1 z, w aa1 z">
+			<tk norm="was" lc="true" pos="VBD" posset="3" wordid="7" pron="w aa1 z" altprons="w ah1 z, w ah0 z, w ao1 z, w aa1 z">
 				was
 				<ws> </ws>
 			</tk>
-			<tk norm="claimed" lc="true" pos="VVN" posset="1" wordid="25" pron="k l ey1 m d">
+			<tk norm="claimed" lc="true" pos="VVN" posset="1" wordid="8" pron="k l ey1 m d">
 				claimed
 				<ws> </ws>
 			</tk>
-			<tk norm="that" lc="true" pos="IN/that" posset="3" wordid="26" pron="dh ae1 t" altprons="dh ah0 t, dh ae1 t">
+			<tk norm="that" lc="true" pos="IN/that" posset="3" wordid="9" pron="dh ae1 t" altprons="dh ah0 t, dh ae1 t">
 				that
 				<ws> </ws>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="27" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="10" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
 				<ws> </ws>
 			</tk>
-			<tk norm="spirit" lc="true" pos="NN" posset="1" wordid="28" pron="s p ih1 r ah0 t" altprons="s p ih1 r ih0 t, s p ih1 r ah0 t">
+			<tk norm="spirit" lc="true" pos="NN" posset="1" wordid="11" pron="s p ih1 r ah0 t" altprons="s p ih1 r ih0 t, s p ih1 r ah0 t">
 				spirit
 				<ws> </ws>
 			</tk>
-			<tk norm="of" lc="true" pos="IN" posset="3" wordid="29" pron="ah1 v" altprons="ah0 v, ah1 v">
+			<tk norm="of" lc="true" pos="IN" posset="3" wordid="12" pron="ah1 v" altprons="ah0 v, ah1 v">
 				of
 				<ws> </ws>
 			</tk>
-			<tk norm="a" lc="true" pos="DT" posset="3" wordid="30" pron="ah0" altprons="ey1, ah0">
+			<tk norm="a" lc="true" pos="DT" posset="3" wordid="13" pron="ah0" altprons="ey1, ah0">
 				a
 				<ws> </ws>
 			</tk>
-			<tk norm="sailor" lc="true" pos="NN" posset="1" wordid="31" pron="s ey1 l er0">
+			<tk norm="sailor" lc="true" pos="NN" posset="1" wordid="14" pron="s ey1 l er0">
 				sailor
 				<ws> </ws>
 			</tk>
-			<tk norm="from" lc="true" pos="IN" posset="3" wordid="32" pron="f r ah1 m" altprons="f er0 m, f r ah1 m">
+			<tk norm="from" lc="true" pos="IN" posset="3" wordid="15" pron="f r ah1 m" altprons="f er0 m, f r ah1 m">
 				from
 				<ws> </ws>
 			</tk>
-			<tk norm="the" lc="true" pos="DT" posset="3" wordid="33" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
+			<tk norm="the" lc="true" pos="DT" posset="3" wordid="16" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				the
 				<ws> </ws>
 			</tk>
-			<tk norm="hms" lc="true" uc="true" pos="NNS" posset="1" wordid="34" pron="hh m s" lts="true">
+			<tk norm="hms" lc="true" uc="true" pos="NNS" posset="1" wordid="17" pron="hh m s" lts="true">
 				HMS
 				<ws> </ws>
 			</tk>
-			<tk norm="barham" lc="true" uc="true" pos="NN" posset="1" wordid="35" pron="b aa1 r hh ah0 m">
+			<tk norm="barham" lc="true" uc="true" pos="NN" posset="1" wordid="18" pron="b aa1 r hh ah0 m">
 				Barham
 				<ws> </ws>
 			</tk>
-			<tk norm="appeared" pstpunc="." lc="true" pos="VVN" posset="1" wordid="36" pron="ah0 p ih1 r d">
+			<tk norm="appeared" pstpunc="." lc="true" pos="VVN" posset="1" wordid="19" pron="ah0 p ih1 r d">
 				appeared.
 				<ws col="94">
 </ws>
@@ -1047,8 +1059,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="13" no_phrases="2">
-		<spt phraseid="2" no_wrds="10">
+	<utt uttid="15" no_phrases="1">
+		<spt phraseid="1" no_wrds="10">
 			<break type="4" time="0.2" />
 			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				The
@@ -1094,8 +1106,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="14" no_phrases="2">
-		<spt phraseid="2" no_wrds="24">
+	<utt uttid="16" no_phrases="1">
+		<spt phraseid="1" no_wrds="24">
 			<break type="4" time="0.2" />
 			<tk norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1">
 				She
@@ -1197,8 +1209,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="15" no_phrases="2">
-		<spt phraseid="2" no_wrds="9">
+	<utt uttid="17" no_phrases="1">
+		<spt phraseid="1" no_wrds="9">
 			<break type="4" time="0.2" />
 			<tk norm="while" lc="true" uc="true" pos="IN" posset="3" wordid="1" pron="w ay1 l" altprons="hh w ay1 l, w ay1 l">
 				While
@@ -1240,8 +1252,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="16" no_phrases="2">
-		<spt phraseid="2" no_wrds="22">
+	<utt uttid="18" no_phrases="1">
+		<spt phraseid="1" no_wrds="22">
 			<break type="4" time="0.2" />
 			<tk norm="when" lc="true" uc="true" pos="WRB" posset="3" wordid="1" pron="w eh1 n" altprons="hh w eh1 n, w ih1 n, hh w ih1 n, w eh1 n">
 				When
@@ -1335,8 +1347,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="17" no_phrases="2">
-		<spt phraseid="2" no_wrds="11">
+	<utt uttid="19" no_phrases="1">
+		<spt phraseid="1" no_wrds="11">
 			<break type="4" time="0.2" />
 			<tk norm="campaigners" lc="true" uc="true" pos="NNS" posset="1" wordid="1" pron="k ae0 m p ey1 n er0 z">
 				Campaigners
@@ -1386,8 +1398,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="18" no_phrases="2">
-		<spt phraseid="2" no_wrds="11">
+	<utt uttid="20" no_phrases="1">
+		<spt phraseid="1" no_wrds="11">
 			<break type="4" time="0.2" />
 			<tk norm="the" lc="true" uc="true" pos="DT" posset="3" wordid="1" pron="dh ah0" altprons="dh ah1, dh iy0, dh ah0">
 				The
@@ -1437,8 +1449,8 @@
 			<break type="4" time="0.2" />
 		</spt>
 	</utt>
-	<utt uttid="19" no_phrases="5">
-		<spt phraseid="2" no_wrds="3">
+	<utt uttid="21" no_phrases="4">
+		<spt phraseid="1" no_wrds="3">
 			<break type="4" time="0.2" />
 			<tk norm="medium" lc="true" uc="true" pos="NN" posset="1" wordid="1" pron="m iy1 d iy0 ah0 m">
 				Medium
@@ -1454,7 +1466,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="3" no_wrds="4">
+		<spt phraseid="2" no_wrds="4">
 			<break type="3" time="0.1" />
 			<tk norm="who" lc="true" pos="WP" posset="3" wordid="1" pron="hh uw1">
 				who
@@ -1474,7 +1486,7 @@
 			</tk>
 			<break type="3" time="0.1" />
 		</spt>
-		<spt phraseid="4" no_wrds="1">
+		<spt phraseid="3" no_wrds="1">
 			<break type="3" time="0.1" />
 			<tk norm="said" pstpunc=":" lc="true" pos="VVD" posset="1" wordid="1" pron="s eh1 d">
 				said:
@@ -1482,7 +1494,7 @@
 			</tk>
 			<break type="3" time="0.15" />
 		</spt>
-		<spt phraseid="5" no_wrds="17">
+		<spt phraseid="4" no_wrds="17">
 			<break type="3" time="0.15" />
 			<tk prepunc="&quot;" norm="she" lc="true" uc="true" pos="PP" posset="3" wordid="1" pron="sh iy1">
 				"She

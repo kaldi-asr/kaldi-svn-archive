@@ -43,7 +43,9 @@ class TxpPronounce : public TxpModule {
  public:
   explicit TxpPronounce(const std::string &tpdb,
                         const std::string &configf = "");
+  explicit TxpPronounce();
   ~TxpPronounce();
+  bool Init(const TxpParseOptions &opts);
   bool Process(pugi::xml_document* input);
 
  private:

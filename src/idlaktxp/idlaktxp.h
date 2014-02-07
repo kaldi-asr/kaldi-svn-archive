@@ -27,5 +27,6 @@
 #include "idlaktxp/mod-pronounce.h"
 #include "idlaktxp/mod-syllabify.h"
 #include "idlaktxp/mod-cex.h"
+#include "idlaktxp/txpparse-options.h"
 
 #endif  // KALDI_IDLAKTXP_IDLAKTXP_H_

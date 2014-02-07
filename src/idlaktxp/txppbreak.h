@@ -50,7 +50,11 @@ class TxpPbreak: public TxpXmlData {
  public:
   explicit TxpPbreak(const TxpConfig &config, const std::string &type, const std::string &name)
       : TxpXmlData(config, type, name), default_type_(4), default_time_(0.2f) {}
+  explicit TxpPbreak() : default_type_(4), default_time_(0.2f) {}
   ~TxpPbreak() {}
+  void Init(const TxpParseOptions &opts, const std::string &name) {
+    TxpXmlData::Init(opts, "pbreak", name);
+  }
   bool Parse(const std::string &tpdb);
   /// Lookup a punctuation symbol and depending whether before or
   /// after token fill info with time and strength if it is stronger or
