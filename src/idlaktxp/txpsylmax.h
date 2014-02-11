@@ -47,9 +47,6 @@ typedef std::vector<TxpSylItem> PhoneVector;
 /// see \ref idlaktxp_syll
 class TxpSylmax: public TxpXmlData {
  public:
-  explicit TxpSylmax(const TxpConfig &config, const std::string &type, const std::string &name)
-      : TxpXmlData(config, type, name), stress_(false), max_onset_(0),
-        max_nucleus_(0) {}
   explicit TxpSylmax() : stress_(false), max_onset_(0), max_nucleus_(0) {}
   ~TxpSylmax() {}
   void Init(const TxpParseOptions &opts, const std::string &name) {

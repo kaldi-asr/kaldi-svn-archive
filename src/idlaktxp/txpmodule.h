@@ -28,7 +28,6 @@
 
 #include "base/kaldi-common.h"
 #include "idlaktxp/idlak-common.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpparse-options.h"
 
 namespace kaldi {
@@ -42,8 +41,6 @@ class TxpModule {
  public:
   /// Construct module, also loads tpdb modules in specific instances
   explicit TxpModule(const std::string &name) : opts_(NULL), name_(name) {}
-  explicit TxpModule(const std::string &name, const std::string &tpdb,
-                     const std::string &configf);
   virtual ~TxpModule() {}
   /// Load voice data
   virtual bool Init(const TxpParseOptions &opts) {return true;}
@@ -66,8 +63,6 @@ class TxpModule {
   pugi::xml_node GetHeader(pugi::xml_document* input);
 
  protected:
-  /// Configuration structure for the module (redundant)
-  TxpConfig config_;
   /// Options structure for the module
   const TxpParseOptions * opts_;
   /// Directory for text processing database (tpdb) files
@@ -77,8 +72,6 @@ class TxpModule {
  private:
   /// Name of the module
   std::string name_;
-  /// Filename for a user configuration file
-  std::string configf_;
 };
 
 }  // namespace kaldi

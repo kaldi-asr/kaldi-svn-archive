@@ -48,8 +48,6 @@ typedef std::pair<std::string, TxpPbreakInfo> PbreakItem;
 /// is valid when the punctuation is before or after a token
 class TxpPbreak: public TxpXmlData {
  public:
-  explicit TxpPbreak(const TxpConfig &config, const std::string &type, const std::string &name)
-      : TxpXmlData(config, type, name), default_type_(4), default_time_(0.2f) {}
   explicit TxpPbreak() : default_type_(4), default_time_(0.2f) {}
   ~TxpPbreak() {}
   void Init(const TxpParseOptions &opts, const std::string &name) {

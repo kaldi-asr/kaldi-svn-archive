@@ -24,7 +24,6 @@
 // containing tox tokens.
 
 #include <string>
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpmodule.h"
 #include "idlaktxp/txpcexspec.h"
 
@@ -34,8 +33,6 @@ namespace kaldi {
 /// into full context model names
 class TxpCex : public TxpModule {
  public:
-  explicit TxpCex(const std::string &tpdb,
-                  const std::string &configf = "");
   explicit TxpCex();
   ~TxpCex();
   bool Init(const TxpParseOptions &opts);

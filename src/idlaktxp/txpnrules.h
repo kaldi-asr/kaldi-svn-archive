@@ -71,9 +71,6 @@ class TxpNRules: public TxpXmlData {
  public:
   /// Construct without loading voice data
   explicit TxpNRules();
-  /// Set up hard coded regular expressions and lookups (rendundant)
-  explicit TxpNRules(const TxpConfig &config, const std::string &type,
-                     const std::string &name);
   ~TxpNRules();
   /// Set up hard coded regular expressions and lookups
   void Init(const TxpParseOptions &opts, const std::string &name);

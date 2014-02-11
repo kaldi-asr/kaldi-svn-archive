@@ -48,8 +48,6 @@ typedef std::pair<std::string, TxpLtsTree> LtsItem;
 /// wagon
 class TxpLts: public TxpXmlData {
  public:
-  explicit TxpLts(const TxpConfig &config, const std::string &type, const std::string &name)
-      : TxpXmlData(config, type, name) {}
   explicit TxpLts() {}
   ~TxpLts() {}
   void Init(const TxpParseOptions &opts, const std::string &name) {

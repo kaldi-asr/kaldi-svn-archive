@@ -25,7 +25,6 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "idlaktxp/idlak-common.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpparse-options.h"
 
 namespace kaldi {
@@ -52,12 +51,9 @@ class TxpXmlData {
   /// Callback functions set in expat for end of Cdata
   static void EndCDataCB(void* userData);
 
-  explicit TxpXmlData(const TxpConfig &config, const std::string &type, const std::string &name);
   explicit TxpXmlData() : parser_(NULL) {}
   virtual ~TxpXmlData();
 
-  /// Initialise the data structure by processing a tpdb file (redundant)
-  virtual void Init(const TxpConfig &config, const std::string &type, const std::string &name);
   /// Initialise the data structure by processing a tpdb file
   virtual void Init(const TxpParseOptions &opts, const std::string &type,
                     const std::string &name);
@@ -82,14 +78,10 @@ class TxpXmlData {
   /// Utility to set a named attribute from an expat array of attribute
   /// key value pairs
   int32 SetAttribute(const char* name, const char ** atts, std::string *val);
-  /// Return a general configuration value (redundant)
-  const char* GetConfigValue(const char* key);
   /// Return a general option value
   const char* GetOptValue(const char* key);
 
  protected:
-  /// Configuration structure all xmldats classes use the general section (redundant)
-  const TxpConfig* config_;
   /// Options structure as all xmldats classes use the general section 
   const TxpParseOptions * opts_;
   /// Expat parser structure

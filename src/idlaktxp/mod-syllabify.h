@@ -29,7 +29,6 @@
 #include "base/kaldi-common.h"
 #include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpmodule.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpsylmax.h"
 
 namespace kaldi {
@@ -38,8 +37,6 @@ namespace kaldi {
 /// Allows laison from left to right. /ref idlaktxp_syll
 class TxpSyllabify : public TxpModule {
  public:
-  explicit TxpSyllabify(const std::string &tpdb,
-                        const std::string &configf = "");
   explicit TxpSyllabify();
   ~TxpSyllabify();
   bool Init(const TxpParseOptions &opts);

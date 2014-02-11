@@ -36,24 +36,6 @@ TxpNRules::TxpNRules()
     rgxalpha_default_(NULL) {
 }
 
-TxpNRules::TxpNRules(const TxpConfig &config, const std::string &type,
-                     const std::string &name)
-    : TxpXmlData(config, type, name), incdata_(false), cdata_buffer_("") {
-  TxpPcre pcre;
-  lkp_item_ = pcre.Compile("[\n\\s]*(u?[\\'\\\"](.*?)[\\'\\\"]\\s*:\\s*u?[\\'\\\"](.*?)[\\'\\\"])[\n\\s]*[,}][\n\\s]*");// NOLINT
-  lkp_open_ = pcre.Compile("[\n\\s]*{");
-
-  rgxwspace_ = rgxwspace_default_ = pcre.Compile("^([ \n\t\r]+)");
-  rgxsep_ = rgxsep_default_ = pcre.Compile("^([\\-\\+\\=\\/@]$)");
-  rgxpunc_ = rgxpunc_default_ = pcre.Compile("^([\\(\\)\\[\\]\\{\\}\\\"'!\\?\\.,;:\\|]*)([^\\(\\)\\[\\]\\{\\}\\\"!\\?\\.,;:\\|]*)([\\(\\)\\[\\]\\{\\}\\\"'!\\?\\.,;:\\|]*)");// NOLINT
-  rgxalpha_ = rgxalpha_default_ = pcre.Compile("^[a-zA-Z_']+$");
-  MakeLkp(&locallkps_, "downcase", "{\"A\":\"a\", \"B\":\"b\", \"C\":\"c\", \"D\":\"d\", \"E\":\"e\", \"F\":\"f\", \"G\":\"g\", \"H\":\"h\", \"I\":\"i\", \"J\":\"j\", \"K\":\"k\", \"L\":\"l\", \"M\":\"m\", \"N\":\"n\", \"O\":\"o\", \"P\":\"p\", \"Q\":\"q\", \"R\":\"r\", \"S\":\"s\", \"T\":\"t\", \"U\":\"u\", \"V\":\"v\", \"W\":\"w\", \"X\":\"x\", \"Y\":\"y\", \"Z\":\"z\"}");// NOLINT
-  MakeLkp(&locallkps_, "convertillegal", "{\"À\":\"A\", \"Á\":\"A\", \"Â\":\"A\", \"Ã\":\"A\", \"Å\":\"A\", \"Æ\":\"AE\", \"à\":\"a\", \"á\":\"a\", \"â\":\"a\", \"ã\":\"a\", \"å\":\"a\", \"æ\":\"ae\", \"Ç\":\"C\", \"ç\":\"c\", \"È\":\"E\", \"É\":\"E\", \"Ê\":\"E\", \"Ë\":\"E\", \"è\":\"e\", \"é\":\"e\", \"ê\":\"e\", \"ë\":\"e\", \"Ì\":\"I\", \"Í\":\"I\", \"Î\":\"I\", \"Ï\":\"I\", \"ì\":\"i\", \"í\":\"i\", \"î\":\"i\", \"ï\":\"i\", \"Ñ\":\"N\", \"ñ\":\"n\", \"Ò\":\"O\", \"Ó\":\"O\", \"Ô\":\"O\", \"Õ\":\"O\", \"Ø\":\"O\", \"ò\":\"o\", \"ó\":\"o\", \"ô\":\"o\", \"õ\":\"o\", \"ø\":\"o\", \"Ù\":\"U\", \"Ú\":\"U\", \"Û\":\"U\", \"Ű\":u\"Ü\", \"ù\":\"u\", \"ú\":\"u\", \"û\":\"u\", \"ű\":u\"ü\", \"Ý\":\"Y\", \"ý\":\"y\"}");// NOLINT
-  MakeLkp(&locallkps_, "utfpunc2ascii", "{\"‘\":\"'\", \"’\":\"'\", \"‛\":\"'\", '“':'\"', '”':'\"',\"΄\":\"'\", \"´\":\"'\", \"`\":\"'\", \"…\":\".\", \"„\":'\"', '–':'-', '–':'-', '–':'-', '—':'-', \"＇\":\"'\"}");// NOLINT
-  MakeLkp(&locallkps_, "symbols", "{\"\\\":\"backslash\", \"_\": \"underscore\", \"*\":\"asterisk\", \"#\":\"hash\", \"@\":\"at\", \".\":\"dot\", \"~\":\"tilde\", \"%\":\"percent\", \"<\":\"less than\", \">\":\"more than\", \"=\":\"equals\", \"&\":\"ampersand\", \"+\":\"plus\", \"÷\": \"divided by\", \"¢\": \"cents\", \":\":\"colon\", \"/\":\"slash\", \",\":\"comma\", \"°\":\"degrees\", \"?\":\"question mark\", \"!\":\"exclamation mark\", \"½\":\"half\", \"¼\":\"quarter\", \"¾\":\"three quarters\", \"©\":\"copyright\", \"²\":\"squared\", \"³\":\"cubed\", \"×\":\"times\", \"·\":\"point\", \"√\":\"square root\"}");// NOLINT
-  MakeLkp(&locallkps_, "asdigits", "\'0\':\'oh\', \'1\':\'one\', \'2\':\'two\', \'3\':\'three\', \'4\':\'four\', \'5\':\'five\', \'6\':\'six\', \'7\':\'seven\', \'8\':\'eight\', \'9\':\'nine\'}");// NOLINT
-}
-
 TxpNRules::~TxpNRules() {
   RgxMap::iterator it;
   for (it = rgxs_.begin(); it != rgxs_.end(); it++) {

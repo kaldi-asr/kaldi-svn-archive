@@ -28,10 +28,6 @@ static bool _copy_until_break(pugi::xml_node* parent,
 
 static bool _is_utt_final(const pugi::xml_node &spt);
 
-TxpPhrasing::TxpPhrasing(const std::string &tpdb, const std::string &configf)
-    : TxpModule("phrasing", tpdb, configf) {
-}
-
 TxpPhrasing::TxpPhrasing() : TxpModule("phrasing") {}
 
 TxpPhrasing::~TxpPhrasing() {

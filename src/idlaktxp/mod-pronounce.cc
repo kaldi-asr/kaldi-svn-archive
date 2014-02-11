@@ -20,16 +20,6 @@
 
 namespace kaldi {
 
-TxpPronounce::TxpPronounce(const std::string &tpdb, const std::string &configf)
-    : TxpModule("pronounce", tpdb, configf),
-      nrules_(config_, std::string("nrules"), std::string("default")),
-      lex_(config_, std::string("lexicon"), std::string("default")),
-      lts_(config_, std::string("ccart"), std::string("default")) {
-  nrules_.Parse(tpdb.c_str());
-  lex_.Parse(tpdb.c_str());
-  lts_.Parse(tpdb.c_str());
-}
-
 TxpPronounce::TxpPronounce() : TxpModule("pronounce") {}
     
 TxpPronounce::~TxpPronounce() {

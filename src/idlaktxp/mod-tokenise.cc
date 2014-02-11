@@ -20,14 +20,6 @@
 
 namespace kaldi {
 
-// Parent class processes the configuration file and the resulting
-// TxpConfig is used to contruct the nrules data object
-TxpTokenise::TxpTokenise(const std::string &tpdb, const std::string &configf)
-    : TxpModule("tokenise", tpdb, configf),
-      nrules_(config_, std::string("nrules"), std::string("default")) {
-  nrules_.Parse(tpdb.c_str());
-}
-
 TxpTokenise::TxpTokenise() : TxpModule("tokenise") {}
 
 bool TxpTokenise::Init(const TxpParseOptions &opts) {

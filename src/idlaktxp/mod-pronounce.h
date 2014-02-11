@@ -29,7 +29,6 @@
 #include "base/kaldi-common.h"
 #include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpmodule.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpnrules.h"
 #include "idlaktxp/txplexicon.h"
 #include "idlaktxp/txplts.h"
@@ -41,8 +40,6 @@ namespace kaldi {
 /// and ability to add bilingual lexicons may be added. /ref idlaktxp_pron
 class TxpPronounce : public TxpModule {
  public:
-  explicit TxpPronounce(const std::string &tpdb,
-                        const std::string &configf = "");
   explicit TxpPronounce();
   ~TxpPronounce();
   bool Init(const TxpParseOptions &opts);

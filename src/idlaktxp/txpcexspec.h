@@ -88,17 +88,11 @@ typedef std::vector<TxpCexspecFeat> TxpCexspecFeatVector;
 
 class TxpCexspec: public TxpXmlData {
  public:
-  explicit TxpCexspec(const TxpConfig &config,
-                      const std::string &tpdb, const std::string &architecture);
   explicit TxpCexspec() :
       TxpXmlData(),
       cexspec_maxfieldlen_(CEXSPEC_MAXFIELDLEN),
       pauhand_(CEXSPECPAU_HANDLER_SPURT) {}
   ~TxpCexspec() {}
-  void Init(const TxpConfig &config, const std::string &type,
-                      const std::string &name) {
-    TxpXmlData::Init(config, type, name);
-  }
   void Init(const TxpParseOptions &opts, const std::string &name) {
     TxpXmlData::Init(opts, "cex", name);
   }
@@ -127,8 +121,6 @@ class TxpCexspec: public TxpXmlData {
   void GetFunctionNames(std::string* result);
 
  private:
-  // configuration file object
-  TxpConfig config_;
   // Parser for tpdb xml cex setup
   void StartElement(const char* name, const char** atts);
   // return index of a feature function by name

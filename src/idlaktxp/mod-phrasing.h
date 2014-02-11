@@ -28,7 +28,6 @@
 
 #include "base/kaldi-common.h"
 #include "idlaktxp/idlak-common.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpmodule.h"
 
 namespace kaldi {
@@ -37,8 +36,6 @@ namespace kaldi {
 /// by adding spt elements. /ref idlaktxp_phrase
 class TxpPhrasing : public TxpModule {
  public:
-  explicit TxpPhrasing(const std::string &tpdb,
-                       const std::string &configf = "");
   explicit TxpPhrasing();
   ~TxpPhrasing();
   bool Init(const TxpParseOptions &opts);

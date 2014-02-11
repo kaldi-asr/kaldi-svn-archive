@@ -48,8 +48,6 @@ typedef std::vector<TxpPosRgx> RgxVector;
 /// see /ref idlaktxp_pos
 class TxpPos: public TxpXmlData {
  public:
-  explicit TxpPos(const TxpConfig &config, const std::string &type, const std::string &name)
-      : TxpXmlData(config, type, name) {}
   explicit TxpPos() {}
   ~TxpPos() {}
   void Init(const TxpParseOptions &opts, const std::string &name) {
@@ -89,8 +87,6 @@ struct TxpPosRgx {
 /// see /ref idlaktxp_pos
 class TxpPosSet: public TxpXmlData {
  public:
-  explicit TxpPosSet(const TxpConfig &config, const std::string &type, const std::string &name)
-      : TxpXmlData(config, type, name) {}
   explicit TxpPosSet() {}
   ~TxpPosSet() {}
   void Init(const TxpParseOptions &opts, const std::string &name) {

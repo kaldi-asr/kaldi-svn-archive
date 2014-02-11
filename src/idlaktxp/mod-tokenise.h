@@ -25,7 +25,6 @@
 
 #include <string>
 #include "idlaktxp/txpmodule.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txpnrules.h"
 
 namespace kaldi {
@@ -34,7 +33,6 @@ namespace kaldi {
 /// \ref idlaktxp_token
 class TxpTokenise : public TxpModule {
  public:
-  explicit TxpTokenise(const std::string &tpdb, const std::string &configf);
   explicit TxpTokenise();
   ~TxpTokenise() {}
   bool Init(const TxpParseOptions &opts);

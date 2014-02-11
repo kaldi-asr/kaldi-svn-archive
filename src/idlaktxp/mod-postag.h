@@ -25,7 +25,6 @@
 
 #include <string>
 #include "idlaktxp/txpmodule.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txppos.h"
 
 namespace kaldi {
@@ -34,8 +33,6 @@ namespace kaldi {
 /// /ref idlaktxp_pos
 class TxpPosTag : public TxpModule {
  public:
-  explicit TxpPosTag(const std::string &tpdb,
-                     const std::string &configf = "");
   explicit TxpPosTag();
   ~TxpPosTag();
   bool Init(const TxpParseOptions &opts);

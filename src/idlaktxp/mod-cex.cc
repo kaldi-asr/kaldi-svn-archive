@@ -20,12 +20,6 @@
 
 namespace kaldi {
 
-TxpCex::TxpCex(const std::string &tpdb, const std::string &configf)
-    : TxpModule("cex", tpdb, configf) {
-  cexspec_.Init(config_, std::string("cex"), std::string("default"));
-  cexspec_.Parse(tpdb.c_str());
-}
-
 TxpCex::TxpCex() : TxpModule("cex") {}
 
 TxpCex::~TxpCex() {

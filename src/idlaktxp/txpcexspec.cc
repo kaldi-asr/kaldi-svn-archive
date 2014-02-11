@@ -21,16 +21,6 @@
 
 namespace kaldi {
 
-// constructor takes tpdb, loads and sets up features
-TxpCexspec::TxpCexspec(const TxpConfig &config, const std::string &type, const std::string &name)
-    : TxpXmlData(config, type, name),
-      cexspec_maxfieldlen_(CEXSPEC_MAXFIELDLEN),
-      pauhand_(CEXSPECPAU_HANDLER_SPURT) {
-  if (!strcmp(CEXSPEC_PAUSEHANDLING, "UTT")) {
-    pauhand_ = CEXSPECPAU_HANDLER_UTTERANCE;
-  }
-}
-
 // parse file into Cexspec class adding feature specification and
 // feature functions to architecture
 void TxpCexspec::StartElement(const char* name, const char** atts) {

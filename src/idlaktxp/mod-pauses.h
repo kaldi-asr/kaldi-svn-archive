@@ -29,7 +29,6 @@
 #include "base/kaldi-common.h"
 #include "idlaktxp/idlak-common.h"
 #include "idlaktxp/txpmodule.h"
-#include "idlaktxp/txpconfig.h"
 #include "idlaktxp/txppbreak.h"
 
 namespace kaldi {
@@ -38,8 +37,6 @@ namespace kaldi {
 /// /ref idlaktxp_pause_insertion
 class TxpPauses : public TxpModule {
  public:
-  explicit TxpPauses(const std::string &tpdb,
-                     const std::string &configf = "");
   explicit TxpPauses();
   ~TxpPauses();
   bool Init(const TxpParseOptions &opts);

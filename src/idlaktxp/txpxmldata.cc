@@ -20,29 +20,10 @@
 
 namespace kaldi {
 
-TxpXmlData::TxpXmlData(const TxpConfig &config, const std::string &type,
-                       const std::string &name) {
-  opts_ = NULL;
-  Init(config, type, name);
-}
-
 TxpXmlData::~TxpXmlData() {
   if (parser_) {
     XML_ParserFree(parser_);
   }
-}
-
-void TxpXmlData::Init(const TxpConfig &config, const std::string &type,
-                      const std::string &name) {
-  config_ = &config;
-  type_ = type;
-  name_ = name;
-  parser_ = XML_ParserCreate("UTF-8");
-  ::XML_SetUserData(parser_, this);
-  ::XML_SetElementHandler(parser_, StartElementCB, EndElementCB);
-  ::XML_SetCharacterDataHandler(parser_, CharHandlerCB);
-  ::XML_SetStartCdataSectionHandler(parser_, StartCDataCB);
-  ::XML_SetEndCdataSectionHandler(parser_, EndCDataCB);
 }
 
 void TxpXmlData::Init(const TxpParseOptions &opts, const std::string &type,
@@ -89,14 +70,10 @@ bool TxpXmlData::Parse(const std::string &tpdb) {
   tpdb_.append(tpdb);
   fname_.clear();
   // get general settings from the configuration
-  lang = GetConfigValue("lang");
-  if (!lang) lang = GetOptValue("lang");
-  region = GetConfigValue("region");
-  if (!region) region = GetOptValue("region");
-  acc = GetConfigValue("acc");
-  if (!acc) acc = GetOptValue("acc");
-  spk = GetConfigValue("spk");
-  if (!spk) spk = GetOptValue("spk");
+  lang = GetOptValue("lang");
+  region = GetOptValue("region");
+  acc = GetOptValue("acc");
+  spk = GetOptValue("spk");
   // See if we are in a kaldi-data directory structure by checking
   // directories .. and ../.. and ../../.. for the file idlak-data-trunk
   if (!ki.Open((tpdb + "/idlak-data-flat").c_str())) {
@@ -177,11 +154,6 @@ int32 TxpXmlData::SetAttribute(const char* name, const char** atts,
     i += 2;
   }
   return i / 2;
-}
-
-const char* TxpXmlData::GetConfigValue(const char* key) {
-  if (opts_) return NULL;
-  return config_->GetValue("general", key);
 }
 
 const char* TxpXmlData::GetOptValue(const char* key) {

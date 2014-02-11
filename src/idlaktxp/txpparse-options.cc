@@ -1,4 +1,4 @@
-// idlaktxp/txpconfig.cc
+// idlaktxp/txpparse-options.cc
 
 // Copyright 2013 CereProc Ltd.  (Author: Matthew Aylett)
 

@@ -67,8 +67,6 @@ typedef std::multimap<std::string, std::string, TxpLexCompare> LookupLex;
 /// There must be at least one default pronunciation for every word
 class TxpLexicon: public TxpXmlData {
  public:
-  explicit TxpLexicon(const TxpConfig &config, const std::string &type, const std::string &name)
-      : TxpXmlData(config, type, name), inlex_(false) {}
   explicit TxpLexicon() : inlex_(false) {}
   ~TxpLexicon() {}
   void Init(const TxpParseOptions &opts, const std::string &name) {

@@ -24,12 +24,6 @@ const char* txpsyllabletype[] = {"onset", "nucleus", "coda"};
 
 static void _add_sylxml(const char* spron, pugi::xml_node* node);
 
-TxpSyllabify::TxpSyllabify(const std::string &tpdb, const std::string &configf)
-    : TxpModule("syllabify", tpdb, configf),
-      sylmax_(config_, std::string("sylmax"), std::string("default")) {
-  sylmax_.Parse(tpdb.c_str());
-}
-
 TxpSyllabify::TxpSyllabify() : TxpModule("syllabify") {}
 
 TxpSyllabify::~TxpSyllabify() {

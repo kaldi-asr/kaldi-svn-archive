@@ -20,14 +20,6 @@
 
 namespace kaldi {
 
-TxpPosTag::TxpPosTag(const std::string &tpdb, const std::string &configf)
-    : TxpModule("postag", tpdb, configf),
-      tagger_(config_, std::string("postags"), std::string("default")),
-      posset_(config_, std::string("posset"), std::string("default")) {
-  tagger_.Parse(tpdb.c_str());
-  posset_.Parse(tpdb.c_str());
-}
-
 TxpPosTag::TxpPosTag() : TxpModule("postag") {}
 
 TxpPosTag::~TxpPosTag() {

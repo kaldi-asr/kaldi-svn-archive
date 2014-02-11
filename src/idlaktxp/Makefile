@@ -9,7 +9,7 @@ include ../kaldi.mk
 
 TESTFILES = idlak-mod-test
 
-OBJFILES = txpconfig.o txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o \
+OBJFILES = txpxmldata.o txputf8.o txppcre.o txpnrules.o txppos.o \
 	   txppbreak.o txpsylmax.o txplexicon.o txplts.o txpmodule.o txpcexspec.o \
            txpparse-options.o \
 	   cexfunctions.o cexfunctionscatalog.o mod-tokenise.o \
