@@ -2,6 +2,8 @@
 
 // Copyright 2012  Carnegie Mellon University (author: Yajie Miao)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,6 +28,7 @@ using std::vector;
 #include "hmm/transition-model.h"
 #include "transform/fmllr-diag-gmm.h"
 #include "transform/basis-fmllr-diag-gmm.h"
+#include "hmm/posterior.h"
 
 namespace kaldi {
 void AccumulateForUtterance(const Matrix<BaseFloat> &feats,

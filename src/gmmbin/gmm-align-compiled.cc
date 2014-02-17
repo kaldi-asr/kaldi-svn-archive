@@ -4,6 +4,8 @@
 //                      Johns Hopkins University (author: Daniel Povey)
 
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -47,14 +49,12 @@ int main(int argc, char *argv[]) {
         "   gmm-align-compiled 1.mdl ark:- scp:train.scp t, ark:1.ali\n";
 
     ParseOptions po(usage);
-    bool binary = true;
     BaseFloat beam = 200.0;
     BaseFloat retry_beam = 0.0;
     BaseFloat acoustic_scale = 1.0;
     BaseFloat transition_scale = 1.0;
     BaseFloat self_loop_scale = 1.0;
 
-    po.Register("binary", &binary, "Write output in binary mode");
     po.Register("beam", &beam, "Decoding beam");
     po.Register("retry-beam", &retry_beam, "Decoding beam for second try at alignment");
     po.Register("transition-scale", &transition_scale, "Transition-probability scale [relative to acoustics]");

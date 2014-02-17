@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -71,7 +73,7 @@ void TestHmmTopology() {
     std::ostringstream oss1, oss2;
     topo.Write(oss1, false);
     topo2.Write(oss2, false);
-    assert(oss1.str() == oss2.str());
+    KALDI_ASSERT(oss1.str() == oss2.str());
   }
 }
 

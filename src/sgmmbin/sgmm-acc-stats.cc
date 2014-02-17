@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011   Saarland University (Author:  Arnab Ghoshal),
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,8 +23,7 @@
 #include "sgmm/am-sgmm.h"
 #include "hmm/transition-model.h"
 #include "sgmm/estimate-am-sgmm.h"
-
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
@@ -138,6 +139,8 @@ int main(int argc, char *argv[]) {
         BaseFloat tot_like_this_file = 0.0, tot_weight = 0.0;
 
         for (size_t i = 0; i < posterior.size(); i++) {
+          if (posterior[i].empty())
+            continue;
           std::vector<int32> this_gselect;
           if (!gselect->empty()) this_gselect = (*gselect)[i];
           else am_sgmm.GaussianSelection(sgmm_opts, mat.Row(i), &this_gselect);

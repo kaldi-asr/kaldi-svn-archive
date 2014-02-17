@@ -1,17 +1,22 @@
 #!/bin/bash
 
 # This is not necessarily the top-level run.sh as it is in other directories.   see README.txt first.
+tri5_only=false
 
+[ ! -f ./lang.conf ] && echo "Language configuration does not exist! Use the configurations in conf/lang/* as a startup" && exit 1
+[ ! -f ./conf/common_vars.sh ] && echo "the file conf/common_vars.sh does not exist!" && exit 1
 
 . conf/common_vars.sh || exit 1;
 . ./lang.conf || exit 1;
 
 [ -f local.conf ] && . ./local.conf
 
+. ./utils/parse_options.sh
+
 set -e           #Exit on non-zero return code from any command
 set -o pipefail  #Exit if any of the commands in the pipeline will 
                  #return non-zero return code
-set -u           #Fail on an undefined variable
+#set -u           #Fail on an undefined variable
 
 #Preparing dev2h and train directories
 if [ ! -d data/raw_train_data ]; then
@@ -22,12 +27,12 @@ if [ ! -d data/raw_train_data ]; then
     local/make_corpus_subset.sh "$train_data_dir" "$train_data_list" ./data/raw_train_data
     train_data_dir=`readlink -f ./data/raw_train_data`
 
-    nj_max=`cat $train_data_list | wc -l`
-    if [[ "$nj_max" -lt "$train_nj" ]] ; then
-        echo "The maximum reasonable number of jobs is $nj_max (you have $train_nj)! (The training and decoding process has file-granularity)"
-        exit 1;
-        train_nj=$nj_max
-    fi
+fi
+nj_max=`cat $train_data_list | wc -l`
+if [[ "$nj_max" -lt "$train_nj" ]] ; then
+    echo "The maximum reasonable number of jobs is $nj_max (you have $train_nj)! (The training and decoding process has file-granularity)"
+    exit 1;
+    train_nj=$nj_max
 fi
 train_data_dir=`readlink -f ./data/raw_train_data`
 
@@ -57,8 +62,9 @@ if [[ ! -f data/local/lexicon.txt || data/local/lexicon.txt -ot "$lexicon_file" 
   echo ---------------------------------------------------------------------
   echo "Preparing lexicon in data/local on" `date`
   echo ---------------------------------------------------------------------
-  local/prepare_lexicon.pl --icu-transform "$icu_transform" --phonemap "$phoneme_mapping" \
-    $lexiconFlags $lexicon_file data/local
+  local/make_lexicon_subset.sh $train_data_dir/transcription $lexicon_file data/local/filtered_lexicon.txt
+  local/prepare_lexicon.pl  --phonemap "$phoneme_mapping" \
+    $lexiconFlags data/local/filtered_lexicon.txt data/local
 fi
 
 mkdir -p data/lang
@@ -76,7 +82,7 @@ if [[ ! -f data/train/wav.scp || data/train/wav.scp -ot "$train_data_dir" ]]; th
   echo "Preparing acoustic training lists in data/train on" `date`
   echo ---------------------------------------------------------------------
   mkdir -p data/train
-  local/prepare_acoustic_training_data.pl --icu-transform "$icu_transform"\
+  local/prepare_acoustic_training_data.pl \
     --vocab data/local/lexicon.txt --fragmentMarkers \-\*\~ \
     $train_data_dir data/train > data/train/skipped_utts.log
 fi
@@ -86,7 +92,7 @@ if [[ ! -f data/dev2h/wav.scp || data/dev2h/wav.scp -ot ./data/raw_dev2h_data/au
   echo "Preparing dev2h data lists in data/dev2h on" `date`
   echo ---------------------------------------------------------------------
   mkdir -p data/dev2h
-  local/prepare_acoustic_training_data.pl --icu-transform "Any-Lower" \
+  local/prepare_acoustic_training_data.pl \
     --fragmentMarkers \-\*\~ \
     `pwd`/data/raw_dev2h_data data/dev2h > data/dev2h/skipped_utts.log || exit 1
 fi
@@ -95,8 +101,15 @@ if [[ ! -f data/dev2h/glm || data/dev2h/glm -ot "$glmFile" ]]; then
   echo ---------------------------------------------------------------------
   echo "Preparing dev2h stm files in data/dev2h on" `date`
   echo ---------------------------------------------------------------------
-  local/prepare_stm.pl --fragmentMarkers \-\*\~ data/dev2h || exit 1
-  cp $glmFile data/dev2h/glm
+  if [ -z $dev2h_stm_file ]; then 
+    echo "WARNING: You should define the variable stm_file pointing to the IndusDB stm"
+    echo "WARNING: Doing that, it will give you scoring close to the NIST scoring.    "
+    local/prepare_stm.pl --fragmentMarkers \-\*\~ data/dev2h || exit 1
+  else
+    local/augment_original_stm.pl $dev2h_stm_file data/dev2h || exit 1
+  fi
+  [ ! -z $glmFile ] && cp $glmFile data/dev2h/glm
+
 fi
 
 # We will simply override the default G.fst by the G.fst generated using SRILM
@@ -107,28 +120,44 @@ if [[ ! -f data/srilm/lm.gz || data/srilm/lm.gz -ot data/train/text ]]; then
   local/train_lms_srilm.sh --dev-text data/dev2h/text \
     --train-text data/train/text data data/srilm 
 fi
+
 if [[ ! -f data/lang/G.fst || data/lang/G.fst -ot data/srilm/lm.gz ]]; then
   echo ---------------------------------------------------------------------
   echo "Creating G.fst on " `date`
   echo ---------------------------------------------------------------------
   local/arpa2G.sh data/srilm/lm.gz data/lang data/lang
 fi
-  
+decode_nj=$dev2h_nj
 echo ---------------------------------------------------------------------
 echo "Starting plp feature extraction for data/train in plp on" `date`
 echo ---------------------------------------------------------------------
+
 if [ ! -f data/train/.plp.done ]; then
-  if ! "$use_pitch"; then
-    steps/make_plp.sh --cmd "$train_cmd" --nj $decode_nj data/train exp/make_plp/train plp
-  else
+  if [ "$use_pitch" = "false" ] && [ "$use_ffv" = "false" ]; then
+   steps/make_plp.sh --cmd "$train_cmd" --nj $train_nj data/train exp/make_plp/train plp
+  elif [ "$use_pitch" = "true" ] && [ "$use_ffv" = "true" ]; then
+    cp -rT data/train data/train_plp; cp -rT data/train data/train_pitch; cp -rT data/train data/train_ffv
+    steps/make_plp.sh --cmd "$train_cmd" --nj $train_nj data/train_plp exp/make_plp/train plp_tmp_train
+    local/make_pitch.sh --cmd "$train_cmd" --nj $train_nj data/train_pitch exp/make_pitch/train pitch_tmp_train
+    local/make_ffv.sh --cmd "$train_cmd"  --nj $train_nj data/train_ffv exp/make_ffv/train ffv_tmp_train
+    steps/append_feats.sh --cmd "$train_cmd" --nj $train_nj data/train{_plp,_pitch,_plp_pitch} exp/make_pitch/append_train_pitch plp_tmp_train
+    steps/append_feats.sh --cmd "$train_cmd" --nj $train_nj data/train{_plp_pitch,_ffv,} exp/make_ffv/append_train_pitch_ffv plp
+    rm -rf {plp,pitch,ffv}_tmp_train data/train_{plp,pitch,plp_pitch}
+  elif [ "$use_pitch" = "true" ]; then
     cp -rT data/train data/train_plp; cp -rT data/train data/train_pitch
-    steps/make_plp.sh --cmd "$train_cmd" --nj $decode_nj data/train_plp exp/make_plp/train plp_tmp_train
-    local/make_pitch.sh --cmd "$train_cmd" --nj $decode_nj data/train_pitch exp/make_pitch/train plp_tmp_train
-    steps/append_feats.sh data/train{_plp,_pitch,} exp/make_pitch/append_train plp
-    rm -rf plp_tmp_train data/train_{plp,pitch}
+    steps/make_plp.sh --cmd "$train_cmd" --nj $train_nj data/train_plp exp/make_plp/train plp_tmp_train
+    local/make_pitch.sh --cmd "$train_cmd" --nj $train_nj data/train_pitch exp/make_pitch/train pitch_tmp_train
+    steps/append_feats.sh --cmd "$train_cmd" --nj $train_nj data/train{_plp,_pitch,} exp/make_pitch/append_train plp
+    rm -rf {plp,pitch}_tmp_train data/train_{plp,pitch}
+  elif [ "$use_ffv" = "true" ]; then
+    cp -rT data/train data/train_plp; cp -rT data/train data/train_ffv
+    steps/make_plp.sh --cmd "$train_cmd" --nj $train_nj data/train_plp exp/make_plp/train plp_tmp_train
+    local/make_ffv.sh --cleanup false --cmd "$train_cmd" --nj $train_nj data/train_ffv exp/make_ffv/train ffv_tmp_train
+    steps/append_feats.sh --cmd "$train_cmd" --nj $train_nj data/train{_plp,_ffv,} exp/make_ffv/append_train plp
+    rm -rf {plp,ffv}_tmp_train data/train_{plp,ffv}
   fi
-  steps/compute_cmvn_stats.sh \
-    data/train exp/make_plp/train plp
+  utils/fix_data_dir.sh data/train
+  steps/compute_cmvn_stats.sh data/train exp/make_plp/train plp
   # In case plp or pitch extraction failed on some utterances, delist them
   utils/fix_data_dir.sh data/train
   touch data/train/.plp.done
@@ -248,6 +277,12 @@ if [ ! -f exp/tri5_ali/.done ]; then
   touch exp/tri5_ali/.done
 fi
 
+if $tri5_only ; then
+  echo "Exiting after stage TRI5, as requested. "
+  echo "Everything went fine. Done"
+  exit 0;
+fi
+
 if [ ! -f exp/ubm5/.done ]; then
   echo ---------------------------------------------------------------------
   echo "Starting exp/ubm5 on" `date`
@@ -286,6 +321,7 @@ if [ ! -f exp/sgmm5_ali/.done ]; then
   touch exp/sgmm5_ali/.done
 fi
 
+
 if [ ! -f exp/sgmm5_denlats/.done ]; then
   echo ---------------------------------------------------------------------
   echo "Starting exp/sgmm5_denlats on" `date`
@@ -303,7 +339,7 @@ if [ ! -f exp/sgmm5_mmi_b0.1/.done ]; then
   echo ---------------------------------------------------------------------
   steps/train_mmi_sgmm2.sh \
     --cmd "$train_cmd" "${sgmm_mmi_extra_opts[@]}" \
-    --zero-if-disjoint true --transform-dir exp/tri5_ali --boost 0.1 \
+    --drop-frames true --transform-dir exp/tri5_ali --boost 0.1 \
     data/train data/lang exp/sgmm5_ali exp/sgmm5_denlats \
     exp/sgmm5_mmi_b0.1
   touch exp/sgmm5_mmi_b0.1/.done

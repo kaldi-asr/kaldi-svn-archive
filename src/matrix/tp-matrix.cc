@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Ondrej Glembek;  Lukas Burget;  Microsoft Corporation
 //                      Saarland University;  Yanmin Qian;   Haihua Xu
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -67,7 +69,7 @@ void TpMatrix<Real>::Invert() {
 }
 
 /*
-template<class Real>
+template<typename Real>
 void TpMatrix<Real>::Invert() {
   Matrix<Real> tmp(*this);
   tmp.Invert();
@@ -114,8 +116,8 @@ void TpMatrix<Real>::Cholesky(const SpMatrix<Real> &orig) {
     d = orig_jdata[j] - d;
     
     if (d >= 0.0) {
-      // (*this)(j, j) = sqrt(d);
-      jdata[j] = sqrt(d);
+      // (*this)(j, j) = std::sqrt(d);
+      jdata[j] = std::sqrt(d);
     } else {
       KALDI_WARN << "Cholesky decomposition failed. Maybe matrix "
           "is not positive definite. Throwing error";
@@ -125,7 +127,7 @@ void TpMatrix<Real>::Cholesky(const SpMatrix<Real> &orig) {
 }
 
 template<typename Real>
-void TpMatrix<Real>::CopyFromMat(MatrixBase<Real> &M,
+void TpMatrix<Real>::CopyFromMat(const MatrixBase<Real> &M,
                                  MatrixTransposeType Trans) {
   if (Trans == kNoTrans) {
     KALDI_ASSERT(this->NumRows() == M.NumRows() && M.NumRows() == M.NumCols());

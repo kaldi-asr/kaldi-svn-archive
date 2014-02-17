@@ -1,7 +1,9 @@
 // nnet/nnet-rbm.h
 
-// Copyright 2012-2013 Brno University of Technology (Author: Karel Vesely)
+// Copyright 2012-2013  Brno University of Technology (Author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,20 +23,22 @@
 
 
 #include "nnet/nnet-component.h"
+#include "nnet/nnet-nnet.h"
+#include "nnet/nnet-various.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
 namespace nnet1 {
 
-class RbmBase : public UpdatableComponent {
+class RbmBase : public Component {
  public:
   typedef enum {
-    BERNOULLI,
-    GAUSSIAN
+    Bernoulli,
+    Gaussian
   } RbmNodeType;
  
-  RbmBase(int32 dim_in, int32 dim_out, Nnet *nnet) 
-   : UpdatableComponent(dim_in, dim_out, nnet)
+  RbmBase(int32 dim_in, int32 dim_out) 
+   : Component(dim_in, dim_out)
   { }
   
   /*Is included in Component:: itf
@@ -80,12 +84,6 @@ class RbmBase : public UpdatableComponent {
                      const CuMatrix<BaseFloat> &out_diff, CuMatrix<BaseFloat> *in_diff) { }
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in, const CuMatrix<BaseFloat> &out,
                         const CuMatrix<BaseFloat> &out_diff, CuMatrix<BaseFloat> *in_diff) { }
-  // RBMs use RbmUpdate(.)
-  void Update(const CuMatrix<BaseFloat> &input, const CuMatrix<BaseFloat> &diff) { }
-  // RBMs use option class RbmTrainOptions
-  void SetTrainOptions(const NnetTrainOptions&);
-  const NnetTrainOptions& GetTrainOptions() const;
-  NnetTrainOptions opts_;
  //
  ////
 
@@ -95,15 +93,92 @@ class RbmBase : public UpdatableComponent {
 
 class Rbm : public RbmBase {
  public:
-  Rbm(int32 dim_in, int32 dim_out, Nnet *nnet) 
-   : RbmBase(dim_in, dim_out, nnet)
+  Rbm(int32 dim_in, int32 dim_out) 
+   : RbmBase(dim_in, dim_out)
   { } 
   ~Rbm()
   { }  
   
-  ComponentType GetType() const {
-    return kRbm;
+  Component* Copy() const { return new Rbm(*this); }
+  ComponentType GetType() const { return kRbm; }
+
+  void InitData(std::istream &is) {
+    // define options
+    std::string vis_type;
+    std::string hid_type;
+    float vis_bias_mean = 0.0, vis_bias_range = 0.0, 
+          hid_bias_mean = 0.0, hid_bias_range = 0.0, 
+          param_stddev = 0.1;
+    std::string vis_bias_cmvn_file; // initialize biases to logit(p_active)
+    // parse config
+    std::string token; 
+    while (!is.eof()) {
+      ReadToken(is, false, &token); 
+      /**/ if (token == "<VisibleType>") ReadToken(is, false, &vis_type);
+      else if (token == "<HiddenType>") ReadToken(is, false, &hid_type);
+      else if (token == "<VisibleBiasMean>") ReadBasicType(is, false, &vis_bias_mean);
+      else if (token == "<VisibleBiasRange>") ReadBasicType(is, false, &vis_bias_range);
+      else if (token == "<HiddenBiasMean>") ReadBasicType(is, false, &hid_bias_mean);
+      else if (token == "<HiddenBiasRange>") ReadBasicType(is, false, &hid_bias_range);
+      else if (token == "<ParamStddev>") ReadBasicType(is, false, &param_stddev);
+      else if (token == "<VisibleBiasCmvnFilename>") ReadToken(is, false, &vis_bias_cmvn_file);
+      else KALDI_ERR << "Unknown token " << token << " Typo in config?";
+      is >> std::ws; // eat-up whitespace
+    }
+
+    //
+    // initialize
+    //
+    if (vis_type == "bern" || vis_type == "Bernoulli") vis_type_ = RbmBase::Bernoulli;
+    else if (vis_type == "gauss" || vis_type == "Gaussian") vis_type_ = RbmBase::Gaussian;
+    else KALDI_ERR << "Wrong <VisibleType>" << vis_type;
+    //
+    if (hid_type == "bern" || hid_type == "Bernoulli") hid_type_ = RbmBase::Bernoulli;
+    else if (hid_type == "gauss" || hid_type == "Gaussian") hid_type_ = RbmBase::Gaussian;
+    else KALDI_ERR << "Wrong <HiddenType>" << hid_type;
+    // visible-hidden connections
+    Matrix<BaseFloat> mat(output_dim_, input_dim_);
+    for (int32 r=0; r<output_dim_; r++) {
+      for (int32 c=0; c<input_dim_; c++) {
+        mat(r,c) = param_stddev * RandGauss(); // 0-mean Gauss with given std_dev
+      }
+    }
+    vis_hid_ = mat;
+    // hidden-bias
+    Vector<BaseFloat> vec(output_dim_);
+    for (int32 i=0; i<output_dim_; i++) {
+      // +/- 1/2*bias_range from bias_mean:
+      vec(i) = hid_bias_mean + (RandUniform() - 0.5) * hid_bias_range; 
+    }
+    hid_bias_ = vec;
+    // visible-bias
+    if (vis_bias_cmvn_file == "") {
+      Vector<BaseFloat> vec2(input_dim_);
+      for (int32 i=0; i<input_dim_; i++) {
+        // +/- 1/2*bias_range from bias_mean:
+        vec2(i) = vis_bias_mean + (RandUniform() - 0.5) * vis_bias_range; 
+      }
+      vis_bias_ = vec2;
+    } else {
+      KALDI_LOG << "Initializing from <VisibleBiasCmvnFilename> " << vis_bias_cmvn_file;
+      Nnet cmvn;
+      cmvn.Read(vis_bias_cmvn_file);
+      // getting probablity that neuron fires:
+      Vector<BaseFloat> p(dynamic_cast<AddShift&>(cmvn.GetComponent(0)).GetShiftVec());
+      p.Scale(-1.0);
+      // compute logit:
+      Vector<BaseFloat> logit_p(p.Dim());
+      for(int32 d = 0; d < p.Dim(); d++) {
+        if(p(d) < 0.0001) p(d) = 0.0001;
+        if(p(d) > 0.9999) p(d) = 0.9999;
+        logit_p(d) = log(p(d)) - log(1.0 - p(d));
+      }
+      vis_bias_ = logit_p;
+      KALDI_ASSERT(vis_bias_.Dim() == InputDim());
+    }
+    //
   }
+
 
   void ReadData(std::istream &is, bool binary) {
     std::string vis_node_type, hid_node_type;
@@ -111,14 +186,14 @@ class Rbm : public RbmBase {
     ReadToken(is, binary, &hid_node_type);
     
     if(vis_node_type == "bern") {
-      vis_type_ = RbmBase::BERNOULLI;
+      vis_type_ = RbmBase::Bernoulli;
     } else if(vis_node_type == "gauss") {
-      vis_type_ = RbmBase::GAUSSIAN;
+      vis_type_ = RbmBase::Gaussian;
     }
     if(hid_node_type == "bern") {
-      hid_type_ = RbmBase::BERNOULLI;
+      hid_type_ = RbmBase::Bernoulli;
     } else if(hid_node_type == "gauss") {
-      hid_type_ = RbmBase::GAUSSIAN;
+      hid_type_ = RbmBase::Gaussian;
     }
 
     vis_hid_.Read(is, binary);
@@ -133,13 +208,13 @@ class Rbm : public RbmBase {
   
   void WriteData(std::ostream &os, bool binary) const {
     switch (vis_type_) {
-      case BERNOULLI : WriteToken(os,binary,"bern"); break;
-      case GAUSSIAN  : WriteToken(os,binary,"gauss"); break;
+      case Bernoulli : WriteToken(os,binary,"bern"); break;
+      case Gaussian  : WriteToken(os,binary,"gauss"); break;
       default : KALDI_ERR << "Unknown type " << vis_type_;
     }
     switch (hid_type_) {
-      case BERNOULLI : WriteToken(os,binary,"bern"); break;
-      case GAUSSIAN  : WriteToken(os,binary,"gauss"); break;
+      case Bernoulli : WriteToken(os,binary,"bern"); break;
+      case Gaussian  : WriteToken(os,binary,"gauss"); break;
       default : KALDI_ERR << "Unknown type " << hid_type_;
     }
     vis_hid_.Write(os, binary);
@@ -148,27 +223,16 @@ class Rbm : public RbmBase {
   }
 
 
-  // UpdatableComponent API
+  // Component API
   void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
     // precopy bias
     out->AddVecToRows(1.0, hid_bias_, 0.0);
     // multiply by weights^t
     out->AddMatMat(1.0, in, kNoTrans, vis_hid_, kTrans, 1.0);
     // optionally apply sigmoid
-    if (hid_type_ == RbmBase::BERNOULLI) {
+    if (hid_type_ == RbmBase::Bernoulli) {
       out->Sigmoid(*out);
     }
-  }
-
-  void BackpropagateFnc(const CuMatrix<BaseFloat> &in, const CuMatrix<BaseFloat> &out,
-                        const CuMatrix<BaseFloat> &out_diff, CuMatrix<BaseFloat> *in_diff) {
-    KALDI_ERR << "Cannot backpropagate through RBM!"
-              << "Better convert it to <affinetransform> and <sigmoid>";
-  }
-  virtual void Update(const CuMatrix<BaseFloat> &input,
-                      const CuMatrix<BaseFloat> &diff) {
-    KALDI_ERR << "Cannot update RBM by backprop!"
-              << "Better convert it to <affinetransform> and <sigmoid>";
   }
 
   // RBM training API
@@ -187,14 +251,14 @@ class Rbm : public RbmBase {
     // multiply by weights
     vis_probs->AddMatMat(1.0, hid_state, kNoTrans, vis_hid_, kNoTrans, 1.0);
     // optionally apply sigmoid
-    if (vis_type_ == RbmBase::BERNOULLI) {
+    if (vis_type_ == RbmBase::Bernoulli) {
       vis_probs->Sigmoid(*vis_probs);
     }
   }
   
   void RbmUpdate(const CuMatrix<BaseFloat> &pos_vis, const CuMatrix<BaseFloat> &pos_hid, const CuMatrix<BaseFloat> &neg_vis, const CuMatrix<BaseFloat> &neg_hid) {
 
-    assert(pos_vis.NumRows() == pos_hid.NumRows() &&
+    KALDI_ASSERT(pos_vis.NumRows() == pos_hid.NumRows() &&
            pos_vis.NumRows() == neg_vis.NumRows() &&
            pos_vis.NumRows() == neg_hid.NumRows() &&
            pos_vis.NumCols() == neg_vis.NumCols() &&
@@ -224,16 +288,16 @@ class Rbm : public RbmBase {
     // should be about the same. The model is particularly sensitive at the very
     // beginning of the CD-1 training.
     //
-    // We compute varinace of a)input minibatch b)reconstruction. 
+    // We compute variance of a)input mini-batch b)reconstruction. 
     // When the ratio b)/a) is larger than 2, we:
-    // 1. scale down the weights and biases by b)/a) (for next minibatch b)/a) gets 1.0)
+    // 1. scale down the weights and biases by b)/a) (for next mini-batch b)/a) gets 1.0)
     // 2. shrink learning rate by 0.9x
     // 3. reset the momentum buffer  
     //
     // Wa also display a warning. Note that in later stage 
     // the training returns back to higher learning rate.
     // 
-    if (vis_type_ == RbmBase::GAUSSIAN) {
+    if (vis_type_ == RbmBase::Gaussian) {
       //get the standard deviations of pos_vis and neg_vis data
 
       //pos_vis
@@ -253,6 +317,14 @@ class Rbm : public RbmBase {
       pos_vis_stddev.MulElements(pos_vis_mean_h);
       pos_vis_stddev.Scale(-1.0);
       pos_vis_stddev.AddVec(1.0/pos_vis.NumRows(),pos_vis_second_h);
+      /* set negative values to zero before the square root */
+      for (int32 i=0; i<pos_vis_stddev.Dim(); i++) {
+        if(pos_vis_stddev(i) < 0.0) { 
+          KALDI_WARN << "Forcing the variance to be non-negative! (set to zero)" 
+                     << pos_vis_stddev(i);
+          pos_vis_stddev(i) = 0.0;
+        }
+      }
       pos_vis_stddev.ApplyPow(0.5);
 
       //neg_vis
@@ -272,7 +344,7 @@ class Rbm : public RbmBase {
       neg_vis_stddev.MulElements(neg_vis_mean_h);
       neg_vis_stddev.Scale(-1.0);
       neg_vis_stddev.AddVec(1.0/neg_vis.NumRows(),neg_vis_second_h);
-      /* set negtive values to zero before the square root */
+      /* set negative values to zero before the square root */
       for (int32 i=0; i<neg_vis_stddev.Dim(); i++) {
         if(neg_vis_stddev(i) < 0.0) { 
           KALDI_WARN << "Forcing the variance to be non-negative! (set to zero)" 
@@ -296,12 +368,12 @@ class Rbm : public RbmBase {
         vis_bias_corr_.SetZero();
         hid_bias_corr_.SetZero();
 
-        KALDI_WARN << "Discrepancy between pos_hid and neg_hid varainces, "
+        KALDI_WARN << "Discrepancy between pos_hid and neg_hid variances, "
                    << "danger of weight explosion. a) Reducing weights with scale " << scale
                    << " b) Lowering learning rate to " << rbm_opts_.learn_rate
                    << " [pos_vis_stddev(~1.0):" << pos_vis_stddev.Sum()/pos_vis.NumCols()
                    << ",neg_vis_stddev:" << neg_vis_stddev.Sum()/neg_vis.NumCols() << "]";
-        return; /* ie. don't update weights with current stats */
+        return; /* i.e. don't update weights with current stats */
       }
     }
     //
@@ -366,7 +438,7 @@ class Rbm : public RbmBase {
     vis_hid_.Write(os,binary);
     hid_bias_.Write(os,binary);
     //optionally sigmoid activation
-    if(HidType() == BERNOULLI) {
+    if(HidType() == Bernoulli) {
       WriteToken(os,binary,Component::TypeToMarker(Component::kSigmoid));
       WriteBasicType(os,binary,OutputDim());
       WriteBasicType(os,binary,OutputDim());

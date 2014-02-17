@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -59,7 +61,7 @@ namespace kaldi {
  */
 
 
-template<class Real>
+template<typename Real>
 bool MatrixBase<Real>::JamaSvd(VectorBase<Real> *s_in,
                                MatrixBase<Real> *U_in,
                                MatrixBase<Real> *V_in) {  //  Destructive!
@@ -425,7 +427,7 @@ bool MatrixBase<Real>::JamaSvd(VectorBase<Real> *s_in,
         Real c = (sp*epm1)*(sp*epm1);
         Real shift = 0.0;
         if ((b != 0.0) || (c != 0.0)) {
-          shift = sqrt(b*b + c);
+          shift = std::sqrt(b*b + c);
           if (b < 0.0) {
             shift = -shift;
           }

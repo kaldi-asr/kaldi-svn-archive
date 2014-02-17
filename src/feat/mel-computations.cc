@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Phonexia s.r.o.;  Karel Vesely;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -38,7 +40,7 @@ MelBanks::MelBanks(const MelBanksOptions &opts,
       (frame_opts.round_to_power_of_two ?
        RoundUpToNearestPowerOfTwo(window_length) :
        window_length);
-  assert(window_length_padded % 2 == 0);
+  KALDI_ASSERT(window_length_padded % 2 == 0);
   int32 num_fft_bins = window_length_padded/2;
   BaseFloat nyquist = 0.5 * sample_freq;
 

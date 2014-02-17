@@ -1,5 +1,7 @@
 # SHELL += -x
 
+CXX = g++
+
 all: check_required_programs sph2pipe atlas irstlm_tgt sclite_tgt openfst_tgt
 
 
@@ -11,6 +13,7 @@ check_required_programs:
 	which svn
 	which gcc
 	which g++
+	which patch
 
 clean: openfst_cleaned sclite_cleaned  irstlm_cleaned
 
@@ -43,17 +46,20 @@ openfst_compiled: openfst-1.3.2/Makefile
 	$(MAKE) install
 
 openfst/lib:
-	-cd openfst && [ -d lib64 -a ! -d lib ] && ln -s lib64 lib
+	-cd openfst && [ -d lib64 ] && [ ! -d lib ] && ln -s lib64 lib
 
 openfst-1.3.2/Makefile: openfst-1.3.2/.patched
 		cd openfst-1.3.2/; \
 		./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts
 
 
+# patches for openfst. openfst_gcc41up.patch is a patch for openfst to \
+# support multi-threads when compile with g++ (gcc) version above 4.1
 .PHONY: openfst-1.3.2/.patched
 openfst-1.3.2/.patched: | openfst-1.3.2_tgt
 		-cd openfst-1.3.2/src/include/fst; \
 		patch -p0 -N < ../../../../openfst.patch;
+		$(CXX) -dumpversion | awk '{if(NR==1 && $$1>"4.1") print "cd openfst-1.3.2/src/include/fst; patch -p0 -N < ../../../../extras/openfst_gcc41up.patch"}' | sh -
 		touch $@ 	
 
 openfst-1.3.2_tgt: openfst-1.3.2.tar.gz
@@ -63,14 +69,14 @@ openfst-1.3.2_tgt: openfst-1.3.2.tar.gz
 
 openfst-1.3.2.tar.gz: 
 		wget http://openfst.cs.nyu.edu/twiki/pub/FST/FstDownload/openfst-1.3.2.tar.gz || \
-		wget -T 10 -t 3 --no-check-certificate http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.3.2.tar.gz
+		wget -T 10 -t 3 --no-check-certificate http://www.danielpovey.com/files/data/openfst-1.3.2.tar.gz 
 
 sclite_tgt: sclite_compiled
 
 .PHONY: sclite_compiled
 sclite_compiled: sctk_patched
 		cd sctk-2.4.0; \
-		$(MAKE) config && $(MAKE) all && $(MAKE) install && $(MAKE) doc
+		{ . ../extras/install_sctk_patched.sh; } && $(MAKE) config && $(MAKE) all && $(MAKE) install && $(MAKE) doc
 
 .PHONY: sctk_patched
 sctk_patched: | sctk-2.4.0
@@ -78,7 +84,7 @@ sctk_patched: | sctk-2.4.0
 		for x in src/asclite/core/recording.h src/asclite/core/recording.cpp; do \
 			sed 's/Filter::Filter/::Filter/' $$x > tmpf; mv tmpf $$x; \
 		done;
- 
+
 sctk-2.4.0: sctk-2.4.0-20091110-0958.tar.bz2
 		tar xojf sctk-2.4.0-20091110-0958.tar.bz2
 
@@ -105,7 +111,7 @@ irstlm/.patched: | irstlm
 		touch $@ 		
 
 irstlm:
-		svn -r 398 co https://irstlm.svn.sourceforge.net/svnroot/irstlm/trunk irstlm
+		svn -r 398 co https://svn.code.sf.net/p/irstlm/code/trunk irstlm
 
 atlas: ATLAS/include/cblas.h
 
@@ -113,7 +119,8 @@ ATLAS/include/cblas.h: | atlas3.8.3.tar.gz
 		tar xozf atlas3.8.3.tar.gz ATLAS/include
 
 atlas3.8.3.tar.gz:
-		wget -T 10  http://sourceforge.net/projects/math-atlas/files/Stable/3.8.3/atlas3.8.3.tar.gz
+		wget -T 10  http://sourceforge.net/projects/math-atlas/files/Stable/3.8.3/atlas3.8.3.tar.gz || \
+		wget --no-check-certificate -T 10 -t 3 http://www.danielpovey.com/files/kaldi/atlas3.8.3.tar.gz
 
 sph2pipe: sph2pipe_compiled
 
@@ -127,7 +134,8 @@ sph2pipe_v2.5: sph2pipe_v2.5.tar.gz
 		tar xzf sph2pipe_v2.5.tar.gz
 
 sph2pipe_v2.5.tar.gz:
-		wget -T 10 -t 3 http://merlin.fit.vutbr.cz/kaldi/sph2pipe_v2.5.tar.gz
+		wget --no-check-certificate -T 10  https://sourceforge.net/projects/kaldi/files/sph2pipe_v2.5.tar.gz || \
+        wget -T 10 -t 3 http://www.danielpovey.com/files/kaldi/sph2pipe_v2.5.tar.gz
 
 openblas: openblas_compiled
 

@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University;
 //                      Jan Silovsky;   Yanmin Qian;  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -94,7 +96,7 @@ template<class T> inline void WriteIntegerVector(std::ostream &os, bool binary,
     char sz = sizeof(T);  // this is currently just a check.
     os.write(&sz, 1);
     int32 vecsz = static_cast<int32>(v.size());
-    assert((size_t)vecsz == v.size());
+    KALDI_ASSERT((size_t)vecsz == v.size());
     os.write(reinterpret_cast<const char *>(&vecsz), sizeof(vecsz));
     if (vecsz != 0) {
       os.write(reinterpret_cast<const char *>(&(v[0])), sizeof(T)*vecsz);
@@ -124,7 +126,7 @@ template<class T> inline void ReadIntegerVector(std::istream &is,
                                                 bool binary,
                                                 std::vector<T> *v) {
   KALDI_ASSERT_IS_INTEGER_TYPE(T);
-  assert(v != NULL);
+  KALDI_ASSERT(v != NULL);
   if (binary) {
     int sz = is.peek();
     if (sz == sizeof(T)) {

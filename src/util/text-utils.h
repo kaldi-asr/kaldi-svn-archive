@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -64,7 +66,7 @@ bool SplitStringToIntegers(const std::string &full,
                                                      // should probably be true
                                                      // if "delim" is spaces].
                            std::vector<I> *out) {
-  assert(out != NULL);
+  KALDI_ASSERT(out != NULL);
   KALDI_ASSERT_IS_INTEGER_TYPE(I);
   if ( *(full.c_str()) == '\0') {
     out->clear();

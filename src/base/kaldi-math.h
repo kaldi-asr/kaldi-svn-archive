@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Ondrej Glembek;  Microsoft Corporation;  Yanmin Qian;
 //                      Jan Silovsky;  Saarland University
 //
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -87,7 +89,6 @@ const BaseFloat kBaseLogZero = -std::numeric_limits<BaseFloat>::infinity();
 const BaseFloat kBaseFloatMax = std::numeric_limits<BaseFloat>::max();
 
 // Returns a random integer between min and max inclusive.
-
 int32 RandInt(int32 min, int32 max);
 
 bool WithProb(BaseFloat prob); // Returns true with probability "prob",
@@ -95,7 +96,7 @@ bool WithProb(BaseFloat prob); // Returns true with probability "prob",
 // Internally calls rand().  This function is carefully implemented so
 // that it should work even if prob is very small.
 
-inline float RandUniform() {  // random between 0 and 1.
+inline float RandUniform() {  // random intended to be strictly between 0 and 1.
   return static_cast<float>((rand() + 1.0) / (RAND_MAX+2.0));  
 }
 
@@ -108,6 +109,8 @@ inline float RandGauss() {
 // Take care: this takes time proportinal
 // to lambda.  Faster algorithms exist but are more complex.
 int32 RandPoisson(float lambda);
+
+// Also see Vector<float,double>::RandCategorical().
 
 // This is a randomized pruning mechanism that preserves expectations,
 // that we typically use to prune posteriors.
@@ -210,29 +213,33 @@ inline float LogSub(float x, float y) {
 }
 
 // return (a == b)
-static inline bool ApproxEqual(float a, float b, float tol = 0.001) {
+static inline bool ApproxEqual(float a, float b,
+                               float relative_tolerance = 0.001) {
   // a==b handles infinities.
   if (a==b) return true;
   float diff = std::abs(a-b);
   if (diff == std::numeric_limits<float>::infinity()
       || diff!=diff) return false; // diff is +inf or nan.
-  return (diff <= tol*(std::abs(a)+std::abs(b))); 
+  return (diff <= relative_tolerance*(std::abs(a)+std::abs(b))); 
 }
 
 // assert (a == b)
-static inline void AssertEqual(float a, float b, float tol = 0.001) {
+static inline void AssertEqual(float a, float b,
+                               float relative_tolerance = 0.001) {
   // a==b handles infinities.
-  KALDI_ASSERT(ApproxEqual(a, b, tol));
+  KALDI_ASSERT(ApproxEqual(a, b, relative_tolerance));
 }
 
 // assert (a>=b)
-static inline void AssertGeq(float a, float b, float tol = 0.001) {
-  KALDI_ASSERT(a-b >= -tol * (std::abs(a)+std::abs(b)));
+static inline void AssertGeq(float a, float b,
+                             float relative_tolerance = 0.001) {
+  KALDI_ASSERT(a-b >= -relative_tolerance * (std::abs(a)+std::abs(b)));
 }
 
 // assert (a<=b)
-static inline void AssertLeq(float a, float b, float tol = 0.001) {
-  KALDI_ASSERT(a-b <= -tol * (std::abs(a)+std::abs(b)));
+static inline void AssertLeq(float a, float b,
+                             float relative_tolerance = 0.001) {
+  KALDI_ASSERT(a-b <= -relative_tolerance * (std::abs(a)+std::abs(b)));
 }
 
 // RoundUpToNearestPowerOfTwo does the obvious thing. It crashes if n <= 0.
@@ -286,11 +293,17 @@ template<class I> void Factorize(I m, std::vector<I> *factors) {
   }
 }
 
+inline double Hypot(double x, double y) {  return hypot(x, y); }
 
-inline double Hypot(double X, double Y) {  return hypot(X, Y); }
+inline float Hypot(float x, float y) {  return hypotf(x, y); }
 
-inline float Hypot(float X, float Y) {  return hypotf(X, Y); }
+inline double Log1p(double x) {  return log1p(x); }
 
+inline float Log1p(float x) {  return log1pf(x); }
+
+inline double Exp(double x) { return exp(x); }
+
+inline float Exp(float x) { return expf(x); }
 
 
 }  // namespace kaldi

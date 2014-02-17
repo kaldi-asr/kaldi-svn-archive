@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,8 +21,6 @@
 #ifndef KALDI_FEAT_FEATURE_FUNCTIONS_H_
 #define KALDI_FEAT_FEATURE_FUNCTIONS_H_
 
-#include <cassert>
-#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -214,6 +214,40 @@ class DeltaFeatures {
   // dimension by this window.
 };
 
+struct ShiftedDeltaFeaturesOptions {
+  int32 window,           // The time delay and advance
+        num_blocks,       
+        block_shift;      // Distance between consecutive blocks
+
+  ShiftedDeltaFeaturesOptions():
+      window(1), num_blocks(7), block_shift(3) { }
+  void Register(OptionsItf *po) {
+    po->Register("delta-window", &window, "Size of delta advance and delay.");
+    po->Register("num-blocks", &num_blocks, "Number of delta blocks in advance"
+                 " of each frame to be concatenated");
+    po->Register("block-shift", &block_shift, "Distance between each block");
+  }
+};
+
+class ShiftedDeltaFeatures {
+ public:
+  // This class provides a low-level function to compute shifted
+  // delta cesptra (SDC).
+  // The function takes as input a matrix of features and a frame index
+  // that it should compute the deltas on.  It puts its output in an object
+  // of type VectorBase, of size original-feature-dimension + (1  * num_blocks).
+
+  explicit ShiftedDeltaFeatures(const ShiftedDeltaFeaturesOptions &opts);
+
+  void Process(const MatrixBase<BaseFloat> &input_feats,
+               int32 frame,
+               SubVector<BaseFloat> *output_frame) const;
+ private:
+  ShiftedDeltaFeaturesOptions opts_;
+  Vector<BaseFloat> scales_;  // a scaling window for each
+  
+};
+
 // ComputeDeltas is a convenience function that computes deltas on a feature
 // file.  If you want to deal with features coming in bit by bit you would have
 // to use the DeltaFeatures class directly, and do the computation frame by
@@ -223,6 +257,12 @@ void ComputeDeltas(const DeltaFeaturesOptions &delta_opts,
                    const MatrixBase<BaseFloat> &input_features,
                    Matrix<BaseFloat> *output_features);
 
+// ComputeShiftedDeltas computes deltas from a feature file by applying
+// ShiftedDeltaFeatures over the frames. This function is provided for
+// convenience, however, ShiftedDeltaFeatures can be used directly.
+void ComputeShiftedDeltas(const ShiftedDeltaFeaturesOptions &delta_opts,
+                   const MatrixBase<BaseFloat> &input_features,
+                   Matrix<BaseFloat> *output_features);
 
 // SpliceFrames will normally be used together with LDA.
 // It splices frames together to make a window.  At the
@@ -253,6 +293,44 @@ void InitIdftBases(int32 n_bases, int32 dimension, Matrix<BaseFloat> *mat_out);
 // Compute LP coefficients from autocorrelation coefficients.
 BaseFloat ComputeLpc(const VectorBase<BaseFloat> &autocorr_in,
                      Vector<BaseFloat> *lpc_out);
+
+
+struct SlidingWindowCmnOptions {
+  int cmn_window;
+  int min_window;
+  bool normalize_variance;
+  bool center;
+  
+  SlidingWindowCmnOptions():
+      cmn_window(600),
+      min_window(100),
+      normalize_variance(false),
+      center(false) { }
+
+  void Register(OptionsItf *po) {
+    po->Register("cmn-window", &cmn_window, "Window in frames for running "
+                 "average CMN computation");
+    po->Register("min-cmn-window", &min_window, "Minumum CMN window "
+                 "used at start of decoding (adds latency only at start). "
+                 "Only applicable if center == false, ignored if center==true");
+    po->Register("norm-vars", &normalize_variance, "If true, normalize "
+                 "variance to one."); // naming this as in apply-cmvn.cc
+    po->Register("center", &center, "If true, use a window centered on the "
+                 "current frame (to the extent possible, modulo end effects)."
+                 "If false, window is to the left.");
+  }
+  void Check() const;
+};
+
+
+/// Applies sliding-window cepstral mean and/or variance normalization.  See the
+/// strings registering the options in the options class for information on how
+/// this works and what the options are.  input and output must have the same
+/// dimension.
+void SlidingWindowCmn(const SlidingWindowCmnOptions &opts,
+                      const MatrixBase<BaseFloat> &input,
+                      MatrixBase<BaseFloat> *output);
+
 
 /// @} End of "addtogroup feat"
 }  // namespace kaldi

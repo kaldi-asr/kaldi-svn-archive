@@ -6,6 +6,8 @@
 //   Vassil Panayotov
 //   Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -512,7 +514,7 @@ void OnlineFeatureMatrix::GetNextFeatures() {
 
 
 bool OnlineFeatureMatrix::IsValidFrame (int32 frame) {
-  KALDI_ASSERT(frame >= feat_offset_ &&
+   KALDI_ASSERT(frame >= feat_offset_ &&
                "You are attempting to get expired frames.");
   if (frame < feat_offset_ + feat_matrix_.NumRows())
     return true;

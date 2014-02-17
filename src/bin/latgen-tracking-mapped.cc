@@ -2,7 +2,10 @@
 
 // Copyright 2012  BUT (author: Mirko Hannemann)
 //      2012-2013  Johns Hopkins University (author: Daniel Povey)
+//           2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -134,10 +137,10 @@ int main(int argc, char *argv[]) {
 
           double like;
           if (DecodeUtteranceLatticeTracking(
-                  decoder, decodable, arc_graph, word_syms, utt,
-                  acoustic_scale, determinize, allow_partial,
-                  &alignment_writer, &words_writer, &compact_lattice_writer,
-                  &lattice_writer, &like)) {
+                  decoder, decodable, trans_model, arc_graph, word_syms, utt,
+                  acoustic_scale, determinize, allow_partial, &alignment_writer,
+                  &words_writer, &compact_lattice_writer, &lattice_writer,
+                  &like)) {
             tot_like += like;
             frame_count += loglikes.NumRows();
             num_success++;
@@ -179,10 +182,10 @@ int main(int argc, char *argv[]) {
 
         double like;
         if (DecodeUtteranceLatticeTracking(
-                decoder, decodable, arc_graph, word_syms, utt,
-                acoustic_scale, determinize, allow_partial,
-                &alignment_writer, &words_writer, &compact_lattice_writer,
-                &lattice_writer, &like)) {
+                decoder, decodable, trans_model, arc_graph, word_syms, utt,
+                acoustic_scale, determinize, allow_partial, &alignment_writer,
+                &words_writer, &compact_lattice_writer, &lattice_writer,
+                &like)) {
           tot_like += like;
           frame_count += loglikes.NumRows();
           num_success++;

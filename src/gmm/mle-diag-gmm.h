@@ -5,6 +5,8 @@
 //                      Johns Hopkins University (author: Daniel Povey)
 //                      Cisco Systems (author: Neha Agrawal)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -140,6 +142,16 @@ class AccumDiagGmm {
                                const VectorBase<BaseFloat> &data,
                                BaseFloat frame_posterior);
 
+  /// This does the same job as AccumulateFromDiag, but using
+  /// multiple threads.  Returns sum of (log-likelihood times
+  /// frame weight) over all frames.
+  BaseFloat AccumulateFromDiagMultiThreaded(
+      const DiagGmm &gmm,
+      const MatrixBase<BaseFloat> &data,
+      const VectorBase<BaseFloat> &frame_weights,
+      int32 num_threads);
+  
+  
   /// Increment the stats for this component by the specified amount
   /// (not all parts may be taken, depending on flags).
   /// Note: x_stats and x2_stats are assumed to already be multiplied by "occ"
@@ -171,7 +183,9 @@ class AccumDiagGmm {
   const VectorBase<double> &occupancy() const { return occupancy_; }
   const MatrixBase<double> &mean_accumulator() const { return mean_accumulator_; }
   const MatrixBase<double> &variance_accumulator() const { return variance_accumulator_; }
-  
+
+  // used in testing.
+  void AssertEqual(const AccumDiagGmm &other); 
  private:
   int32 dim_;
   int32 num_comp_;

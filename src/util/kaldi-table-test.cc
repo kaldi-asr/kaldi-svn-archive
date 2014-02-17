@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,12 +37,12 @@ void UnitTestReadScriptFile() {
     ss << "c d e \n";
     std::vector<pr> script;
     bool ans = ReadScriptFile(ss, true, &script);
-    assert(ans);
+    KALDI_ASSERT(ans);
     std::vector<pr> script2;
     script2.push_back(std::make_pair<std::string, std::string>("a", "b"));
     script2.push_back(std::make_pair<std::string, std::string>("c", "d"));
     script2.push_back(std::make_pair<std::string, std::string>("c", "d e"));
-    assert(script == script2);
+    KALDI_ASSERT(script == script2);
   }
   {
     typedef std::pair<std::string, std::string>  pr;
@@ -48,7 +50,7 @@ void UnitTestReadScriptFile() {
     ss << " a \n";
     std::vector<pr> script;
     // suppress the warning since I already checked it's OK.
-    assert(!ReadScriptFile(ss, false, &script));
+    KALDI_ASSERT(!ReadScriptFile(ss, false, &script));
   }
   {
     typedef std::pair<std::string, std::string>  pr;
@@ -56,7 +58,7 @@ void UnitTestReadScriptFile() {
     ss << "\n";
     std::vector<pr> script;
     // suppress the warning since I already checked it's OK.
-    assert(!ReadScriptFile(ss, false, &script));
+    KALDI_ASSERT(!ReadScriptFile(ss, false, &script));
   }
 #ifndef _MSC_VER
   {
@@ -66,10 +68,10 @@ void UnitTestReadScriptFile() {
     std::vector<pr> script;
     sleep(1);  // This test does not work without this sleep:
     bool ans = ReadScriptFile("gunzip -c tmpf.gz |", true, &script);
-    assert(ans);
+    KALDI_ASSERT(ans);
     std::vector<pr> script2;
     script2.push_back(std::make_pair<std::string, std::string>("a", "b"));
-    assert(script == script2);
+    KALDI_ASSERT(script == script2);
   }
 
   {
@@ -77,12 +79,12 @@ void UnitTestReadScriptFile() {
     // because script files should not have binary header.
     ko.Stream() << "a b\n";
     bool ans = ko.Close();
-    assert(ans);
+    KALDI_ASSERT(ans);
     sleep(1);  // This test does not work without this sleep:
     // seems to be some kind of file-system latency.
     std::vector<pr> script;
     ans = ReadScriptFile("gunzip -c tmpf.gz |", false, &script);
-    assert(!ans);
+    KALDI_ASSERT(!ans);
   }
 #endif
 }
@@ -94,74 +96,74 @@ void UnitTestClassifyWspecifier() {
     std::string a = "b,ark:foo|";
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kArchiveWspecifier && ark == "foo|" && scp == "" && opts.binary == true);
+    KALDI_ASSERT(ans == kArchiveWspecifier && ark == "foo|" && scp == "" && opts.binary == true);
   }
 
   {
     std::string a = "t,ark:foo|";
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kArchiveWspecifier && ark == "foo|" && scp == "" && opts.binary == false);
+    KALDI_ASSERT(ans == kArchiveWspecifier && ark == "foo|" && scp == "" && opts.binary == false);
   }
 
   {
     std::string a = "t,scp:a b c d";
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kScriptWspecifier && ark == "" && scp == "a b c d" && opts.binary == false);
+    KALDI_ASSERT(ans == kScriptWspecifier && ark == "" && scp == "a b c d" && opts.binary == false);
   }
 
   {
     std::string a = "t,ark,scp:a b,c,d";
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kBothWspecifier && ark == "a b" && scp == "c,d" && opts.binary == false);
+    KALDI_ASSERT(ans == kBothWspecifier && ark == "a b" && scp == "c,d" && opts.binary == false);
   }
 
   {
     std::string a = "";
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kNoWspecifier);
+    KALDI_ASSERT(ans == kNoWspecifier);
   }
 
   {
     std::string a = " t,ark:boo";
     WspecifierType ans = ClassifyWspecifier(a, NULL, NULL, NULL);
-    assert(ans == kNoWspecifier);
+    KALDI_ASSERT(ans == kNoWspecifier);
   }
 
   {
     std::string a = " t,ark:boo";  // leading space not allowed.
     WspecifierType ans = ClassifyWspecifier(a, NULL, NULL, NULL);
-    assert(ans == kNoWspecifier);
+    KALDI_ASSERT(ans == kNoWspecifier);
   }
 
   {
     std::string a = "t,ark:boo ";  // trailing space not allowed.
     WspecifierType ans = ClassifyWspecifier(a, NULL, NULL, NULL);
-    assert(ans == kNoWspecifier);
+    KALDI_ASSERT(ans == kNoWspecifier);
   }
 
   {
     std::string a = "b,ark,scp:,";  // empty ark, scp fnames valid.
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kBothWspecifier && ark == "" && scp == "" && opts.binary == true);
+    KALDI_ASSERT(ans == kBothWspecifier && ark == "" && scp == "" && opts.binary == true);
   }
 
   {
     std::string a = "f,b,ark,scp:,";  // empty ark, scp fnames valid.
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kBothWspecifier && ark == "" && scp == "" && opts.binary == true && opts.flush == true);
+    KALDI_ASSERT(ans == kBothWspecifier && ark == "" && scp == "" && opts.binary == true && opts.flush == true);
   }
 
   {
     std::string a = "nf,b,ark,scp:,";  // empty ark, scp fnames valid.
     std::string ark = "x", scp = "y"; WspecifierOptions opts;
     WspecifierType ans = ClassifyWspecifier(a, &ark, &scp, &opts);
-    assert(ans == kBothWspecifier && ark == "" && scp == "" && opts.binary == true && opts.flush == false);
+    KALDI_ASSERT(ans == kBothWspecifier && ark == "" && scp == "" && opts.binary == true && opts.flush == false);
   }
 
 
@@ -175,7 +177,7 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kArchiveRspecifier && fname == "foo|");
+    KALDI_ASSERT(ans == kArchiveRspecifier && fname == "foo|");
   }
 
 
@@ -184,7 +186,7 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kArchiveRspecifier && fname == "foo|");
+    KALDI_ASSERT(ans == kArchiveRspecifier && fname == "foo|");
   }
 
   {
@@ -192,7 +194,7 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kArchiveRspecifier && fname == "foo|");
+    KALDI_ASSERT(ans == kArchiveRspecifier && fname == "foo|");
   }
 
 
@@ -201,7 +203,7 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kScriptRspecifier && fname == "foo|");
+    KALDI_ASSERT(ans == kScriptRspecifier && fname == "foo|");
   }
 
   {
@@ -209,7 +211,7 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kNoRspecifier && fname == "");
+    KALDI_ASSERT(ans == kNoRspecifier && fname == "");
   }
 
   {
@@ -217,7 +219,7 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kNoRspecifier && fname == "");
+    KALDI_ASSERT(ans == kNoRspecifier && fname == "");
   }
 
   {
@@ -225,8 +227,8 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kScriptRspecifier && fname == "foo|");
-    assert(opts.once);
+    KALDI_ASSERT(ans == kScriptRspecifier && fname == "foo|");
+    KALDI_ASSERT(opts.once);
   }
 
   {
@@ -234,8 +236,8 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kScriptRspecifier && fname == "foo|");
-    assert(!opts.once);
+    KALDI_ASSERT(ans == kScriptRspecifier && fname == "foo|");
+    KALDI_ASSERT(!opts.once);
   }
 
   {
@@ -243,8 +245,8 @@ void UnitTestClassifyRspecifier() {
     std::string fname = "x";
     RspecifierOptions opts;
     RspecifierType ans = ClassifyRspecifier(a, &fname, &opts);
-    assert(ans == kScriptRspecifier && fname == "foo|");
-    assert(!opts.once && opts.sorted);
+    KALDI_ASSERT(ans == kScriptRspecifier && fname == "foo|");
+    KALDI_ASSERT(!opts.once && opts.sorted);
   }
 
 
@@ -252,66 +254,66 @@ void UnitTestClassifyRspecifier() {
     std::string a = "scp:foo|";
     std::string fname = "x";
     RspecifierType ans = ClassifyRspecifier(a, &fname, NULL);
-    assert(ans == kScriptRspecifier && fname == "foo|");
+    KALDI_ASSERT(ans == kScriptRspecifier && fname == "foo|");
   }
 
   {
     std::string a = "scp:";  // empty fname valid.
     std::string fname = "x";
     RspecifierType ans = ClassifyRspecifier(a, &fname, NULL);
-    assert(ans == kScriptRspecifier && fname == "");
+    KALDI_ASSERT(ans == kScriptRspecifier && fname == "");
   }
 
   {
     std::string a = "scp:";  // empty fname valid.
     RspecifierType ans = ClassifyRspecifier(a, NULL, NULL);
-    assert(ans == kScriptRspecifier);
+    KALDI_ASSERT(ans == kScriptRspecifier);
   }
 
   {
     std::string a = "";
     RspecifierType ans = ClassifyRspecifier(a, NULL, NULL);
-    assert(ans == kNoRspecifier);
+    KALDI_ASSERT(ans == kNoRspecifier);
   }
 
   {
     std::string a = "scp";
     RspecifierType ans = ClassifyRspecifier(a, NULL, NULL);
-    assert(ans == kNoRspecifier);
+    KALDI_ASSERT(ans == kNoRspecifier);
   }
 
   {
     std::string a = "ark";
     RspecifierType ans = ClassifyRspecifier(a, NULL, NULL);
-    assert(ans == kNoRspecifier);
+    KALDI_ASSERT(ans == kNoRspecifier);
   }
 
   {
     std::string a = "ark:foo ";  // trailing space not allowed.
     RspecifierType ans = ClassifyRspecifier(a, NULL, NULL);
-    assert(ans == kNoRspecifier);
+    KALDI_ASSERT(ans == kNoRspecifier);
   }
 
   // Testing it accepts the meaningless t, and b, prefixes.
   {
     std::string a = "b,scp:a", b;
     RspecifierType ans = ClassifyRspecifier(a, &b, NULL);
-    assert(ans == kScriptRspecifier && b == "a");
+    KALDI_ASSERT(ans == kScriptRspecifier && b == "a");
   }
   {
     std::string a = "t,scp:a", b;
     RspecifierType ans = ClassifyRspecifier(a, &b, NULL);
-    assert(ans == kScriptRspecifier && b == "a");
+    KALDI_ASSERT(ans == kScriptRspecifier && b == "a");
   }
   {
     std::string a = "b,ark:a", b;
     RspecifierType ans = ClassifyRspecifier(a, &b, NULL);
-    assert(ans == kArchiveRspecifier && b == "a");
+    KALDI_ASSERT(ans == kArchiveRspecifier && b == "a");
   }
   {
     std::string a = "t,ark:a", b;
     RspecifierType ans = ClassifyRspecifier(a, &b, NULL);
-    assert(ans == kArchiveRspecifier && b == "a");
+    KALDI_ASSERT(ans == kArchiveRspecifier && b == "a");
   }
 
 
@@ -335,7 +337,7 @@ void UnitTestTableSequentialInt32(bool binary) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialInt32Reader sbr("ark:tmpf");
   std::vector<std::string> k2;
@@ -344,9 +346,9 @@ void UnitTestTableSequentialInt32(bool binary) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  assert(v2 == v);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  KALDI_ASSERT(v2 == v);
 }
 
 void UnitTestTableSequentialBool(bool binary) {
@@ -367,7 +369,7 @@ void UnitTestTableSequentialBool(bool binary) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialBoolReader sbr("ark:tmpf");
   std::vector<std::string> k2;
@@ -376,9 +378,9 @@ void UnitTestTableSequentialBool(bool binary) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  assert(v2 == v);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  KALDI_ASSERT(v2 == v);
 }
 
 
@@ -400,7 +402,7 @@ void UnitTestTableSequentialDouble(bool binary) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialDoubleReader sbr("ark:tmpf");
   std::vector<std::string> k2;
@@ -409,14 +411,14 @@ void UnitTestTableSequentialDouble(bool binary) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  if (binary)
-    assert(v2 == v);
-  else {
-    assert(v2.size() == v.size());
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  if (binary) {
+    KALDI_ASSERT(v2 == v);
+  } else {
+    KALDI_ASSERT(v2.size() == v.size());
     for (size_t i = 0; i < v2.size(); i++)
-      assert(ApproxEqual(v[i], v2[i]));
+      KALDI_ASSERT(ApproxEqual(v[i], v2[i]));
   }
 }
 
@@ -440,7 +442,7 @@ void UnitTestTableSequentialDoubleBoth(bool binary, bool read_scp) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialDoubleReader sbr(read_scp ? "scp:tmpf.scp" : "ark:tmpf");
   std::vector<std::string> k2;
@@ -449,14 +451,14 @@ void UnitTestTableSequentialDoubleBoth(bool binary, bool read_scp) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  if (binary)
-    assert(v2 == v);
-  else {
-    assert(v2.size() == v.size());
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  if (binary) {
+    KALDI_ASSERT(v2 == v);
+  } else {
+    KALDI_ASSERT(v2.size() == v.size());
     for (size_t i = 0; i < v2.size(); i++)
-      assert(ApproxEqual(v[i], v2[i]));
+      KALDI_ASSERT(ApproxEqual(v[i], v2[i]));
   }
 }
 
@@ -483,7 +485,7 @@ void UnitTestTableSequentialInt32VectorBoth(bool binary, bool read_scp) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialInt32VectorReader sbr(read_scp ? "scp:tmpf.scp" : "ark:tmpf");
   std::vector<std::string> k2;
@@ -492,9 +494,9 @@ void UnitTestTableSequentialInt32VectorBoth(bool binary, bool read_scp) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  assert(v2 == v);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  KALDI_ASSERT(v2 == v);
 }
 
 
@@ -519,7 +521,7 @@ void UnitTestTableSequentialInt32PairVectorBoth(bool binary, bool read_scp) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialInt32PairVectorReader sbr(read_scp ? "scp:tmpf.scp" : "ark:tmpf");
   std::vector<std::string> k2;
@@ -528,9 +530,9 @@ void UnitTestTableSequentialInt32PairVectorBoth(bool binary, bool read_scp) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  assert(v2 == v);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  KALDI_ASSERT(v2 == v);
 }
 
 
@@ -560,7 +562,7 @@ void UnitTestTableSequentialInt32VectorVectorBoth(bool binary, bool read_scp) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialInt32VectorVectorReader sbr(read_scp ? "scp:tmpf.scp" : "ark:tmpf");
   std::vector<std::string> k2;
@@ -569,9 +571,9 @@ void UnitTestTableSequentialInt32VectorVectorBoth(bool binary, bool read_scp) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  assert(v2 == v);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  KALDI_ASSERT(v2 == v);
 }
 
 
@@ -595,7 +597,7 @@ void UnitTestTableSequentialInt32Script(bool binary) {
   {
     std::vector<std::pair<std::string, std::string> > script2;
     ReadScriptFile("tmp.scp", true, &script2);
-    assert(script2 == script);  // This tests WriteScriptFile and ReadScriptFile.
+    KALDI_ASSERT(script2 == script);  // This tests WriteScriptFile and ReadScriptFile.
   }
 
   bool ans;
@@ -604,7 +606,7 @@ void UnitTestTableSequentialInt32Script(bool binary) {
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialInt32Reader sbr("scp:tmp.scp");
   std::vector<std::string> k2;
@@ -613,9 +615,9 @@ void UnitTestTableSequentialInt32Script(bool binary) {
     k2.push_back(sbr.Key());
     v2.push_back(sbr.Value());
   }
-  assert(sbr.Close());
-  assert(k2 == k);
-  assert(v2 == v);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
+  KALDI_ASSERT(v2 == v);
 }
 
 // Writing as both and reading as archive.
@@ -640,7 +642,7 @@ void UnitTestTableSequentialDoubleMatrixBoth(bool binary, bool read_scp) {
     bw.Write(k[i], *(v[i]));
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialDoubleMatrixReader sbr(read_scp ? "scp:tmpf.scp" : "ark:tmpf");
   std::vector<std::string> k2;
@@ -649,15 +651,15 @@ void UnitTestTableSequentialDoubleMatrixBoth(bool binary, bool read_scp) {
     k2.push_back(sbr.Key());
     v2.push_back(new Matrix<double>(sbr.Value()));
   }
-  assert(sbr.Close());
-  assert(k2 == k);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
   if (binary) {
     for (size_t i = 0; i < v2.size(); i++)
-      assert(v2[i]->ApproxEqual(*(v[i]), 1.0e-10));
+      KALDI_ASSERT(v2[i]->ApproxEqual(*(v[i]), 1.0e-10));
   } else {
-    assert(v2.size() == v.size());
+    KALDI_ASSERT(v2.size() == v.size());
     for (size_t i = 0; i < v2.size(); i++)
-      assert(v2[i]->ApproxEqual(*(v[i])));
+      KALDI_ASSERT(v2[i]->ApproxEqual(*(v[i])));
   }
   for (int32 i = 0; i < sz; i++) {
     delete v[i];
@@ -687,7 +689,7 @@ void UnitTestTableSequentialBaseFloatVectorBoth(bool binary, bool read_scp) {
     bw.Write(k[i], *(v[i]));
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
   SequentialBaseFloatVectorReader sbr(read_scp ? "scp:tmpf.scp" : "ark:tmpf");
   std::vector<std::string> k2;
@@ -696,15 +698,15 @@ void UnitTestTableSequentialBaseFloatVectorBoth(bool binary, bool read_scp) {
     k2.push_back(sbr.Key());
     v2.push_back(new Vector<BaseFloat>(sbr.Value()));
   }
-  assert(sbr.Close());
-  assert(k2 == k);
+  KALDI_ASSERT(sbr.Close());
+  KALDI_ASSERT(k2 == k);
   if (binary) {
     for (size_t i = 0; i < v2.size(); i++)
-      assert(v2[i]->ApproxEqual(*(v[i]), 1.0e-10));
+      KALDI_ASSERT(v2[i]->ApproxEqual(*(v[i]), 1.0e-10));
   } else {
-    assert(v2.size() == v.size());
+    KALDI_ASSERT(v2.size() == v.size());
     for (size_t i = 0; i < v2.size(); i++)
-      assert(v2[i]->ApproxEqual(*(v[i])));
+      KALDI_ASSERT(v2[i]->ApproxEqual(*(v[i])));
   }
   for (int32 i = 0; i < sz; i++) {
     delete v[i];
@@ -751,7 +753,7 @@ void UnitTestTableRandomBothDouble(bool binary, bool read_scp,
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
 
   std::string name;
@@ -783,12 +785,13 @@ void UnitTestTableRandomBothDouble(bool binary, bool read_scp,
         if (cur_key == k[i]) value = v[i];
       if (rand() % 2 == 0) {
         bool ans = sbr.HasKey(cur_key);
-        assert(ans == true);
+        KALDI_ASSERT(ans == true);
       }
-      if (binary)
-        assert(value == sbr.Value(cur_key));
-      else
-        assert(ApproxEqual(value, sbr.Value(cur_key)));
+      if (binary) {
+        KALDI_ASSERT(value == sbr.Value(cur_key));
+      } else {
+        KALDI_ASSERT(ApproxEqual(value, sbr.Value(cur_key)));
+      }
     }
   }
 }
@@ -823,7 +826,7 @@ void UnitTestTableRandomBothDoubleMatrix(bool binary, bool read_scp,
     bw.Write(k[i], v[i]);
   }
   ans = bw.Close();
-  assert(ans);
+  KALDI_ASSERT(ans);
 
 
   std::string name;
@@ -855,12 +858,13 @@ void UnitTestTableRandomBothDoubleMatrix(bool binary, bool read_scp,
         if (cur_key == k[i]) value_ptr = &(v[i]);
       if (rand() % 2 == 0) {
         bool ans = sbr.HasKey(cur_key);
-        assert(ans == true);
+        KALDI_ASSERT(ans == true);
       }
-      if (binary)
-        assert(value_ptr->ApproxEqual(sbr.Value(cur_key), 1.0e-10));
-      else
-        assert(value_ptr->ApproxEqual(sbr.Value(cur_key), 0.01));
+      if (binary) {
+        KALDI_ASSERT(value_ptr->ApproxEqual(sbr.Value(cur_key), 1.0e-10));
+      } else {
+        KALDI_ASSERT(value_ptr->ApproxEqual(sbr.Value(cur_key), 0.01));
+      }
     }
   }
 }

@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Petr Motlicek;  Karel Vesely
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -88,7 +90,7 @@ void Plp::Compute(const VectorBase<BaseFloat> &wave,
                   BaseFloat vtln_warp,
                   Matrix<BaseFloat> *output,
                   Vector<BaseFloat> *wave_remainder) {
-  assert(output != NULL);
+  KALDI_ASSERT(output != NULL);
   int32 rows_out = NumFrames(wave.Dim(), opts_.frame_opts),
       cols_out = opts_.num_ceps;
   if (rows_out == 0)
@@ -105,7 +107,7 @@ void Plp::Compute(const VectorBase<BaseFloat> &wave,
   Vector<BaseFloat> raw_cepstrum(opts_.lpc_order);  // not including C0,
   // and size may differ from final size.
   Vector<BaseFloat> final_cepstrum(opts_.num_ceps);
-  assert(opts_.num_ceps <= opts_.lpc_order+1);  // our num-ceps includes C0.
+  KALDI_ASSERT(opts_.num_ceps <= opts_.lpc_order+1);  // our num-ceps includes C0.
   for (int32 r = 0; r < rows_out; r++) {  // r is frame index..
     BaseFloat log_energy;
     ExtractWindow(wave, r, opts_.frame_opts,

@@ -5,6 +5,8 @@
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -90,7 +92,7 @@ class OnlineFasterDecoder : public FasterDecoder {
         state_(kEndFeats), frame_(0), utt_frames_(0) {}
 
   DecodeState Decode(DecodableInterface *decodable);
-
+  
   // Makes a linear graph, by tracing back from the last "immortal" token
   // to the previous one
   bool PartialTraceback(fst::MutableFst<LatticeArc> *out_fst);
@@ -104,8 +106,6 @@ class OnlineFasterDecoder : public FasterDecoder {
   bool EndOfUtterance();
 
   int32 frame() { return frame_; }
-
-  DecodeState state() { return state_; }
 
  private:
   void ResetDecoder(bool full);
@@ -125,12 +125,7 @@ class OnlineFasterDecoder : public FasterDecoder {
   const OnlineFasterDecoderOpts opts_;
   const ConstIntegerSet<int32> silence_set_; // silence phones IDs
   const TransitionModel &trans_model_; // needed for trans-id -> phone conversion
-
   const BaseFloat max_beam_; // the maximum allowed beam
-
- // Change to protected for implementation of NewStart() function
- // See pykaldi/pykaldi-faster-decoder.cc
- protected:
   BaseFloat &effective_beam_; // the currently used beam
   DecodeState state_; // the current state of the decoder
   int32 frame_; // the next frame to be processed

@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -160,9 +162,9 @@ int main(int argc, char *argv[]) {
         HtkHeader header = {
           features.NumRows(),
           100000,  // 10ms shift
-          sizeof(float)*features.NumCols(),
-          006 | // MFCC
-          (mfcc_opts.use_energy ? 0100 : 020000) // energy; otherwise c0
+          static_cast<int16>(sizeof(float)*(features.NumCols())),
+          static_cast<uint16>( 006 | // MFCC
+          (mfcc_opts.use_energy ? 0100 : 020000)) // energy; otherwise c0
         };
         p.second = header;
         htk_writer.Write(utt, p);

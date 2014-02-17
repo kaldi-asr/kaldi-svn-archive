@@ -4,6 +4,8 @@
 //                      Georg Stemmer
 //                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -166,7 +168,7 @@ void FmllrInnerUpdate(SpMatrix<double> &inv_G,
   cofact_mat.Invert(&logdet);
   // Removed this step because it's not necessary and could lead to
   // under/overflow [Dan]
-  // cofact_mat.Scale(std::exp(logdet));
+  // cofact_mat.Scale(exp(logdet));
   
   // The extended cofactor vector for the current row
   Vector<double> cofact_row(dim + 1);

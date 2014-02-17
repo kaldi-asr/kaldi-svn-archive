@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Haihua Xu
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -317,7 +319,7 @@ class SplitEventMap: public EventMap {  // A decision tree [non-leaf] node.
   SplitEventMap(EventKeyType key, const std::vector<EventValueType> &yes_set,
                 EventMap *yes, EventMap *no): key_(key), yes_set_(yes_set), yes_(yes), no_(no) {
     KALDI_PARANOID_ASSERT(IsSorted(yes_set));
-    assert(yes_ != NULL && no_ != NULL);
+    KALDI_ASSERT(yes_ != NULL && no_ != NULL);
   }
 
 
@@ -325,7 +327,7 @@ class SplitEventMap: public EventMap {  // A decision tree [non-leaf] node.
   /// This constructor used in the Copy() function.
   SplitEventMap(EventKeyType key, const ConstIntegerSet<EventValueType> &yes_set,
                 EventMap *yes, EventMap *no): key_(key), yes_set_(yes_set), yes_(yes), no_(no) {
-    assert(yes_ != NULL && no_ != NULL);
+    KALDI_ASSERT(yes_ != NULL && no_ != NULL);
   }
   void Destroy() {
     delete yes_; delete no_;

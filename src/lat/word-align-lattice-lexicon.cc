@@ -2,6 +2,8 @@
 
 // Copyright 2013 Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -277,7 +279,7 @@ class LatticeLexiconWordAligner {
     // that we won't necessarily give a final-prob to all of the things
     // that go onto final_queue_.
     if (lat_in_.Final(tuple.input_state) != CompactLatticeWeight::Zero())
-      final_queue_.push_back(std::make_pair<Tuple, StateId>(tuple, output_state));
+      final_queue_.push_back(std::make_pair(tuple, output_state));
   }
   
   LatticeLexiconWordAligner(const CompactLattice &lat,
@@ -292,6 +294,8 @@ class LatticeLexiconWordAligner {
       partial_word_label_(partial_word_label == 0 ?
                           kTemporaryEpsilon : partial_word_label),
       error_(false) {
+    // lat_in_ is after PhoneAlignLattice, it is not deterministic and contains epsilons
+
     fst::CreateSuperFinal(&lat_in_); // Creates a super-final state, so the
     // only final-probs are One().  Note: the member lat_in_ is not a reference.
     
@@ -561,7 +565,7 @@ void LatticeLexiconWordAligner::ProcessFinalForceOut() {
       // Note: the following call may add to queue_, but we'll clear it,
       // we don't want to process these states.
       StateId new_state = GetStateForTuple(tuple);
-      new_final_queue_.push_back(std::make_pair<Tuple, StateId>(tuple, new_state));
+      new_final_queue_.push_back(std::make_pair(tuple, new_state));
     }
   }
   queue_.clear();
@@ -811,7 +815,7 @@ void WordAlignLatticeLexiconInfo::UpdateNumPhonesMap(
   int32 num_phones = static_cast<int32>(lexicon_entry.size()) - 2;
   int32 word = lexicon_entry[0];
   if (num_phones_map_.count(word) == 0)
-    num_phones_map_[word] = std::make_pair<int32, int32>(num_phones, num_phones);
+    num_phones_map_[word] = std::make_pair(num_phones, num_phones);
   else {
     std::pair<int32, int32> &pr = num_phones_map_[word];
     pr.first = std::min(pr.first, num_phones); // update min-num-phones
@@ -976,10 +980,20 @@ bool WordAlignLatticeLexicon(const CompactLattice &lat,
   phone_align_opts.reorder = opts.reorder;
   phone_align_opts.replace_output_symbols = false;
   phone_align_opts.remove_epsilon = false;
-  
+ 
+  // Input Lattice should be deterministic and w/o epsilons.
+  bool test = true;
+  uint64 props = lat.Properties(fst::kIDeterministic|fst::kIEpsilons, test);
+  if (props != fst::kIDeterministic) {
+    KALDI_WARN << "[Lattice has input epsilons and/or is not input-deterministic "
+               << "(in Mohri sense)]-- i.e. lattice is not deterministic.  "
+               << "Word-alignment may be slow and-or blow up in memory.";
+  }
+
   CompactLattice phone_aligned_lat;
   bool ans = PhoneAlignLattice(lat, tmodel, phone_align_opts,
                                &phone_aligned_lat);
+  // 'phone_aligned_lat' is no longer deterministic and contains epsilons.
 
   int32 max_states;
   if (opts.max_expand <= 0) {

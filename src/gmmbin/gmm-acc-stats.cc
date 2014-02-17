@@ -2,6 +2,8 @@
 
 // Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,8 +23,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "gmm/mle-am-diag-gmm.h"
-
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
@@ -80,6 +81,7 @@ int main(int argc, char *argv[]) {
     for (; !feature_reader.Done(); feature_reader.Next()) {
       std::string key = feature_reader.Key();
       if (!posteriors_reader.HasKey(key)) {
+        KALDI_WARN << "Could not find posteriors for utterance " << key;
         num_err++;
       } else {
         const Matrix<BaseFloat> &mat = feature_reader.Value();

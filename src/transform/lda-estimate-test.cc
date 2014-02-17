@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Jan Silovsky;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -74,7 +76,7 @@ test_io(const LdaEstimate &lda_est, bool binary) {
   lda_est2.Estimate(opts, &m2);
   
   m1.AddMat(-1.0, m2, kNoTrans);
-  assert(m1.IsZero(1.0e-02));
+  KALDI_ASSERT(m1.IsZero(1.0e-02));
 }
 
 void
@@ -184,14 +186,14 @@ UnitTestEstimateLda() {
   // following product should give unit matrix
   tmp_mat.AddMatMatMat(1.0, lda_mat, kNoTrans, wc_covar_mat, kNoTrans,
     lda_mat, kTrans, 0.0);
-  assert(tmp_mat.IsUnit());
+  KALDI_ASSERT(tmp_mat.IsUnit());
   // following product should give diagonal matrix with ordered diagonal (desc)
   tmp_mat.AddMatMatMat(1.0, lda_mat, kNoTrans, bc_covar_mat, kNoTrans,
     lda_mat, kTrans, 0.0);
-  assert(tmp_mat.IsDiagonal());
+  KALDI_ASSERT(tmp_mat.IsDiagonal());
   for (int32 i = 1; i < static_cast<int32>(dim); i++) {
     if (tmp_mat(i, i) < 1.0e-10) { tmp_mat(i, i) = 0.0; }
-    assert(tmp_mat(i - 1, i - 1) >= tmp_mat(i, i));
+    KALDI_ASSERT(tmp_mat(i - 1, i - 1) >= tmp_mat(i, i));
   }
 
   // test I/O

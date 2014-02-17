@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -161,7 +163,7 @@ int main(int argc, char *argv[]) {
         HtkHeader header = {
           features.NumRows(),
           100000,  // 10ms shift
-          sizeof(float)*features.NumCols(),
+          static_cast<int16>(sizeof(float)*features.NumCols()),
           013 | // PLP
           020000 // C0 [no option currently to use energy in PLP.
         };

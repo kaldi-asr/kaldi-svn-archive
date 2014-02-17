@@ -48,18 +48,26 @@ cat > $src_ffi <<CCODE
 #include <stdio.h>
 #include <ffi.h>
 int main() {
-    ffi_cif cif; ffi_type *args[1]; void *values[1]; char *s; int rc;
-    args[0] = &ffi_type_pointer;
-    values[0] = &s;
-    if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1, &ffi_type_uint, args) == FFI_OK) {
-       s = "\nTest for ffi headers PASSED! You have ffi installed.\n";
-       ffi_call(&cif, puts, &rc, values);
-     }
-    return 0;
+ffi_cif cif; ffi_type *args[1]; void *values[1]; char *s; int rc;
+/* Initialize the argument info vectors */
+args[0] = &ffi_type_pointer;
+values[0] = &s;
+/* Initialize the cif */
+if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, 1, &ffi_type_uint, args) == FFI_OK) {
+   s = "Hello World!- YOU HAVE ffi INSTALLED";
+   ffi_call(&cif, puts, &rc, values);
+   /* rc now holds the result of the call to puts */
+   /* values holds a pointer to the function's arg, so to
+      call puts() again all we need to do is change the
+      value of s */
+   s = "FFI works!";
+   ffi_call(&cif, puts, &rc, values);
+ }
+return 0;
 }
 CCODE
 rm -f $exe_ffi  # clean previous attempts
-gcc -o $exe_ffi $src_ffi -lffi 2>/dev/null # build 
+gcc -o $exe_ffi $src_ffi -lffi  # build 
 chmod u+x $exe_ffi  # make it executable (gcc usually does it too)
 
 # checking the exit status = ffi installed?
@@ -71,7 +79,7 @@ if [ $? -ne 0 ] ; then
     echo "Mac OS: brew install libffi"
     exit 1
 fi
-rm $exe_ffi
+
 
 # names of the extracted directories
 cffiname=cffi-0.6
@@ -128,33 +136,6 @@ export PYTHONPATH="$PYTHONPATH:$new_ppath"
 echo; echo "Adding the $new_ppath to PYTHONPATH"
 echo "DO THE SAME IN YOUR PERMANENT SETTINGS TO USE THE CFFI REGULARLY!"; echo
 
-if [ "$python_version" == "python2.6" ] ; then 
-echo Downloading and extracting ordereddict 
-    # Ordered dict is installed by default on 2.7+
-    ordereddictname=ordereddict-1.1
-    ordereddicttar=ordereddict-1.1.tar.gz
-    ordereddicturl=https://pypi.python.org/packages/source/o/ordereddict/ordereddict-1.1.tar.gz
-    downloader $ordereddicttar $ordereddicturl
-    tar -xovzf $ordereddicttar || exit 1
-    echo "*******Installing $ordereddictname" 
-    pushd $ordereddictname
-    python setup.py install --prefix="$prefix" || exit 1
-    popd
-
-    echo Downloading and extracting argparse 
-    # Argparse is installed by default on 2.7+
-    argparsename=argparse-1.2.1
-    argparsetar=argparse-1.2.1.tar.gz
-    argparseurl=http://argparse.googlecode.com/files/argparse-1.2.1.tar.gz
-    downloader $argparsetar $argparseurl
-    tar -xovzf $argparsetar || exit 1
-    echo "*******Installing $argparsename" 
-    pushd $argparsename
-    python setup.py install --prefix="$prefix" || exit 1
-    popd
-fi
-
-
 
 echo "*******Installing $pytestname"
 pushd $pytestname
@@ -187,4 +168,4 @@ if [ ! -e $(python -c 'import cffi') ]; then
 fi
 
 echo; echo SUCCESS ; echo
- echo "USE: export PYTHONPATH=\"\$PYTHONPATH:$new_ppath\""; echo "for using cffi system wide!"; echo
+echo "ADD the"; echo "$new_ppath"; echo "to PYTHONPATH for using cffi regularly!"; echo

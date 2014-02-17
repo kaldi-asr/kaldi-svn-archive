@@ -1,18 +1,16 @@
 #!/bin/bash
-# Copyright 2010-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
+# Copyright 2010-2011  Microsoft Corporation 
+#           2012-2013  Johns Hopkins University (Author: Daniel Povey)
 # Apache 2.0
 
 
-# This script operates on a directory, such as in data/train/,
-# that contains some subset of the following files:
-#  feats.scp
-#  wav.scp
-#  spk2utt
-#  utt2spk
-#  text
-# It creates a subset of that data, consisting of some specified
-# number of utterances.  (The selected utterances are distributed
-# evenly throughout the file, by the program ./subset_scp.pl).
+# This script operates on a data directory, such as in data/train/.
+# See http://kaldi.sourceforge.net/data_prep.html#data_prep_data
+# for what these directories contain.
+
+# The script It creates a subset of that data, consisting of some specified
+# number of utterances.  (The selected utterances are distributed evenly
+# throughout the file, by the program ./subset_scp.pl).
 
 # There are four options, none compatible with any other.
 
@@ -25,7 +23,10 @@
 
 # If you give the --shortest option, it will give you the n shortest utterances.
 
-# If you give the --first option it will just give you the n first utterances.
+# If you give the --first option, it will just give you the n first utterances.
+
+# If you give the --last option, it will just give you the n last utterances.
+
 
 shortest=false
 perspk=false
@@ -58,11 +59,12 @@ fi
 
 if [ $# != 3 ]; then
   echo "Usage: "
-  echo "  subset_data_dir.sh [--speakers|--shortest|--first|--per-spk] <srcdir> <num-utt> <destdir>"
+  echo "  subset_data_dir.sh [--speakers|--shortest|--first|--last|--per-spk] <srcdir> <num-utt> <destdir>"
   echo "  subset_data_dir.sh [--spk-list <speaker-list-file>] <srcdir> <destdir>"
   echo "By default, randomly selects <num-utt> utterances from the data directory."
   echo "With --speakers, randomly selects enough speakers that we have <num-utt> utterances"
   echo "With --first, selects the first <num-utt> utterances"
+  echo "With --last, selects the last <num-utt> utterances"
   echo "With --shortest, selects the shortest <num-utt> utterances."
   exit 1;
 fi
@@ -88,6 +90,7 @@ fi
 function do_filtering {
   # assumes the utt2spk and spk2utt files already exist.
   [ -f $srcdir/feats.scp ] && utils/filter_scp.pl $destdir/utt2spk <$srcdir/feats.scp >$destdir/feats.scp
+  [ -f $srcdir/vad.scp ] && utils/filter_scp.pl $destdir/utt2spk <$srcdir/vad.scp >$destdir/vad.scp
   [ -f $srcdir/wav.scp ] && utils/filter_scp.pl $destdir/utt2spk <$srcdir/wav.scp >$destdir/wav.scp
   [ -f $srcdir/text ] && utils/filter_scp.pl $destdir/utt2spk <$srcdir/text >$destdir/text
   [ -f $srcdir/spk2gender ] && utils/filter_scp.pl $destdir/spk2utt <$srcdir/spk2gender >$destdir/spk2gender

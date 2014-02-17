@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation, Go-Vivace Inc.
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,6 +21,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
+#include "hmm/posterior.h"
 #include "transform/lda-estimate.h"
 
 /** @brief Accumulate LDA statistics based on pdf-ids. Inputs are the
@@ -69,7 +72,7 @@ int main(int argc, char *argv[]) {
     for (;!feature_reader.Done(); feature_reader.Next()) {
       std::string utt = feature_reader.Key();
       if (!posterior_reader.HasKey(utt)) {
-        KALDI_WARN << "No features for utterance " << utt;
+        KALDI_WARN << "No posteriors for utterance " << utt;
         num_fail++;
         continue;
       }

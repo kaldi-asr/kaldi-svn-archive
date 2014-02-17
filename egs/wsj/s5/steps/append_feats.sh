@@ -10,6 +10,7 @@
 # Begin configuration section.
 cmd=run.pl
 nj=4
+compress=true
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -39,8 +40,8 @@ utils/split_data.sh $data_src2 $nj || exit 1;
 mkdir -p $mfccdir $logdir
 
 mkdir -p $data 
-cp $data_src1/* $data/ # so we get the other files, such as utt2spk.
-rm $data/cmvn.scp
+cp $data_src1/* $data/ 2>/dev/null # so we get the other files, such as utt2spk.
+rm $data/cmvn.scp 2>/dev/null 
 rm -r $data/split* 2>/dev/null
 
 # use "name" as part of name of the archive.
@@ -48,8 +49,9 @@ name=`basename $data`
 
 $cmd JOB=1:$nj $logdir/append.JOB.log \
    append-feats --truncate-frames=true \
-   scp:$data_src1/split$nj/JOB/feats.scp scp:$data_src2/split$nj/JOB/feats.scp \
-   ark,scp:$mfccdir/appended_$name.JOB.ark,$mfccdir/appended_$name.JOB.scp || exit 1;
+   scp:$data_src1/split$nj/JOB/feats.scp scp:$data_src2/split$nj/JOB/feats.scp ark:- \| \
+   copy-feats --compress=$compress ark:- \
+    ark,scp:$mfccdir/appended_$name.JOB.ark,$mfccdir/appended_$name.JOB.scp || exit 1;
               
 # concatenate the .scp files together.
 for ((n=1; n<=nj; n++)); do

@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation
 // Copyright 2012-2013  Johns Hopkins University (Authors: Guoguo Chen, Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -47,7 +49,8 @@ template<class Arc>
 typename Arc::StateId NumArcs(const ExpandedFst<Arc> &fst);
 
 /// GetInputSymbols gets the list of symbols on the input of fst
-/// (including epsilon, if include_eps == true)
+/// (including epsilon, if include_eps == true), as a sorted, unique
+/// list.
 template<class Arc, class I>
 void GetInputSymbols(const Fst<Arc> &fst,
                      bool include_eps,
@@ -153,6 +156,16 @@ bool GetLinearSymbolSequences(const Fst<Arc> &fst,
                               vector<typename Arc::Weight> *tot_weight_out);
 
 
+/// This function converts an FST with a special structure, which is
+/// output by the OpenFst functions ShortestPath and RandGen, and converts
+/// them into a vector of separate FSTs.  This special structure is that
+/// the only state that has more than one (arcs-out or final-prob) is the
+/// start state.  fsts_out is resized to the appropriate size.
+template<class Arc>
+void ConvertNbestToVector(const Fst<Arc> &fst,
+                          vector<VectorFst<Arc> > *fsts_out);
+  
+
 /// Takes the n-shortest-paths (using ShortestPath), but outputs
 /// the result as a vector of up to n fsts.  This function will
 /// size the "fsts_out" vector to however many paths it got
@@ -161,6 +174,8 @@ template<class Arc>
 void NbestAsFsts(const Fst<Arc> &fst,
                  size_t n,
                  vector<VectorFst<Arc> > *fsts_out);
+
+
 
 
 /// Creates unweighted linear acceptor from symbol sequence.

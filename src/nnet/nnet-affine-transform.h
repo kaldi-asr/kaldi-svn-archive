@@ -1,7 +1,9 @@
 // nnet/nnet-affine-transform.h
 
-// Copyright 2011  Karel Vesely
+// Copyright 2011-2014  Brno University of Technology (author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,6 +23,7 @@
 
 
 #include "nnet/nnet-component.h"
+#include "nnet/nnet-various.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
@@ -28,16 +31,50 @@ namespace nnet1 {
 
 class AffineTransform : public UpdatableComponent {
  public:
-  AffineTransform(int32 dim_in, int32 dim_out, Nnet *nnet) 
-    : UpdatableComponent(dim_in, dim_out, nnet), 
+  AffineTransform(int32 dim_in, int32 dim_out) 
+    : UpdatableComponent(dim_in, dim_out), 
       linearity_(dim_out, dim_in), bias_(dim_out),
       linearity_corr_(dim_out, dim_in), bias_corr_(dim_out) 
   { }
   ~AffineTransform()
   { }
 
-  ComponentType GetType() const {
-    return kAffineTransform;
+  Component* Copy() const { return new AffineTransform(*this); }
+  ComponentType GetType() const { return kAffineTransform; }
+  
+  void InitData(std::istream &is) {
+    // define options
+    float bias_mean = -2.0, bias_range = 2.0, param_stddev = 0.1;
+    // parse config
+    std::string token; 
+    while (!is.eof()) {
+      ReadToken(is, false, &token); 
+      /**/ if (token == "<ParamStddev>") ReadBasicType(is, false, &param_stddev);
+      else if (token == "<BiasMean>")    ReadBasicType(is, false, &bias_mean);
+      else if (token == "<BiasRange>")    ReadBasicType(is, false, &bias_range);
+      else KALDI_ERR << "Unknown token " << token << ", a typo in config?"
+                     << " (ParamStddev|BiasMean|BiasRange)";
+      is >> std::ws; // eat-up whitespace
+    }
+
+    //
+    // initialize
+    //
+    Matrix<BaseFloat> mat(output_dim_, input_dim_);
+    for (int32 r=0; r<output_dim_; r++) {
+      for (int32 c=0; c<input_dim_; c++) {
+        mat(r,c) = param_stddev * RandGauss(); // 0-mean Gauss with given std_dev
+      }
+    }
+    linearity_ = mat;
+    //
+    Vector<BaseFloat> vec(output_dim_);
+    for (int32 i=0; i<output_dim_; i++) {
+      // +/- 1/2*bias_range from bias_mean:
+      vec(i) = bias_mean + (RandUniform() - 0.5) * bias_range; 
+    }
+    bias_ = vec;
+    //
   }
 
   void ReadData(std::istream &is, bool binary) {
@@ -53,6 +90,25 @@ class AffineTransform : public UpdatableComponent {
     linearity_.Write(os, binary);
     bias_.Write(os, binary);
   }
+
+  int32 NumParams() const { return linearity_.NumRows()*linearity_.NumCols() + bias_.Dim(); }
+  
+  void GetParams(Vector<BaseFloat>* wei_copy) const {
+    wei_copy->Resize(NumParams());
+    int32 linearity_num_elem = linearity_.NumRows() * linearity_.NumCols(); 
+    wei_copy->Range(0,linearity_num_elem).CopyRowsFromMat(Matrix<BaseFloat>(linearity_));
+    wei_copy->Range(linearity_num_elem, bias_.Dim()).CopyFromVec(Vector<BaseFloat>(bias_));
+  }
+  
+  std::string Info() const {
+    return std::string("\n  linearity") + MomentStatistics(linearity_) +
+           "\n  bias" + MomentStatistics(bias_);
+  }
+  std::string InfoGradient() const {
+    return std::string("\n  linearity_grad") + MomentStatistics(linearity_corr_) +
+           "\n  bias_grad" + MomentStatistics(bias_corr_);
+  }
+
 
   void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
     // precopy bias

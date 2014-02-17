@@ -55,6 +55,7 @@ function filter_file {
       echo "$0: filtered $file_to_filter from $length1 to $length2 lines based on filter $filter."
     fi
   fi
+  rm $file_to_filter.tmp
 }
 
 function filter_recordings {
@@ -81,9 +82,11 @@ function filter_recordings {
     cp $data/segments{,.tmp}; awk '{print $2, $1, $3, $4}' <$data/segments.tmp >$data/segments
     filter_file $tmpdir/recordings $data/segments
     cp $data/segments{,.tmp}; awk '{print $2, $1, $3, $4}' <$data/segments.tmp >$data/segments
+    rm $data/segments.tmp
 
     filter_file $tmpdir/recordings $data/wav.scp
     [ -f $data/reco2file_and_channel ] && filter_file $tmpdir/recordings $data/reco2file_and_channel
+    
   fi
 }
 
@@ -91,21 +94,24 @@ function filter_speakers {
   # throughout this program, we regard utt2spk as primary and spk2utt as derived, so...
   utils/utt2spk_to_spk2utt.pl $data/utt2spk > $data/spk2utt
 
-  if [ -f $data/cmvn.scp ]; then
-    cat $data/spk2utt | awk '{print $1}' >$tmpdir/speakers
-    cat $data/cmvn.scp | awk '{print $1}' >$tmpdir/speakers.cmvn
-    utils/filter_scp.pl $data/cmvn.scp $tmpdir/speakers > $tmpdir/speakers.tmp
-    mv $tmpdir/speakers.tmp $tmpdir/speakers
+  cat $data/spk2utt | awk '{print $1}' > $tmpdir/speakers
+  for s in cmvn.scp spk2gender; do
+    f=$data/$s
+    if [ -f $f ]; then
+      utils/filter_scp.pl $f $tmpdir/speakers > $tmpdir/speakers.tmp
+      mv $tmpdir/speakers.tmp $tmpdir/speakers
+    fi
+  done
 
-    filter_file $tmpdir/speakers $data/cmvn.scp
-    filter_file $tmpdir/speakers $data/spk2utt
-    utils/spk2utt_to_utt2spk.pl $data/spk2utt > $data/utt2spk
-  fi
-  if [ -f $data/spk2gender ]; then
-    # We don't handle the case when the spk2gender does not cover all speakers.
-    cat $data/spk2utt | awk '{print $1}' >$tmpdir/speakers
-    filter_file $tmpdir/speakers $data/spk2gender 
-  fi
+  filter_file $tmpdir/speakers $data/spk2utt
+  utils/spk2utt_to_utt2spk.pl $data/spk2utt > $data/utt2spk
+
+  for s in cmvn.scp spk2gender; do
+    f=$data/$s
+    if [ -f $f ]; then
+      filter_file $tmpdir/speakers $f
+    fi
+  done
 }
 
 function filter_utts {
@@ -141,7 +147,7 @@ function filter_utts {
   else
     nfeats=0
   fi
-  ntext=`cat $data/text | wc -l`
+  ntext=`cat $data/text 2>/dev/null | wc -l`
   if [ "$nutts" -ne "$nfeats" -o "$nutts" -ne "$ntext" ]; then
     echo "fix_data_dir.sh: kept $nutts utterances, vs. $nfeats features and $ntext transcriptions."
   else
@@ -150,8 +156,10 @@ function filter_utts {
 
   for x in utt2spk feats.scp text segments $maybe_wav; do
     if [ -f $data/$x ]; then
-      mv $data/$x $data/.backup/$x
-      utils/filter_scp.pl $tmpdir/utts $data/.backup/$x > $data/$x
+      cp $data/$x $data/.backup/$x
+      if ! cmp -s $data/$x <( utils/filter_scp.pl $tmpdir/utts $data/$x ) ; then
+        utils/filter_scp.pl $tmpdir/utts $data/.backup/$x > $data/$x
+      fi
     fi
   done
 

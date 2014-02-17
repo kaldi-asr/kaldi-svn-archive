@@ -1,7 +1,9 @@
 // nnet/nnet-loss-prior.h
 
-// Copyright 2012  Karel Vesely
+// Copyright 2012  Brno University of Technology (author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,7 +23,7 @@
 #include "base/kaldi-common.h"
 #include "cudamatrix/cu-matrix.h"
 #include "cudamatrix/cu-vector.h"
-#include "cudamatrix/cu-stlvector.h"
+#include "cudamatrix/cu-array.h"
 
 namespace kaldi {
 namespace nnet1 {
@@ -65,10 +67,10 @@ class XentPrior {
   double frames_scaled_nosil_;
   double correct_scaled_nosil_;
 
-  CuStlVector<int32> max_id_;
+  CuArray<int32> max_id_;
   std::vector<int32> max_id_host_;
 
-  CuStlVector<int32>  target_device_;
+  CuArray<int32>  target_device_;
   CuVector<BaseFloat> log_post_tgt_;
   Vector<BaseFloat>   log_post_tgt_host_;
 

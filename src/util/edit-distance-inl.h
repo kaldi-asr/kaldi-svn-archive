@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Haihua Xu;  Yanmin Qian
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -129,9 +131,9 @@ int32 LevenshteinAlignment(const std::vector<T> &a,
                            std::vector<std::pair<T, T> > *output) {
   // Check inputs:
   {
-    assert(output != NULL);
-    for (size_t i = 0; i < a.size(); i++) assert(a[i] != eps_symbol);
-    for (size_t i = 0; i < b.size(); i++) assert(b[i] != eps_symbol);
+    KALDI_ASSERT(output != NULL);
+    for (size_t i = 0; i < a.size(); i++) KALDI_ASSERT(a[i] != eps_symbol);
+    for (size_t i = 0; i < b.size(); i++) KALDI_ASSERT(b[i] != eps_symbol);
   }
   output->clear();
   // This is very memory-inefficiently implemented using a vector of vectors.

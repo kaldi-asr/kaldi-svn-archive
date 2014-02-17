@@ -9,12 +9,16 @@ OPENFST_LDLIBS =
 include ../kaldi.mk
 
 LDFLAGS += $(CUDA_LDFLAGS)
+LDLIBS += $(CUDA_LDLIBS)
 
-TESTFILES = cuda-matrix-test 
+TESTFILES = cu-vector-test cu-matrix-test cu-math-test cu-test cu-sp-matrix-test cu-packed-matrix-test cu-tp-matrix-test \
+            cu-block-matrix-test cu-matrix-speed-test cu-vector-speed-test cu-sp-matrix-speed-test cu-array-test
 
-OBJFILES = cu-device.o cu-math.o cu-matrix.o
+
+OBJFILES = cu-device.o cu-math.o cu-matrix.o cu-packed-matrix.o cu-sp-matrix.o \
+           cu-vector.o cu-common.o cu-tp-matrix.o cu-rand.o cu-block-matrix.o
 ifeq ($(CUDA), true)
-  OBJFILES += cu-kernels.o cu-randkernels.o
+  OBJFILES += cu-kernels.o cu-randkernels.o cu-choleskykernels.o
 endif
 
 LIBNAME = kaldi-cudamatrix
@@ -34,15 +38,18 @@ ifeq ($(CUDA), true)
   ifeq ($(CUDA_VER_GT_4_2), true)
     CUDA_ARCH += -gencode arch=compute_30,code=sm_30
   endif
+  #For toolkit 5.0 or newer, add the compute capability 3.5 
+  CUDA_VER_GT_5_0 := $(shell [ $(CUDA_VERSION) -ge 50 ] && echo true)
+  ifeq ($(CUDA_VER_GT_5_0), true)
+    CUDA_ARCH += -gencode arch=compute_35,code=sm_35
+  endif
+
 endif
 
 
 #implicit rule for kernel compilation
-#symlink in necessary for cross-compilation at BUT
 %.o : %.cu
-	-ln -s `which $(CC)` gcc
-	export PATH=$(CUDATKDIR)/bin:$(PWD):$(PWD)/cudamatrix:$(PATH); $(CUDATKDIR)/bin/nvcc -c $< -o $@ $(CUDA_INCLUDE) $(CUDA_FLAGS) $(CUDA_ARCH) -I../
-	-unlink gcc
+	$(CUDATKDIR)/bin/nvcc -c $< -o $@ $(CUDA_INCLUDE) $(CUDA_FLAGS) $(CUDA_ARCH) -I../
 
 
 ADDLIBS = ../matrix/kaldi-matrix.a ../base/kaldi-base.a  ../util/kaldi-util.a 

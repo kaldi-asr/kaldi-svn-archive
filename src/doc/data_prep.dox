@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -273,7 +275,18 @@ steps/compute_cmvn_stats.sh data/train exp/make_mfcc/train $mfccdir
 \endverbatim
 (this example is from <DFN>egs/swbd/s5/run.sh</DFN>).
 
-
+Because errors in data preparation can cause problems later on, we have a script to 
+check that the data directory is correctly formatted.  Run e.g.
+\verbatim
+utils/validate_data_dir.sh data/train
+\endverbatim
+You may also find the following command useful:
+\verbatim
+utils/fix_data_dir.sh data/train
+\endverbatim
+(of course the command will work for any data directory, not just data/train).  This
+script will fix sorting errors and will remove any utterances for which some required
+data, such as feature data or transcripts, is missing.
 
 \section data_prep_lang Data preparation-- the "lang" directory.
 

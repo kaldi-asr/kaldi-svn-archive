@@ -4,6 +4,8 @@
 //           2012-2013  Vassil Panayotov
 //           2013 Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -220,7 +222,7 @@ class OnlineLdaInput: public OnlineFeatInputItf {
 // Does the time-derivative computation (e.g., adding deltas and delta-deltas).
 // This is standard in more "old-fashioned" feature extraction.  Like an online
 // version of the function ComputeDeltas in feat/feature-functions.h, where the
-// struct DeltaFeaturesOptions is also defined.
+// class DeltaFeaturesOptions is also defined.
 class OnlineDeltaInput: public OnlineFeatInputItf {
  public:
   OnlineDeltaInput(const DeltaFeaturesOptions &delta_opts,

@@ -3,6 +3,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,7 +24,7 @@
 
   If you would like to ask a question or make a comment about Kaldi or would like to be added
   to a Kaldi-users email list, please send an email to kaldi-developers@lists.sourceforge.net,
- or try the
+  or try the
   <a href=https://sourceforge.net/projects/kaldi/forums>Kaldi forums on Sourceforge</a>.
 
 */

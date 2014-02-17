@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -31,7 +33,7 @@ void TimerTest() {
 #endif
   BaseFloat f = timer.Elapsed();
   std::cout << "time is " << f;
-  assert(fabs(1.0 - f) < 0.1);
+  KALDI_ASSERT(fabs(1.0 - f) < 0.1);
 }
 
 }

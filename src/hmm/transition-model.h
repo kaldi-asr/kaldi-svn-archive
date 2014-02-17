@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Guoguo Chen)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -203,7 +205,7 @@ class TransitionModel {
 
   /// Returns the log-prob of the non-self-loop probability
   /// mass for this transition state. (you can get the self-loop prob, if a self-loop
-  /// exists, by/ calling GetTransitionLogProb(SelfLoopOf(trans_state)).
+  /// exists, by calling GetTransitionLogProb(SelfLoopOf(trans_state)).
   BaseFloat GetNonSelfLoopLogProb(int32 trans_state) const;
 
   /// Does Maximum Likelihood estimation.  The stats are counts/weights, indexed

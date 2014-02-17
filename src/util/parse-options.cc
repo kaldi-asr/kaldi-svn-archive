@@ -4,7 +4,10 @@
 //                      Saarland University (Author: Arnab Ghoshal);
 // Copyright 2012-2013  Johns Hopkins University (Author: Daniel Povey);
 //                      Frantisek Skala;  Arnab Ghoshal
-
+// Copyright 2013       Tanel Alumae
+//
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -159,6 +162,20 @@ void ParseOptions::RegisterSpecific(const std::string &name,
   doc_map_[idx] = DocInfo(name, doc + " (string, default = \"" + *s + "\")",
                           is_standard);
 }
+void ParseOptions::DisableOption(const std::string &name) {
+  if (argv_ != NULL)
+    KALDI_ERR << "DisableOption must not be called after calling Read().";
+  if (doc_map_.erase(name) == 0)
+    KALDI_ERR << "Option " << name
+              << " was not registered so cannot be disabled: ";
+  bool_map_.erase(name);
+  int_map_.erase(name);
+  uint_map_.erase(name);
+  float_map_.erase(name);
+  double_map_.erase(name);
+  string_map_.erase(name);
+}
+
 
 int ParseOptions::NumArgs() {
   return positional_args_.size();
@@ -308,7 +325,12 @@ int ParseOptions::Read(int argc, const char *const argv[]) {
   // first pass: look for config parameter, look for priority
   for (i = 1; i < argc; i++) {
     if (std::strncmp(argv[i], "--", 2) == 0) {
-      SplitLongArg(argv[i], &key, &value);
+      if (std::strcmp(argv[i], "--") == 0) {
+        // a lone "--" marks the end of named options
+        break;
+      }
+      bool has_equal_sign;
+      SplitLongArg(argv[i], &key, &value, &has_equal_sign);
       NormalizeArgName(&key);
       Trim(&value);
       if (key.compare("config") == 0) {
@@ -320,25 +342,39 @@ int ParseOptions::Read(int argc, const char *const argv[]) {
       }
     }
   }
-
+  bool double_dash_seen = false;
   // second pass: add the command line options
   for (i = 1; i < argc; i++) {
     if (std::strncmp(argv[i], "--", 2) == 0) {
-      SplitLongArg(argv[i], &key, &value);
+      if (std::strcmp(argv[i], "--") == 0) {
+        // A lone "--" marks the end of named options.
+        // Skip that option and break the processing of named options
+        i += 1;
+        double_dash_seen = true;
+        break;
+      }
+      bool has_equal_sign;
+      SplitLongArg(argv[i], &key, &value, &has_equal_sign);
       NormalizeArgName(&key);
       Trim(&value);
-      if (!SetOption(key, value)) {
+      if (!SetOption(key, value, has_equal_sign)) {
         PrintUsage(true);
         KALDI_ERR << "Invalid option " << argv[i];
       }
     } else {
-      // first non-long option finishes the options // was: return i;
-      for (; i < argc; i++) {
-        positional_args_.push_back(std::string(argv[i]));
-      }
+      break;
     }
   }
   
+  // process remaining arguments as positional
+  for (; i < argc; i++) {
+    if ((std::strcmp(argv[i], "--") == 0) && !double_dash_seen) {
+      double_dash_seen = true;
+    } else {
+      positional_args_.push_back(std::string(argv[i]));
+    }
+  }
+
   if (print_args_) {  // if the user did not suppress this with --print-args = false....
     std::ostringstream strm;
     for (int j = 0; j < argc; j++)
@@ -435,10 +471,11 @@ void ParseOptions::ReadConfigFile(const std::string &filename) {
     if (line.length() == 0) continue;
 
     // parse option
-    SplitLongArg(line, &key, &value);
+    bool has_equal_sign;
+    SplitLongArg(line, &key, &value, &has_equal_sign);
     NormalizeArgName(&key);
     Trim(&value);
-    if (!SetOption(key, value)) {
+    if (!SetOption(key, value, has_equal_sign)) {
       PrintUsage(true);
       KALDI_ERR << "Invalid option " << line << " in config file " << filename;
     }
@@ -447,17 +484,24 @@ void ParseOptions::ReadConfigFile(const std::string &filename) {
 
 
 
-void ParseOptions::SplitLongArg(std::string in, std::string *key,
-                                std::string *value) {
-  assert(in.substr(0, 2) == "--");  // precondition.
+void ParseOptions::SplitLongArg(std::string in,
+                                std::string *key,
+                                std::string *value,
+                                bool *has_equal_sign) {
+  KALDI_ASSERT(in.substr(0, 2) == "--");  // precondition.
   size_t pos = in.find_first_of('=', 0);
-  if (pos == std::string::npos) {
+  if (pos == std::string::npos) {  // we allow --option for bools
     // defaults to empty.  We handle this differently in different cases.
     *key = in.substr(2, in.size()-2);  // 2 because starts with --.
     *value = "";
-  } else {
+    *has_equal_sign = false;
+  } else if (pos == 2) {  // we also don't allow empty keys: --=value
+    PrintUsage(true);
+    KALDI_ERR << "Invalid option (no key): " << in;
+  } else {  // normal case: --option=value
     *key = in.substr(2, pos-2);  // 2 because starts with --.
     *value = in.substr(pos + 1);
+    *has_equal_sign = true;
   }
 }
 
@@ -472,14 +516,18 @@ void ParseOptions::NormalizeArgName(std::string *str) {
   }
   *str = out;
 
-  assert(str->length() > 0);
+  KALDI_ASSERT(str->length() > 0);
 }
 
 
 
 
-bool ParseOptions::SetOption(const std::string &key, const std::string &value) {
+bool ParseOptions::SetOption(const std::string &key,
+                             const std::string &value,
+                             bool has_equal_sign) {
   if (bool_map_.end() != bool_map_.find(key)) {
+    if (has_equal_sign && value == "")
+      KALDI_ERR << "Invalid option --" << key << "=";
     *(bool_map_[key]) = ToBool(value);
   } else if (int_map_.end() != int_map_.find(key)) {
     *(int_map_[key]) = ToInt(value);
@@ -490,6 +538,8 @@ bool ParseOptions::SetOption(const std::string &key, const std::string &value) {
   } else if (double_map_.end() != double_map_.find(key)) {
     *(double_map_[key]) = ToDouble(value);
   } else if (string_map_.end() != string_map_.find(key)) {
+    if (!has_equal_sign)
+      KALDI_ERR << "Invalid option --" << key;
     *(string_map_[key]) = value;
   } else {
     return false;
