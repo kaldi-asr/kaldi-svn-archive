@@ -805,6 +805,10 @@ inline double ConvertToCost(const TropicalWeightTpl<Float> &w) {
   return w.Value();
 }
 
+template<class Float>
+inline double ConvertToCost(const LogWeightTpl<Float> &w) {
+  return w.Value();
+}
 
 
   
