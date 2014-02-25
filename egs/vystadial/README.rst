@@ -157,6 +157,8 @@ Credits and license
 The scripts are partialy based on Voxforge KALDI recipe.
 The original scripts as well as theses scripts are licensed under APACHE 2.0 license.
 The data are distributed under Attribution-{ShareAlike} 3.0 Unported ({CC} {BY}-{SA} 3.0) license.
+Czech data: https://lindat.mff.cuni.cz/repository/xmlui/handle/11858/00-097C-0000-0023-4670-6
+English data: https://lindat.mff.cuni.cz/repository/xmlui/handle/11858/00-097C-0000-0023-4671-4
 
 The data collecting process was funded by project Vystadial.
 For citing, please use following ``BibTex`` citation:
