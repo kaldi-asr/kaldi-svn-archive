@@ -24,7 +24,8 @@ mkdir -p $tgt
 echo "--- Exporting models to $tgt ..."
 
 # See local/save_check.sh  which saves the settings at the beginning for details
-cp -f $exp/alex_gitlog.log $exp/alex_gitdiff.log $exp/experiment_bash_vars.log $tgt
+# cp -f $exp/alex_gitlog.log $exp/alex_gitdiff.log $exp/experiment_bash_vars.log $tgt
+cp -f $exp/experiment_bash_vars.log $tgt
 
 # Store also the results
 cp -f $exp/results.log $tgt/results.log

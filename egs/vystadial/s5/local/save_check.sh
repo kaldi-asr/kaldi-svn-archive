@@ -45,5 +45,5 @@ done
 
 # Save the variables set up 
 (set -o posix ; set ) > $EXP/experiment_bash_vars.log
-git log -1 > $EXP/alex_gitlog.log
-git diff > $EXP/alex_gitdiff.log
+# git log -1 > $EXP/alex_gitlog.log
+# git diff > $EXP/alex_gitdiff.log
