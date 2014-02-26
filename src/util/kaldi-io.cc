@@ -23,6 +23,8 @@
 #include <errno.h>
 
 #include "util/kaldi-pipebuf.h"
+#include "util/kaldi-curlbuf.h"
+
 namespace kaldi {
 
 #ifndef _MSC_VER // on VS, we don't need this type.
@@ -109,7 +111,14 @@ InputType ClassifyRxfilename(const std::string &filename) {
     // (and would cause a lot of confusion if it were a real filename), we
     // refuse to deal with it upfront.
     return kNoInput;
-  } else {
+  } 
+#ifdef HAVE_LIBCURL
+  else if (strncmp(c, "http://",  sizeof("http://")-1)  == 0 || 
+           strncmp(c, "https://", sizeof("https://")-1) == 0) {
+    return kCurlInput;
+  }
+#endif
+  else {
     const char *d = c;
     while (d[1] != '\0') d++;  // go to last char.
     if (*d == '|') return kPipeInput;  // an input pipe.
@@ -583,6 +592,53 @@ class OffsetFileInputImpl: public InputImplBase {
   std::ifstream is_;
 };
 
+#ifdef HAVE_LIBCURL
+class CurlInputImpl: public InputImplBase {
+ public:
+  CurlInputImpl(): buf_(), is_(NULL) { }
+
+  virtual bool Open(const std::string &filename, bool binary) {
+    if (is_) KALDI_ERR << "CurlInputImpl::Open(), "
+                       << "open called on already open file.";
+    int max_retries = 3;
+    buf_.set_timeout(5);
+    while (max_retries-- > 0) {
+      if (buf_.open(filename)) {
+        is_ = new std::istream(&buf_);
+        return true;
+      }
+      // No use retrying an URL which returned error
+      if (buf_.status_code() % 100 == 4 || buf_.status_code() % 100 == 5) break;
+      KALDI_WARN << "Retrying to open " << filename;
+    }
+    return false;
+  }
+
+  virtual std::istream &Stream() {
+    if (!is_) KALDI_ERR << "CurlInputImpl::Stream(), file is not open.";
+    // I believe this error can only arise from coding error.
+    return *is_;
+  }
+
+  virtual void Close() {
+    if (!is_) KALDI_ERR << "CurlInputImpl::Close(), file is not open.";
+    // I believe this error can only arise from coding error.
+    buf_.close();
+    delete is_;
+    is_ = NULL;
+    // Don't check status.
+  }
+
+  virtual InputType MyType() { return kCurlInput; }
+
+  virtual ~CurlInputImpl() {
+    if (is_) delete is_;
+  }
+ private:
+  curlbuf buf_;
+  std::istream *is_;
+};
+#endif
 
 Output::Output(const std::string &rxfilename, bool binary, bool write_header): impl_(NULL) {
   if (!Open(rxfilename, binary, write_header))  {
@@ -714,7 +770,13 @@ bool Input::OpenInternal(const std::string &rxfilename,
     impl_ = new PipeInputImpl();
   } else if (type == kOffsetFileInput) {
     impl_ = new OffsetFileInputImpl();
-  } else {  // type == kNoInput
+  } 
+#ifdef HAVE_LIBCURL
+  else if (type == kCurlInput) {
+    impl_ = new CurlInputImpl();
+  }
+#endif
+  else {  // type == kNoInput
     KALDI_WARN << "Invalid input filename format "<<
         PrintableRxfilename(rxfilename);
     return false;

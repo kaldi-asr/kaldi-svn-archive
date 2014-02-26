@@ -108,7 +108,10 @@ enum InputType {
   kFileInput,
   kStandardInput,
   kOffsetFileInput,
-  kPipeInput
+  kPipeInput,
+#ifdef HAVE_LIBCURL
+  kCurlInput
+#endif
 };
 
 InputType ClassifyRxfilename(const std::string &rxfilename);

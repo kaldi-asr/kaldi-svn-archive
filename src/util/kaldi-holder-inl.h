@@ -75,7 +75,7 @@ template<class KaldiType> class KaldiObjectHolder {
       t_->Read(is, is_binary);
       return true;
     } catch (std::exception &e) {
-      KALDI_WARN << "Exception caught reading Table object ";
+      KALDI_WARN << "Exception caught reading Table object " << e.what();
 	  if (!IsKaldiError(e.what())) { std::cerr << e.what(); }
       delete t_;
       t_ = NULL;

@@ -508,6 +508,17 @@ function linux_configure_dynamic {
   exit 0;
 }
 
+function configure_libcurl {
+  LDLIBS=`curl-config --libs 2>/dev/null`
+  if [ $? -eq 0 ]; then
+	  echo "Found libcurl"
+	  echo >> kaldi.mk
+	  echo EXTRA_LDLIBS += $LDLIBS >> kaldi.mk
+	  echo EXTRA_CXXFLAGS += -DHAVE_LIBCURL >> kaldi.mk
+	  echo >> kaldi.mk
+  fi
+}
+
 echo "Configuring ..."
 
 if [ ! -f makefiles/common.mk ]; then
@@ -549,6 +560,7 @@ echo "Doing OS specific configurations ..."
 # which crashes on Darwin. Also the linear algebra libraries on Macs are 
 # used differently (through the Accelerate framework) than on Linux.
 if [ "`uname`" == "Darwin"  ]; then
+  configure_libcurl
   echo "On Darwin: checking for Accelerate framework ..."
   if [ ! -e /System/Library/Frameworks/Accelerate.framework ]; then
     failure "Need the Accelerate.framework to compile on Darwin."
@@ -594,6 +606,7 @@ if [ "`uname -o`" == "Cygwin"  ]; then
 fi
 
 if [ "`uname`" == "Linux" ]; then
+  configure_libcurl
   if  $static_fst ; then
       OPENFSTLIBS="$FSTROOT/lib/libfst.a"
       fst_type='a'
