@@ -26,7 +26,7 @@ The modified LatticeFasterDecoder is actively developed at
 https://github.com/UFAL-DSG/pykaldi/tree/master/src/dec-wrap
 and has Python wrapper:
 https://github.com/UFAL-DSG/pykaldi/tree/master/src/pykaldi
-Note that currently I am moving the decoder to:
+Note that I am currently moving the online decoder to:
 http://sourceforge.net/p/kaldi/code/HEAD/tree/sandbox/oplatek2/
 
 Credits and license
@@ -37,7 +37,10 @@ The data are distributed under Attribution-{ShareAlike} 3.0 Unported ({CC} {BY}-
 Czech data: https://lindat.mff.cuni.cz/repository/xmlui/handle/11858/00-097C-0000-0023-4670-6
 English data: https://lindat.mff.cuni.cz/repository/xmlui/handle/11858/00-097C-0000-0023-4671-4
 
-The data collecting process was funded by project Vystadial.
+The data collecting process and development of these training scripts 
+was partly funded by the Ministry of Education, Youth and Sports 
+of the Czech Republic under the grant agreement LK11221 
+and core research funding of Charles University in Prague.
 For citing, please use following BibTex citation:
 
 @todo{NOTPUBLISHED_YET_lrec_2014,
