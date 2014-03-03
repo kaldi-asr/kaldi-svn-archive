@@ -42,13 +42,6 @@ ext_modules.append(Extension('pykaldi.decoders',
 
 long_description = open(path.join(path.dirname(__file__), 'README.rst')).read()
 
-try:
-    # In order to find out the pykaldi version from installed package at runtime use:
-    # import pgk_resources as pkg; pkg.get_distribution('pykaldi')
-    git_version = check_output(['git', 'rev-parse', 'HEAD'])
-except:
-    git_version = 'Unknown Git version'
-    print git_version
 
 setup(
     name='pykaldi',
@@ -56,7 +49,7 @@ setup(
     package_data={'pykaldi': ['libpykaldi.so', 'test_shortest.txt']},
     include_package_data=True,
     cmdclass={'build_ext': build_ext},
-    version='0.1-' + git_version,
+    version='0.1-dev',
     install_requires=install_requires,
     setup_requires=['cython>=0.19.1'],
     ext_modules=ext_modules,
@@ -69,7 +62,7 @@ setup(
     # },
     author='Ondrej Platek',
     author_email='ondrej.platek@seznam.cz',
-    url='https://github.com/DSG-UFAL/pykaldi',
+    url='https://github.com/DSG-UFAL/pykaldi or https://sourceforge.net/p/kaldi/code/HEAD/tree/sandbox/oplatek2/src/pykaldi/',
     license='Apache, Version 2.0',
     keywords='Kaldi speech recognition Python bindings',
     description='C++/Python wrapper for Kaldi decoders',

@@ -3,11 +3,9 @@
 # source the settings
 . path.sh
 
-beam=16.0
-latbeam=10.0
-max_active=14000
+. utils/parse_options.sh || exit 1
 
-batch_size=4560
+logname=b${beam}_lb${latbeam}_ma${max_active}_bs${batch_size}
 
 # Below, there are various commands for debugging, profiling and always
 # running the python wrapper around decoder.
