@@ -3,8 +3,8 @@
 # This is not necessarily the top-level run.sh as it is in other directories.   see README.txt first.
 tri5_only=false
 
-[ ! -f ./lang.conf ] && echo "Language configuration does not exist! Use the configurations in conf/lang/* as a startup" && exit 1
-[ ! -f ./conf/common_vars.sh ] && echo "the file conf/common_vars.sh does not exist!" && exit 1
+[ ! -f ./lang.conf ] && echo 'Language configuration does not exist! Use the configurations in conf/lang/* as a startup' && exit 1
+[ ! -f ./conf/common_vars.sh ] && echo 'the file conf/common_vars.sh does not exist!' && exit 1
 
 . conf/common_vars.sh || exit 1;
 . ./lang.conf || exit 1;
@@ -19,20 +19,20 @@ set -o pipefail  #Exit if any of the commands in the pipeline will
 #set -u           #Fail on an undefined variable
 
 #Preparing dev2h and train directories
-if [ ! -d data/raw_train_data ]; then
+if [ ! -f data/raw_train_data/.done ]; then
     echo ---------------------------------------------------------------------
     echo "Subsetting the TRAIN set"
     echo ---------------------------------------------------------------------
 
     local/make_corpus_subset.sh "$train_data_dir" "$train_data_list" ./data/raw_train_data
     train_data_dir=`readlink -f ./data/raw_train_data`
-
-    nj_max=`cat $train_data_list | wc -l`
-    if [[ "$nj_max" -lt "$train_nj" ]] ; then
-        echo "The maximum reasonable number of jobs is $nj_max (you have $train_nj)! (The training and decoding process has file-granularity)"
-        exit 1;
-        train_nj=$nj_max
-    fi
+    touch data/raw_train_data/.done
+fi
+nj_max=`cat $train_data_list | wc -l`
+if [[ "$nj_max" -lt "$train_nj" ]] ; then
+    echo "The maximum reasonable number of jobs is $nj_max (you have $train_nj)! (The training and decoding process has file-granularity)"
+    exit 1;
+    train_nj=$nj_max
 fi
 train_data_dir=`readlink -f ./data/raw_train_data`
 
@@ -120,6 +120,7 @@ if [[ ! -f data/srilm/lm.gz || data/srilm/lm.gz -ot data/train/text ]]; then
   local/train_lms_srilm.sh --dev-text data/dev2h/text \
     --train-text data/train/text data data/srilm 
 fi
+
 if [[ ! -f data/lang/G.fst || data/lang/G.fst -ot data/srilm/lm.gz ]]; then
   echo ---------------------------------------------------------------------
   echo "Creating G.fst on " `date`

@@ -50,7 +50,7 @@ openfst/lib:
 
 openfst-1.3.2/Makefile: openfst-1.3.2/.patched
 		cd openfst-1.3.2/; \
-		./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts
+		LIBS="-ldl" ./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts
 
 
 # patches for openfst. openfst_gcc41up.patch is a patch for openfst to \
@@ -69,7 +69,7 @@ openfst-1.3.2_tgt: openfst-1.3.2.tar.gz
 
 openfst-1.3.2.tar.gz: 
 		wget http://openfst.cs.nyu.edu/twiki/pub/FST/FstDownload/openfst-1.3.2.tar.gz || \
-		wget -T 10 -t 3 --no-check-certificate http://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.3.2.tar.gz
+		wget -T 10 -t 3 --no-check-certificate http://www.danielpovey.com/files/data/openfst-1.3.2.tar.gz 
 
 sclite_tgt: sclite_compiled
 
