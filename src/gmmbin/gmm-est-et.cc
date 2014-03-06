@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
         xforms_wspecifier = po.GetArg(5),
         warps_wspecifier = po.GetOptArg(6);
 
-    RandomAccessGauPostReader gpost_reader(gpost_rspecifier);
+    RandomAccessGaussPostReader gpost_reader(gpost_rspecifier);
     BaseFloatMatrixWriter xform_writer(xforms_wspecifier);
     BaseFloatWriter warps_writer(warps_wspecifier);
 
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
           }
           const Matrix<BaseFloat> &feats = feature_reader.Value(*utt_itr);
 
-          const GauPost &gpost = gpost_reader.Value(*utt_itr);
+          const GaussPost &gpost = gpost_reader.Value(*utt_itr);
           if (static_cast<int32>(gpost.size()) != feats.NumRows()) {
             KALDI_WARN << "gpost has wrong size " << (gpost.size())
                        << " vs. " << (feats.NumRows());
@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
           for (size_t i = 0; i < gpost.size(); i++) {
             const SubVector<BaseFloat> feat(feats, i);
             for (size_t j = 0; j < gpost[i].size(); j++) {
-              int32 pdf_id = trans_model.TransitionIdToPdf(gpost[i][j].first);
+              int32 pdf_id = gpost[i][j].first;
               const Vector<BaseFloat> &posteriors(gpost[i][j].second);
               const DiagGmm &gmm = am_gmm.GetPdf(pdf_id);
               KALDI_ASSERT(gmm.NumGauss() == posteriors.Dim());
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
           continue;
         }
         const Matrix<BaseFloat> &feats = feature_reader.Value();
-        const GauPost &gpost = gpost_reader.Value(utt);
+        const GaussPost &gpost = gpost_reader.Value(utt);
 
         if (static_cast<int32>(gpost.size()) != feats.NumRows()) {
           KALDI_WARN << "Gpost has wrong size " << (gpost.size())

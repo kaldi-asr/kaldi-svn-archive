@@ -82,7 +82,7 @@ void MatrixBase<Real>::Invert(Real *log_det, Real *det_sign,
       prod *= (*this)(i, i);
       if (i == num_rows_ - 1 || std::fabs(prod) < 1.0e-10 ||
           std::fabs(prod) > 1.0e+10) {
-        if (log_det != NULL) *log_det += std::log(std::fabs(prod));
+        if (log_det != NULL) *log_det += Log(std::fabs(prod));
         if (det_sign != NULL) *det_sign *= (prod > 0 ? 1.0 : -1.0);
         prod = 1.0;
       }
@@ -2072,13 +2072,16 @@ bool WriteHtk(std::ostream &os, const MatrixBase<double> &M, HtkHeader htk_hdr);
 template<class Real>
 bool WriteSphinx(std::ostream &os, const MatrixBase<Real> &M)
 {
+  // CMUSphinx mfc file header contains count of the floats, followed
+  // by the data in float little endian format.
+
   int size = M.NumRows() * M.NumCols();
   os.write((char*)&size, sizeof(int));
   if (os.fail())  goto bad;
 
   MatrixIndexT i;
   MatrixIndexT j;
-  if (sizeof(Real) == sizeof(float) && !MachineIsLittleEndian()) {
+  if (sizeof(Real) == sizeof(float) && MachineIsLittleEndian()) {
     for (i = 0; i< M.NumRows(); i++) {  // Unlikely to reach here ever!
       os.write((char*)M.RowData(i), sizeof(float)*M.NumCols());
       if (os.fail()) goto bad;
@@ -2090,7 +2093,7 @@ bool WriteSphinx(std::ostream &os, const MatrixBase<Real> &M)
       const Real *rowData = M.RowData(i);
       for (j = 0;j < M.NumCols();j++)
         pmem[j] =  static_cast<float> ( rowData[j] );
-      if (MachineIsLittleEndian())
+      if (!MachineIsLittleEndian())
         for (j = 0;j < M.NumCols();j++)
           KALDI_SWAP4(pmem[j]);
       os.write((char*)pmem, sizeof(float)*M.NumCols());
@@ -2359,7 +2362,7 @@ Real MatrixBase<Real>::LogSumExp(Real prune) const {
         sum_relto_max_elem += Exp(f - max_elem);
     }
   }
-  return max_elem + std::log(sum_relto_max_elem);
+  return max_elem + Log(sum_relto_max_elem);
 }
 
 template<typename Real>
@@ -2370,7 +2373,7 @@ Real MatrixBase<Real>::ApplySoftMax() {
     for (MatrixIndexT j = 0; j < num_cols_; j++)
       sum += ((*this)(i, j) = Exp((*this)(i, j) - max));
   this->Scale(1.0 / sum);
-  return max + log(sum);
+  return max + Log(sum);
 }
 
 template<typename Real>

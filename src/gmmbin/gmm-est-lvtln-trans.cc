@@ -31,14 +31,14 @@ using std::vector;
 
 namespace kaldi {
 void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
-                            const GauPost &gpost,
+                            const GaussPost &gpost,
                             const TransitionModel &trans_model,
                             const AmDiagGmm &am_gmm,
                             FmllrDiagGmmAccs *spk_stats) {
   for (size_t i = 0; i < gpost.size(); i++) {
     for (size_t j = 0; j < gpost[i].size(); j++) {
-      int32 pdf_id = trans_model.TransitionIdToPdf(gpost[i][j].first);
-      const Vector<BaseFloat> & posterior(gpost[i][j].second);
+      int32 pdf_id = gpost[i][j].first;
+      const Vector<BaseFloat> &posterior(gpost[i][j].second);
       spk_stats->AccumulateFromPosteriors(am_gmm.GetPdf(pdf_id),
                                           feats.Row(i), posterior);
     }
@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
     ReadKaldiObject(lvtln_rxfilename, &lvtln);
 
 
-    RandomAccessGauPostReader gpost_reader(gpost_rspecifier);
+    RandomAccessGaussPostReader gpost_reader(gpost_rspecifier);
 
     double tot_lvtln_impr = 0.0, tot_t = 0.0;
 
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
             continue;
           }
           const Matrix<BaseFloat> &feats = feature_reader.Value(utt);
-          const GauPost &gpost = gpost_reader.Value(utt);
+          const GaussPost &gpost = gpost_reader.Value(utt);
           if (static_cast<int32>(gpost.size()) != feats.NumRows()) {
             KALDI_WARN << "GauPost vector has wrong size " << (gpost.size())
                        << " vs. " << (feats.NumRows());
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
           continue;
         }
         const Matrix<BaseFloat> &feats = feature_reader.Value();
-        const GauPost &gpost = gpost_reader.Value(utt);
+        const GaussPost &gpost = gpost_reader.Value(utt);
 
         if (static_cast<int32>(gpost.size()) != feats.NumRows()) {
           KALDI_WARN << "GauPost has wrong size " << (gpost.size())
