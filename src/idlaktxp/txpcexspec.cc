@@ -184,12 +184,15 @@ int32 TxpCexspec::MaxFeatureSize() {
   return maxsize;
 }
 
-void TxpCexspec::GetFunctionNames(std::string* result) {
+void TxpCexspec::GetFunctionSpec(pugi::xml_node * header) {
   TxpCexspecFeatVector::iterator iter;
+  pugi::xml_node function;
   // iterate through features and add max size and delimiters
   for (iter = cexspecfeats_.begin(); iter != cexspecfeats_.end(); ++iter) {
-    *result += (*iter).name;
-    *result += ";";
+    function = header->append_child("cexfunction");
+    function.append_attribute("name").set_value((*iter).name.c_str());
+    function.append_attribute("delim").set_value((*iter).delim.c_str());
+    function.append_attribute("isinteger").set_value((*iter).type);
   }  
 }
 

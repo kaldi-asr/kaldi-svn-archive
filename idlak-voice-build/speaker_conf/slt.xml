@@ -1,0 +1,8 @@
+<build_config>
+  <general
+      lang="en"
+      acc="ga"
+      spk="slt"
+      reg="us"
+      />
+</build_config>

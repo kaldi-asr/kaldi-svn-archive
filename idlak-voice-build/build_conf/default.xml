@@ -73,7 +73,10 @@
       pplain_desc="The location of the pplain binary."
       />    
   <cex_def
+      options="hts"
       depend="align_def"
+      hts="True"
+      hts_desc="Output context model names in a form useable by HTS"
       />
   <duration_def
       depend="align_def"
@@ -92,5 +95,11 @@
       breakdef_desc="Default break to break type 4" 
       />     
   <alignsetup_def 
+      />
+  <hts_test
+      depend="cex_def"
+      options="htsdemodir"
+      htsdemodir=""
+      htsdemodir_desc="Directory used to install HTSDEMO using utils/install_HTS_demo.sh"
       />
 </build_config>

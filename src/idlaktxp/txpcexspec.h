@@ -117,8 +117,8 @@ class TxpCexspec: public TxpXmlData {
   // return feature specific mapping between cex value and desired value
   const std::string Mapping(const TxpCexspecFeat &feat,
                             const std::string &instr) const;
-  // set list of extraction functions used in cex in a delimited string
-  void GetFunctionNames(std::string* result);
+  // set cex extraction function info
+  void GetFunctionSpec(pugi::xml_node * header);
 
  private:
   // Parser for tpdb xml cex setup

@@ -110,6 +110,7 @@ def kaldidata(datadir, wavdir, spk, flist, force=False):
         fputt2spk = open(os.path.join(datadir, "train", "utt2spk"), 'w')
         for uttid in handler.ids:
             if valid_ids.has_key(uttid):
+                # BUG! Only works id idlakwav is relative path MA140305
                 fp.write("%s %s\n" % (spk + '_' + uttid, os.path.join(datadir, wavdir, spk + '_' + uttid + '.wav')))
                 fputt2spk.write("%s %s\n" % (spk + '_' + uttid, spk))
         fp.close()
@@ -211,6 +212,7 @@ def main():
     # create kaldi required input files (modified from egs/arctic/s1/run.py
     logger.log('Info', 'Creating kaldi input files and train dir')
     wavdir = os.path.join(build_conf.idlakwav, build_conf.lang, build_conf.acc, build_conf.spk, build_conf.srate)
+    # use of relative and absolute paths here appears broken MA140305
     kaldidata(os.path.join(outdir, "output"), wavdir, build_conf.spk, build_conf.flist, True)
     # END OF MODULE SPECIFIC CODE
     

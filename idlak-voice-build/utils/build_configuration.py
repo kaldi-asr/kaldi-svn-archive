@@ -290,7 +290,8 @@ class Logger:
         if self.loglevels.has_key(level.lower()):
             # check logging at this level
             if self.loglevels[level.lower()] >= self.curlevel:
-                msg = self.module.upper() + '[' + time.asctime() + '] ' + message + '\n'
+                msg = self.module.upper() + '[' + time.asctime() + '] ' + level.upper() + ':' \
+                    +  message + '\n'
                 if self.logtofile:
                     fp = open(self.logfname, 'a')
                     fp.write(msg)

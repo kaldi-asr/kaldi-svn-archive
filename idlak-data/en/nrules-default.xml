@@ -1,6 +1,17 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="utf-8"?>
 <rules xmlns="http://www.cereproc.com/rulesdat" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.cereproc.com/rulesdat rulesdat.xsd ">
+
+<regex name="whitespace">
+  <comment>
+    Overide default to regard hypens as wspace until norm rules added
+    to deal with hypenation.
+  </comment>
+  <exp>
+    <![CDATA[^([ \n\t\r\-]+)]]>
+  </exp>
+</regex>
+
   <regex name="separators">
     <comment>
       Important: DO NOT REMOVE
