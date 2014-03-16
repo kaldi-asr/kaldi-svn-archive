@@ -17,7 +17,7 @@ skip_stt=false
 skip_scoring=false
 max_states=150000
 extra_kws=true
-vocab_kws=true
+vocab_kws=false
 wip=0.5
 shadow_set_extra_opts=( --wip $wip )
 
@@ -37,10 +37,14 @@ fi
 set -o errtrace 
 trap "echo Exited!; exit;" SIGINT SIGTERM
 
+dataset_segments=${dir##*.}
+dataset_dir=data/$dir
+dataset_id=$dir
+dataset_type=${dir%%.*}
 #By default, we want the script to accept how the dataset should be handled,
 #i.e. of  what kind is the dataset
 if [ -z ${kind} ] ; then
-  if [ "$datset_type" == "dev2h" ] || [ "$dataset_type" == "dev10h" ] ; then
+  if [ "$dataset_type" == "dev2h" ] || [ "$dataset_type" == "dev10h" ] ; then
     dataset_kind=supervised
   elif [ "$dataset_type" == "shadow" ] ; then
     dataset_kind=shadow
@@ -50,10 +54,6 @@ if [ -z ${kind} ] ; then
 else
   dataset_kind=$kind
 fi
-dataset_segments=${dir##*.}
-dataset_dir=data/$dir
-dataset_id=$dir
-dataset_type=${dir%%.*}
 
 if [ -z $dataset_segments ]; then
   echo "You have to specify the segmentation type as well"
@@ -65,24 +65,29 @@ if [ -z $dataset_segments ]; then
   echo "\tseg   #UEM segmentation (kaldi-native)"
 fi
 
-#Just a minor safety precaution to prevent using incorrect settings
-#The dataset_* variables should be used.
-set -e
-set -o pipefail
-set -u
-unset dir
-unset kind
+if [ "$dataset_kind" == "unsupervised" ]; then
+  skip_scoring=true
+fi
 
 #The $dataset_type value will be the dataset name without any extrension
-eval my_data_dir=\$${dataset_type}_data_dir
-eval my_data_list=\$${dataset_type}_data_list
-eval my_stm_file=\$${dataset_type}_stm_file
+eval my_data_dir=( "\${${dataset_type}_data_dir[@]}" )
+eval my_data_list=( "\${${dataset_type}_data_list[@]}" )
+if [ -z $my_data_dir ] || [ -z $my_data_list ] ; then
+  echo "Error: The dir you specified ($dataset_id) does not have existing config";
+  exit 1
+fi
 
+eval my_stm_file=\$${dataset_type}_stm_file
 eval my_ecf_file=\$${dataset_type}_ecf_file 
-eval my_subset_ecf=\$${dataset_type}_subset_ecf 
 eval my_kwlist_file=\$${dataset_type}_kwlist_file 
 eval my_rttm_file=\$${dataset_type}_rttm_file
 eval my_nj=\$${dataset_type}_nj  #for shadow, this will be re-set when appropriate
+
+my_subset_ecf=false
+eval ind=\${${dataset_type}_subset_ecf+x}
+if [ "$ind" == "x" ] ; then
+  my_subset_ecf=\$${dataset_type}_subset_ecf
+fi
 
 declare -A my_more_kwlists
 eval my_more_kwlist_keys="\${!${dataset_type}_more_kwlists[@]}"
@@ -92,6 +97,13 @@ do
   my_more_kwlists["$key"]="${my_more_kwlist_val}"
 done
 
+#Just a minor safety precaution to prevent using incorrect settings
+#The dataset_* variables should be used.
+set -e
+set -o pipefail
+set -u
+unset dir
+unset kind
 
 function make_plp {
   target=$1
@@ -111,7 +123,7 @@ function check_variables_are_set {
   for variable in $mandatory_variables ; do
     eval my_variable=\$${variable}
     if [ -z $my_variable ] ; then
-      echo "Mandatory variable ${variable/my_/$dataset_type} is not set! " \
+      echo "Mandatory variable ${variable/my/$dataset_type} is not set! " \
            "You should probably set the variable in the config file "
       exit 1
     else
@@ -152,15 +164,31 @@ else
     echo ---------------------------------------------------------------------
     echo "Subsetting the ${dataset_type} set"
     echo ---------------------------------------------------------------------
+   
+    l1=${#my_data_dir[*]}
+    l2=${#my_data_list[*]}
+    if [ "$l1" -ne "$l2" ]; then
+      echo "Error, the number of source files lists is not the same as the number of source dirs!"
+      exit 1
+    fi
     
-    local/make_corpus_subset.sh "$my_data_dir" "$my_data_list" \
-      ./data/raw_${dataset_type}_data
+    resource_string=""
+    if [ "$dataset_kind" == "unsupervised" ]; then
+      resource_string+=" --ignore-missing-txt true"
+    fi
+
+    for i in `seq 0 $(($l1 - 1))`; do
+      resource_string+=" ${my_data_dir[$i]} "
+      resource_string+=" ${my_data_list[$i]} "
+    done
+    local/make_corpus_subset.sh $resource_string ./data/raw_${dataset_type}_data
     touch data/raw_${dataset_type}_data/.done
   fi
   my_data_dir=`readlink -f ./data/raw_${dataset_type}_data`
-  nj_max=`cat $my_data_list | wc -l`
+  [ -f $my_data_dir/filelist.list ] && my_data_list=$my_data_dir/filelist.list
+  nj_max=`cat $my_data_list | wc -l` || nj_max=`ls $my_data_dir/audio | wc -l`
 fi
-if [ $nj_max -lt $my_nj ] ; then
+if [ "$nj_max" -lt "$my_nj" ] ; then
   echo "Number of jobs ($my_nj) is too big!"
   echo "The maximum reasonable number of jobs is $nj_max"
   my_nj=$nj_max
@@ -357,7 +385,8 @@ if [ -f exp/tri6_nnet/.done ]; then
   decode=exp/tri6_nnet/decode_${dataset_id}
   if [ ! -f $decode/.done ]; then
     mkdir -p $decode
-    steps/nnet2/decode.sh --cmd "$decode_cmd" --nj $my_nj \
+    steps/nnet2/decode.sh \
+      --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
       --beam $dnn_beam --lat-beam $dnn_lat_beam \
       --skip-scoring true "${decode_extra_opts[@]}" \
       --transform-dir exp/tri5/decode_${dataset_id} \
@@ -382,7 +411,8 @@ if [ -f exp/tri6a_nnet/.done ]; then
   decode=exp/tri6a_nnet/decode_${dataset_id}
   if [ ! -f $decode/.done ]; then
     mkdir -p $decode
-    steps/nnet2/decode.sh --cmd "$decode_cmd" --nj $my_nj \
+    steps/nnet2/decode.sh \
+      --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
       --beam $dnn_beam --lat-beam $dnn_lat_beam \
       --skip-scoring true "${decode_extra_opts[@]}" \
       --transform-dir exp/tri5/decode_${dataset_id} \
@@ -407,7 +437,8 @@ if [ -f exp/tri6b_nnet/.done ]; then
   decode=exp/tri6b_nnet/decode_${dataset_id}
   if [ ! -f $decode/.done ]; then
     mkdir -p $decode
-    steps/nnet2/decode.sh --cmd "$decode_cmd" --nj $my_nj \
+    steps/nnet2/decode.sh \
+      --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
       --beam $dnn_beam --lat-beam $dnn_lat_beam \
       --skip-scoring true "${decode_extra_opts[@]}" \
       --transform-dir exp/tri5/decode_${dataset_id} \
@@ -432,7 +463,7 @@ if [ -f exp/tri6_nnet_mpe/.done ]; then
     decode=exp/tri6_nnet_mpe/decode_${dataset_id}_epoch$epoch
     if [ ! -f $decode/.done ]; then
       mkdir -p $decode
-      steps/nnet2/decode.sh \
+      steps/nnet2/decode.sh --minimize $minimize \
         --cmd "$decode_cmd" --nj $my_nj --iter epoch$epoch \
         --beam $dnn_beam --lat-beam $dnn_lat_beam \
         --skip-scoring true "${decode_extra_opts[@]}" \
@@ -450,5 +481,33 @@ if [ -f exp/tri6_nnet_mpe/.done ]; then
   done
 fi
 
+####################################################################
+##
+## DNN semi-supervised training decoding
+##
+####################################################################
+for dnn in tri6_nnet_semi_supervised tri6_nnet_semi_supervised2 \
+          tri6_nnet_supervised_tuning tri6_nnet_supervised_tuning2 ; do
+  if [ -f exp/$dnn/.done ]; then
+    decode=exp/$dnn/decode_${dataset_id}
+    if [ ! -f $decode/.done ]; then
+      mkdir -p $decode
+      steps/nnet2/decode.sh \
+        --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
+        --beam $dnn_beam --lat-beam $dnn_lat_beam \
+        --skip-scoring true "${decode_extra_opts[@]}" \
+        --transform-dir exp/tri5/decode_${dataset_id} \
+        exp/tri5/graph ${dataset_dir} $decode | tee $decode/decode.log
+
+      touch $decode/.done
+    fi
+
+    local/run_kws_stt_task.sh --cer $cer --max-states $max_states \
+      --skip-scoring $skip_scoring --extra-kws $extra_kws --wip $wip \
+      --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt  \
+      "${shadow_set_extra_opts[@]}" "${lmwt_dnn_extra_opts[@]}" \
+      ${dataset_dir} data/lang $decode
+  fi
+done
 echo "Everything looking good...." 
 exit 0

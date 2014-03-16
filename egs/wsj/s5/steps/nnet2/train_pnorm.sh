@@ -67,6 +67,7 @@ egs_dir=
 lda_opts=
 lda_dim=
 egs_opts=
+transform_dir=     # If supplied, overrides alidir
 # End configuration section.
 
 
@@ -138,7 +139,9 @@ done
 
 
 # Set some variables.
-num_leaves=`gmm-info $alidir/final.mdl 2>/dev/null | awk '/number of pdfs/{print $NF}'` || exit 1;
+num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+[ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
+[ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 
 nj=`cat $alidir/num_jobs` || exit 1;  # number of jobs in alignment dir...
 # in this dir we'll have just one job.
@@ -151,9 +154,11 @@ splice_opts=`cat $alidir/splice_opts 2>/dev/null`
 cp $alidir/splice_opts $dir 2>/dev/null
 cp $alidir/tree $dir
 
+[ -z "$transform_dir" ] && transform_dir=$alidir
+
 if [ $stage -le -4 ]; then
   echo "$0: calling get_lda.sh"
-  steps/nnet2/get_lda.sh $lda_opts --splice-width $splice_width --cmd "$cmd" $data $lang $alidir $dir || exit 1;
+  steps/nnet2/get_lda.sh $lda_opts --splice-width $splice_width --cmd "$cmd" --transform-dir $transform_dir $data $lang $alidir $dir || exit 1;
 fi
 
 # these files will have been written by get_lda.sh
@@ -164,7 +169,7 @@ if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   echo "$0: calling get_egs.sh"
   [ ! -z $spk_vecs_dir ] && spk_vecs_opt="--spk-vecs-dir $spk_vecs_dir";
   steps/nnet2/get_egs.sh $spk_vecs_opt --samples-per-iter $samples_per_iter --num-jobs-nnet $num_jobs_nnet \
-      --splice-width $splice_width --stage $get_egs_stage --cmd "$cmd" $egs_opts --io-opts "$io_opts" \
+      --splice-width $splice_width --stage $get_egs_stage --cmd "$cmd" $egs_opts --io-opts "$io_opts" --transform-dir $transform_dir \
       $data $lang $alidir $dir || exit 1;
 fi
 

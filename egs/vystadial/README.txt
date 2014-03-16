@@ -8,23 +8,24 @@ calls with statistical dialogue systems, designed to provide the user
 with information on a suitable dining venue in the town.
 
 The Czech recordings were collected in three ways:
-1) using a free Call Friend phone service
-2) using the Repeat After Me speech data collecting process
-3) from telephone interactions with the PublicTransportInfo Spoken Dialog System (SDS)
-Alex: http://ufal.ms.mff.cuni.cz/alex-dialogue-systems-framework/.
+
+1. using a free Call Friend phone service
+2. using the Repeat After Me speech data collecting process
+3. from telephone interactions with the PublicTransportInfo Spoken Dialog System (SDS)
+   Alex: http://ufal.ms.mff.cuni.cz/alex-dialogue-systems-framework/.
 
 The data collection process is described in detail
 in article "Free English and Czech telephone speech corpus shared under the CC-BY-SA 3.0 license"
-(NOT yet) published for LREC 2014.
+published for LREC 2014 (To Appear).
 
 The main purpose of providing the data and scripts
 is training acoustic models for real-time speech recognition unit
-for dialog system ALEX, which uses modified real-time Kaldi LatticeFasterDecoder.
+for dialog system ALEX, which uses modified real-time Kaldi OnlineLatgenRecogniser.
 The modified Kaldi decoders are NOT required for running the scripts!
 WE USE COMMON KALDI DECODERS IN THE SCRIPTS (gmm-latgen-faster through steps/decode.sh)
 
-The modified LatticeFasterDecoder is actively developed at 
-https://github.com/UFAL-DSG/pykaldi/tree/master/src/dec-wrap
+The modified OnlineLatgenRecogniser is actively developed at 
+https://github.com/UFAL-DSG/pykaldi/tree/master/src/onl-rec
 and has Python wrapper:
 https://github.com/UFAL-DSG/pykaldi/tree/master/src/pykaldi
 Note that I am currently moving the online decoder to:
@@ -44,12 +45,12 @@ of the Czech Republic under the grant agreement LK11221
 and core research funding of Charles University in Prague.
 For citing, please use following BibTex citation:
 
-@todo{NOTPUBLISHED_YET_lrec_2014,
-  author = {Korvas, Matěj; Pl\'{a}tek, Ondřej; Du\v{s}ek, Ondřej; \v{Z}ilka, Luk\'{a}\v{s}; Jur\v{c}\'{i}\v{c}ek, Filip},
-  title = {Free English and Czech telephone speech corpus shared under the CC-BY-SA 3.0 license},
-  year = {2014},
-  language = {eng},
-  institution = {Faculty of Mathematics and Physics, Charles University in Prague, {UFAL}}
+@inproceedings{korvas_2014,
+  title={{Free English and Czech telephone speech corpus shared under the CC-BY-SA 3.0 license}},
+  author={Korvas, Mat\v{e}j and Pl\'{a}tek, Ond\v{r}ej and Du\v{s}ek, Ond\v{r}ej and \v{Z}ilka, Luk\'{a}\v{s} and Jur\v{c}\'{i}\v{c}ek, Filip},
+  booktitle={Proceedings of the Eigth International Conference on Language Resources and Evaluation (LREC 2014)},
+  pages={To Appear},
+  year={2014},
 }
 
 
@@ -59,10 +60,9 @@ The expected results were obtained simply by running
 bash train_voip_cs.sh OR bash train_voip_en.sh.
 Note that you need SRILM installed in path or at kaldi/tools/ directory!
 
-build2 - bigram LM from train data, estimated by the scripts using SRILM
-build0 - zerogram LM from test data, estimated by scripts using Python code
-LMW - Language model weight, we picked the best from (min_lmw, max_lmw)
-      based on decoding results on DEV set
+    build2 - bigram LM from train data, estimated by the scripts using SRILM
+    build0 - zerogram LM from test data, estimated by scripts using Python code
+    LMW - Language model weight, we picked the best from (min_lmw, max_lmw) based on decoding results on DEV set
 
     Full Czech data: 
     exp             set     LM      LMW     WER     SER  
@@ -163,14 +163,14 @@ Let's say you want to decode with
 the acoustic model stored in exp/tri2b_bmmi,
 then you need files listed below:
 
-====================================  ====================================================================================
-mfcc.conf                         # Speech parametrisation (MFCC) settings. Training and decoding setup must match.
-exp/tri2b_bmmi/graph/HCLG.fst     # Decoding Graph. Graph part of AM plus lexicon, phone->3phone & LM representation.
-exp/tri2b_bmmi/graph/words.txt    # Word symbol table, a mapping between words and integers which are decoded.
-exp/tri2b_bmmi/graph/silence.csl  # List of phone integer ids, which represent silent phones. 
-exp/tri2b_bmmi/final.mdl          # Trained acoustic model (AM).
-exp/tri2b_bmmi/final.mat          # Trained matrix of feature/space transformations (E.g. LDA and bMMI).
-====================================  ====================================================================================
+================================= =====================================================================================
+mfcc.conf                          Speech parametrisation (MFCC) settings. Training and decoding setup must match.
+exp/tri2b_bmmi/graph/HCLG.fst      Decoding Graph. Graph part of AM plus lexicon, phone->3phone & LM representation.
+exp/tri2b_bmmi/graph/words.txt     Word symbol table, a mapping between words and integers which are decoded.
+exp/tri2b_bmmi/graph/silence.csl   List of phone integer ids, which represent silent phones. 
+exp/tri2b_bmmi/final.mdl           Trained acoustic model (AM).
+exp/tri2b_bmmi/final.mat           Trained matrix of feature/space transformations (E.g. LDA and bMMI).
+================================= =====================================================================================
 
 
 We recommend to study steps/decode.sh Kaldi standard script
@@ -184,11 +184,11 @@ you need LM in ARPA format and files in table below.
 * Note 3: The phonetic dictionary applied on the vocabulary 
   should always generate only a subset of phones seen in training data!
 
-====================================  ====================================================================
-LM.arpa                           # Language model in ARPA format [You should supply it]
-vocabulary.txt                    # List of words you want to decode [You should supply it]
-OOV_SYMBOL                        # String representing out of vocabulary word. [You should supply it]
-dictionary.txt                    # Phonetic dictionary. [You should supply it]
-exp/tri2b_bmmi/final.mdl          # Trained acoustic model (AM).
-exp/tri2b_bmmi/final.tree         # Phonetic decision tree.
-====================================  ====================================================================
+===============================  =========================================================================
+LM.arpa                           Language model in ARPA format [You should supply it]
+vocabulary.txt                    List of words you want to decode [You should supply it]
+OOV_SYMBOL                        String representing out of vocabulary word. [You should supply it]
+dictionary.txt                    Phonetic dictionary. [You should supply it]
+exp/tri2b_bmmi/final.mdl          Trained acoustic model (AM).
+exp/tri2b_bmmi/final.tree         Phonetic decision tree.
+===============================  =========================================================================

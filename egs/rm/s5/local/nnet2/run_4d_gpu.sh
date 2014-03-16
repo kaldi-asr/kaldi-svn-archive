@@ -5,7 +5,7 @@
 # at the end of the directory name.
 
 
-parallel_opts="-l gpu=1,hostname=g*"  # This is suitable for the CLSP network, you'll likely have to change it.
+parallel_opts="-l gpu=1" 
 
 . cmd.sh
 
