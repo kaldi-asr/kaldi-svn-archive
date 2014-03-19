@@ -39,7 +39,7 @@ ext_modules.append(Extension('kaldi.decoders',
                              ))
 
 
-long_description = open(path.join(path.dirname(__file__), 'README.rst')).read()
+long_description = open(path.join(path.dirname(__file__), 'README.txt')).read()
 
 try:
     # In order to find out the pykaldi version from installed package at runtime use:
