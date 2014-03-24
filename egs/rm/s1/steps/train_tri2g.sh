@@ -43,6 +43,15 @@ compute_vtlnmdl=true # If true, at the end compute a model with actual feature-s
                      # final.mdl which takes the LVTLN features.
 
 numfiles=40 # Number of feature files for computing LVTLN transforms.
+
+min_warp=0.85
+max_warp=1.15
+warp_step=0.01
+num_classes=$(perl -e "print int(1.5 + ($max_warp - $min_warp) / $warp_step);") || exit 1;
+! [ $num_classes -gt 0 ] && echo "bad number of classes $num_classes" && exit 1;
+default_class=$(perl -e "print int(0.5 + (1.0 - $min_warp) / $warp_step);") || exit 1;
+
+warp=`perl -e 'print 0.85 + 0.01*$ARGV[0];' $c` 
 numclass=31; # Can't really change this without changing the script below
 defaultclass=15; # Corresponds to no warping.
 # RE "vtln_warp"
