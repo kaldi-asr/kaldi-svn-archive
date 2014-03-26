@@ -152,8 +152,6 @@ if [ -f $dir/warp.1 ]; then
 fi
 
 if true; then # Diagnostics
-  last_iter=$(echo 0 $lvtln_iters  | awk '{print $NF;}')
-  ln -sf warp.$last_iter $dir/final.warp
   if [ -f $data/spk2gender ]; then 
     # To make it easier to eyeball the male and female speakers' warps
     # separately, separate them out.
