@@ -44,8 +44,8 @@ struct MelBanksOptions {
   // to the Nyquist frequency to get the cutoff.
   bool debug_mel;
   explicit MelBanksOptions(int num_bins = 25)
-      : num_bins(num_bins), low_freq(20), high_freq(0), vtln_low(400),
-        vtln_high(-400), debug_mel(false) {}
+      : num_bins(num_bins), low_freq(20), high_freq(0), vtln_low(100),
+        vtln_high(-600), debug_mel(false) {}
 
   void Register(OptionsItf *po) {
     po->Register("num-mel-bins", &num_bins,

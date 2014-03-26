@@ -24,7 +24,6 @@ local/rm_prepare_grammar_ug.sh # Unigram grammar (gives worse results, but
 # want to store MFCC features.
 featdir=mfcc
 
-
 for x in test_mar87 test_oct87 test_feb89 test_oct89 test_feb91 test_sep92 train; do
   steps/make_mfcc.sh --nj 8 --cmd "run.pl" data/$x exp/make_mfcc/$x $featdir  
   steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $featdir  

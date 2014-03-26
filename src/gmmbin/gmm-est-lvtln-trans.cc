@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
         "Estimate linear-VTLN transforms, either per utterance or for "
         "the supplied set of speakers (spk2utt option).  Reads posteriors. \n"
         "Usage: gmm-est-lvtln-trans [options] <model-in> <lvtln-in> "
-        "<feature-rspecifier> <gpost-rspecifier> <lvtln-trans-wspecifier> [<lvtln-class-wspecifier>]\n";
+        "<feature-rspecifier> <gpost-rspecifier> <lvtln-trans-wspecifier> [<warp-wspecifier>]\n";
 
     ParseOptions po(usage);
     string spk2utt_rspecifier;
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
         feature_rspecifier = po.GetArg(3),
         gpost_rspecifier = po.GetArg(4),
         trans_wspecifier = po.GetArg(5),
-        class_wspecifier = po.GetOptArg(6);
+        warp_wspecifier = po.GetOptArg(6);
 
     TransitionModel trans_model;
     AmDiagGmm am_gmm;
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
     BaseFloatMatrixWriter transform_writer(trans_wspecifier);
 
-    Int32Writer class_writer(class_wspecifier);
+    BaseFloatWriter warp_writer(warp_wspecifier);
 
     std::vector<int32> class_counts(lvtln.NumClasses(), 0);
     int32 num_done = 0, num_no_gpost = 0, num_other_error = 0;
@@ -150,8 +150,8 @@ int main(int argc, char *argv[]) {
                                  &spk_tot_t);
           class_counts[class_idx]++;
           transform_writer.Write(spk, transform);
-          if (class_wspecifier != "")
-            class_writer.Write(spk, class_idx);
+          if (warp_wspecifier != "")
+            warp_writer.Write(spk, lvtln.GetWarp(class_idx));
         }
         KALDI_LOG << "For speaker " << spk << ", auxf-impr from LVTLN is "
                   << (impr/spk_tot_t) << ", over " << spk_tot_t << " frames.";
@@ -196,8 +196,8 @@ int main(int argc, char *argv[]) {
                                  &utt_tot_t);
           class_counts[class_idx]++;
           transform_writer.Write(utt, transform);
-          if (class_wspecifier != "")
-            class_writer.Write(utt, class_idx);
+          if (warp_wspecifier != "")
+            warp_writer.Write(utt, lvtln.GetWarp(class_idx));
         }
 
         KALDI_LOG << "For utterance " << utt << ", auxf-impr from LVTLN is "

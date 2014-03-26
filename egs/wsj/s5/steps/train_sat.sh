@@ -1,14 +1,12 @@
 #!/bin/bash
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey).  Apache 2.0.
 
-
 # This does Speaker Adapted Training (SAT), i.e. train on
 # fMLLR-adapted features.  It can be done on top of either LDA+MLLT, or
 # delta and delta-delta features.  If there are no transforms supplied
 # in the alignment directory, it will estimate transforms itself before
 # building the tree (and in any case, it estimates transforms a number
 # of times during training).
-
 
 # Begin configuration section.
 stage=-5

@@ -51,6 +51,10 @@ class LinearVtln {
   // the square part of the transform matrix.
   void SetTransform(int32 i, const MatrixBase<BaseFloat> &transform);
 
+  void SetWarp(int32 i, BaseFloat warp);
+
+  BaseFloat GetWarp(int32 i) const;
+
   // GetTransform gets the transform for class i.  The caller must
   // make sure the output matrix is sized Dim() by Dim().
   void GetTransform(int32 i, MatrixBase<BaseFloat> *transform) const;
@@ -82,7 +86,9 @@ class LinearVtln {
   int32 default_class_;  // transform we return if we have no data.
   std::vector<Matrix<BaseFloat> > A_;  // Square parts of the FMLLR matrices.
   std::vector<BaseFloat> logdets_;
-
+  std::vector<BaseFloat> warps_; // This variable can be used to store the
+                                 // warp factors that each transform correspond to.
+  
  private:
   BaseFloat GetDefaultAuxf(const FmllrDiagGmmAccs &speaker_stats) const;
 

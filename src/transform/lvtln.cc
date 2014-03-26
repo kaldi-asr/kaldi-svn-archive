@@ -1,6 +1,7 @@
 // transform/lvtln.cc
 
 // Copyright 2009-2011 Microsoft Corporation
+//                2014 Johns Hopkins University (author: Daniel Povey)
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -35,6 +36,8 @@ LinearVtln::LinearVtln(int32 dim, int32 num_classes, int32 default_class) {
   }
   logdets_.clear();
   logdets_.resize(num_classes, 0.0);
+  warps_.clear();
+  warps_.resize(num_classes, 1.0);
 } // namespace kaldi
 
 
@@ -48,7 +51,7 @@ BaseFloat LinearVtln::GetAuxf(const FmllrDiagGmmAccs &speaker_stats,
                               BaseFloat logdet_scale,
                               int32 class_idx,
                               const VectorBase<BaseFloat> &offset) const {
-  assert(class_idx >= 0 && class_idx < NumClasses());
+  KALDI_ASSERT(class_idx >= 0 && class_idx < NumClasses());
   int32 dim = Dim();
 
   Matrix<BaseFloat> mat(dim, dim+1);
@@ -69,9 +72,14 @@ void LinearVtln::Read(std::istream &is, bool binary) {
   ReadBasicType(is, binary, &sz);
   A_.resize(sz);
   logdets_.resize(sz);
+  warps_.resize(sz);
   for (int32 i = 0; i < sz; i++) {
+    ExpectToken(is, binary, "<A>");
     A_[i].Read(is, binary);
+    ExpectToken(is, binary, "<logdet>");
     ReadBasicType(is, binary, &(logdets_[i]));
+    ExpectToken(is, binary, "<warp>");
+    ReadBasicType(is, binary, &(warps_[i]));
   }
   ExpectToken(is, binary, "</LinearVtln>");
 }
@@ -80,11 +88,16 @@ void LinearVtln::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<LinearVtln>");
   if(!binary) os << "\n";
   int32 sz = A_.size();
-  assert(static_cast<size_t>(sz) == logdets_.size());
+  KALDI_ASSERT(static_cast<size_t>(sz) == logdets_.size());
+  KALDI_ASSERT(static_cast<size_t>(sz) == warps_.size());
   WriteBasicType(os, binary, sz);
   for (int32 i = 0; i < sz; i++) {
+    WriteToken(os, binary, "<A>");
     A_[i].Write(os, binary);
+    WriteToken(os, binary, "<logdet>");
     WriteBasicType(os, binary, logdets_[i]);
+    WriteToken(os, binary, "<warp>");
+    WriteBasicType(os, binary, warps_[i]);
     if(!binary) os << "\n";
   }
   WriteToken(os, binary, "</LinearVtln>");
@@ -161,6 +174,16 @@ void LinearVtln::SetTransform(int32 i, const MatrixBase<BaseFloat> &transform) {
   logdets_[i] = A_[i].LogDet();
 }
 
+void LinearVtln::SetWarp(int32 i, BaseFloat warp) {
+  KALDI_ASSERT(i >= 0 && i < NumClasses());
+  KALDI_ASSERT(warps_.size() == static_cast<size_t>(NumClasses()));
+  warps_[i] = warp;
+}
+
+BaseFloat LinearVtln::GetWarp(int32 i) const {
+  KALDI_ASSERT(i >= 0 && i < NumClasses());
+  return warps_[i];
+}
 
 void LinearVtln::GetTransform(int32 i, MatrixBase<BaseFloat> *transform) const {
   KALDI_ASSERT(i >= 0 && i < NumClasses());

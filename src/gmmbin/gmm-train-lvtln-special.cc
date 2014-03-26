@@ -29,18 +29,26 @@ int main(int argc, char *argv[]) {
     using kaldi::int32;
 
     const char *usage =
-        "Set one of the transforms in lvtln to the minimum-squared-error solution to mapping feats-untransformed to feats-transformed; alignments may optionally be used to downweight/remove silence.\n"
-        "Usage:  gmm-train-lvtln-special [options] class-index <lvtln-in> <lvtln-out> <feats-untransformed-rspecifier> <feats-transformed-rspecifier> [<posteriors-rspecifier>]\n"
+        "Set one of the transforms in lvtln to the minimum-squared-error solution\n"
+        "to mapping feats-untransformed to feats-transformed; posteriors may\n"
+        "optionally be used to downweight/remove silence.\n"
+        "Usage: gmm-train-lvtln-special [options] class-index <lvtln-in> <lvtln-out> "
+        " <feats-untransformed-rspecifier> <feats-transformed-rspecifier> [<posteriors-rspecifier>]\n"
         "e.g.: \n"
         " gmm-train-lvtln-special 5 5.lvtln 6.lvtln scp:train.scp scp:train_warp095.scp ark:nosil.post\n";
 
+    BaseFloat warp = -1.0;
     bool binary = true;
     bool normalize_var = false;
     bool normalize_covar = false;
     ParseOptions po(usage);
     po.Register("binary", &binary, "Write output in binary mode");
-    po.Register("normalize-var", &normalize_var, "Normalize variances to be the same before and after transform.");
-    po.Register("normalize-covar", &normalize_covar, "Normalize (matrix-valued) covariance to be the same before and after transform.");
+    po.Register("warp", &warp, "If supplied, can be used to set warp factor"
+                "for this transform");
+    po.Register("normalize-var", &normalize_var, "Normalize diagonal of variance "
+                "to be the same before and after transform.");
+    po.Register("normalize-covar", &normalize_covar, "Normalize (matrix-valued) "
+                "covariance to be the same before and after transform.");
 
     po.Read(argc, argv);
 
@@ -128,7 +136,9 @@ int main(int argc, char *argv[]) {
           for (size_t i = 0; i < post.size(); i++)
             for (size_t j = 0; j < post[i].size(); j++)
               weights(i) += post[i][j].second;
-        } else weights.Add(1.0);
+        } else {
+          weights.Add(1.0);
+        }
         // Now get stats.
 
         for (int32 i = 0; i < x_feats.NumRows(); i++) {
@@ -186,8 +196,9 @@ int main(int argc, char *argv[]) {
       lvtln.SetTransform(class_idx, A);
     } else {
       // Here is the computation if we normalize the full covariance.
-      // see the document "Notes for affine-transform-based VTLN" for explanation.
-
+      // see the document "Notes for affine-transform-based VTLN" for explanation,
+      // here: http://www.danielpovey.com/files/2010_vtln_notes.pdf
+      
       double T = 0.0;
       SpMatrix<double> XX(dim);  // sum of x x^t
       Vector<double> x(dim);  //  sum of x.
@@ -270,6 +281,9 @@ int main(int argc, char *argv[]) {
       lvtln.SetTransform(class_idx, Mf);  // in this setup we don't
       // need the offset, v.
     }
+
+    if (warp >= 0.0)
+      lvtln.SetWarp(class_idx, warp);
 
     {  // Write lvtln object.
       Output ko(lvtln_wxfilename, binary);
