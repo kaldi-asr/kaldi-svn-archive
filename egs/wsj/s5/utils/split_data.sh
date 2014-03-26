@@ -90,6 +90,8 @@ utils/split_scp.pl $utt2spk_opt $data/utt2spk $utt2spks || exit 1
 
 utils/split_scp.pl $utt2spk_opt $data/feats.scp $feats || exit 1
 
+[ -f $data/text ] && utils/split_scp.pl $utt2spk_opt $data/text $texts
+
 [ -f $data/vad.scp ] && utils/split_scp.pl $utt2spk_opt $data/vad.scp $vads
 
 # If lockfile is not installed, just don't lock it.  It's not a big deal.
