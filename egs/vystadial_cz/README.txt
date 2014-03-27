@@ -28,7 +28,7 @@ The modified OnlineLatgenRecogniser is actively developed at
 https://github.com/UFAL-DSG/pykaldi/tree/master/src/onl-rec
 and has Python wrapper:
 https://github.com/UFAL-DSG/pykaldi/tree/master/src/pykaldi
-Note that I am currently moving the online decoder to:
+Note that I am currently moving the online recogniser to:
 http://sourceforge.net/p/kaldi/code/HEAD/tree/sandbox/oplatek2/
 
 Credits and license
