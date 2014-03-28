@@ -91,6 +91,7 @@ class MelBanks {
   std::vector<std::pair<int32, Vector<BaseFloat> > > bins_;
 
   bool debug_;
+  bool htk_flooring_;
   KALDI_DISALLOW_COPY_AND_ASSIGN(MelBanks);
 };
 

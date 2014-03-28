@@ -43,9 +43,10 @@ struct MelBanksOptions {
   BaseFloat vtln_high;  // vtln upper cutoff of warping function: if negative, added
   // to the Nyquist frequency to get the cutoff.
   bool debug_mel;
+  bool htk_flooring;
   explicit MelBanksOptions(int num_bins = 25)
       : num_bins(num_bins), low_freq(20), high_freq(0), vtln_low(100),
-        vtln_high(-600), debug_mel(false) {}
+        vtln_high(-500), debug_mel(false), htk_flooring(false) {}
 
   void Register(OptionsItf *po) {
     po->Register("num-mel-bins", &num_bins,
@@ -61,6 +62,10 @@ struct MelBanksOptions {
                  " (if negative, offset from high-mel-freq");
     po->Register("debug-mel", &debug_mel,
                  "Print out debugging information for mel bin computation");
+    po->Register("htk-flooring", &htk_flooring,
+                 "If true, floor mel energies to 1.0 as in HTK, and also attempt "
+                 "to duplicate a HTK bug in the lowest mel bin energy. "
+                 "(For testing)");
   }
 };
 
