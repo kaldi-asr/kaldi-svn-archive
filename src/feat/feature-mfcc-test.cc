@@ -94,7 +94,7 @@ static void UnitTestSimple() {
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.htk_compat = true;
 
   Mfcc mfcc(op);
@@ -135,7 +135,7 @@ static void UnitTestHTKCompare1() {
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.htk_compat = true;
   op.use_energy = false;  // C0 not energy.
 
@@ -217,7 +217,7 @@ static void UnitTestHTKCompare2() {
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.htk_compat = true;
   op.use_energy = true;  // Use energy.
 
@@ -302,7 +302,7 @@ static void UnitTestHTKCompare3() {
   op.use_energy = true;  // Use energy.
   op.mel_opts.low_freq = 20.0;
   //op.mel_opts.debug_mel = true;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
 
   Mfcc mfcc(op);
 
@@ -383,7 +383,7 @@ static void UnitTestHTKCompare4() {
   op.mel_opts.low_freq = 0.0;
   op.htk_compat = true;
   op.use_energy = true;  // Use energy.
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
 
   Mfcc mfcc(op);
 
@@ -466,7 +466,7 @@ static void UnitTestHTKCompare5() {
   op.mel_opts.low_freq = 0.0;
   op.mel_opts.vtln_low = 100.0;
   op.mel_opts.vtln_high = 7500.0;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
 
   BaseFloat vtln_warp = 1.1; // our approach identical to htk for warp factor >1,
   // differs slightly for higher mel bins if warp_factor <0.9

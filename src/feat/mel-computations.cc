@@ -32,7 +32,7 @@ namespace kaldi {
 MelBanks::MelBanks(const MelBanksOptions &opts,
                    const FrameExtractionOptions &frame_opts,
                    BaseFloat vtln_warp_factor):
-    htk_flooring_(opts.htk_flooring) {
+    htk_mode_(opts.htk_mode) {
   int32 num_bins = opts.num_bins;
   if (num_bins < 3) KALDI_ERR << "Must have at least 3 mel bins";
   BaseFloat sample_freq = frame_opts.samp_freq;
@@ -127,7 +127,7 @@ MelBanks::MelBanks(const MelBanksOptions &opts,
     bins_[bin].second.CopyFromVec(this_bin.Range(first_index, size));
 
     // Replicate a bug in HTK, for testing purposes.
-    if (opts.htk_flooring && bin == 0 && mel_low_freq != 0.0)
+    if (opts.htk_mode && bin == 0 && mel_low_freq != 0.0)
       bins_[bin].second(0) = 0.0;
     
   }
@@ -226,7 +226,7 @@ void MelBanks::Compute(const VectorBase<BaseFloat> &power_spectrum,
     const Vector<BaseFloat> &v(bins_[i].second);
     BaseFloat energy = VecVec(v, power_spectrum.Range(offset, v.Dim()));
     // HTK-like flooring- for testing purposes (we prefer dither)
-    if (htk_flooring_ && energy < 1.0) energy = 1.0; 
+    if (htk_mode_ && energy < 1.0) energy = 1.0; 
     (*mel_energies_out)(i) = energy;
     
     // The following assert was added due to a problem with OpenBlas that

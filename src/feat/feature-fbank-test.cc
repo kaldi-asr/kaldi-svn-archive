@@ -136,7 +136,7 @@ static void UnitTestHTKCompare1() {
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
   op.htk_compat = true;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.use_energy = false;  // C0 not energy.
 
   Fbank fbank(op);
@@ -215,7 +215,7 @@ static void UnitTestHTKCompare2() {
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 25.0;
   op.htk_compat = true;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.use_energy = false;  // C0 not energy.
 
   Fbank fbank(op);
@@ -293,7 +293,7 @@ static void UnitTestHTKCompare3() {
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 25.0;
   op.htk_compat = true;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.use_energy = false;  // C0 not energy.
 
   op.mel_opts.vtln_low = 100.0;
@@ -377,7 +377,7 @@ static void UnitTestHTKCompare4() {
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 25.0;
   op.htk_compat = true;
-  op.mel_opts.htk_flooring = true;
+  op.mel_opts.htk_mode = true;
   op.use_energy = false;  // C0 not energy.
 
   op.mel_opts.vtln_low = 100.0;
