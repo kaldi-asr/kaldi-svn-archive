@@ -1,28 +1,20 @@
 Summary
 -------
-The data comprise over 41 hours of speech in English and over 15 hours in
-Czech.
+The data comprise over 41 hours of speech in English.
 
 The English recordings were collected from humans interacting via telephone 
 calls with statistical dialogue systems, designed to provide the user 
 with information on a suitable dining venue in the town.
 
-The Czech recordings were collected in three ways:
-
-1. using a free Call Friend phone service
-2. using the Repeat After Me speech data collecting process
-3. from telephone interactions with the PublicTransportInfo Spoken Dialog System (SDS)
-   Alex: http://ufal.ms.mff.cuni.cz/alex-dialogue-systems-framework/.
-
 The data collection process is described in detail
 in article "Free English and Czech telephone speech corpus shared under the CC-BY-SA 3.0 license"
 published for LREC 2014 (To Appear).
 
-The main purpose of providing the data and scripts
+WE USE COMMON KALDI DECODERS IN THE SCRIPTS (gmm-latgen-faster through steps/decode.sh)
+However, the main purpose of providing the data and scripts
 is training acoustic models for real-time speech recognition unit
 for dialog system ALEX, which uses modified real-time Kaldi OnlineLatgenRecogniser.
 The modified Kaldi decoders are NOT required for running the scripts!
-WE USE COMMON KALDI DECODERS IN THE SCRIPTS (gmm-latgen-faster through steps/decode.sh)
 
 The modified OnlineLatgenRecogniser is actively developed at 
 https://github.com/UFAL-DSG/pykaldi/tree/master/src/onl-rec
@@ -64,23 +56,6 @@ Note that you need SRILM installed in path or at kaldi/tools/ directory!
     build0 - zerogram LM from test data, estimated by scripts using Python code
     LMW - Language model weight, we picked the best from (min_lmw, max_lmw) based on decoding results on DEV set
 
-    Full Czech data: 
-    exp             set     LM      LMW     WER     SER  
-    mono            test    build0  6       86.1    89.66
-    tri1            test    build0  8       70.84   82.9 
-    tri2a           test    build0  8       70.86   83.01
-    tri2b           test    build0  9       68.13   80.89
-    tri2b_mmi       test    build0  9       67.61   79.53
-    tri2b_mmi_b0.05 test    build0  8       66.18   78.72
-    tri2b_mpe       test    build0  9       64.93   77.66
-    mono            test    build2  8       72.3    79.02
-    tri1            test    build2  11      55.57   72.11
-    tri2a           test    build2  11      55.12   70.9 
-    tri2b           test    build2  12      52.95   70.7 
-    tri2b_mmi       test    build2  10      50.42   68.38
-    tri2b_mmi_b0.05 test    build2  10      49.96   68.58
-    tri2b_mpe       test    build2  12      49.87   66.97
-
     Full English data:
     exp             set     LM      LMW     WER     SER
     mono            test    build0  9       67.52   91.6
@@ -105,12 +80,10 @@ Note that you need SRILM installed in path or at kaldi/tools/ directory!
 Details
 -------
 * Requires Kaldi installation and Linux environment. (Tested on Ubuntu 10.04, 12.04 and 12.10.)
-* The config files s5/env_voip_{cs,en}.sh sets the data directory,
+* The config file s5/env_voip_en.sh sets the data directory,
   mfcc directory and experiments directory.
-  The default configuration $WORK/model_voip_{cs,en}, 
-  $WORK/model_voip_{cs,en}/exp, $WORK/mfcc.
-* Our scripts prepare the data to the expected format in s5/$WORK/data.
-* Experiment files are stored to $exp directory e.g. data_voip_cs/exp.
+* Our scripts prepare the data to the expected format in s5/data.
+* Experiment files are stored to $exp directory e.g. s5/exp.
 * The local directory contains scripts for data preparation to prepare 
   lang directory.
 * path.sh, cmd.sh and  common/* contain configurations for the 
@@ -134,23 +107,21 @@ Before running the experiments, check that:
   required (disabled by default).
 
 Start the recipe from the s5 directory by running 
-bash train_voip_cs.sh or bash train_voip_en.sh.
-It will create $WORK/mfcc, $WORK/data and $WORK/exp directories.
+bash run.sh.
+It will create s5/mfcc, s5/data and s5/exp directories.
 If any of them exists, it will ask you if you want them to be overwritten.
 
 .. [*] Sun Grid Engine
 
 Extracting the results and trained models
 -----------------------------------------
-The main scripts, s5/train_voip_{cs,en}.sh, 
-perform not only training of the acoustic 
-models, but also decoding.
+The main scripts, s5/run.sh, 
+perform not only training of the acoustic models, but also decoding.
 The acoustic models are evaluated after running the training and  
 reports are printed to the standard output.
 
 The s5/local/results.py exp command extracts the results from the $exp directory.
-It is invoked at the end of the s5/train_voip_{cs,en}.sh script and 
-the results are thereby stored to $WORK/exp/results.log.
+and stores the results to exp/results.log.
 
 If you want to use the trained acoustic model with your language model
 outside the prepared script, you need to build the HCLG decoding graph yourself.  
@@ -158,7 +129,7 @@ See http://kaldi.sourceforge.net/graph.html for general introduction to the FST
 framework in Kaldi.
 
 The simplest way to start decoding is to use the same LM which
-was used by the s5/train_voip_{cs,en}.sh script.
+was used by the s5/run.sh script.
 Let's say you want to decode with 
 the acoustic model stored in exp/tri2b_bmmi,
 then you need files listed below:
