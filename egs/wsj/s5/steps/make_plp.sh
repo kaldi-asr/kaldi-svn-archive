@@ -9,6 +9,7 @@
 nj=4
 cmd=run.pl
 plp_config=conf/plp.conf
+compress=true
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -49,6 +50,7 @@ for f in $required; do
     exit 1;
   fi
 done
+utils/validate_data_dir.sh --no-text --no-feats $data || exit 1;
 
 # note: in general, the double-parenthesis construct in bash "((" is "C-style
 # syntax" where we can get rid of the $ for variable names, and omit spaces.
@@ -65,10 +67,11 @@ if [ -f $data/segments ]; then
   utils/split_scp.pl $data/segments $split_segments || exit 1;
   rm $logdir/.error 2>/dev/null
 
-  $cmd JOB=1:$nj $logdir/make_plp.JOB.log \
+  $cmd JOB=1:$nj $logdir/make_plp_${name}.JOB.log \
     extract-segments scp:$scp $logdir/segments.JOB ark:- \| \
-    compute-plp-feats --verbose=2 --config=$plp_config ark:- \
-    ark,scp:$plpdir/raw_plp_$name.JOB.ark,$plpdir/raw_plp_$name.JOB.scp \
+    compute-plp-feats --verbose=2 --config=$plp_config ark:- ark:- \| \
+    copy-feats --compress=$compress ark:- \
+      ark,scp:$plpdir/raw_plp_$name.JOB.ark,$plpdir/raw_plp_$name.JOB.scp \
      || exit 1;
 
 else
@@ -80,8 +83,9 @@ else
 
   utils/split_scp.pl $scp $split_scps || exit 1;
  
-  $cmd JOB=1:$nj $logdir/make_plp.JOB.log \
-    compute-plp-feats  --verbose=2 --config=$plp_config scp:$logdir/wav.JOB.scp \
+  $cmd JOB=1:$nj $logdir/make_plp_${name}.JOB.log \
+    compute-plp-feats  --verbose=2 --config=$plp_config scp:$logdir/wav.JOB.scp ark:- \| \
+    copy-feats --compress=$compress ark:- \
       ark,scp:$plpdir/raw_plp_$name.JOB.ark,$plpdir/raw_plp_$name.JOB.scp \
       || exit 1;
 
@@ -90,7 +94,7 @@ fi
 
 if [ -f $logdir/.error.$name ]; then
   echo "Error producing plp features for $name:"
-  tail $logdir/make_plp.*.log
+  tail $logdir/make_plp_${name}.1.log
   exit 1;
 fi
 
@@ -106,6 +110,10 @@ nu=`cat $data/utt2spk | wc -l`
 if [ $nf -ne $nu ]; then
   echo "It seems not all of the feature files were successfully ($nf != $nu);"
   echo "consider using utils/fix_data_dir.sh $data"
+fi
+if [ $nf -lt $[$nu - ($nu/20)] ]; then
+  echo "Less than 95% the features were successfully generated.  Probably a serious error."
+  exit 1;
 fi
 
 echo "Succeeded creating PLP features for $name"

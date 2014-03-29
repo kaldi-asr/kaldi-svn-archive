@@ -2,6 +2,8 @@
 
 // Copyright 2011-2013  Brno University of Technology (Author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,6 +29,7 @@
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
+  using namespace kaldi::nnet1;
   try {
     const char *usage =
         "Perform forward pass through Neural Network.\n"
@@ -48,13 +51,8 @@ int main(int argc, char *argv[]) {
     bool apply_log = false;
     po.Register("apply-log", &apply_log, "Transform MLP output to logscale");
 
-#if HAVE_CUDA==1
-    int32 use_gpu_id=-2;
-    po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID (-2 automatic selection, -1 disable GPU, 0..N select GPU)");
-#else
-    int32 use_gpu_id=-2;
-    po.Register("use-gpu-id", &use_gpu_id, "Unused, kaldi is compiled w/o CUDA");
-#endif
+    std::string use_gpu="no";
+    po.Register("use-gpu", &use_gpu, "yes|no|optional, only has effect if compiled with CUDA"); 
 
     po.Read(argc, argv);
 
@@ -68,11 +66,13 @@ int main(int argc, char *argv[]) {
         feature_wspecifier = po.GetArg(3);
         
     using namespace kaldi;
+    using namespace kaldi::nnet1;
     typedef kaldi::int32 int32;
 
     //Select the GPU
 #if HAVE_CUDA==1
-    CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+    CuDevice::Instantiate().SelectGpuId(use_gpu);
+    CuDevice::Instantiate().DisableCaching();
 #endif
 
     Nnet nnet_transf;
@@ -83,15 +83,15 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
     //optionally remove softmax
-    if(no_softmax && nnet.Layer(nnet.LayerCount()-1)->GetType() == Component::kSoftmax) {
+    if(no_softmax && nnet.GetComponent(nnet.NumComponents()-1).GetType() == Component::kSoftmax) {
       KALDI_LOG << "Removing softmax from the nnet " << model_filename;
-      nnet.RemoveLayer(nnet.LayerCount()-1);
+      nnet.RemoveComponent(nnet.NumComponents()-1);
     }
     //check for some non-sense option combinations
     if(apply_log && no_softmax) {
       KALDI_ERR << "Nonsense option combination : --apply-log=true and --no-softmax=true";
     }
-    if(apply_log && nnet.Layer(nnet.LayerCount()-1)->GetType() != Component::kSoftmax) {
+    if(apply_log && nnet.GetComponent(nnet.NumComponents()-1).GetType() != Component::kSoftmax) {
       KALDI_ERR << "Used --apply-log=true, but nnet " << model_filename 
                 << " does not have <softmax> as last component!";
     }

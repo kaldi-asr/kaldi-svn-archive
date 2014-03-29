@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +29,7 @@ bool SplitStringToFloats(const std::string &full,
                          const char *delim,
                          bool omit_empty_strings, // typically false
                          std::vector<F> *out) {
-  assert(out != NULL);
+  KALDI_ASSERT(out != NULL);
   if ( *(full.c_str()) == '\0') {
     out->clear();
     return true;
@@ -140,7 +142,7 @@ void SplitStringOnFirstSpace(const std::string &str,
   }
 
   I last_nonwhite = str.find_last_not_of(white_chars);
-  assert(last_nonwhite != npos);  // or coding error.
+  KALDI_ASSERT(last_nonwhite != npos);  // or coding error.
 
   *first = std::string(str, first_nonwhite, next_white-first_nonwhite);
   *rest = std::string(str, next_nonwhite, last_nonwhite+1-next_nonwhite);

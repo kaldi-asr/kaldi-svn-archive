@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation,  Gilles Boulianne
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,7 +21,6 @@
 #define KALDI_DECODER_BIGLM_FASTER_DECODER_H_
 
 #include "util/stl-utils.h"
-#include "util/parse-options.h"
 #include "util/hash-list.h"
 #include "fst/fstlib.h"
 #include "itf/decodable-itf.h"

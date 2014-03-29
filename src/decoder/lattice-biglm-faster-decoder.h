@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation, Mirko Hannemann,
 //              Gilles Boulianne
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -63,7 +65,8 @@ class LatticeBiglmFasterDecoder {
                  lm_diff_fst->Start() != fst::kNoStateId);
     toks_.SetSize(1000);  // just so on the first frame we do something reasonable.
   }
- void SetOptions(const LatticeBiglmFasterDecoderConfig &config) { config_ = config; }  
+  void SetOptions(const LatticeBiglmFasterDecoderConfig &config) { config_ = config; } 
+  LatticeBiglmFasterDecoderConfig GetOptions() { return config_; } 
   ~LatticeBiglmFasterDecoder() {
     ClearActiveTokens();
   }
@@ -185,6 +188,8 @@ class LatticeBiglmFasterDecoder {
     return (cur_state != 0);
   }
 
+  // This function is now deprecated, since now we do determinization from
+  // outside the LatticeBiglmFasterDecoder class.
   // Outputs an FST corresponding to the lattice-determinized
   // lattice (one path per word sequence).
   bool GetLattice(fst::MutableFst<CompactLatticeArc> *ofst) const {
@@ -201,9 +206,7 @@ class LatticeBiglmFasterDecoder {
     // lattice-determinization more efficient.
     
     fst::DeterminizeLatticePrunedOptions lat_opts;
-    lat_opts.max_mem = config_.max_mem;
-    lat_opts.max_loop = config_.max_loop;
-    lat_opts.max_arcs = config_.max_arcs;
+    lat_opts.max_mem = config_.det_opts.max_mem;
     
     DeterminizeLatticePruned(raw_fst, config_.lattice_beam, ofst, lat_opts);
     raw_fst.DeleteStates(); // Free memory-- raw_fst no longer needed.

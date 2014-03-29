@@ -1,7 +1,10 @@
 // sgmmbin/sgmm-est-fmllr.cc
 
 // Copyright 2009-2012  Saarland University   Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,6 +28,7 @@ using std::vector;
 #include "sgmm/am-sgmm.h"
 #include "sgmm/fmllr-sgmm.h"
 #include "hmm/transition-model.h"
+#include "hmm/posterior.h"
 
 namespace kaldi {
 
@@ -40,6 +44,8 @@ void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
                             FmllrSgmmAccs *spk_stats) {
   kaldi::SgmmPerFrameDerivedVars per_frame_vars;
 
+  Posterior pdf_post;
+  ConvertPosteriorToPdfs(trans_model, post, &pdf_post);
   for (size_t t = 0; t < post.size(); t++) {
     std::vector<int32> this_gselect;
     if (!gselect.empty()) {
@@ -54,12 +60,12 @@ void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
                                 0.0 /*fMLLR logdet*/, &per_frame_vars);
 
 
-    for (size_t j = 0; j < post[t].size(); j++) {
-      int32 pdf_id = trans_model.TransitionIdToPdf(post[t][j].first);
+    for (size_t j = 0; j < pdf_post[t].size(); j++) {
+      int32 pdf_id = pdf_post[t][j].first;
       Matrix<BaseFloat> posteriors;
       am_sgmm.ComponentPosteriors(per_frame_vars, pdf_id,
                                   &posteriors);
-      posteriors.Scale(post[t][j].second);
+      posteriors.Scale(pdf_post[t][j].second);
       spk_stats->AccumulateFromPosteriors(am_sgmm, spk_vars, feats.Row(t),
                                           this_gselect,
                                           posteriors, pdf_id);

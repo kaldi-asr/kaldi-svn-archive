@@ -2,6 +2,8 @@
 
 // Copyright 2011-2012  Yanmin Qian  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +26,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "gmm/mle-am-diag-gmm.h"
 #include "hmm/transition-model.h"
-#include "util/kaldi-holder.h" // for Posterior
+#include "hmm/posterior.h"
 
 namespace kaldi {
 
@@ -70,7 +72,7 @@ struct FmpeOptions {
   FmpeOptions(): context_expansion("0,1.0:-1,1.0:1,1.0:-2,0.5;-3,0.5:2,0.5;3,0.5:-4,0.5;-5,0.5:4,0.5;5,0.5:-6,0.333;-7,0.333;-8,0.333:6,0.333;7,0.333;8,0.333"),
                 post_scale(5.0) { }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("post-scale", &post_scale, "Scaling constant on posterior "
                  "element of offset features, to give it a faster learning "
                  "rate.");
@@ -90,7 +92,7 @@ struct FmpeUpdateOptions {
   
   FmpeUpdateOptions(): learning_rate(0.1), l2_weight(100.0) { }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("learning-rate", &learning_rate,
                  "Learning rate constant (like inverse of E in fMPE papers)");
     po->Register("l2-weight", &l2_weight,

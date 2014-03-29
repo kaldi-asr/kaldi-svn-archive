@@ -5,6 +5,8 @@
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,7 +37,7 @@ OnlineDecodableDiagGmmScaled::OnlineDecodableDiagGmmScaled(
               << "input: please check this before the initializer!";
   }
   int32 num_pdfs = trans_model_.NumPdfs();
-  cache_.resize(num_pdfs, std::make_pair<int32,BaseFloat>(-1, 0.0));
+  cache_.resize(num_pdfs, std::pair<int32,BaseFloat>(-1, 0.0));
 }
 
 void OnlineDecodableDiagGmmScaled::CacheFrame(int32 frame) {

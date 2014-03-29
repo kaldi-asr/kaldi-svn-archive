@@ -2,7 +2,10 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 //                2013  Johns Hopkins University (author: Daniel Povey)
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,6 +29,7 @@ using std::vector;
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "transform/fmllr-diag-gmm.h"
+#include "hmm/posterior.h"
 
 namespace kaldi {
 void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
@@ -33,12 +37,14 @@ void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
                             const TransitionModel &trans_model,
                             const AmDiagGmm &am_gmm,
                             FmllrDiagGmmAccs *spk_stats) {
+  Posterior pdf_post;
+  ConvertPosteriorToPdfs(trans_model, post, &pdf_post);
   for (size_t i = 0; i < post.size(); i++) {
-    for (size_t j = 0; j < post[i].size(); j++) {
-      int32 pdf_id = trans_model.TransitionIdToPdf(post[i][j].first);
+    for (size_t j = 0; j < pdf_post[i].size(); j++) {
+      int32 pdf_id = pdf_post[i][j].first;
       spk_stats->AccumulateForGmm(am_gmm.GetPdf(pdf_id),
                                   feats.Row(i),
-                                  post[i][j].second);
+                                  pdf_post[i][j].second);
     }
   }
 }

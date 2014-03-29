@@ -6,6 +6,8 @@
 // Copyright 2012-2013  Johns Hopkins University (author: Daniel Povey)
 //                      Liang Lu;  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,14 +25,13 @@
 #define KALDI_SGMM_AM_SGMM_H_
 
 #include <vector>
-#include <queue>
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
 #include "gmm/model-common.h"
 #include "gmm/diag-gmm.h"
 #include "gmm/full-gmm.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 #include "util/table-types.h"
 
 namespace kaldi {
@@ -46,7 +47,7 @@ struct SgmmGselectConfig {
     diag_gmm_nbest = 50;
   }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("full-gmm-nbest", &full_gmm_nbest, "Number of highest-scoring"
         " full-covariance Gaussians selected per frame.");
     po->Register("diag-gmm-nbest", &diag_gmm_nbest, "Number of highest-scoring"

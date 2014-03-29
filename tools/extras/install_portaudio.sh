@@ -60,14 +60,6 @@ tar -xovzf pa_stable_v19_20111121.tgz || exit 1
 read -d '' pa_patch << "EOF"
 --- portaudio/Makefile.in	2012-08-05 10:42:05.000000000 +0300
 +++ portaudio/Makefile_mod.in	2012-08-05 10:41:54.000000000 +0300
-@@ -57,6 +57,7 @@
- 	src/common/pa_process.o \\
- 	src/common/pa_stream.o \\
- 	src/common/pa_trace.o \\
-+	src/common/pa_ringbuffer.o \\
- 	src/hostapi/skeleton/pa_hostapi_skeleton.o
- 
- LOOPBACK_OBJS = \\
 @@ -193,6 +194,8 @@
  	for include in $(INCLUDES); do \\
  		$(INSTALL_DATA) -m 644 $(top_srcdir)/include/$$include $(DESTDIR)$(includedir)/$$include; \\
@@ -90,14 +82,18 @@ if [ -z "$MACOS" ]; then
 fi
 
 ./configure --prefix=`pwd`/install --with-pic
-
+sed -i.bk '40s:src/common/pa_ringbuffer.o::g; 40s:$: src/common/pa_ringbuffer.o:' Makefile
 
 if [ "$MACOS" != "" ]; then
     echo "detected MacOS operating system ... trying to fix Makefile"
     mv Makefile Makefile.bck
-    cat Makefile.bck | sed 's/\-isysroot\ \/Developer\/SDKs\/MacOSX10\.4u\.sdk//g' | sed 's/-Werror//g' | sed 's/-arch i386//g' | sed 's/-arch ppc//g' > Makefile
+    cat Makefile.bck | sed -e 's/\-isysroot\ \/Developer\/SDKs\/MacOSX10\.4u\.sdk//g' \
+      -e 's/-Werror//g' -e 's/-arch i386//g' -e 's/-arch ppc64//g' -e 's/-arch ppc//g' \
+      > Makefile
     mv include/pa_mac_core.h include/pa_mac_core.h.bck
-    cat include/pa_mac_core.h.bck | sed 's/\/\/\#include \<AudioToolbox\/AudioToolbox.h\>/#include \<AudioToolbox\/AudioToolbox.h\>/g' > include/pa_mac_core.h 
+    cat include/pa_mac_core.h.bck \
+      | sed 's/\/\/\#include \<AudioToolbox\/AudioToolbox.h\>/#include \<AudioToolbox\/AudioToolbox.h\>/g' \
+      > include/pa_mac_core.h 
 fi
 
 make

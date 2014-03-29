@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011     Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -41,6 +43,8 @@ typedef SequentialTableReader<KaldiObjectHolder<Matrix<double> > >  SequentialDo
 typedef RandomAccessTableReader<KaldiObjectHolder<Matrix<double> > >  RandomAccessDoubleMatrixReader;
 typedef RandomAccessTableReaderMapped<KaldiObjectHolder<Matrix<double> > >  RandomAccessDoubleMatrixReaderMapped;
 
+typedef TableWriter<KaldiObjectHolder<CompressedMatrix> >  CompressedMatrixWriter;
+
 typedef TableWriter<KaldiObjectHolder<Vector<BaseFloat> > >  BaseFloatVectorWriter;
 typedef SequentialTableReader<KaldiObjectHolder<Vector<BaseFloat> > >  SequentialBaseFloatVectorReader;
 typedef RandomAccessTableReader<KaldiObjectHolder<Vector<BaseFloat> > >  RandomAccessBaseFloatVectorReader;
@@ -49,6 +53,25 @@ typedef RandomAccessTableReaderMapped<KaldiObjectHolder<Vector<BaseFloat> > >  R
 typedef TableWriter<KaldiObjectHolder<Vector<double> > >  DoubleVectorWriter;
 typedef SequentialTableReader<KaldiObjectHolder<Vector<double> > >  SequentialDoubleVectorReader;
 typedef RandomAccessTableReader<KaldiObjectHolder<Vector<double> > >  RandomAccessDoubleVectorReader;
+
+typedef TableWriter<KaldiObjectHolder<CuMatrix<BaseFloat> > >  BaseFloatCuMatrixWriter;
+typedef SequentialTableReader<KaldiObjectHolder<CuMatrix<BaseFloat> > >  SequentialBaseFloatCuMatrixReader;
+typedef RandomAccessTableReader<KaldiObjectHolder<CuMatrix<BaseFloat> > >  RandomAccessBaseFloatCuMatrixReader;
+typedef RandomAccessTableReaderMapped<KaldiObjectHolder<CuMatrix<BaseFloat> > >  RandomAccessBaseFloatCuMatrixReaderMapped;
+
+typedef TableWriter<KaldiObjectHolder<CuMatrix<double> > >  DoubleCuMatrixWriter;
+typedef SequentialTableReader<KaldiObjectHolder<CuMatrix<double> > >  SequentialDoubleCuMatrixReader;
+typedef RandomAccessTableReader<KaldiObjectHolder<CuMatrix<double> > >  RandomAccessDoubleCuMatrixReader;
+typedef RandomAccessTableReaderMapped<KaldiObjectHolder<CuMatrix<double> > >  RandomAccessDoubleCuMatrixReaderMapped;
+
+typedef TableWriter<KaldiObjectHolder<CuVector<BaseFloat> > >  BaseFloatCuVectorWriter;
+typedef SequentialTableReader<KaldiObjectHolder<CuVector<BaseFloat> > >  SequentialBaseFloatCuVectorReader;
+typedef RandomAccessTableReader<KaldiObjectHolder<CuVector<BaseFloat> > >  RandomAccessBaseFloatCuVectorReader;
+typedef RandomAccessTableReaderMapped<KaldiObjectHolder<CuVector<BaseFloat> > >  RandomAccessBaseFloatCuVectorReaderMapped;
+
+typedef TableWriter<KaldiObjectHolder<CuVector<double> > >  DoubleCuVectorWriter;
+typedef SequentialTableReader<KaldiObjectHolder<CuVector<double> > >  SequentialDoubleCuVectorReader;
+typedef RandomAccessTableReader<KaldiObjectHolder<CuVector<double> > >  RandomAccessDoubleCuVectorReader;
 
 
 typedef TableWriter<BasicHolder<int32> >  Int32Writer;
@@ -101,20 +124,6 @@ typedef TableWriter<TokenVectorHolder> TokenVectorWriter;
 typedef SequentialTableReader<TokenVectorHolder> SequentialTokenVectorReader;
 typedef RandomAccessTableReader<TokenVectorHolder> RandomAccessTokenVectorReader;
 
-
-// Posterior is a typedef: vector<vector<pair<int32, BaseFloat> > >,
-// representing posteriors over (typically) transition-ids for an
-// utterance.
-typedef TableWriter<PosteriorHolder> PosteriorWriter;
-typedef SequentialTableReader<PosteriorHolder> SequentialPosteriorReader;
-typedef RandomAccessTableReader<PosteriorHolder> RandomAccessPosteriorReader;
-
-
-// typedef std::vector<std::vector<std::pair<int32, Vector<BaseFloat> > > > GauPost;
-typedef TableWriter<GauPostHolder> GauPostWriter;
-typedef SequentialTableReader<GauPostHolder> SequentialGauPostReader;
-
-typedef RandomAccessTableReader<GauPostHolder> RandomAccessGauPostReader;
 
 /// @}
 

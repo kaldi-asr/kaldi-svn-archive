@@ -3,6 +3,8 @@
 // Copyright 2009-2011   Saarland University
 // Author:  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,6 +19,7 @@
 // limitations under the License.
 
 #include "base/kaldi-common.h"
+#include "util/common-utils.h"
 #include "util/kaldi-io.h"
 #include "gmm/diag-gmm.h"
 #include "gmm/full-gmm.h"

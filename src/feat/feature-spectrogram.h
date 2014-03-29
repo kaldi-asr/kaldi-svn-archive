@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Karel Vesely
 // Copyright 2012  Navdeep Jaitly
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -42,7 +44,7 @@ struct SpectrogramOptions {
     energy_floor(0.0),  // not in log scale: a small value e.g. 1.0e-10
     raw_energy(true) {}
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     frame_opts.Register(po);
     po->Register("energy-floor", &energy_floor,
                  "Floor on energy (absolute, not relative) in Spectrogram computation");

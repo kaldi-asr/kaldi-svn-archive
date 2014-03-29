@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Ondrej Glembek;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -56,6 +58,7 @@ class Timer
 
   void Reset() { gettimeofday(&this->time_start_, &time_zone_); }
 
+  /// Returns time in seconds.
   double Elapsed() {
     struct timeval time_end;
     gettimeofday(&time_end, &time_zone_);

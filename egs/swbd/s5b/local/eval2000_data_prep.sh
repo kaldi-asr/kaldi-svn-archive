@@ -5,7 +5,7 @@
 
 # To be run from one directory above this script.
 
-# The input is two directory names (possibly the same) ontaining the 
+# The input is two directory names (possibly the same) containing the 
 # 2000 Hub5 english evaluation test set and transcripts, which are
 # respectively: LDC2002S09  LDC2002T43
 # e.g. see
@@ -114,3 +114,4 @@ done
 echo Data preparation and formatting completed for Eval 2000
 echo "(but not MFCC extraction)"
 
+utils/fix_data_dir.sh $dest

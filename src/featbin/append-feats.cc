@@ -3,6 +3,8 @@
 // Copyright 2012   Petr Motlicek  Pawel Swietojanski
 //                  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,8 +29,10 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Append 2 feature-streams [and possibly change format]\n"
-        "Usage: append-feats [options] in-rspecifier1 in-rspecifier2 out-wspecifier\n"
-        "Example: append-feats --feats-offset-in1 5 --num-feats-in1 5 scp:list1.scp "
+        "Note, this is deprecated; please use paste-feats\n"
+        "Usage: append-feats [options] <in-rspecifier1> <in-rspecifier2> <out-wspecifier>\n"
+        "\n"
+        "e.g.: append-feats --feats-offset-in1 5 --num-feats-in1 5 scp:list1.scp "
         "scp:list2.scp ark:-\n";
 
     ParseOptions po(usage);

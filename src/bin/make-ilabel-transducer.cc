@@ -1,6 +1,8 @@
 // bin/make-ilabel-transducer.cc
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
                    << PrintableWxfilename(old2new_map_wxfilename);
 
     std::vector<std::vector<int32> > new_ilabels;
-    assert(old2new_mapping.size() != 0);
+    KALDI_ASSERT(old2new_mapping.size() != 0);
     new_ilabels.resize(1 + *std::max_element(old2new_mapping.begin(),
                                              old2new_mapping.end()));
     for (size_t old_idx = 0; old_idx < old2new_mapping.size(); old_idx++) {

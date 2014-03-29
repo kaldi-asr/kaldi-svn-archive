@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -34,8 +36,11 @@ int main(int argc, char *argv[]) {
     std::string utt2spk_rspecifier;
     bool norm_vars = false;
     po.Register("utt2spk", &utt2spk_rspecifier, "rspecifier for utterance to speaker map");
-    po.Register("norm-vars", &norm_vars, "If true, normalize variances");
-
+    po.Register("norm-vars", &norm_vars, "If true, normalize variances.  Note: "
+                "to turn off mean normalization also, it's generally easiest to "
+                "compute 'fake' CMVN stats with zero/one mean/variance."
+                "See the --fake option to compute_cmvn_stats.sh");
+    
     po.Read(argc, argv);
 
     if (po.NumArgs() != 3) {

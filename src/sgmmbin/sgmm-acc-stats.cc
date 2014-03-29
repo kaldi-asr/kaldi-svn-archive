@@ -1,7 +1,10 @@
 // sgmmbin/sgmm-acc-stats.cc
 
 // Copyright 2009-2011   Saarland University (Author:  Arnab Ghoshal),
+//                2014   Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,8 +24,7 @@
 #include "sgmm/am-sgmm.h"
 #include "hmm/transition-model.h"
 #include "sgmm/estimate-am-sgmm.h"
-
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
@@ -137,24 +139,35 @@ int main(int argc, char *argv[]) {
         num_done++;
         BaseFloat tot_like_this_file = 0.0, tot_weight = 0.0;
 
+        Posterior pdf_posterior;
+        ConvertPosteriorToPdfs(trans_model, posterior, &pdf_posterior);
         for (size_t i = 0; i < posterior.size(); i++) {
+          if (posterior[i].empty())
+            continue;
           std::vector<int32> this_gselect;
           if (!gselect->empty()) this_gselect = (*gselect)[i];
           else am_sgmm.GaussianSelection(sgmm_opts, mat.Row(i), &this_gselect);
           am_sgmm.ComputePerFrameVars(mat.Row(i), this_gselect, spk_vars, 0.0,
                                       &per_frame_vars);
 
-          for (size_t j = 0; j < posterior[i].size(); j++) {
-            int32 tid = posterior[i][j].first,  // transition identifier.
-                pdf_id = trans_model.TransitionIdToPdf(tid);
-            BaseFloat weight = posterior[i][j].second;
-            if (acc_flags & kaldi::kSgmmTransitions)
-              trans_model.Accumulate(weight, tid, &transition_accs);
+          // Accumulates for SGMM.
+          for (size_t j = 0; j < pdf_posterior[i].size(); j++) {
+            int32 pdf_id = pdf_posterior[i][j].first;
+            BaseFloat weight = pdf_posterior[i][j].second;
             tot_like_this_file += sgmm_accs.Accumulate(am_sgmm, per_frame_vars,
                                                        spk_vars.v_s, pdf_id,
                                                        weight, acc_flags)
                                                        * weight;
             tot_weight += weight;
+          }
+
+          // Accumulates for transitions.
+          for (size_t j = 0; j < posterior[i].size(); j++) {
+            if (acc_flags & kaldi::kSgmmTransitions) {
+              int32 tid = posterior[i][j].first;
+              BaseFloat weight = posterior[i][j].second;
+              trans_model.Accumulate(weight, tid, &transition_accs);
+            }
           }
         }
 

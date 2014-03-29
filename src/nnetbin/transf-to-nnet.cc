@@ -2,6 +2,8 @@
 
 // Copyright 2012  Brno University of Technology
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,6 +25,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
+    using namespace kaldi::nnet1;
     typedef kaldi::int32 int32;
 
     const char *usage =
@@ -58,7 +61,7 @@ int main(int argc, char *argv[]) {
     //we will put the transform to the nnet
     Nnet nnet;
     //create affine transform layer
-    AffineTransform* layer = new AffineTransform(transform.NumCols(),transform.NumRows(),&nnet);
+    AffineTransform* layer = new AffineTransform(transform.NumCols(),transform.NumRows());
     //the pointer will be given to the nnet, so we don't need to call delete
 
     //convert Matrix to CuMatrix
@@ -68,7 +71,7 @@ int main(int argc, char *argv[]) {
     layer->SetLinearity(cu_transform);
 
     //append layer to the nnet
-    nnet.AppendLayer(layer);
+    nnet.AppendComponent(layer);
     
     //write the nnet
     {

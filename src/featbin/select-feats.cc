@@ -2,6 +2,8 @@
 
 // Copyright 2012 Korbinian Riedhammer
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -34,7 +36,8 @@ int main(int argc, char *argv[]) {
         "Select certain dimensions of the feature file;  think of it as the unix\n"
         "command cut -f ...\n"
         "Usage: select-feats selection in-rspecifier out-wspecifier\n"
-        "  e.g. select-feats 0,24-22,3-12 scp:feats.scp ark,scp:feat-red.ark,feat-red.scp\n";
+        "  e.g. select-feats 0,24-22,3-12 scp:feats.scp ark,scp:feat-red.ark,feat-red.scp\n"
+        "See also copy-feats, extract-rows, subset-feats, subsample-feats\n";
     
     ParseOptions po(usage);
     

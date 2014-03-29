@@ -71,11 +71,13 @@ dir=$7
 
 num_groups=$[$num_pdfs/$leaves_per_group]
 first_spkvec_iter=`echo $spkvec_iters | awk '{print $1}'` || exit 1;
+ciphonelist=`cat $lang/phones/context_indep.csl` || exit 1;
 
 # Check some files.
 for f in $data/feats.scp $lang/L.fst $alidir/ali.1.gz $alidir/final.mdl $ubm; do
   [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
 done
+
 
 # Set some variables.
 oov=`cat $lang/oov.int`
@@ -92,9 +94,11 @@ feat_dim=`gmm-info $alidir/final.mdl 2>/dev/null | awk '/feature dimension/{prin
 [ -z $spk_dim ] && spk_dim=$feat_dim
 nj=`cat $alidir/num_jobs` || exit 1;
 splice_opts=`cat $alidir/splice_opts 2>/dev/null` # frame-splicing options.
+norm_vars=`cat $alidir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
 
 mkdir -p $dir/log
 cp $alidir/splice_opts $dir 2>/dev/null # frame-splicing options.
+cp $alidir/norm_vars $dir 2>/dev/null # cmn/cmvn option.
 echo $nj > $dir/num_jobs
 sdata=$data/split$nj;
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
@@ -107,8 +111,8 @@ if [ -f $alidir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
@@ -116,6 +120,9 @@ esac
 if [ -f $alidir/trans.1 ]; then
   echo "$0: using transforms from $alidir"
   feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark,s,cs:$alidir/trans.JOB ark:- ark:- |"
+elif [ -f $alidir/raw_trans.1 ]; then
+  echo "$0: using raw-fMLLR transforms from $alidir"
+  feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark,s,cs:$alidir/raw_trans.JOB ark:- ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
 fi
 ##
 
@@ -123,7 +130,7 @@ fi
 if [ $stage -le -6 ]; then
   echo "$0: accumulating tree stats"
   $cmd JOB=1:$nj $dir/log/acc_tree.JOB.log \
-    acc-tree-stats  --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
+    acc-tree-stats $context_opts --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
     "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
   [ "`ls $dir/*.treeacc | wc -w`" -ne "$nj" ] && echo "$0: Wrong #tree-stats" && exit 1;
   sum-tree-stats $dir/treeacc $dir/*.treeacc 2>$dir/log/sum_tree_acc.log || exit 1;
@@ -133,13 +140,13 @@ fi
 if [ $stage -le -5 ]; then
   echo "$0: Getting questions for tree clustering."
   # preparing questions, roots file...
-  cluster-phones $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
+  cluster-phones $context_opts $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
   cat $lang/phones/extra_questions.int >> $dir/questions.int
-  compile-questions $lang/topo $dir/questions.int $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
+  compile-questions $context_opts $lang/topo $dir/questions.int $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
 
   echo "$0: Building the tree"
   $cmd $dir/log/build_tree.log \
-    build-tree-two-level --binary=false --verbose=1 --max-leaves-first=$num_groups \
+    build-tree-two-level $context_opts --binary=false --verbose=1 --max-leaves-first=$num_groups \
      --max-leaves-second=$num_pdfs $dir/treeacc $lang/phones/roots.int \
      $dir/questions.qst $lang/topo $dir/tree $dir/pdf2group.map || exit 1;
 fi

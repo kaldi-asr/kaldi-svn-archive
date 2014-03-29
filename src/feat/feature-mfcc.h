@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -55,7 +57,7 @@ struct MfccOptions {
                   cepstral_lifter(22.0),
                   htk_compat(false) {}
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     frame_opts.Register(po);
     mel_opts.Register(po);
     po->Register("num-ceps", &num_ceps,

@@ -2,6 +2,8 @@
 
 // Copyright 2013  Brno University of Technology (Author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,6 +30,7 @@
 #include "cudamatrix/cu-vector.h"
 
 namespace kaldi {
+namespace nnet1 {
 
 struct PdfPriorOptions {
   std::string class_frame_counts;
@@ -38,7 +41,7 @@ struct PdfPriorOptions {
                       prior_scale(1.0),
                       prior_cutoff(1e-10) {}
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("class-frame-counts", &class_frame_counts,
                  "Vector with frame-counts of pdfs to compute log-priors."
                  " (priors are typically subtracted from log-posteriors"
@@ -56,9 +59,7 @@ class PdfPrior {
   explicit PdfPrior(const PdfPriorOptions &opts);
 
   /// Subtract pdf priors from log-posteriors to get pseudo log-likelihoods
-  void SubtractOnLogpost(CuMatrix<BaseFloat> *llk) {
-    llk->AddVecToRows(-prior_scale_, log_priors_);
-  }
+  void SubtractOnLogpost(CuMatrix<BaseFloat> *llk);
 
  private:
   BaseFloat prior_scale_;
@@ -67,6 +68,7 @@ class PdfPrior {
   KALDI_DISALLOW_COPY_AND_ASSIGN(PdfPrior);
 };
 
+}  // namespace nnet1
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_PDF_PRIOR_H_

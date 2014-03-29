@@ -11,7 +11,6 @@ stage=0
 nj=4
 cmd=run.pl
 max_active=7000
-max_arcs=-1
 beam=13.0
 latbeam=6.0
 acwt=0.083333 # note: only really affects pruning (scoring is on lattices).
@@ -75,13 +74,15 @@ done
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "decode.sh: feature type is $feat_type";
 
-splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
+splice_opts=`cat $srcdir/splice_opts 2>/dev/null` # frame-splicing options.
+norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
+
 thread_string=
 [ $num_threads -gt 1 ] && thread_string="-parallel --num-threads=$num_threads" 
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
+  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
   *) echo "Invalid feature type $feat_type" && exit 1;
 esac
 if [ ! -z "$transform_dir" ]; then # add transforms to features...
@@ -94,7 +95,7 @@ fi
 
 if [ $stage -le 0 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
-    gmm-latgen-faster$thread_string --max-arcs=$max_arcs --max-active=$max_active --beam=$beam --lattice-beam=$latbeam \
+    gmm-latgen-faster$thread_string --max-active=$max_active --beam=$beam --lattice-beam=$latbeam \
     --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \
     $model $graphdir/HCLG.fst "$feats" "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;
 fi

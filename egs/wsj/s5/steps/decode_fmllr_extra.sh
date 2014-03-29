@@ -45,6 +45,7 @@ stage=0
 acwt=0.083333 # Acoustic weight used in getting fMLLR transforms, and also in 
               # lattice generation.
 max_active=7000
+max_mem=50000000
 beam=13.0
 lattice_beam=6.0
 nj=4
@@ -100,6 +101,7 @@ mkdir -p $dir/log
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 echo $nj > $dir/num_jobs
 splice_opts=`cat $srcdir/splice_opts 2>/dev/null` # frame-splicing options.
+norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
 
 silphonelist=`cat $graphdir/phones/silence.csl` || exit 1;
 
@@ -142,8 +144,8 @@ done
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type";
 case $feat_type in
-  delta) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) sifeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
+  delta) sifeats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) sifeats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
   *) echo "Invalid feature type $feat_type" && exit 1;
 esac
 ##
@@ -168,7 +170,7 @@ pass1feats="$sifeats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$dir/t
 if [ $stage -le 2 ]; then
   echo "$0: doing first adapted lattice generation phase"
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode1.JOB.log\
-    gmm-latgen-faster$thread_string --max-active=$first_max_active --beam=$first_beam --lattice-beam=$first_latbeam \
+    gmm-latgen-faster$thread_string --max-active=$first_max_active --max-mem=$max_mem --beam=$first_beam --lattice-beam=$first_latbeam \
     --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \
     $adapt_model $graphdir/HCLG.fst "$pass1feats" "ark:|gzip -c > $dir/lat1.JOB.gz" \
     || exit 1;
@@ -204,7 +206,7 @@ pass2feats="$sifeats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$dir/t
 if [ $stage -le 4 ]; then
   echo "$0: doing final lattice generation phase"
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode2.JOB.log\
-    gmm-latgen-faster$thread_string --max-active=$max_active --beam=$beam --lattice-beam=$lattice_beam \
+    gmm-latgen-faster$thread_string --max-active=$max_active --max-mem=$max_mem --beam=$beam --lattice-beam=$lattice_beam \
     --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \
     $adapt_model $graphdir/HCLG.fst "$pass2feats" "ark:|gzip -c > $dir/lat2.JOB.gz" \
     || exit 1;

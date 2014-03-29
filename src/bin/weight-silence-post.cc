@@ -3,6 +3,8 @@
 // Copyright 2009-2013  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,62 +24,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "hmm/hmm-utils.h"
-
-namespace kaldi {
-void WeightSilencePost(const Posterior &post,
-                       const TransitionModel &trans_model,
-                       const ConstIntegerSet<int32> &silence_set,
-                       BaseFloat silence_scale,
-                       Posterior *new_post) {
-  new_post->clear();
-  new_post->resize(post.size());
-  for (size_t i = 0; i < post.size(); i++) {
-    (*new_post)[i].reserve(post[i].size());  // more efficient.
-    for (size_t j = 0; j < post[i].size(); j++) {
-      int32 tid = post[i][j].first,
-          phone = trans_model.TransitionIdToPhone(tid);
-      BaseFloat weight = post[i][j].second;
-      if (silence_set.count(phone) != 0) {  // is a silence.
-        if (silence_scale != 0.0)
-          (*new_post)[i].push_back(std::make_pair(tid, weight*silence_scale));
-      } else {
-        (*new_post)[i].push_back(std::make_pair(tid, weight));
-      }
-    }
-  }
-}
-
-void WeightSilencePostDistributed(const Posterior &post,
-                                  const TransitionModel &trans_model,
-                                  const ConstIntegerSet<int32> &silence_set,
-                                  BaseFloat silence_scale,
-                                  Posterior *new_post) {
-  new_post->clear();
-  new_post->resize(post.size());
-  for (size_t i = 0; i < post.size(); i++) {
-    BaseFloat sil_weight = 0.0, nonsil_weight = 0.0;   
-    for (size_t j = 0; j < post[i].size(); j++) {
-      int32 tid = post[i][j].first,
-          phone = trans_model.TransitionIdToPhone(tid);
-      BaseFloat weight = post[i][j].second;
-      if (silence_set.count(phone) != 0) sil_weight += weight;
-      else nonsil_weight += weight;
-    }
-    KALDI_ASSERT(sil_weight >= 0.0 && nonsil_weight >= 0.0); // This "distributed"
-    // weighting approach doesn't make sense if we have negative weights.
-    if (sil_weight + nonsil_weight == 0.0) continue;
-    BaseFloat frame_scale = (sil_weight * silence_scale + nonsil_weight) /
-                            (sil_weight + nonsil_weight);
-    if (frame_scale == 0.0) continue;
-    for (size_t j = 0; j < post[i].size(); j++) {
-      int32 tid = post[i][j].first;
-      BaseFloat weight = post[i][j].second;    
-      (*new_post)[i].push_back(std::make_pair(tid, weight * frame_scale));
-    }
-  }
-}
-
-} // namespace kaldi
+#include "hmm/posterior.h"
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
@@ -134,17 +81,16 @@ int main(int argc, char *argv[]) {
     for (; !posterior_reader.Done(); posterior_reader.Next()) {
       num_posteriors++;
       // Posterior is vector<vector<pair<int32, BaseFloat> > >
-      const Posterior &post = posterior_reader.Value();
+      Posterior post = posterior_reader.Value();
       // Posterior is vector<vector<pair<int32, BaseFloat> > >
-      Posterior new_post;
       if (distribute)
-        WeightSilencePostDistributed(post, trans_model, silence_set,
-                                     silence_weight, &new_post);
+        WeightSilencePostDistributed(trans_model, silence_set,
+                                     silence_weight, &post);
       else
-        WeightSilencePost(post, trans_model, silence_set,
-                          silence_weight, &new_post);
+        WeightSilencePost(trans_model, silence_set,
+                          silence_weight, &post);
       
-      posterior_writer.Write(posterior_reader.Key(), new_post);
+      posterior_writer.Write(posterior_reader.Key(), post);
     }
     KALDI_LOG << "Done " << num_posteriors << " posteriors.";
     return (num_posteriors != 0 ? 0 : 1);
@@ -153,5 +99,4 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 }
-
 

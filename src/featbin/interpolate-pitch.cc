@@ -3,6 +3,8 @@
 // Copyright 2013   Bagher BabaAli
 //                  Johns Hopkins University (author: Daniel Povey)
 //
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -33,7 +35,7 @@ struct PitchInterpolatorOptions {
                               interpolator_factor(1.0e-05),
                               max_voicing_prob(0.9),
                               max_pitch_change_per_frame(10.0) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("pitch-interval", &pitch_interval, "Frequency interval in Hz, used "
                  "for the pitch interpolation and smoothing algorithm.");
     po->Register("interpolator-factor", &interpolator_factor, "Factor affecting the "

@@ -1,7 +1,9 @@
 // nnet/nnet-trnopts.h
 
-// Copyright 2013 Brno University of Technology (Author: Karel Vesely)
+// Copyright 2013  Brno University of Technology (Author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,9 +21,10 @@
 #define KALDI_NNET_NNET_TRNOPTS_H_
 
 #include "base/kaldi-common.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 namespace kaldi {
+namespace nnet1 {
 
 
 struct NnetTrainOptions {
@@ -37,7 +40,7 @@ struct NnetTrainOptions {
                        l1_penalty(0.0) 
                        { }
   // register options
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("learn-rate", &learn_rate, "Learning rate");
     po->Register("momentum", &momentum, "Momentum");
     po->Register("l2-penalty", &l2_penalty, "L2 penalty (weight decay)");
@@ -73,7 +76,7 @@ struct RbmTrainOptions {
                       l2_penalty(0.0002)
                       { }
   // register options
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("learn-rate", &learn_rate, "Learning rate");
 
     po->Register("momentum", &momentum, "Initial momentum for linear scheduling");
@@ -100,6 +103,7 @@ struct RbmTrainOptions {
 };
 
 
+}//namespace nnet1
 }//namespace kaldi
 
 #endif

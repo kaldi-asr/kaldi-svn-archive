@@ -21,7 +21,10 @@ gselect=15  # Number of Gaussian-selection indices for SGMMs.  [Note:
 first_pass_gselect=3 # Use a smaller number of Gaussian-selection indices in 
             # the 1st pass of decoding (lattice generation).
 max_active=7000
-lat_beam=8.0 # Beam we use in lattice generation.
+
+#WARNING: This option is renamed lat_beam (it was renamed to follow the naming 
+#         in the other scripts
+lattice_beam=6.0 # Beam we use in lattice generation.
 vecs_beam=4.0 # Beam we use to prune lattices while getting posteriors for 
     # speaker-vector computation.  Can be quite tight (actually we could
     # probably just do best-path.
@@ -63,6 +66,7 @@ done
 sdata=$data/split$nj;
 silphonelist=`cat $graphdir/phones/silence.csl` || exit 1
 splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
+norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
 gselect_opt="--gselect=ark,s,cs:gunzip -c $dir/gselect.JOB.gz|"
 gselect_opt_1stpass="$gselect_opt copy-gselect --n=$first_pass_gselect ark:- ark:- |"
 
@@ -76,8 +80,8 @@ if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
     ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
 esac
@@ -122,7 +126,7 @@ fi
 # alignment model and no speaker-vectors.
 if [ $stage -le 2 ]; then
   $cmd JOB=1:$nj $dir/log/decode_pass1.JOB.log \
-    sgmm-latgen-faster --max-active=$max_active --beam=$beam --lattice-beam=$lat_beam \
+    sgmm-latgen-faster --max-active=$max_active --beam=$beam --lattice-beam=$lattice_beam \
     --acoustic-scale=$acwt --determinize-lattice=false --allow-partial=true \
     --word-symbol-table=$graphdir/words.txt "$gselect_opt_1stpass" $alignment_model \
     $graphdir/HCLG.fst "$feats" "ark:|gzip -c > $dir/pre_lat.JOB.gz" || exit 1;
@@ -155,7 +159,7 @@ if [ $spkdim -gt 0 ]; then  ### For models with speaker vectors:
   if [ $stage -le 4 ]; then
     $cmd JOB=1:$nj $dir/log/vecs_pass2.JOB.log \
       gunzip -c $dir/pre_lat.JOB.gz \| \
-      sgmm-rescore-lattice --spk-vecs=ark:$dir/pre_vecs.JOB --utt2spk=ark:$sdata/JOB/utt2spk \
+      sgmm-rescore-lattice --speedup=true --spk-vecs=ark:$dir/pre_vecs.JOB --utt2spk=ark:$sdata/JOB/utt2spk \
       "$gselect_opt" $srcdir/final.mdl ark:- "$feats" ark:- \| \
       lattice-prune --acoustic-scale=$acwt --beam=$vecs_beam ark:- ark:- \| \
       lattice-determinize-pruned --acoustic-scale=$acwt --beam=$vecs_beam ark:- ark:- \| \
@@ -173,7 +177,7 @@ if [ $spkdim -gt 0 ]; then  ### For models with speaker vectors:
       echo "$0: computing fMLLR transforms."
       $cmd JOB=1:$nj $dir/log/fmllr.JOB.log \
 	gunzip -c $dir/pre_lat.JOB.gz \| \
-	sgmm-rescore-lattice --spk-vecs=ark:$dir/vecs.JOB --utt2spk=ark:$sdata/JOB/utt2spk \
+	sgmm-rescore-lattice --speedup=true --spk-vecs=ark:$dir/vecs.JOB --utt2spk=ark:$sdata/JOB/utt2spk \
 	"$gselect_opt" $srcdir/final.mdl ark:- "$feats" ark:- \| \
 	lattice-prune --acoustic-scale=$acwt --beam=$vecs_beam ark:- ark:- \| \
 	lattice-determinize-pruned --acoustic-scale=$acwt --beam=$vecs_beam ark:- ark:- \| \
@@ -193,7 +197,7 @@ if [ $spkdim -gt 0 ]; then  ### For models with speaker vectors:
     $cmd JOB=1:$nj $dir/log/rescore.JOB.log \
       sgmm-rescore-lattice "$gselect_opt" --utt2spk=ark:$sdata/JOB/utt2spk --spk-vecs=ark:$dir/vecs.JOB \
       $srcdir/final.mdl "ark:gunzip -c $dir/pre_lat.JOB.gz|" "$feats" ark:- \| \
-      lattice-determinize-pruned --acoustic-scale=$acwt --beam=$lat_beam ark:- \
+      lattice-determinize-pruned --acoustic-scale=$acwt --beam=$lattice_beam ark:- \
       "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;
   fi
   rm $dir/pre_lat.*.gz
@@ -207,7 +211,7 @@ else  ### For models without speaker vectors:
       echo "$0: computing fMLLR transforms."
       $cmd JOB=1:$nj $dir/log/fmllr.JOB.log \
 	gunzip -c $dir/pre_lat.JOB.gz \| \
-	sgmm-rescore-lattice --utt2spk=ark:$sdata/JOB/utt2spk \
+	sgmm-rescore-lattice --speedup=true --utt2spk=ark:$sdata/JOB/utt2spk \
 	"$gselect_opt" $srcdir/final.mdl ark:- "$feats" ark:- \| \
 	lattice-prune --acoustic-scale=$acwt --beam=$vecs_beam ark:- ark:- \| \
 	lattice-determinize-pruned --acoustic-scale=$acwt --beam=$vecs_beam ark:- ark:- \| \
@@ -227,13 +231,14 @@ else  ### For models without speaker vectors:
     $cmd JOB=1:$nj $dir/log/rescore.JOB.log \
       sgmm-rescore-lattice "$gselect_opt" --utt2spk=ark:$sdata/JOB/utt2spk \
       $srcdir/final.mdl "ark:gunzip -c $dir/pre_lat.JOB.gz|" "$feats" ark:- \| \
-      lattice-determinize-pruned --acoustic-scale=$acwt --beam=$lat_beam ark:- \
+      lattice-determinize-pruned --acoustic-scale=$acwt --beam=$lattice_beam ark:- \
       "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;
     rm $dir/pre_lat.*.gz
-  else  # Already done with decoding if no adaptation needed.
-    for n in `seq 1 $nj`; do
-      mv $dir/pre_lat.${n}.gz $dir/lat.${n}.gz
-    done
+  else  # If no adaptation needed, determinize the lattice.
+    $cmd JOB=1:$nj $dir/log/determinize.JOB.log \      
+      lattice-determinize-pruned --acoustic-scale=$acwt --beam=$lattice_beam \
+       "ark:gunzip -c $dir/pre_lat.JOB.gz|" "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;
+    rm $dir/pre_lat.*.gz
   fi
 
 fi

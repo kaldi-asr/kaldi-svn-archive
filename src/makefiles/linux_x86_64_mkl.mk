@@ -21,12 +21,16 @@ MKLLIB ?= $(MKLROOT)/lib/em64t
 
 CXXFLAGS = -m64 -msse -msse2 -Wall -I.. \
       -DKALDI_DOUBLEPRECISION=0 -DHAVE_POSIX_MEMALIGN \
-      -Wno-sign-compare -Winit-self \
+      -Wno-sign-compare -Wno-unused-local-typedefs -Winit-self \
       -DHAVE_EXECINFO_H=1 -rdynamic -DHAVE_CXXABI_H \
       -DHAVE_MKL -I$(MKLROOT)/include \
       -I$(FSTROOT)/include \
       $(EXTRA_CXXFLAGS) \
       -g # -O0 -DKALDI_PARANOID
+
+ifeq ($(KALDI_FLAVOR), dynamic)
+CXXFLAGS += -fPIC
+endif
 
 ## Use the following for STATIC LINKING of the SEQUENTIAL version of MKL
 MKL_STA_SEQ = $(MKLLIB)/libmkl_solver_lp64_sequential.a -Wl,--start-group \

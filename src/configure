@@ -10,12 +10,17 @@
 
 #  Example command lines:
 # ./configure
+# ./configure --shared  ## shared libraries.
 # ./configure --mkl-root=/opt/intel/mkl 
 # ./configure --mkl-root=/opt/intel/mkl --threaded-math=yes
 # ./configure  --openblas-root=../tools/OpenBLAS/install  # before doing
 #        # this, cd to ../tools and type "make openblas".  Note:
 #        # this is not working correctly on all platforms, do "make test"
 #        # and look out for segmentation faults.
+
+#This should be incremented after every significant change of the configure script
+#I.e. after each change that affects the kaldi.mk or the build system as whole
+CONFIGURE_VERSION=2
 
 function rel2abs {
   if [ ! -z "$1" ]; then
@@ -61,7 +66,7 @@ unset OPENBLASROOT
 unset MKLLIBDIR
 
 function usage {
-  echo 'Usage: ./configure [--threaded-atlas={yes|no}] [--atlas-root=ATLASROOT] [--fst-root=FSTROOT] 
+  echo 'Usage: ./configure [--static|--shared] [--threaded-atlas={yes|no}] [--atlas-root=ATLASROOT] [--fst-root=FSTROOT] 
   [--openblas-root=OPENBLASROOOT] [--clapack-root=CLAPACKROOT] [--mkl-root=MKLROOT] [--mkl-libdir=MKLLIBDIR]
   [--omp-libdir=OMPDIR] [--static-fst={yes|no}] [--static-math={yes|no}] [--threaded-math={yes|no}] [--mathlib=ATLAS|MKL|CLAPACK|OPENBLAS] 
   [--use-cuda={yes|no}] [--cudatk-dir=CUDATKDIR]';
@@ -72,11 +77,26 @@ threaded_math=${threaded_atlas}
 static_math=false
 static_fst=false
 use_cuda=true
+dynamic_kaldi=false
+
+cmd_line="$0 $@"  # Save the command line to include in kaldi.mk
 
 while [ $# -gt 0 ];
 do
   case "$1" in
   --help) usage; exit 0 ;;
+  --version) echo $CONFIGURE_VERSION; exit 0 ;;
+  --static)
+    # FIXME depends on order of options first--static/--shared then --static-math -> it will override it
+  dynamic_kaldi=false; 
+  static_math=true;
+  static_fst=true;
+  shift ;;  
+  --shared)
+  dynamic_kaldi=true; 
+  static_math=false;
+  static_fst=false;
+  shift ;;  
   --atlas-root=*) 
   ATLASROOT=`read_dirname $1`; shift ;;
   --threaded-atlas=yes)
@@ -122,7 +142,7 @@ done
 
 
 function failure {
-  echo "***configure failed: $* ***"
+  echo "***configure failed: $* ***" >&2
   if [ -f kaldi.mk ]; then rm kaldi.mk; fi
   exit 1;
 } 
@@ -227,7 +247,7 @@ function linux_configure_omplibdir {
     echo "Testing $libext from [$libexts] " >&2
 
     check_library $mkllibdir "libiomp5" $libext \
-	&& echo `readlink -f $mkllibdir` && return
+    && echo `readlink -f $mkllibdir` && return
     
     local testdir=`(cd $mklroot; cd ..; cd lib/intel64;pwd)` 
     test -d $testdir && check_library $testdir "libiomp5" $libext && echo `readlink -f $testdir` && return;
@@ -277,12 +297,7 @@ function linux_configure_cuda {
     echo CUDATKDIR = $CUDATKDIR >> kaldi.mk
 
     if [ "`uname -m`" == "x86_64" ]; then
-      if [ "`hostname -d`" == "fit.vutbr.cz" ]; then
-        #BUT machines by default compile 32bits
-        cat makefiles/linux_cuda.mk >> kaldi.mk 
-      else
-        cat makefiles/linux_x86_64_cuda.mk >> kaldi.mk
-      fi
+      cat makefiles/linux_x86_64_cuda.mk >> kaldi.mk
     else
       cat makefiles/linux_cuda.mk >> kaldi.mk
     fi
@@ -291,18 +306,32 @@ function linux_configure_cuda {
   fi
 }
 
+function fix_cxx_flag {
+  CXXCOMPILER=`grep "CXX = " kaldi.mk | awk '{print $3}'`
+  if [ $CXXCOMPILER=="g++" ]; then
+    $CXXCOMPILER -dumpversion | \
+    awk '{if(NR==1 && $1<"4.4") print "sed \"s/-Wno-unused-local-typedefs//g\" \
+    kaldi.mk > tmpf; mv tmpf kaldi.mk; "}' | sh -
+  fi
+}
+
 function linux_atlas_failure { # function we use when we couldn't find
    # ATLAS libs.
    echo ATLASINC = [somewhere]/include >> kaldi.mk
    echo ATLASLIBS = [somewhere]/liblapack.a [somewhere]/libcblas.a [somewhere]/libatlas.a [somewhere]/libf77blas.a $ATLASLIBDIR >> kaldi.mk  
    cat makefiles/linux_atlas.mk >> kaldi.mk
+   fix_cxx_flag
    echo "** $* ***"
    echo "**  ERROR   **"
    echo "**Configure cannot proceed automatically, but by editing kaldi.mk"
-   echo "** you may be able to proceed (replace [somewhere] with a directory),"
-   echo "** or install the ATLAS package on your machine,"
+   echo "** you may be able to proceed (replace [somewhere] with a directory);"
+   echo "** or install the ATLAS package on your machine (if you are system "
+   echo "   administrator, you can do it easily by searching the atlas packages "
+   echo "   with commands like 'apt-cache search libatlas' or 'yum search atlas',"
+   echo "   and install the packages with commands 'apt-get install' or 'yum install') "
+   echo "   e.g. 'apt-get install libatlas-dev libatlas-base-dev';"
    echo "** or try going to ../tools and running install_atlas.sh, and running"
-   echo "** this script (configure) again."
+   echo "   this script (configure) again."
    exit 1;
 } 
 
@@ -335,10 +364,29 @@ function linux_configure_debian_ubuntu {
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
-  echo "Successfully configured for Debian/Ubuntu Linux [static libraries] with ATLASLIBS =$ATLASLIBS"
+  fix_cxx_flag
+  echo "Successfully configured for Debian/Ubuntu Linux [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
   $use_cuda && linux_configure_cuda
   exit 0;
 }
+
+function linux_configure_debian7 {
+  ATLASLIBS="/usr/lib/atlas-base/libatlas.so.3.0 /usr/lib/atlas-base/libf77blas.so.3.0 /usr/lib/atlas-base/libcblas.so.3 /usr/lib/atlas-base/liblapack_atlas.so.3"
+  for f in $ATLASLIBS; do 
+    [ ! -f $f ] && return 1;
+  done
+  libdir=$(dirname $(echo $ATLASLIBS | awk '{print $1}'))
+  [ -z "$libdir" ] && echo "Error getting libdir in linux_configure_debian7" && exit 1;
+  echo ATLASINC = $ATLASROOT/include >> kaldi.mk
+  echo ATLASLIBS = $ATLASLIBS -Wl,-rpath=$libdir >> kaldi.mk
+  echo 
+  cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
+  echo "Successfully configured for Debian 7 [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
+  $use_cuda && linux_configure_cuda
+  exit 0;
+}
+
 
 function linux_configure_static {
   if $threaded_atlas; then pt=pt; else pt=""; fi
@@ -349,7 +397,7 @@ function linux_configure_static {
      linux_check_static &&  ATLASLIBDIR=$dir
     done
     if [ -z $ATLASLIBDIR ]; then # Note: it'll pick up the last one below.
-      echo "Could not find libatlas.a in any of the obvious places... will try dynamic libraries."
+      echo "Could not find libatlas.a in any of the generic-Linux places, but we'll try other stuff..."
       return 1;
     fi
   elif [ ! -f $ATLASLIBDIR/libatlas.a ]; then
@@ -386,6 +434,7 @@ function linux_configure_static {
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
   $use_cuda && linux_configure_cuda
   echo "Successfully configured for Linux [static libraries] with ATLASLIBS =$ATLASLIBS"
   exit 0;
@@ -402,7 +451,7 @@ function linux_check_dynamic {
     echo "Atlas found in $dir";
     return 0;
   else
-      echo "No libatlas.so in $dir";
+      echo "... no libatlas.so in $dir";
       return 1;
   fi
 }
@@ -415,7 +464,7 @@ function linux_configure_dynamic {
        linux_check_dynamic && ATLASLIBDIR=$dir
     done
     if [ -z $ATLASLIBDIR ]; then
-      echo "Could not find libatlas.so in any of the obvious places."
+      echo "Could not find libatlas.so in any of the obvious places, will most likely try static:"
       return 1;
     fi
   elif [ ! -f $ATLASLIBDIR/libatlas.so ]; then
@@ -453,6 +502,7 @@ function linux_configure_dynamic {
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
   $use_cuda && linux_configure_cuda
   echo "Successfully configured for Linux [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
   exit 0;
@@ -483,7 +533,14 @@ if [ -f kaldi.mk ]; then
   cp kaldi.mk kaldi.mk.bak
 fi
 
-cp makefiles/common.mk kaldi.mk
+printf "# This file was generated using the following command:\n# $cmd_line\n\n" > kaldi.mk
+cat makefiles/common.mk >> kaldi.mk
+if $dynamic_kaldi ; then
+KALDILIBDIR=`pwd`/lib
+echo "KALDI_FLAVOR := dynamic" >> kaldi.mk
+echo "KALDILIBDIR := $KALDILIBDIR" >> kaldi.mk
+fi
+echo "CONFIGURE_VERSION := $CONFIGURE_VERSION" >> kaldi.mk
 
 # Most of the OS-specific steps below will append to kaldi.mk
 echo "Doing OS specific configurations ..."
@@ -501,7 +558,7 @@ if [ "`uname`" == "Darwin"  ]; then
   fi
   echo FSTROOT = $FSTROOT >> kaldi.mk
   # posix_memalign and gcc -rdynamic options not present on OS X 10.5.*
-  osx_ver=`sw_vers | grep ProductVersion | awk '{print $2}' | sed -e 's?\.[^.]*$??'`
+  osx_ver=`sw_vers | grep ProductVersion | awk '{print $2}' | awk '{split($0,a,"\."); print a[1] "." a[2]; }'`
   echo "Configuring for OS X version $osx_ver ..."
   if [ "$osx_ver" == "10.5" ]; then
     check_exists makefiles/darwin_10_5.mk
@@ -515,6 +572,9 @@ if [ "`uname`" == "Darwin"  ]; then
   elif [ "$osx_ver" == "10.8" ]; then
     check_exists makefiles/darwin_10_8.mk
     cat makefiles/darwin_10_8.mk >> kaldi.mk 
+  elif [ "$osx_ver" == "10.9" ]; then
+    check_exists makefiles/darwin_10_9.mk
+    cat makefiles/darwin_10_9.mk >> kaldi.mk 
   else 
     failure "OS X version '$osx_ver' not supported"
   fi
@@ -541,13 +601,15 @@ if [ "`uname`" == "Linux" ]; then
       OPENFSTLIBS="$FSTROOT/lib/libfst.a"
       fst_type='a'
   else
-      OPENFSTLIBS="-L${FSTROOT}/lib -lfst -Wl,-rpath=${FSTROOT}/lib"
+      OPENFSTLIBS="-L${FSTROOT}/lib -lfst"
+      OPENFSTLDFLAGS="-Wl,-rpath=${FSTROOT}/lib"
       fst_type='so'
   fi
   if [ ! -f "$FSTROOT/lib/libfst.${fst_type}" ]; then
     failure "Static=[$static_fst] OpenFST library not found:  See ../tools/INSTALL"
   fi
   echo OPENFSTLIBS = $OPENFSTLIBS >> kaldi.mk
+  echo OPENFSTLDFLAGS = $OPENFSTLDFLAGS >> kaldi.mk
   echo FSTROOT = $FSTROOT >> kaldi.mk
 
   echo "On Linux: Checking for linear algebra header files ..."
@@ -559,20 +621,32 @@ if [ "`uname`" == "Linux" ]; then
     
     # Finding out where the libraries are located: 
     # First we look for the static libraries and then look for dynamic ones.
-    # We're looking for four libraries, all in the same directory, named 
-    # libcblas.a, libatlas.a, libf77blas.a, and a library that's variously 
-    # named liblapack.a, libclapack.a, or liblapack_atlas.a, but which exports 
-    # the symbol ATL_cgetrf. 
-    # Note: there is a different type of ATLAS installation that is not 
-    # covered.  We saw a case where there was a directory called /usr/lib/atlas 
-    # containing {liblapack.a,libblas.a}, and linking against just these two 
-    # libraries worked.  
+    # We're looking for four libraries, all in the same directory, named
+    # libcblas.a, libatlas.a, libf77blas.a, and a library that's variously
+    # named liblapack.a, libclapack.a, or liblapack_atlas.a, but which exports
+    # the symbol ATL_cgetrf.
+    # Note: there is a different type of ATLAS installation that is not
+    # covered.  We saw a case where there was a directory called /usr/lib/atlas
+    # containing {liblapack.a,libblas.a}, and linking against just these two
+    # libraries worked.
 
-    linux_configure_static || \
+    if $static_math; then
+      # Prefer static to dynamic math.
+      linux_configure_static || \
+        linux_configure_dynamic || \
+        linux_configure_debian_ubuntu 64 || \
+        linux_configure_debian_ubuntu || \
+        linux_configure_debian7 || \
+        linux_atlas_failure "Failed to configure ATLAS lbiraries";
+    else
+      # Prefer dynamic to static math.
       linux_configure_dynamic || \
-      linux_configure_debian_ubuntu 64 || \
-      linux_configure_debian_ubuntu || \
-      linux_atlas_failure "Failed to configure ATLAS lbiraries";
+        linux_configure_static || \
+        linux_configure_debian_ubuntu 64 || \
+        linux_configure_debian_ubuntu || \
+        linux_configure_debian7 || \
+        linux_atlas_failure "Failed to configure ATLAS lbiraries";
+    fi
 
   elif [ "$MATHLIB" == "MKL" ]; then
     if [ "`uname -m`" != "x86_64" ]; then
@@ -590,17 +664,17 @@ if [ "`uname`" == "Linux" ]; then
       fi
     fi
 
-    MKL_LINK_LINE=`linux_configure_mkl_libraries "$MKLLIBDIR" $static_math $threaded_math`
+    MKL_LINK_LINE=`linux_configure_mkl_libraries "$MKLLIBDIR" $static_math $threaded_math` || exit 1
 
-    MKL_COMPILE_LINE=`linux_configure_mkl_includes "$MKLROOT" "$MKLLIBDIR"`
+    MKL_COMPILE_LINE=`linux_configure_mkl_includes "$MKLROOT" "$MKLLIBDIR"` || exit 1
     echo "MKL include directory configured as: $MKL_COMPILE_LINE"
     MKL_COMPILE_LINE=" -I${MKL_COMPILE_LINE} "
     
     if ! is_set $OMPLIBDIR ; then
       if  $static_math ; then
-        OMPLIBDIR=`linux_configure_omplibdir "$MKLROOT" "$MKLLIBDIR" "a"` 
+        OMPLIBDIR=`linux_configure_omplibdir "$MKLROOT" "$MKLLIBDIR" "a"`
       else
-        OMPLIBDIR=`linux_configure_omplibdir "$MKLROOT" "$MKLLIBDIR" "so"` 
+        OMPLIBDIR=`linux_configure_omplibdir "$MKLROOT" "$MKLLIBDIR" "so"`
       fi
     fi
     check_library $OMPLIBDIR "libiomp5" "a" || check_library $OMPLIBDIR "libiomp5" "so" \
@@ -628,6 +702,7 @@ if [ "`uname`" == "Linux" ]; then
     echo FSTROOT = $FSTROOT >> kaldi.mk
     check_exists makefiles/linux_x86_64_mkl.mk
     cat makefiles/linux_x86_64_mkl.mk >> kaldi.mk
+    fix_cxx_flag
     echo "MKLFLAGS = ${MKL_LINK_LINE} ${OMP_LINK_LINE} " >> kaldi.mk
 
     $use_cuda && linux_configure_cuda
@@ -650,6 +725,7 @@ if [ "`uname`" == "Linux" ]; then
       failure "makefiles/linux_clapack.mk not found."
     fi
     cat makefiles/linux_clapack.mk >> kaldi.mk
+    fix_cxx_flag
     echo "Warning (CLAPACK): this part of the configure process is not properly tested and will not work."
     $use_cuda && linux_configure_cuda
     echo "Successfully configured for Linux with CLAPACK libs from $CLAPACKROOT"
@@ -664,6 +740,7 @@ if [ "`uname`" == "Linux" ]; then
     fi
     echo "Your math library seems to be OpenBLAS.  Configuring appropriately."
     cat makefiles/linux_openblas.mk >> kaldi.mk
+    fix_cxx_flag
     if $static_math; then
       echo "Configuring static OpenBlas since --static-math=yes"
       OPENBLASLIBS="$OPENBLASROOT/lib/libopenblas.a -lgfortran"
@@ -673,7 +750,9 @@ if [ "`uname`" == "Linux" ]; then
     fi
     echo "OPENBLASLIBS = $OPENBLASLIBS" >> kaldi.mk
     echo "OPENBLASROOT = $OPENBLASROOT" >> kaldi.mk
-    echo "Successfully configured."
+    echo "Warning (OPENBLAS): this part of the configure process is not properly tested and will not work."
+    $use_cuda && linux_configure_cuda
+    echo "Successfully configured OpenBLAS from $OPENBLASROOT."
     exit 0;
   else 
     failure "Unsupported linear algebra library '$MATHLIB'"

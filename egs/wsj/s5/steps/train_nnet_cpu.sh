@@ -2,7 +2,8 @@
 
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey).  Apache 2.0.
 
-
+echo "*** Warning, this script is deprecated and will eventually be deleted. ***"
+echo "*** Please replace with steps/nnet2/train_tanh.sh ***"
 
 # Begin configuration section.
 cmd=run.pl
@@ -22,7 +23,7 @@ num_train_frames_shrink=2000  # number of training frames in the subset used
                               # for shrinking (by default we use all training
                               # frames for this.)
 shrink_interval=3 # shrink every $shrink_interval iters,
-                # except at the start of training when we do it every iter.
+                 # except at the start of training when we do it every iter.
 within_class_factor=1.0 # affects LDA via scaling of the output (e.g. try setting to 0.01).
 num_valid_frames_combine=0 # #valid frames for combination weights at the very end.
 num_train_frames_combine=10000 # # train frames for the above.
@@ -38,8 +39,7 @@ shuffle_buffer_size=5000 # This "buffer_size" variable controls randomization of
                 # randomization, but this would both consume memory and cause spikes in
                 # disk I/O.  Smaller is easier on disk and memory but less random.  It's
                 # not a huge deal though, as samples are anyway randomized right at the start.
-num_jobs_nnet=16 # Number of neural net jobs to run in parallel; you need to
-                 # keep this in sync with parallel_opts.
+num_jobs_nnet=16 # Number of neural net jobs to run in parallel
 feat_type=
 initial_dropout_scale=
 final_dropout_scale=
@@ -63,15 +63,9 @@ alpha=4.0
 shrink=true
 mix_up=0 # Number of components to mix up to (should be > #tree leaves, if
         # specified.)
-num_threads=16
-momentum_minibatches=0 # Note: if you set this to e.g. 100 it uses momentum (we
-    # formulate it slightly differently, as a time constant, e.g.  mu = 1 - 1/momentum_minibatches.
-    # This does not seem to be that useful in stabilizing the update-- possibly an interaction
-    # with the asychronous SGD.  Use an option like --nnet-config-opts "--max-change 50"
-    # which is more helpful.
+num_threads=16 # Number of threads to run in parallel; you need to
+               # keep this in sync with parallel_opts.
 
-valid_is_heldout=false # For some reason, holding out the validation set from the training set
-                       # seems to hurt, so by default we don't do it (i.e. it's included in training)
 random_copy=false
 cleanup=true
 # End configuration section.
@@ -205,6 +199,13 @@ if [ -f $alidir/trans.1 ] && [ $feat_type != "raw" ]; then
   valid_feats="$valid_feats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $alidir/trans.*|' ark:- ark:- |"
   train_subset_feats="$train_subset_feats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $alidir/trans.*|' ark:- ark:- |"
 fi
+if [ -f $alidir/raw_trans.1 ] && [ $feat_type == "raw" ]; then
+  echo "$0: using raw-fMLLR transforms from $alidir"
+  feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$alidir/raw_trans.JOB ark:- ark:- |"
+  valid_feats="$valid_feats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $alidir/raw_trans.*|' ark:- ark:- |"
+  train_subset_feats="$train_subset_feats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $alidir/raw_trans.*|' ark:- ark:- |"
+fi
+
 
 if [ $stage -le -9 ]; then
   echo "$0: working out number of frames of training data"
@@ -255,7 +256,7 @@ if [ $stage -le -7 ]; then
     dropout_opt=
     [ ! -z $initial_dropout_scale ] && dropout_opt="--dropout-scale $initial_dropout_scale"
     utils/nnet-cpu/make_nnet_config_preconditioned.pl --alpha $alpha $nnet_config_opts \
-       $dropout_opt \
+      $dropout_opt \
       --learning-rate $initial_learning_rate \
       --lda-mat $splice_width $lda_dim $dir/lda.mat \
       --initial-num-hidden-layers $initial_num_hidden_layers $dir/hidden_layer.config \
@@ -440,7 +441,7 @@ while [ $x -lt $num_iters ]; do
        nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
          ark:$dir/egs/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
        nnet-train-parallel --num-threads=$num_threads --minibatch-size=$minibatch_size \
-        --momentum-minibatches=$momentum_minibatches --srand=$x "$mdl" ark:- $dir/$[$x+1].JOB.mdl \
+         --srand=$x "$mdl" ark:- $dir/$[$x+1].JOB.mdl \
        || exit 1;
 
     nnets_list=

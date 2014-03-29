@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 //                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -43,7 +45,7 @@ struct FmllrOptions {
   BaseFloat min_count;
   int32 num_iters;
   FmllrOptions(): update_type("full"), min_count(500.0), num_iters(40) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("fmllr-update-type", &update_type,
                  "Update type for fMLLR (\"full\"|\"diag\"|\"offset\"|\"none\")");
     po->Register("fmllr-min-count", &min_count,

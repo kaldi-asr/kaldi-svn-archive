@@ -2,6 +2,8 @@
 
 // Copyright 2012   Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,12 +27,12 @@ namespace ut = kaldi::unittest;
 
 namespace kaldi {
 
-template<class Real> static void InitRand(VectorBase<Real> *v) {
+template<typename Real> static void InitRand(VectorBase<Real> *v) {
   for (MatrixIndexT i = 0;i < v->Dim();i++)
     (*v)(i) = RandGauss();
 }
 
-template<class Real> static void InitRand(MatrixBase<Real> *M) {
+template<typename Real> static void InitRand(MatrixBase<Real> *M) {
  start:
   for (MatrixIndexT i = 0;i < M->NumRows();i++)
     for (MatrixIndexT j = 0;j < M->NumCols();j++)
@@ -42,7 +44,7 @@ template<class Real> static void InitRand(MatrixBase<Real> *M) {
     }
 }
 
-template<class Real> static void InitRand(SpMatrix<Real> *M) {
+template<typename Real> static void InitRand(SpMatrix<Real> *M) {
  start_sp:
   for (MatrixIndexT i = 0;i < M->NumRows();i++)
     for (MatrixIndexT j = 0;j<=i;j++)
@@ -54,7 +56,7 @@ template<class Real> static void InitRand(SpMatrix<Real> *M) {
   }
 }
 
-template<class Real> static void UnitTestGpsr() {
+template<typename Real> static void UnitTestGpsr() {
   for (int32 i = 0; i < 5; i++) {
     MatrixIndexT dim1 = (rand() % 10) + 10;
     MatrixIndexT dim2 = (rand() % 10) + 10;

@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Jan Silovsky;   Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -44,7 +46,7 @@ test_io(const RegressionTree &regtree,
 
 // void
 // join_gmm(const DiagGmm &gmm1, const DiagGmm &gmm2, DiagGmm *gmm) {
-//  assert(gmm1.Dimension() == gmm2.Dimension());
+//  KALDI_ASSERT(gmm1.Dimension() == gmm2.Dimension());
 //  size_t num_comp = gmm1.NumGauss() + gmm2.NumGauss();
 //  size_t dim = gmm1.Dimension();
 //

@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Arnab Ghoshal, Petr Motlicek
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +26,7 @@
 #include "gmm/mle-diag-gmm.h"
 #include "gmm/mle-am-diag-gmm.h"
 #include "gmm/model-common.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 namespace kaldi {
 
@@ -34,7 +36,7 @@ struct EbwOptions {
   BaseFloat tau; // This is only useful for smoothing "to the model":
   // if you want to smooth to ML stats, you need to use gmm-ismooth-stats
   EbwOptions(): E(2.0), tau(0.0) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     std::string module = "EbwOptions: ";
     po->Register("E", &E, module+"Constant E for Extended Baum-Welch (EBW) update");
     po->Register("tau", &tau, module+"Tau value for smoothing to the model "
@@ -50,7 +52,7 @@ struct EbwWeightOptions {
   EbwWeightOptions(): min_num_count_weight_update(10.0),
                       min_gaussian_weight(1.0e-05),
                       tau(0.0) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     std::string module = "EbwWeightOptions: ";
     po->Register("min-num-count-weight-update", &min_num_count_weight_update,
                  module+"Minimum numerator count required at "

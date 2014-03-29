@@ -1,7 +1,9 @@
 // nnetbin/nnet-train-mpe-sequential.cc
 
-// Copyright 2011-2013  Karel Vesely;  Arnab Ghoshal
+// Copyright 2011-2013  Brno University of Technology (author: Karel Vesely);  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -36,6 +38,7 @@
 
 
 namespace kaldi {
+namespace nnet1 {
 
 void LatticeAcousticRescore(const Matrix<BaseFloat> &log_like,
                             const TransitionModel &trans_model,
@@ -73,11 +76,13 @@ void LatticeAcousticRescore(const Matrix<BaseFloat> &log_like,
   }
 }
 
+}  // namespace nnet1
 }  // namespace kaldi
 
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
+  using namespace kaldi::nnet1;
   typedef kaldi::int32 int32;
   try {
     const char *usage =
@@ -95,7 +100,7 @@ int main(int argc, char *argv[]) {
     NnetTrainOptions trn_opts; trn_opts.learn_rate=0.00001;
     trn_opts.Register(&po);
 
-    bool binary = false; 
+    bool binary = true; 
     po.Register("binary", &binary, "Write output in binary mode");
 
     std::string feature_transform;
@@ -118,17 +123,15 @@ int main(int argc, char *argv[]) {
     po.Register("old-acoustic-scale", &old_acoustic_scale,
                 "Add in the scores in the input lattices with this scale, rather "
                 "than discarding them.");
-
+    kaldi::int32 max_frames = 6000; // Allow segments maximum of one minute by default
+    po.Register("max-frames",&max_frames, "Maximum number of frames a segment can have to be processed");
     bool do_smbr = false;
     po.Register("do-smbr", &do_smbr, "Use state-level accuracies instead of "
                 "phone accuracies.");
 
-#if HAVE_CUDA == 1
-    kaldi::int32 use_gpu_id=-2;
-    po.Register("use-gpu-id", &use_gpu_id, "Manually select GPU by its ID "
-                "(-2 automatic selection, -1 disable GPU, 0..N select GPU)");
-#endif
-
+    std::string use_gpu="yes";
+    po.Register("use-gpu", &use_gpu, "yes|no|optional, only has effect if compiled with CUDA");
+     
     po.Read(argc, argv);
 
     if (po.NumArgs() != 6) {
@@ -155,7 +158,8 @@ int main(int argc, char *argv[]) {
 
     // Select the GPU
 #if HAVE_CUDA == 1
-    CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+    CuDevice::Instantiate().SelectGpuId(use_gpu);
+    CuDevice::Instantiate().DisableCaching();
 #endif
 
     Nnet nnet_transf;
@@ -166,9 +170,9 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
     // using activations directly: remove softmax, if present
-    if (nnet.Layer(nnet.LayerCount()-1)->GetType() == Component::kSoftmax) {
+    if (nnet.GetComponent(nnet.NumComponents()-1).GetType() == Component::kSoftmax) {
       KALDI_LOG << "Removing softmax from the nnet " << model_filename;
-      nnet.RemoveLayer(nnet.LayerCount()-1);
+      nnet.RemoveComponent(nnet.NumComponents()-1);
     } else {
       KALDI_LOG << "The nnet was without softmax " << model_filename;
     }
@@ -193,7 +197,7 @@ int main(int argc, char *argv[]) {
     KALDI_LOG << "TRAINING STARTED";
 
     int32 num_done = 0, num_no_ref_ali = 0, num_no_den_lat = 0,
-        num_other_error = 0;
+      num_other_error = 0;
 
     kaldi::int64 total_frames = 0;
     double total_frame_acc = 0.0, utt_frame_acc;
@@ -222,14 +226,24 @@ int main(int argc, char *argv[]) {
         num_other_error++;
         continue;
       }
-
+      if (mat.NumRows() > max_frames) {
+	KALDI_WARN << "Utterance " << utt << ": Skipped because it has " << mat.NumRows() << 
+	  " frames, which is more than " << max_frames << ".";
+	num_other_error++;
+	continue;
+      }
       // 2) get the denominator lattice, preprocess
       Lattice den_lat = den_lat_reader.Value(utt);
+      if (den_lat.Start() == -1) {
+        KALDI_WARN << "Empty lattice for utt " << utt;
+        num_other_error++;
+        continue;
+      }
       if (old_acoustic_scale != 1.0) {
         fst::ScaleLattice(fst::AcousticLatticeScale(old_acoustic_scale),
                           &den_lat);
       }
-      // optionaly sort it topologically
+      // optional sort it topologically
       kaldi::uint64 props = den_lat.Properties(fst::kFstProperties, false);
       if (!(props & fst::kTopSorted)) {
         if (fst::TopSort(&den_lat) == false)
@@ -246,9 +260,15 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
+      // get actual dims for this utt and nnet
+      int32 num_frames = mat.NumRows(),
+          num_fea = mat.NumCols(),
+          num_pdfs = nnet.OutputDim();
+
       // 3) propagate the feature to get the log-posteriors (nnet w/o sofrmax)
       // push features to GPU
-      feats = mat;
+      feats.Resize(num_frames, num_fea, kUndefined);
+      feats.CopyFromMat(mat);
       // possibly apply transform
       nnet_transf.Feedforward(feats, &feats_transf);
       // propagate through the nnet (assuming w/o softmax)
@@ -258,37 +278,26 @@ int main(int argc, char *argv[]) {
         log_prior.SubtractOnLogpost(&nnet_out);
       }
       // transfer it back to the host
-      int32 num_frames = nnet_out.NumRows(),
-          num_pdfs = nnet_out.NumCols();
       nnet_out_h.Resize(num_frames, num_pdfs, kUndefined);
       nnet_out.CopyToMat(&nnet_out_h);
+      // release the buffers we don't need anymore
+      feats.Resize(0,0);
+      feats_transf.Resize(0,0);
+      nnet_out.Resize(0,0);
 
       // 4) rescore the latice
       LatticeAcousticRescore(nnet_out_h, trans_model, state_times, &den_lat);
       if (acoustic_scale != 1.0 || lm_scale != 1.0)
         fst::ScaleLattice(fst::LatticeScale(lm_scale, acoustic_scale), &den_lat);
 
-      // 5) get the posteriors
-      vector< std::map<int32, char> > arc_accs;
-      arc_accs.resize(ref_ali.size());
       kaldi::Posterior post;
 
       if (do_smbr) {  // use state-level accuracies, i.e. sMBR estimation
-        for (size_t i = 0; i < ref_ali.size(); i++) {
-          int32 pdf = trans_model.TransitionIdToPdf(ref_ali[i]);
-          arc_accs[i][pdf] = 1;
-        }
-        utt_frame_acc = LatticeForwardBackwardSmbr(den_lat, trans_model,
-                                                   arc_accs, silence_phones,
-                                                   &post);
-      } else {  // use phone-level accuracies, i.e. regular MPE
-        for (size_t i = 0; i < ref_ali.size(); i++) {
-          int32 phone = trans_model.TransitionIdToPhone(ref_ali[i]);
-          arc_accs[i][phone] = 1;
-        }
-        utt_frame_acc = kaldi::LatticeForwardBackwardMpe(den_lat, trans_model,
-                                                         arc_accs, &post,
-                                                         silence_phones);
+        utt_frame_acc = LatticeForwardBackwardMpeVariants(
+            trans_model, silence_phones, den_lat, ref_ali, "smbr", &post);
+      } else {  // use phone-level accuracies, i.e. MPFE (minimum phone frame error)
+        utt_frame_acc = LatticeForwardBackwardMpeVariants(
+            trans_model, silence_phones, den_lat, ref_ali, "mpfe", &post);
       }
 
       // 6) convert the Posterior to a matrix
@@ -309,8 +318,11 @@ int main(int argc, char *argv[]) {
                     << " frames.";
 
       // 7) backpropagate through the nnet
-      nnet_diff = nnet_diff_h;
+      nnet_diff.Resize(num_frames, num_pdfs, kUndefined);
+      nnet_diff.CopyFromMat(nnet_diff_h);
       nnet.Backpropagate(nnet_diff, NULL);
+      // relase the buffer, we don't need anymore
+      nnet_diff.Resize(0,0);
 
       // increase time counter
       total_frame_acc += utt_frame_acc;
@@ -327,7 +339,7 @@ int main(int argc, char *argv[]) {
 
     // add the softmax layer back before writing
     KALDI_LOG << "Appending the softmax " << target_model_filename;
-    nnet.AppendLayer(new Softmax(nnet.OutputDim(),nnet.OutputDim(),&nnet));
+    nnet.AppendComponent(new Softmax(nnet.OutputDim(),nnet.OutputDim()));
     //store the nnet
     nnet.Write(target_model_filename, binary);
 

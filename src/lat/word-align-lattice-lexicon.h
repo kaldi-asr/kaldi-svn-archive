@@ -2,6 +2,8 @@
 
 // Copyright 2013 Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -124,7 +126,7 @@ struct WordAlignLatticeLexiconOpts {
   WordAlignLatticeLexiconOpts(): partial_word_label(0), reorder(true),
                                  test(false), max_expand(-1.0) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("partial-word-label", &partial_word_label, "Numeric id of "
                  "word symbol that is to be used for arcs in the word-aligned "
                  "lattice corresponding to partial words at the end of "

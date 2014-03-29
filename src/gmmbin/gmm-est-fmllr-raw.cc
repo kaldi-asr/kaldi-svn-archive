@@ -1,7 +1,10 @@
 // gmmbin/gmm-est-fmllr-raw.cc
 
 // Copyright 2013  Johns Hopkins University (author: Daniel Povey)
+//           2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,7 +23,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "util/common-utils.h"
-
+#include "hmm/posterior.h"
 
 namespace kaldi {
 
@@ -30,13 +33,14 @@ void AccStatsForUtterance(const TransitionModel &trans_model,
                           const Posterior &post,
                           const Matrix<BaseFloat> &feats,
                           FmllrRawAccs *accs) {
+  Posterior pdf_post;
+  ConvertPosteriorToPdfs(trans_model, post, &pdf_post);
   for (size_t t = 0; t < post.size(); t++) {
-    for (size_t i = 0; i < post[t].size(); i++) {
-      int32 pdf = trans_model.TransitionIdToPdf(post[t][i].first);
-      BaseFloat weight = post[t][i].second;
+    for (size_t i = 0; i < pdf_post[t].size(); i++) {
+      int32 pdf = pdf_post[t][i].first;
+      BaseFloat weight = pdf_post[t][i].second;
       accs->AccumulateForGmm(am_gmm.GetPdf(pdf),
-                                  feats.Row(t),
-                                  weight);
+                             feats.Row(t), weight);
     }
   }
 }

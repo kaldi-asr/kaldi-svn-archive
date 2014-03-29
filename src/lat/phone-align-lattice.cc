@@ -3,6 +3,8 @@
 // Copyright 2012-2013  Microsoft Corporation
 //                      Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -299,12 +301,13 @@ bool LatticePhoneAligner::ComputationState::OutputPhoneArc(
   size_t len = transition_ids_.size(), i;
   // Keep going till we reach a "final" transition-id; note, if
   // reorder==true, we have to go a bit further after this.
-  for (i = 1; i < len; i++) {
+  for (i = 0; i < len; i++) {
     int32 tid = transition_ids_[i];
     int32 this_phone = tmodel.TransitionIdToPhone(tid);
     if (this_phone != phone && ! *error) { // error condition: should have
                                            // reached final transition-id first.
       *error = true;
+      KALDI_WARN << phone << " -> " << this_phone;
       KALDI_WARN << "Phone changed before final transition-id found "
           "[broken lattice or mismatched model or wrong --reorder option?]";
     }

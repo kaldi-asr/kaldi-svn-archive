@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,7 +21,7 @@
 #define KALDI_DECODER_FASTER_DECODER_H_
 
 #include "util/stl-utils.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 #include "util/hash-list.h"
 #include "fst/fstlib.h"
 #include "itf/decodable-itf.h"
@@ -46,7 +48,7 @@ struct FasterDecoderOptions {
                                           // alignment, use small default.
                           beam_delta(0.5),
                           hash_ratio(2.0) { }
-  void Register(ParseOptions *po, bool full) {  /// if "full", use obscure
+  void Register(OptionsItf *po, bool full) {  /// if "full", use obscure
     /// options too.
     /// Depends on program.
     po->Register("beam", &beam, "Decoder beam");

@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -71,7 +73,7 @@ void Mfcc::Compute(const VectorBase<BaseFloat> &wave,
                    BaseFloat vtln_warp,
                    Matrix<BaseFloat> *output,
                    Vector<BaseFloat> *wave_remainder) {
-  assert(output != NULL);
+  KALDI_ASSERT(output != NULL);
   int32 rows_out = NumFrames(wave.Dim(), opts_.frame_opts),
       cols_out = opts_.num_ceps;
   if (rows_out == 0)

@@ -3,6 +3,8 @@
 // Copyright 2009-2012     Saarland University (author: Arnab Ghoshal)
 //                         Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,7 +30,7 @@
 #include "transform/transform-common.h"
 #include "util/kaldi-table.h"
 #include "util/kaldi-holder.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 namespace kaldi {
 
@@ -61,10 +63,10 @@ struct Sgmm2FmllrConfig {
     bases_occ_scale = 0.2;
   }
 
-  void Register(ParseOptions *po);
+  void Register(OptionsItf *po);
 };
 
-inline void Sgmm2FmllrConfig::Register(ParseOptions *po) {
+inline void Sgmm2FmllrConfig::Register(OptionsItf *po) {
   std::string module = "Sgmm2FmllrConfig: ";
   po->Register("fmllr-iters", &fmllr_iters, module+
                "Number of iterations in FMLLR estimation.");

@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Jan Silovsky
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -44,7 +46,7 @@ std::string PrintableRxfilename(std::string rxfilename) {
 
 
 std::string PrintableWxfilename(std::string wxfilename) {
-  if (wxfilename == "" || wxfilename == "-") return "standard input";
+  if (wxfilename == "" || wxfilename == "-") return "standard output";
   else {
     // If this call to Escape later causes compilation issues,
     // just replace it with "return rxfilename"; it's only a
@@ -222,8 +224,8 @@ class PipeOutputImpl: public OutputImplBase {
 
   virtual bool Open(const std::string &wxfilename, bool binary) {
     filename_ = wxfilename;
-    assert(f_ == NULL);  // Make sure closed.
-    assert(wxfilename.length() != 0 && wxfilename[0] == '|');  // should start with '|'
+    KALDI_ASSERT(f_ == NULL);  // Make sure closed.
+    KALDI_ASSERT(wxfilename.length() != 0 && wxfilename[0] == '|');  // should start with '|'
     std::string cmd_name(wxfilename, 1);
 #ifdef _MSC_VER
     f_ = _popen(cmd_name.c_str(), (binary ? "wb" : "w"));
@@ -388,8 +390,8 @@ class PipeInputImpl: public InputImplBase {
 
   virtual bool Open(const std::string &rxfilename, bool binary) {
     filename_ = rxfilename;
-    assert(f_ == NULL);  // Make sure closed.
-    assert(rxfilename.length() != 0 &&
+    KALDI_ASSERT(f_ == NULL);  // Make sure closed.
+    KALDI_ASSERT(rxfilename.length() != 0 &&
            rxfilename[rxfilename.length()-1] == '|');  // should end with '|'
     std::string cmd_name(rxfilename, 0, rxfilename.length()-1);
 #ifdef _MSC_VER
@@ -404,8 +406,8 @@ class PipeInputImpl: public InputImplBase {
       return false;
     } else {
 #ifndef _MSC_VER
-      fb_ = new PipebufType(f_,  // Using his constructor won't lead the
-                                 // destructor close the stream.
+      fb_ = new PipebufType(f_,  // Using this constructor won't lead the
+                                 // destructor to close the stream.
                                  (binary ? std::ios_base::in|std::ios_base::binary
                                   :std::ios_base::in));
       KALDI_ASSERT(fb_ != NULL);  // or would be alloc error.
@@ -470,7 +472,7 @@ class PipeInputImpl: public InputImplBase {
 // called.
 class PipeInputImpl: public InputImplBase {
  public:
-  PipeInputImpl() { assert(0 && "Pipe input not yet supported on this platform."); }
+  PipeInputImpl() { KALDI_ASSERT(0 && "Pipe input not yet supported on this platform."); }
   virtual bool Open(const std::string, bool) { return 0; }
   virtual std::istream &Stream() const { return NULL; }
   virtual void Close() {}
@@ -490,7 +492,7 @@ class OffsetFileInputImpl: public InputImplBase {
                             std::string *filename,
                             size_t *offset) {
     size_t pos = rxfilename.find_last_of(':');
-    assert(pos != std::string::npos);  // would indicate error in calling code,
+    KALDI_ASSERT(pos != std::string::npos);  // would indicate error in calling code,
     // as the filename is supposed to be of the correct form at this
     // point.
     *filename = std::string(rxfilename, 0, pos);
@@ -635,7 +637,7 @@ bool Output::Open(const std::string &wxfn, bool binary, bool header) {
   filename_ = wxfn;
 
   OutputType type = ClassifyWxfilename(wxfn);
-  assert(impl_ == NULL);
+  KALDI_ASSERT(impl_ == NULL);
 
   if (type ==  kFileOutput) {
     impl_ = new FileOutputImpl();

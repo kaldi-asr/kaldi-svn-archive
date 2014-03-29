@@ -2,6 +2,8 @@
 
 // Copyright 2013   Daniel Povey
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,7 +34,7 @@ class OnlineMatrixInput : public OnlineFeatInputItf {
 
   virtual int32 Dim() const { return feats_.NumCols(); }
   
-  virtual bool Compute(Matrix<BaseFloat> *output, int32 timeout) {
+  virtual bool Compute(Matrix<BaseFloat> *output) {
     if (feats_.NumRows() == 0) { // empty input.
       output->Resize(0, 0);
       return false;
@@ -84,7 +86,7 @@ void GetOutput(OnlineFeatInputItf *a,
     Matrix<BaseFloat> garbage;
     int32 batch_size = 1 + rand() % 10;
     garbage.Resize(batch_size, dim); // some random requested amount.
-    if (!cache.Compute(&garbage, rand() % 3)) // returns false when done.
+    if (!cache.Compute(&garbage)) // returns false when done.
       break;
   }
   cache.GetCachedData(output);
@@ -196,9 +198,8 @@ void TestOnlineCmnInput() { // We're also testing OnlineCacheInput here.
   input_feats.SetRandn();
 
   OnlineMatrixInput matrix_input(input_feats);
-  int32 cmn_window = 20;
-  int32 min_window = rand() % cmn_window;
-  if (rand() % 2 == 0) min_window = 0;
+  int32 cmn_window = 10 + rand() % 20;
+  int32 min_window = 1 + rand() % (cmn_window - 1);
   if (rand() % 3 == 0) min_window = cmn_window;
   
   OnlineCmnInput cmn_input(&matrix_input, cmn_window,

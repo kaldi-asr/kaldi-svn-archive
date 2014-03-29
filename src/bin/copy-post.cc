@@ -2,6 +2,8 @@
 
 // Copyright 2011-2012 Johns Hopkins University (Author: Daniel Povey)  Chao Weng
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,23 +20,8 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
+#include "hmm/posterior.h"
 
-namespace kaldi {
-
-void ScalePosteriors(BaseFloat scale, Posterior *post) {
-  if (scale == 1.0) return;
-  for (size_t i = 0; i < post->size(); i++) {
-    if (scale == 0.0) {
-      (*post)[i].clear();
-    } else {
-      for (size_t j = 0; j < (*post)[i].size(); j++)
-        (*post)[i][j].second *= scale;
-    }
-  }
-}
-
-
-} // end namespace kaldi
 
 int main(int argc, char *argv[]) {
   try {
@@ -70,7 +57,7 @@ int main(int argc, char *argv[]) {
 
       if (scale != 1.0) {
         kaldi::Posterior posterior = posterior_reader.Value();
-        ScalePosteriors(scale, &posterior);
+        ScalePosterior(scale, &posterior);
         posterior_writer.Write(key, posterior);
       } else {
         posterior_writer.Write(key, posterior_reader.Value());

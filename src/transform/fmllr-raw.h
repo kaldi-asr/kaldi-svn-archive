@@ -2,6 +2,8 @@
 
 // Copyright 2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -68,7 +70,7 @@ struct FmllrRawOptions {
   BaseFloat min_count;
   int32 num_iters;
   FmllrRawOptions(): min_count(100.0), num_iters(20) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("fmllr-min-count", &min_count,
                  "Minimum count required to update fMLLR");
     po->Register("fmllr-num-iters", &num_iters,

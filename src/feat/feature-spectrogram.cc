@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Karel Vesely
 // Copyright 2012  Navdeep Jaitly
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -40,7 +42,7 @@ Spectrogram::~Spectrogram() {
 void Spectrogram::Compute(const VectorBase<BaseFloat> &wave,
                    Matrix<BaseFloat> *output,
                    Vector<BaseFloat> *wave_remainder) {
-  assert(output != NULL);
+  KALDI_ASSERT(output != NULL);
 
   // Get dimensions of output features
   int32 rows_out = NumFrames(wave.Dim(), opts_.frame_opts);

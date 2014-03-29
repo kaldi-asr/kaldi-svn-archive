@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -134,7 +136,7 @@ struct ExponentialTransformUpdateAOptions {
   BaseFloat learning_rate;
   bool renormalize;  // renormalize A and recenter the warp factors on each iteration...
   ExponentialTransformUpdateAOptions(): learning_rate(1.0), renormalize(true) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("learning-rate", &learning_rate, "Learning rate for updating A (make <1 if instability suspected)\n");
     po->Register("renormalize", &renormalize, "True if you want to renormalize the warp factors on each iteration of update (recommended).");
   }

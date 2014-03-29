@@ -4,6 +4,8 @@
 //           2012 Vassil Panayotov
 //           2013 Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -100,9 +102,6 @@ int main(int argc, char *argv[]) {
       po.PrintUsage();
       return 1;
     }
-    if (po.NumArgs() == 5)
-      if (left_context % kDeltaOrder != 0 || left_context != right_context)
-        KALDI_ERR << "Invalid left/right context parameters!";
 
     std::string model_rxfilename = po.GetArg(1),
         fst_rxfilename = po.GetArg(2),
@@ -161,14 +160,10 @@ int main(int argc, char *argv[]) {
     } else {
       DeltaFeaturesOptions opts;
       opts.order = kDeltaOrder;
-      // Note from Dan: keeping the next statement for back-compatibility,
-      // but I don't think this is really the right way to set the window-size
-      // in the delta computation: it should be a separate config.
-      opts.window = left_context / 2;
       feat_transform = new OnlineDeltaInput(opts, &cmn_input);
     }
 
-    // feature_reading_opts contains timeout, batch size.
+    // feature_reading_opts contains number of retries, batch size.
     OnlineFeatureMatrix feature_matrix(feature_reading_opts,
                                        feat_transform);
 

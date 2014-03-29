@@ -2,6 +2,8 @@
 
 // Copyright 2012  Carnegie Mellon University (author: Yajie Miao)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -47,7 +49,7 @@ struct BasisFmllrOptions {
   BaseFloat min_count;
   int32 step_size_iters;
   BasisFmllrOptions(): num_iters(10), size_scale(0.2), min_count(50.0), step_size_iters(3) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("num-iters", &num_iters,
                  "Number of iterations in basis fMLLR update during testing");
     po->Register("size-scale", &size_scale,

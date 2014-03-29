@@ -6,6 +6,8 @@
 // Copyright 2012-2013  Johns Hopkins University (Author: Daniel Povey)
 //                      Liang Lu;  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +29,7 @@
 
 #include "sgmm2/am-sgmm2.h"
 #include "gmm/model-common.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 #include "thread/kaldi-thread.h"
 
 namespace kaldi {
@@ -86,7 +88,7 @@ struct MleAmSgmm2Options {
     full_col_cov = false;
   }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     std::string module = "MleAmSgmm2Options: ";
     po->Register("tau-c", &tau_c, module+
                  "Count for smoothing weight update.");

@@ -2,6 +2,8 @@
 
 // Copyright 2011-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -255,6 +257,13 @@ class LatticeWordAligner {
       lat_(lat), tmodel_(tmodel), info_in_(info), info_(info),
       max_states_(max_states), lat_out_(lat_out),
       error_(false) {
+    bool test = true;
+    uint64 props = lat_.Properties(fst::kIDeterministic|fst::kIEpsilons, test);
+    if (props != fst::kIDeterministic) {
+      KALDI_WARN << "[Lattice has input epsilons and/or is not input-deterministic "
+                 << "(in Mohri sense)]-- i.e. lattice is not deterministic.  "
+                 << "Word-alignment may be slow and-or blow up in memory.";
+    }
     fst::CreateSuperFinal(&lat_); // Creates a super-final state, so the
     // only final-probs are One().
     
@@ -306,8 +315,8 @@ class LatticeWordAligner {
       if (max_states_ > 0 && lat_out_->NumStates() > max_states_) {
         KALDI_WARN << "Number of states in lattice exceeded max-states of "
                    << max_states_ << ", original lattice had "
-                   << lat_.NumStates() << " states.  Returning empty lattice.";
-        lat_out_->DeleteStates();
+                   << lat_.NumStates() << " states.  Returning what we have.";
+        RemoveEpsilonsFromLattice();
         return false;
       }
       ProcessQueueElement();
@@ -326,6 +335,7 @@ class LatticeWordAligner {
   CompactLattice *lat_out_;
 
   std::vector<std::pair<Tuple, StateId> > queue_;
+  
   MapType map_; // map from tuples to StateId.
   bool error_;
   

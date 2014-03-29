@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -36,6 +38,12 @@ typedef enum {
   kCopyData
 } MatrixResizeType;
 
+typedef enum {
+  kTakeLower,
+  kTakeUpper,
+  kTakeMean,
+  kTakeMeanAndCheck
+} SpCopyType;
 
 template<typename Real> class VectorBase;
 template<typename Real> class Vector;
@@ -55,7 +63,11 @@ template<typename Real> class CuMatrix;
 template<typename Real> class CuVectorBase;
 template<typename Real> class CuSubVector;
 template<typename Real> class CuVector;
+template<typename Real> class CuPackedMatrix;
+template<typename Real> class CuSpMatrix;
+template<typename Real> class CuTpMatrix;
 
+class CompressedMatrix;
 
 /// This class provides a way for switching between double and float types.
 template<typename T> class OtherReal { };  // useful in reading+writing routines

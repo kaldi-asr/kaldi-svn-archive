@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,7 +37,7 @@ namespace kaldi {
    x is the input of dimensino dim, v is the output of dimension
    dim, and beta is a scalar. Note: we use zero-based
    not one-based indexing. */
-template<class Real>
+template<typename Real>
 void House(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
   KALDI_ASSERT(dim > 0);
   // To avoid overflow, we first compute the max of x_ (or
@@ -63,7 +65,7 @@ void House(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
   else {
     // When we say x1 = x[0], we reference the one-based indexing
     // in Golub and Van Loan.
-    Real x1 = x[0] * s, mu = sqrt(x1*x1 + sigma);
+    Real x1 = x[0] * s, mu = std::sqrt(x1*x1 + sigma);
     if (x1 <= 0) {
       v[0] = x1 - mu;
     } else {
@@ -82,7 +84,7 @@ void House(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
 // the vector that is "special".  This is convenient in
 // the Tridiagonalize routine that uses reversed indexes for
 // compatibility with the packed lower triangular format.
-template<class Real>
+template<typename Real>
 void HouseBackward(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
   KALDI_ASSERT(dim > 0);
   // To avoid overflow, we first compute the max of x_ (or
@@ -109,7 +111,7 @@ void HouseBackward(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
                "Tridiagonalizing matrix that is too large or has NaNs.");
   if (sigma == 0.0) *beta = 0.0;
   else {
-    Real x1 = x[dim-1]*s, mu = sqrt(x1*x1 + sigma);
+    Real x1 = x[dim-1]*s, mu = std::sqrt(x1*x1 + sigma);
     if (x1 <= 0) {
       v[dim-1] = x1 - mu;
     } else {
@@ -136,7 +138,7 @@ void HouseBackward(MatrixIndexT dim, const Real *x, Real *v, Real *beta) {
    Caution: Q is transposed vs. Golub and Van Loan.
    If Q != NULL it outputs Q. 
 */
-template<class Real>
+template<typename Real>
 void SpMatrix<Real>::Tridiagonalize(MatrixBase<Real> *Q) {
   MatrixIndexT n = this->NumRows();
   KALDI_ASSERT(Q == NULL || (Q->NumRows() == n &&
@@ -160,7 +162,7 @@ void SpMatrix<Real>::Tridiagonalize(MatrixBase<Real> *Q) {
     // this relies on the fact that w and p are the same pointer.
     // We're doing A(k, k-1) = ||Arow||.  It happens that this element
     // is indexed at ksize + k - 1 in the packed lower-triangular format.
-    data[ksize + k - 1] = sqrt(cblas_Xdot(k, Arow, 1, Arow, 1));
+    data[ksize + k - 1] = std::sqrt(cblas_Xdot(k, Arow, 1, Arow, 1));
     for (MatrixIndexT i = 0; i + 1 < k; i++)
       data[ksize + i] = 0; // This is not in Golub and Van Loan but is
     // necessary if we're not using parts of A to store the Householder
@@ -192,7 +194,7 @@ template
 void SpMatrix<double>::Tridiagonalize(MatrixBase<double> *Q);
 
 /// Create Givens rotations, as in Golub and Van Loan 3rd ed., page 216.
-template<class Real>
+template<typename Real>
 inline void Givens(Real a, Real b, Real *c, Real *s) {
   if (b == 0) {
     *c = 1;
@@ -216,7 +218,7 @@ inline void Givens(Real a, Real b, Real *c, Real *s) {
 // with Wilkinson shift."  A couple of differences: this code is
 // in zero based arithmetic, and we represent Q transposed from
 // their Q for memory locality with row-major-indexed matrices.
-template <class Real>
+template <typename Real>
 void QrStep(MatrixIndexT n,
             Real *diag,
             Real *off_diag,
@@ -225,7 +227,7 @@ void QrStep(MatrixIndexT n,
   Real   d = (diag[n-2] - diag[n-1]) / 2.0,
       t2_n_n1 = off_diag[n-2]*off_diag[n-2],
       sgn_d = (d > 0.0 ? 1.0 : (d < 0.0 ? -1.0 : 0.0)),
-      mu = diag[n-1] - t2_n_n1 / (d + sgn_d*sqrt(d*d + t2_n_n1)),
+      mu = diag[n-1] - t2_n_n1 / (d + sgn_d*std::sqrt(d*d + t2_n_n1)),
       x = diag[0] - mu,
       z = off_diag[0];
   Real *Qdata = (Q == NULL ? NULL : Q->Data());
@@ -292,7 +294,7 @@ void QrStep(MatrixIndexT n,
 // Internal code for the QR algorithm, where the diagonal
 // and off-diagonal of the symmetric matrix are represented as
 // vectors of length n and n-1.
-template <class Real>
+template <typename Real>
 void QrInternal(MatrixIndexT n,
                 Real *diag,
                 Real *off_diag,
@@ -370,7 +372,7 @@ void QrInternal(MatrixIndexT n,
    This is the symmetric QR algorithm, from Golub and Van Loan 3rd ed., Algorithm
    8.3.3.  Q is transposed w.r.t. there, though.
 */
-template <class Real>
+template <typename Real>
 void SpMatrix<Real>::Qr(MatrixBase<Real> *Q) {
   KALDI_ASSERT(this->IsTridiagonal());
   // We envisage that Q would be square but we don't check for this,
@@ -394,7 +396,7 @@ void SpMatrix<Real>::Qr(MatrixBase<Real> *Q) {
   }
 }
 
-template<class Real>
+template<typename Real>
 void SpMatrix<Real>::Eig(VectorBase<Real> *s, MatrixBase<Real> *P) const {
   MatrixIndexT dim = this->NumRows();
   KALDI_ASSERT(s->Dim() == dim);
@@ -415,7 +417,7 @@ void SpMatrix<Real>::Eig(VectorBase<Real> *s, MatrixBase<Real> *P) const {
 }
 
 
-template<class Real>
+template<typename Real>
 void SpMatrix<Real>::TopEigs(VectorBase<Real> *s, MatrixBase<Real> *P,
                              MatrixIndexT lanczos_dim) const {
   const SpMatrix<Real> &S(*this); // call this "S" for easy notation.
@@ -482,7 +484,7 @@ void SpMatrix<Real>::TopEigs(VectorBase<Real> *s, MatrixBase<Real> *P,
       // OK, at this point we're satisfied that r is orthogonal
       // to all previous rows.
       KALDI_ASSERT(end_prod != 0.0); // should have looped.
-      r.Scale(1.0 / sqrt(end_prod)); // make it unit.
+      r.Scale(1.0 / std::sqrt(end_prod)); // make it unit.
       Q.Row(d+1).CopyFromVec(r);
     }
   }
@@ -514,8 +516,7 @@ void SpMatrix<Real>::TopEigs(VectorBase<Real> *s, MatrixBase<Real> *P,
 }
 
 
-// Instantiate the templates for Eig and TopEig; this will instantiate the
-// other templates defined here because they call the others.
+// Instantiate the templates for Eig and TopEig.
 template
 void SpMatrix<float>::Eig(VectorBase<float>*, MatrixBase<float>*) const;
 template
@@ -526,6 +527,13 @@ void SpMatrix<float>::TopEigs(VectorBase<float>*, MatrixBase<float>*, MatrixInde
 template
 void SpMatrix<double>::TopEigs(VectorBase<double>*, MatrixBase<double>*, MatrixIndexT) const;
 
+// Someone had a problem with the Intel compiler with -O3, with Qr not being
+// defined for some strange reason (should automatically happen when
+// we instantiate Eig and TopEigs), so we explicitly instantiate it here.
+template
+void SpMatrix<float>::Qr(MatrixBase<float> *Q);
+template
+void SpMatrix<double>::Qr(MatrixBase<double> *Q);
 
 
 

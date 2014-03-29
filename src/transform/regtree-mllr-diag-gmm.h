@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Saarland University;  Jan Silovsky
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -39,7 +41,7 @@ struct RegtreeMllrOptions {
 
   RegtreeMllrOptions(): min_count(1000.0), use_regtree(true) { }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("mllr-min-count", &min_count,
                  "Minimum count to estimate an MLLR transform.");
     po->Register("mllr-use-regtree", &use_regtree,

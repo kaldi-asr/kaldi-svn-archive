@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Petr Motlicek;  Karel Vesely
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,7 +24,7 @@
 #include <string>
 
 #include "feat/feature-functions.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 #include "matrix/kaldi-matrix-inl.h"
 
 namespace kaldi {
@@ -64,7 +66,7 @@ struct PlpOptions {
                  cepstral_scale(1.0),
                  htk_compat(false) {}
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     frame_opts.Register(po);
     mel_opts.Register(po);
     po->Register("lpc-order", &lpc_order,

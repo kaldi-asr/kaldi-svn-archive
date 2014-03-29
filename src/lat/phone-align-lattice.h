@@ -2,6 +2,8 @@
 
 // Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -36,7 +38,7 @@ struct PhoneAlignLatticeOptions {
   PhoneAlignLatticeOptions(): reorder(true),
                               remove_epsilon(true),
                               replace_output_symbols(false) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("reorder", &reorder, "True if lattice was created from HCLG with "
                  "--reorder=true option.");
     po->Register("remove-epsilon", &remove_epsilon, "If true, removes epsilons from "

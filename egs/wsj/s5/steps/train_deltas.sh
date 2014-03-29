@@ -16,6 +16,8 @@ retry_beam=40
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
 power=0.25 # Exponent for number of gaussians according to occurrence counts
 cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
+norm_vars=false # false : cmn, true : cmvn.  To turn off CMN completely,
+                # supply the --fake option to compute_cmvn_stats.sh
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -53,9 +55,11 @@ mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 
 sdata=$data/split$nj;
-[[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
+split_data.sh $data $nj || exit 1;
 
-feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |"
+echo $norm_vars > $dir/norm_vars # keep track of feature normalization type for decoding, alignment
+
+feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |"
 
 rm $dir/.error 2>/dev/null
 
@@ -131,7 +135,7 @@ while [ $x -lt $num_iters ]; do
   x=$[$x+1];
 done
 
-rm $dir/final.mdl 2>/dev/null
+rm $dir/final.mdl $dir/final.occs 2>/dev/null
 ln -s $x.mdl $dir/final.mdl
 ln -s $x.occs $dir/final.occs
 

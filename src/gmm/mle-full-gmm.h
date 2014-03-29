@@ -4,6 +4,8 @@
 //                      Microsoft Corporation; 
 //                      Univ. Erlangen Nuremberg, Korbinian Riedhammer
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -51,7 +53,7 @@ struct MleFullGmmOptions {
     max_condition          = 1.0e+04;
     remove_low_count_gaussians = true;
   }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     std::string module = "MleFullGmmOptions: ";
     po->Register("min-gaussian-weight", &min_gaussian_weight,
                  module+"Min Gaussian weight before we remove it.");
@@ -140,9 +142,8 @@ inline void AccumFullGmm::Resize(const FullGmm &gmm, GmmFlagsType flags) {
   Resize(gmm.NumGauss(), gmm.Dim(), flags);
 }
 
-/// for computing the maximum-likelihood estimates of the parameters of
-/// a Gaussian mixture model.
-/// Update using the DiagGmm: exponential form
+/// for computing the maximum-likelihood estimates of the parameters of a
+/// Gaussian mixture model.  Update using the FullGmm exponential form
 void MleFullGmmUpdate(const MleFullGmmOptions &config,
             const AccumFullGmm &fullgmm_acc,
             GmmFlagsType flags,

@@ -16,11 +16,11 @@ langid=107
 silence_word=  # Optional silence word to insert (once) between words of the transcript.
 # End configuration section.
 
+echo "$0 $@"  # Print the command line for logging
+
 set -e 
 set -u
 set -o pipefail
-
-echo "$0 $@"  # Print the command line for logging
 
 help_message="$0: Initialize and setup the KWS task directory
 Usage:
@@ -31,7 +31,7 @@ allowed switches:
       --rttm-file /path/to/rttm          # the preferred way how to specify the rttm
                                          # the older way (as an in-line parameter is 
                                          # obsolete and will be removed in near future
-      --case-sensitive <true|false>      # Shall we be case-sensitive or not?
+      --case-insensitive <true|false>      # Shall we be case-sensitive or not?
                                          # Please not the case-sensitivness depends 
                                          # on the shell locale!
       --use-icu <true|false>           # Use the ICU uconv binary to normalize casing
@@ -62,7 +62,7 @@ fi
 # don't quote rttm_file as it's valid for it to be empty.
 for filename in "$ecf_file" "$kwlist_file" $rttm_file; do
     echo $filename
-    if [ ! -f $filename ] ; then
+    if [ ! -e $filename ] ; then
         printf "FATAL: filename \'$filename\' does not refer to a valid file\n"
         printf "$help_message\n"
         exit 1;
@@ -91,18 +91,17 @@ else
 fi
 
 if $kwlist_wordlist ; then 
-  (
-  echo '<kwlist ecf_filename="kwlist.xml" language="" encoding="UTF-8" compareNormalize="lowercase" version="" >'
-  id=1
-  while read line; do
-    id_str=$( printf "KWS$langid-%04d\n" $id )
-    echo "  <kw kwid=\"$id_str\">"
-    echo "    <kwtext>$line</kwtext>"
-    echo "  </kw>"
-    id=$(( $id + 1 ))
-  done < ${kwlist_file}
-  echo '</kwlist>'
-  ) > $kwsdatadir/kwlist.xml || exit 1
+(
+ echo '<kwlist ecf_filename="kwlist.xml" language="" encoding="UTF-8" compareNormalize="lowercase" version="" >'
+ while read line; do
+   id_str=`echo $line | cut -f 1 -d ' '`
+   kw_str=`echo $line | cut -f 2- -d ' '`
+   echo "  <kw kwid=\"$id_str\">"
+   echo "    <kwtext>$kw_str</kwtext>"
+   echo "  </kw>"
+ done < ${kwlist_file}
+ echo '</kwlist>'
+) > $kwsdatadir/kwlist.xml || exit 1
 else
   cp "$kwlist_file" $kwsdatadir/kwlist.xml || exit 1
 fi
@@ -114,6 +113,31 @@ fi
 sil_opt=
 [ ! -z $silence_word ] && sil_opt="--silence-word $silence_word"
 local/kws_data_prep.sh --case-insensitive ${case_insensitive} \
-  $sil_opt --use_icu ${use_icu} --icu-transform ${icu_transform} \
+  $sil_opt --use_icu ${use_icu} --icu-transform "${icu_transform}" \
   $langdir $datadir $kwsdatadir || exit 1
 
+#~  (
+#~  echo '<kwlist ecf_filename="kwlist.xml" language="" encoding="UTF-8" compareNormalize="lowercase" version="" >'
+#~  while read line; do
+#~    id_str=`echo $line | cut -f 1 -d ' '`
+#~    kw_str=`echo $line | cut -f 2- -d ' '`
+#~    echo "  <kw kwid=\"$id_str\">"
+#~    echo "    <kwtext>$kw_str</kwtext>"
+#~    echo "  </kw>"
+#~  done < ${kwlist_file}
+#~  echo '</kwlist>'
+#~  ) > $kwsdatadir/kwlist.xml || exit 1
+#~
+#-(
+#-echo '<kwlist ecf_filename="kwlist.xml" language="" encoding="UTF-8" compareNormalize="lowercase" version="" >'
+#-id=1
+#-while read line; do
+#-  id_str=$( printf "KWS$langid-%04d\n" $id )
+#-  echo "  <kw kwid=\"$id_str\">"
+#-  echo "    <kwtext>$line</kwtext>"
+#-  echo "  </kw>"
+#-  id=$(( $id + 1 ))
+#-done < ${kwlist_file}
+#-echo '</kwlist>'
+#-) > $kwsdatadir/kwlist.xml || exit 1
+#-

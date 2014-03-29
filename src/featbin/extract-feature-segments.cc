@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation;  Govivace Inc.
 //           2012-2013  Mirko Hannemann;  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -35,7 +37,7 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Create feature files by segmenting input files.\n"
         "Usage:  extract-feature-segments [options...] <feats-rspecifier> <segments-file> <feats-wspecifier>\n"
-        " (segments-file has lines like: spkabc_seg1 spkabc_recording1 1.10 2.36\n";
+        " (segments-file has lines like: output-utterance-id input-utterance-or-spk-id 1.10 2.36)\n";
 
     // construct all the global objects
     ParseOptions po(usage);
@@ -50,7 +52,7 @@ int main(int argc, char *argv[]) {
     po.Register("frame-rate", &samp_freq,
                 "Feature sampling frequency (e.g. 100 for 10ms window shift)");
     po.Register("max-overshoot", &max_overshoot,
-                "End segmnents overshooting by less (in seconds) are truncated,"
+                "End segments overshooting by less (in seconds) are truncated,"
                 " else rejected.");
 
     // OPTION PARSING ...

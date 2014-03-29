@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -123,6 +125,11 @@ int main(int argc, char *argv[]) {
       if (!ReadIntegerVectorSimple(disambig_rxfilename, &disambig_in))
         KALDI_ERR << "fstcomposecontext: Could not read disambiguation symbols from "
                   << PrintableRxfilename(disambig_rxfilename);
+
+    if (disambig_in.empty()) {
+      KALDI_WARN << "Disambiguation symbols list is empty; this likely "
+                 << "indicates an error in data preparation.";
+    }
     
     std::vector<std::vector<int32> > ilabels;
     VectorFst<StdArc> composed_fst;

@@ -2,6 +2,8 @@
 
 // Copyright 2012  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,7 +25,7 @@
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 
 namespace kaldi {
 
@@ -91,10 +93,10 @@ struct GpsrConfig {
     max_iters_debias = 50;
   }
 
-  void Register(ParseOptions *po);
+  void Register(OptionsItf *po);
 };
 
-inline void GpsrConfig::Register(ParseOptions *po) {
+inline void GpsrConfig::Register(OptionsItf *po) {
   std::string module = "GpsrConfig: ";
   po->Register("use-gpsr-bb", &use_gpsr_bb, module+
                "Use the Barzilai-Borwein gradient projection method.");
