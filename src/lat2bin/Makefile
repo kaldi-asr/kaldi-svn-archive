@@ -1,39 +1,23 @@
-KALDI_ROOT=../../
 
-all: lattice-filter lattice-info lattice4-arc.so compactlattice44-arc.so lattice-filter-text
+all:
 
-ifndef KALDI_ROOT
-$(error KALDI_ROOT is not set)
-endif
+EXTRA_CXXFLAGS = -Wno-mismatched-tags -Wno-sign-compare
+EXTRA_LDLIBS = -L../../tools/openfst/lib/fst/ -lfstfar -lfstfarscript
+#-L../../tools/openfst-1.3.2/src/extensions/far/.libs \
 
-include $(KALDI_ROOT)/src/kaldi.mk
-CXXFLAGS+=-I${KALDI_ROOT}/src/ -I${OPENLAT_ROOT}/src/include/
+include ../kaldi.mk
 
-lattice4-arc.so: lattice-arc.o
-	$(CXX)  $^ -o $@  $(LDFLAGS) $(LDLIBS) -shared
+BINFILES = far-to-lattice  lattice-filter lattice-filter-text
 
-compactlattice44-arc.so: compact-lattice-arc.o
-	$(CXX)  $^ -o $@  $(LDFLAGS) $(LDLIBS) -shared
+lattice-filter: exec-stream.o
 
+lattice-filter-text: exec-stream.o
 
-lattice-filter: lattice-filter.o exec-stream.o
-	$(CXX)  $^ -o $@  $(LDFLAGS) $(LDLIBS) $(KALDI_ROOT)/src/lat/kaldi-lat.a \
-		$(KALDI_ROOT)/src/base/kaldi-base.a 	$(KALDI_ROOT)/src/util/kaldi-util.a \
+TESTFILES =
 
-lattice-filter-text: lattice-filter-text.o exec-stream.o
-	$(CXX)  $^ -o $@  $(LDFLAGS) $(LDLIBS) $(KALDI_ROOT)/src/lat/kaldi-lat.a \
-		$(KALDI_ROOT)/src/base/kaldi-base.a 	$(KALDI_ROOT)/src/util/kaldi-util.a \
+ADDLIBS = ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a \
+          ../util/kaldi-util.a ../matrix/kaldi-matrix.a ../thread/kaldi-thread.a \
+					../base/kaldi-base.a
 
+include ../makefiles/default_rules.mk
 
-lattice-info: lattice-info.o
-	$(CXX)  $^ -o $@  $(LDFLAGS) $(LDLIBS) $(KALDI_ROOT)/src/lat/kaldi-lat.a \
-		$(KALDI_ROOT)/src/base/kaldi-base.a 	$(KALDI_ROOT)/src/util/kaldi-util.a
-
-clean:
-	rm -rf *.o *.so lattice-filter-text lattice-info
-
-%.o:%.cc
-	$(CXX) $(CXXFLAGS) -c $<
-
-%.o:%.cpp
-	$(CXX) $(CXXFLAGS) -c $<
