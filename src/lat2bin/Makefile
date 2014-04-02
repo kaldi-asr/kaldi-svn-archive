@@ -7,7 +7,7 @@ EXTRA_LDLIBS = -L../../tools/openfst/lib/fst/ -lfstfar -lfstfarscript
 
 include ../kaldi.mk
 
-BINFILES = far-to-lattice  lattice-filter lattice-filter-text
+BINFILES = far-to-lattice  lattice-filter lattice-filter-text lattice-to-far
 
 lattice-filter: exec-stream.o
 
