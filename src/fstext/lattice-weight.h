@@ -790,6 +790,18 @@ inline void ConvertLatticeWeight(
   *w_out = Times(w1, w2);
 }
 
+// to convert from Lattice to log FST
+template<class Float1, class Float2>
+inline void ConvertLatticeWeight(
+    const LatticeWeightTpl<Float1> &w_in,
+    LogWeightTpl<Float2> *w_out) {
+  LogWeightTpl<Float2> w1(w_in.Value1());
+  LogWeightTpl<Float2> w2(w_in.Value2());
+  *w_out = Times(w1, w2);
+}
+
+
+
 template<class Float>
 inline double ConvertToCost(const LatticeWeightTpl<Float> &w) {
   return static_cast<double>(w.Value1()) + static_cast<double>(w.Value2());
