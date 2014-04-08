@@ -6,12 +6,12 @@ include ../kaldi.mk
 
 TESTFILES = feature-mfcc-test feature-plp-test feature-fbank-test \
 	feature-functions-test feature-aperiodic-test \
-	pitch-functions-test
+	pitch-functions-test feature-sdc-test
 
 OBJFILES = feature-functions.o feature-mfcc.o feature-plp.o feature-fbank.o \
 	feature-spectrogram.o mel-computations.o wave-reader.o \
 	signal-process.o feature-lpc.o feature-aperiodic.o \
-        pitch-functions.o
+        pitch-functions.o feature-sdc-test.o
 
 LIBNAME = kaldi-feat
 

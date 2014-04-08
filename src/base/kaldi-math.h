@@ -301,6 +301,13 @@ inline double Log1p(double x) {  return log1p(x); }
 
 inline float Log1p(float x) {  return log1pf(x); }
 
+inline double Exp(double x) { return exp(x); }
+
+inline float Exp(float x) { return expf(x); }
+
+inline double Log(double x) { return log(x); }
+
+inline float Log(float x) { return logf(x); }
 
 
 }  // namespace kaldi

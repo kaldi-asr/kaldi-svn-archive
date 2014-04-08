@@ -42,11 +42,15 @@ struct MelBanksOptions {
   // ->added to the Nyquist frequency to get the cutoff.
   BaseFloat vtln_low;  // vtln lower cutoff of warping function.
   BaseFloat vtln_high;  // vtln upper cutoff of warping function: if negative, added
-  // to the Nyquist frequency to get the cutoff.
+                        // to the Nyquist frequency to get the cutoff.
   bool debug_mel;
+  // htk_mode is a "hidden" config, it does not show up on command line.
+  // Enables more exact compatibibility with HTK, for testing purposes.  Affects
+  // mel-energy flooring and reproduces a bug in HTK.
+  bool htk_mode;
   explicit MelBanksOptions(int num_bins = 25)
-      : num_bins(num_bins), low_freq(20), high_freq(0), vtln_low(400),
-        vtln_high(-400), debug_mel(false) {}
+      : num_bins(num_bins), low_freq(20), high_freq(0), vtln_low(100),
+        vtln_high(-500), debug_mel(false), htk_mode(false) {}
 
   void Register(OptionsItf *po) {
     po->Register("num-mel-bins", &num_bins,
@@ -252,6 +256,40 @@ class DeltaFeatures {
   // dimension by this window.
 };
 
+struct ShiftedDeltaFeaturesOptions {
+  int32 window,           // The time delay and advance
+        num_blocks,       
+        block_shift;      // Distance between consecutive blocks
+
+  ShiftedDeltaFeaturesOptions():
+      window(1), num_blocks(7), block_shift(3) { }
+  void Register(OptionsItf *po) {
+    po->Register("delta-window", &window, "Size of delta advance and delay.");
+    po->Register("num-blocks", &num_blocks, "Number of delta blocks in advance"
+                 " of each frame to be concatenated");
+    po->Register("block-shift", &block_shift, "Distance between each block");
+  }
+};
+
+class ShiftedDeltaFeatures {
+ public:
+  // This class provides a low-level function to compute shifted
+  // delta cesptra (SDC).
+  // The function takes as input a matrix of features and a frame index
+  // that it should compute the deltas on.  It puts its output in an object
+  // of type VectorBase, of size original-feature-dimension + (1  * num_blocks).
+
+  explicit ShiftedDeltaFeatures(const ShiftedDeltaFeaturesOptions &opts);
+
+  void Process(const MatrixBase<BaseFloat> &input_feats,
+               int32 frame,
+               SubVector<BaseFloat> *output_frame) const;
+ private:
+  ShiftedDeltaFeaturesOptions opts_;
+  Vector<BaseFloat> scales_;  // a scaling window for each
+  
+};
+
 // ComputeDeltas is a convenience function that computes deltas on a feature
 // file.  If you want to deal with features coming in bit by bit you would have
 // to use the DeltaFeatures class directly, and do the computation frame by
@@ -261,6 +299,12 @@ void ComputeDeltas(const DeltaFeaturesOptions &delta_opts,
                    const MatrixBase<BaseFloat> &input_features,
                    Matrix<BaseFloat> *output_features);
 
+// ComputeShiftedDeltas computes deltas from a feature file by applying
+// ShiftedDeltaFeatures over the frames. This function is provided for
+// convenience, however, ShiftedDeltaFeatures can be used directly.
+void ComputeShiftedDeltas(const ShiftedDeltaFeaturesOptions &delta_opts,
+                   const MatrixBase<BaseFloat> &input_features,
+                   Matrix<BaseFloat> *output_features);
 
 // SpliceFrames will normally be used together with LDA.
 // It splices frames together to make a window.  At the

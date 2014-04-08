@@ -702,11 +702,11 @@ Real VectorBase<Real>::SumLog() const {
     // Possible future work (arnab): change these magic values to pre-defined
     // constants
     if (prod < 1.0e-10 || prod > 1.0e+10) {
-      sum_log += std::log(prod);
+      sum_log += Log(prod);
       prod = 1.0;
     }
   }
-  if (prod != 1.0) sum_log += std::log(prod);
+  if (prod != 1.0) sum_log += Log(prod);
   return sum_log;
 }
 
@@ -760,9 +760,9 @@ Real VectorBase<Real>::LogSumExp(Real prune) const {
   for (MatrixIndexT i = 0; i < dim_; i++) {
     BaseFloat f = data_[i];
     if (f >= cutoff)
-      sum_relto_max_elem += std::exp(f - max_elem);
+      sum_relto_max_elem += Exp(f - max_elem);
   }
-  return max_elem + std::log(sum_relto_max_elem);
+  return max_elem + Log(sum_relto_max_elem);
 }
 
 template<typename Real>
@@ -777,7 +777,7 @@ void VectorBase<Real>::ApplyLog() {
   for (MatrixIndexT i = 0; i < dim_; i++) {
     if (data_[i] < 0.0)
       KALDI_ERR << "Trying to take log of a negative number.";
-    data_[i] = std::log(data_[i]);
+    data_[i] = Log(data_[i]);
   }
 }
 
@@ -785,19 +785,19 @@ template<typename Real>
 void VectorBase<Real>::ApplyLogAndCopy(const VectorBase<Real> &v) {
   KALDI_ASSERT(dim_ == v.Dim());
   for (MatrixIndexT i = 0; i < dim_; i++) {
-    data_[i] = std::log(v(i));
+    data_[i] = Log(v(i));
   }
 }
 
 template<typename Real>
 void VectorBase<Real>::ApplyExp() {
   for (MatrixIndexT i = 0; i < dim_; i++) {
-    data_[i] = std::exp(data_[i]);
+    data_[i] = Exp(data_[i]);
   }
 }
 
 template<typename Real>
-void VectorBase<Real>::Abs() {
+void VectorBase<Real>::ApplyAbs() {
   for (MatrixIndexT i = 0; i < dim_; i++) { data_[i] = std::abs(data_[i]); }
 }
 
@@ -843,10 +843,10 @@ template<typename Real>
 Real VectorBase<Real>::ApplySoftMax() {
 Real max = this->Max(), sum = 0.0;
   for (MatrixIndexT i = 0; i < dim_; i++) {
-    sum += (data_[i] = std::exp(data_[i] - max));
+    sum += (data_[i] = Exp(data_[i] - max));
   }
   this->Scale(1.0 / sum);
-  return max + std::log(sum);
+  return max + Log(sum);
 
 }
 
@@ -868,10 +868,10 @@ void VectorBase<Real>::Tanh(const VectorBase<Real> &src) {
   for (MatrixIndexT i = 0; i < dim_; i++) {
     Real x = src.data_[i];
     if (x > 0.0) {
-      Real inv_expx = std::exp(-x);
+      Real inv_expx = Exp(-x);
       x = -1.0 + 2.0 / (1.0 + inv_expx * inv_expx);
     } else {
-      Real inv_expx = std::exp(x);
+      Real inv_expx = Exp(x);
       x = 1.0 - 2.0 / (1.0 + inv_expx * inv_expx);
     }
     data_[i] = x;
@@ -907,9 +907,9 @@ void VectorBase<Real>::Sigmoid(const VectorBase<Real> &src) {
     Real x = src.data_[i];
     // We aim to avoid floating-point overflow here.
     if (x > 0.0) {
-      x = 1.0 / (1.0 + std::exp(-x));
+      x = 1.0 / (1.0 + Exp(-x));
     } else {
-      Real ex = std::exp(x);
+      Real ex = Exp(x);
       x = ex / (ex + 1.0);
     }
     data_[i] = x;
@@ -1010,8 +1010,8 @@ template<typename OtherReal>
 void VectorBase<Real>::AddVec(const Real alpha, const VectorBase<OtherReal> &v) {
   KALDI_ASSERT(dim_ == v.dim_);
   // remove __restrict__ if it causes compilation problems.
-  register __restrict__  Real *data = data_;
-  register __restrict__  OtherReal *other_data = v.data_;
+  register Real *__restrict__ data = data_;
+  register OtherReal *__restrict__ other_data = v.data_;
   MatrixIndexT dim = dim_;
   if (alpha != 1.0)
     for (MatrixIndexT i = 0; i < dim; i++)
@@ -1031,8 +1031,8 @@ template<typename OtherReal>
 void VectorBase<Real>::AddVec2(const Real alpha, const VectorBase<OtherReal> &v) {
   KALDI_ASSERT(dim_ == v.dim_);
   // remove __restrict__ if it causes compilation problems.
-  register __restrict__  Real *data = data_;
-  register __restrict__  OtherReal *other_data = v.data_;
+  register Real *__restrict__ data = data_;
+  register OtherReal *__restrict__ other_data = v.data_;
   MatrixIndexT dim = dim_;
   if (alpha != 1.0)
     for (MatrixIndexT i = 0; i < dim; i++)

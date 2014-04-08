@@ -271,11 +271,13 @@ class CuMatrixBase {
   void MulRowsGroupMat(const CuMatrixBase<Real> &src);
   /// divide i'th row by scale[i]
   void DivRowsVec(const CuVectorBase<Real> &div);
-  /// B = aplha * A + beta * B
-  void AddMat(Real alpha, const CuMatrixBase<Real> &A, Real beta=1.0);
-  /// B = aplha * row + beta * B
+  /// invert the matrix by elements.
+  void InvertElements();
+  /// B = alpha * A
+  void AddMat(Real alpha, const CuMatrixBase<Real> &A, MatrixTransposeType transA = kNoTrans);
+  /// B = alpha * row + beta * B
   void AddVecToCols(Real alpha, const CuVectorBase<Real> &col, Real beta = 1.0);
-  /// B = aplha * row + beta * B
+  /// B = alpha * row + beta * B
   void AddVecToRows(Real alpha, const CuVectorBase<Real> &row, Real beta = 1.0);
   /// C = alpha * A(^T)*B(^T) + beta * C
   void AddMatMat(Real alpha, const CuMatrixBase<Real> &A, MatrixTransposeType transA,
@@ -395,6 +397,10 @@ class CuMatrixBase {
   void SetRandUniform();
 
   void Write(std::ostream &os, bool binary) const;
+
+  // This function, adds a list of MatrixElements (scaled by alpha) to corresponding locations to
+  // (*this).
+  void AddElements(Real alpha, const std::vector<MatrixElement<Real> >& input);
 
   // This function resizes the output to indices.size(), and for each element of
   // "indices" it interprets it as a (row, column) index into *this, and puts

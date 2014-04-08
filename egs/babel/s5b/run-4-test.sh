@@ -16,12 +16,28 @@ skip_stt=false
 skip_scoring=false
 max_states=150000
 wip=0.5
+
+echo "run-4-test.sh $@"
+
 . utils/parse_options.sh
 
 if [ $# -ne 0 ]; then
   echo "Usage: $(basename $0) --type (dev10h|dev2h|eval|shadow)"
   exit 1
 fi
+
+#For backward compatibility, we will assume the dirid is "UEM" if no extension used
+if [[ "${type%.*}" ==  "$type" ]]; then
+  #If no extension had been  used
+  datadir=data/${type}.uem
+  dirid=${type}.uem
+else
+  datadir=data/${type}
+  dirid=${type}
+  type="${type%%.*}"
+fi
+#Now the $type value will be the dataset name without any UEM extension. 
+#Still,we are able to figure out the correct output directory to use when running decoding
 
 if [[ "$type" != "dev10h" && "$type" != "dev2h" && "$type" != "eval" && "$type" != "shadow" ]] ; then
   echo "Warning: invalid variable type=${type}, valid values are dev10h|dev2h|eval"
@@ -37,24 +53,12 @@ fi
 
 function make_plp {
   t=$1
-
-  if [ "$use_pitch" = "false" ] && [ "$use_ffv" = "false" ]; then
-   steps/make_plp.sh --cmd "$decode_cmd" --nj $my_nj data/${t} exp/make_plp/${t} plp
-  elif [ "$use_pitch" = "true" ] && [ "$use_ffv" = "true" ]; then
-    cp -rT data/${t} data/${t}_plp_pitch; cp -rT data/${t} data/${t}_ffv
-    steps/make_plp_pitch.sh --cmd "$decode_cmd" --nj $my_nj data/${t}_plp_pitch exp/make_plp_pitch/${t} plp_pitch_tmp_${t}
-    local/make_ffv.sh --cmd "$decode_cmd"  --nj $my_nj data/${t}_ffv exp/make_ffv/${t} ffv_tmp_${t}
-    steps/append_feats.sh --cmd "$decode_cmd" --nj $my_nj data/${t}{_plp_pitch,_ffv,} exp/make_ffv/append_${t}_pitch_ffv plp
-    rm -rf {plp_pitch,ffv}_tmp_${t} data/${t}_{plp_pitch,ffv}
-  elif [ "$use_pitch" = "true" ]; then
+  if $use_pitch; then
     steps/make_plp_pitch.sh --cmd "$decode_cmd" --nj $my_nj data/${t} exp/make_plp_pitch/${t} plp
-  elif [ "$use_ffv" = "true" ]; then
-    cp -rT data/${t} data/${t}_plp; cp -rT data/${t} data/${t}_ffv
-    steps/make_plp.sh --cmd "$decode_cmd" --nj $my_nj data/${t}_plp exp/make_plp/${t} plp_tmp_${t}
-    local/make_ffv.sh --cmd "$decode_cmd" --nj $my_nj data/${t}_ffv exp/make_ffv/${t} ffv_tmp_${t}
-    steps/append_feats.sh --cmd "$decode_cmd" --nj $my_nj data/${t}{_plp,_ffv,} exp/make_ffv/append_${t} plp
-    rm -rf {plp,ffv}_tmp_${t} data/${t}_{plp,ffv}
+  else
+    steps/make_plp.sh --cmd "$decode_cmd" --nj $my_nj data/${t} exp/make_plp/${t} plp
   fi
+  utils/fix_data_dir.sh data/${t}
   steps/compute_cmvn_stats.sh data/${t} exp/make_plp/${t} plp
   utils/fix_data_dir.sh data/${t}
 }
@@ -65,8 +69,7 @@ if  [[ ${type} == shadow || $type == eval || $type == semitrain || $type == devt
   optional_variables=""
 else
   mandatory_variables="${type}_data_dir ${type}_data_list ${type}_stm_file \
-    ${type}_ecf_file ${type}_kwlist_file ${type}_rttm_file ${type}_nj \
-    ${type}_data_cmudb"
+    ${type}_ecf_file ${type}_kwlist_file ${type}_rttm_file ${type}_nj" 
   optional_variables="${type}_subset_ecf "
 fi
 
@@ -109,9 +112,6 @@ for variable in $option_variables ; do
   echo "$variable=$my_variable"
 done
 
-datadir=data/${type}.uem
-dirid=${type}.uem
-skip_scoring=false
 if [[ $type == shadow ]] ; then
   if [ ! -f ${datadir}/.done ]; then
     # we expect that the ${dev2shadow} as well as ${eval2shadow} already exist
@@ -346,57 +346,58 @@ if [ ! -f $decode/.done ]; then
     --cmd "$decode_cmd" --transform-dir exp/tri5/decode_${dirid} "${decode_extra_opts[@]}"\
     exp/sgmm5/graph ${datadir} $decode |tee $decode/decode.log
   touch $decode/.done
-fi
 
-if ! $fast_path ; then
-  local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
-    --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
-    "${shadow_set_extra_opts[@]}" "${lmwt_plp_extra_opts[@]}" \
-    ${datadir} data/lang  exp/sgmm5/decode_fmllr_${dirid}
-fi
-
-####################################################################
-##
-## SGMM_MMI rescoring
-##
-####################################################################
-
-for iter in 1 2 3 4; do
-  # Decode SGMM+MMI (via rescoring).
-  decode=exp/sgmm5_mmi_b0.1/decode_fmllr_${dirid}_it$iter
-  if [ ! -f $decode/.done ]; then
-
-    mkdir -p $decode
-    steps/decode_sgmm2_rescore.sh  --skip-scoring true \
-      --cmd "$decode_cmd" --iter $iter --transform-dir exp/tri5/decode_${dirid} \
-      data/lang ${datadir} exp/sgmm5/decode_fmllr_${dirid} $decode | tee ${decode}/decode.log
-
-    touch $decode/.done
+  if ! $fast_path ; then
+    local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
+      --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
+      "${shadow_set_extra_opts[@]}" "${lmwt_plp_extra_opts[@]}" \
+      ${datadir} data/lang  exp/sgmm5/decode_fmllr_${dirid}
   fi
-done
 
-#We are done -- all lattices has been generated. We have to
-#a)Run MBR decoding
-#b)Run KW search
-for iter in 1 2 3 4; do
-  # Decode SGMM+MMI (via rescoring).
-  decode=exp/sgmm5_mmi_b0.1/decode_fmllr_${dirid}_it$iter
-  local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
-    --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
-    "${shadow_set_extra_opts[@]}" "${lmwt_plp_extra_opts[@]}" \
-    ${datadir} data/lang $decode
-done
+  ####################################################################
+  ##
+  ## SGMM_MMI rescoring
+  ##
+  ####################################################################
+
+  for iter in 1 2 3 4; do
+    # Decode SGMM+MMI (via rescoring).
+    decode=exp/sgmm5_mmi_b0.1/decode_fmllr_${dirid}_it$iter
+    if [ ! -f $decode/.done ]; then
+
+      mkdir -p $decode
+      steps/decode_sgmm2_rescore.sh  --skip-scoring true \
+        --cmd "$decode_cmd" --iter $iter --transform-dir exp/tri5/decode_${dirid} \
+        data/lang ${datadir} exp/sgmm5/decode_fmllr_${dirid} $decode | tee ${decode}/decode.log
+
+      touch $decode/.done
+    fi
+  done
+
+  #We are done -- all lattices has been generated. We have to
+  #a)Run MBR decoding
+  #b)Run KW search
+  for iter in 1 2 3 4; do
+    # Decode SGMM+MMI (via rescoring).
+    decode=exp/sgmm5_mmi_b0.1/decode_fmllr_${dirid}_it$iter
+    local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
+      --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
+      "${shadow_set_extra_opts[@]}" "${lmwt_plp_extra_opts[@]}" \
+      ${datadir} data/lang $decode
+  done
+fi
 
 ####################################################################
 ##
-## DNN decoding
+## DNN ("compatibility") decoding -- also, just decode the "default" net
 ##
 ####################################################################
 if [ -f exp/tri6_nnet/.done ]; then
   decode=exp/tri6_nnet/decode_${dirid}
   if [ ! -f $decode/.done ]; then
     mkdir -p $decode
-    steps/nnet2/decode.sh --cmd "$decode_cmd" --nj $my_nj \
+    steps/nnet2/decode.sh \
+      --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
       --beam $dnn_beam --lat-beam $dnn_lat_beam \
       --skip-scoring true "${decode_extra_opts[@]}" \
       --transform-dir exp/tri5/decode_${dirid} \
@@ -407,10 +408,59 @@ if [ -f exp/tri6_nnet/.done ]; then
 
   local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
     --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
-    "${shadow_set_extra_opts[@]}" "${lmwt_plp_extra_opts[@]}" \
+    "${shadow_set_extra_opts[@]}" "${lmwt_dnn_extra_opts[@]}" \
     ${datadir} data/lang $decode
 fi
 
+####################################################################
+##
+## DNN (nextgen DNN) decoding
+##
+####################################################################
+if [ -f exp/tri6a_nnet/.done ]; then
+  decode=exp/tri6a_nnet/decode_${dirid}
+  if [ ! -f $decode/.done ]; then
+    mkdir -p $decode
+    steps/nnet2/decode.sh \
+      --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
+      --beam $dnn_beam --lat-beam $dnn_lat_beam \
+      --skip-scoring true "${decode_extra_opts[@]}" \
+      --transform-dir exp/tri5/decode_${dirid} \
+      exp/tri5/graph ${datadir} $decode | tee $decode/decode.log
+
+    touch $decode/.done
+  fi
+
+  local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
+    --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
+    "${shadow_set_extra_opts[@]}" "${lmwt_dnn_extra_opts[@]}" \
+    ${datadir} data/lang $decode
+fi
+
+####################################################################
+##
+## DNN (ensemble) decoding
+##
+####################################################################
+if [ -f exp/tri6b_nnet/.done ]; then
+  decode=exp/tri6b_nnet/decode_${dirid}
+  if [ ! -f $decode/.done ]; then
+    mkdir -p $decode
+    steps/nnet2/decode.sh \
+      --minimize $minimize --cmd "$decode_cmd" --nj $my_nj \
+      --beam $dnn_beam --lat-beam $dnn_lat_beam \
+      --skip-scoring true "${decode_extra_opts[@]}" \
+      --transform-dir exp/tri5/decode_${dirid} \
+      exp/tri5/graph ${datadir} $decode | tee $decode/decode.log
+
+    touch $decode/.done
+  fi
+
+  local/run_kws_stt_task.sh --cer $cer --max-states $max_states --skip-scoring $skip_scoring\
+    --cmd "$decode_cmd" --skip-kws $skip_kws --skip-stt $skip_stt --wip $wip \
+    "${shadow_set_extra_opts[@]}" "${lmwt_dnn_extra_opts[@]}" \
+    ${datadir} data/lang $decode
+fi
 ####################################################################
 ##
 ## DNN_MPE decoding
@@ -421,7 +471,7 @@ if [ -f exp/tri6_nnet_mpe/.done ]; then
     decode=exp/tri6_nnet_mpe/decode_${dirid}_epoch$epoch
     if [ ! -f $decode/.done ]; then
       mkdir -p $decode
-      steps/nnet2/decode.sh \
+      steps/nnet2/decode.sh --minimize $minimize \
         --cmd "$decode_cmd" --nj $my_nj --iter epoch$epoch \
         --beam $dnn_beam --lat-beam $dnn_lat_beam \
         --skip-scoring true "${decode_extra_opts[@]}" \

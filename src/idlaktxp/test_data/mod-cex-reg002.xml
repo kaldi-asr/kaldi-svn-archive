@@ -1,7 +1,29 @@
 <?xml version="1.0"?>
 <parent>
 	<txpheader>
-		<cex cexfunctions="BackwardBackwardPhone;BackwardPhone;Phone;ForwardPhone;ForwardForwardPhone;SegmentLocationFromFront;SegmentLocationFromBack;BackwardSyllableStress;SyllableStress;ForwardSyllableStress;BackwardWordPosTag;WordPosTag;ForwardWordPosTag;BackwardSyllableNumPhones;SyllableNumPhones;ForwardSyllableNumPhones;BackwardWordNumSyls;WordNumSyls;ForwardWordNumSyls;PhraseNumWords;PhraseTobiEndTone;" />
+		<cex>
+			<cexfunction name="BackwardBackwardPhone" delim="^" isinteger="0" />
+			<cexfunction name="BackwardPhone" delim="~" isinteger="0" />
+			<cexfunction name="Phone" delim="-" isinteger="0" />
+			<cexfunction name="ForwardPhone" delim="+" isinteger="0" />
+			<cexfunction name="ForwardForwardPhone" delim="=" isinteger="0" />
+			<cexfunction name="SegmentLocationFromFront" delim=" " isinteger="1" />
+			<cexfunction name="SegmentLocationFromBack" delim=" " isinteger="1" />
+			<cexfunction name="BackwardSyllableStress" delim=" " isinteger="1" />
+			<cexfunction name="SyllableStress" delim=" " isinteger="1" />
+			<cexfunction name="ForwardSyllableStress" delim=" " isinteger="1" />
+			<cexfunction name="BackwardWordPosTag" delim=" " isinteger="0" />
+			<cexfunction name="WordPosTag" delim=" " isinteger="0" />
+			<cexfunction name="ForwardWordPosTag" delim=" " isinteger="0" />
+			<cexfunction name="BackwardSyllableNumPhones" delim=" " isinteger="1" />
+			<cexfunction name="SyllableNumPhones" delim=" " isinteger="1" />
+			<cexfunction name="ForwardSyllableNumPhones" delim=" " isinteger="1" />
+			<cexfunction name="BackwardWordNumSyls" delim=" " isinteger="1" />
+			<cexfunction name="WordNumSyls" delim=" " isinteger="1" />
+			<cexfunction name="ForwardWordNumSyls" delim=" " isinteger="1" />
+			<cexfunction name="PhraseNumWords" delim=" " isinteger="1" />
+			<cexfunction name="PhraseTobiEndTone" delim=" " isinteger="0" />
+		</cex>
 	</txpheader>
 	<utt uttid="1" no_phrases="2">
 		<spt phraseid="1" no_wrds="2">
