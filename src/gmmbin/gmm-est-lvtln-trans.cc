@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
           int32 class_idx;
           lvtln.ComputeTransform(spk_stats,
                                  norm_type,
+                                 logdet_scale,
                                  &transform,
                                  &class_idx,
                                  NULL,
@@ -189,6 +190,7 @@ int main(int argc, char *argv[]) {
           int32 class_idx;
           lvtln.ComputeTransform(spk_stats,
                                  norm_type,
+                                 logdet_scale,
                                  &transform,
                                  &class_idx,
                                  NULL,

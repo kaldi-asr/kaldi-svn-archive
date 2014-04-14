@@ -63,6 +63,7 @@ class LinearVtln {
   /// Compute the transform for the speaker.
   void ComputeTransform(const FmllrDiagGmmAccs &accs,
                         std::string norm_type,  // type of regular fMLLR computation: "none", "offset", "diag"
+                        BaseFloat logdet_scale,  // scale on logdet (1.0 is "correct" but less may work better)
                         MatrixBase<BaseFloat> *Ws,  // output fMLLR transform, should be size dim x dim+1
                         int32 *class_idx,  // the transform that was chosen...
                         BaseFloat *logdet_out,
@@ -89,14 +90,6 @@ class LinearVtln {
   std::vector<BaseFloat> warps_; // This variable can be used to store the
                                  // warp factors that each transform correspond to.
   
- private:
-  BaseFloat GetDefaultAuxf(const FmllrDiagGmmAccs &speaker_stats) const;
-
-  BaseFloat GetAuxf(const FmllrDiagGmmAccs &speaker_stats,
-                    BaseFloat logdet_scale,
-                    int32 class_idx,
-                    const VectorBase<BaseFloat> &offset) const;
-
 
 };
 
