@@ -38,6 +38,7 @@ warp_step=0.01
 num_classes=$(perl -e "print int(1.5 + ($max_warp - $min_warp) / $warp_step);") || exit 1;
 default_class=$(perl -e "print int(0.5 + (1.0 - $min_warp) / $warp_step);") || exit 1;
 base_feat_type=mfcc # or could be PLP.
+logdet_scale=0.5
 
 # End configuration.
 
@@ -163,6 +164,7 @@ if [ $stage -le -5 ]; then
     orig_feats=ark:$dir/feats.$default_class.ark
     warped_feats=ark:$dir/feats.$c.ark
     logfile=$dir/log/train_special.$c.log
+
     this_featsub_warped="$(echo $featsub_warped | sed s/CLASS/$c/)"
     if ! gmm-train-lvtln-special --warp=$this_warp --normalize-var=true $c \
       $dir/0.lvtln $dir/0.lvtln \
@@ -192,7 +194,8 @@ if [ $stage -le -4 ]; then
     ali-to-post "ark:gunzip -c $alidir/ali.JOB.gz|" ark:- \| \
     weight-silence-post 0.0 "$silphonelist" $alidir/final.mdl ark:- ark:- \| \
     gmm-post-to-gpost $srcmodel "$sifeats" ark:- ark:- \| \
-    gmm-est-lvtln-trans --verbose=1 --spk2utt=ark:$sdata/JOB/spk2utt $srcmodel \
+    gmm-est-lvtln-trans --logdet-scale=$logdet_scale --verbose=1 \
+      --spk2utt=ark:$sdata/JOB/spk2utt $srcmodel \
       $dir/0.lvtln "$sifeats" ark:- ark:$dir/trans.JOB ark,t:$dir/warp.0.JOB || exit 1
   
   # consolidate the warps into one file.
@@ -266,7 +269,8 @@ while [ $x -lt $num_iters ]; do
         ali-to-post "ark:gunzip -c $dir/ali.JOB.gz|" ark:-  \| \
         weight-silence-post 0.0 $silphonelist $dir/$x.mdl ark:- ark:- \| \
         gmm-post-to-gpost $dir/$x.mdl "$feats" ark:- ark:- \| \
-        gmm-est-lvtln-trans --verbose=1 --spk2utt=ark:$sdata/JOB/spk2utt $dir/$x.mdl \
+        gmm-est-lvtln-trans --logdet-scale=$logdet_scale --verbose=1 \
+          --spk2utt=ark:$sdata/JOB/spk2utt $dir/$x.mdl \
           $dir/0.lvtln "$sifeats" ark:- ark:$dir/new_trans.JOB ark,t:$dir/warp.$x.JOB || exit 1
       # consolidate the warps into one file.
       for j in $(seq $nj); do mv $dir/new_trans.$j $dir/trans.$j; done

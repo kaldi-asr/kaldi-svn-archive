@@ -5,8 +5,9 @@ featdir=mfcc
 
 # train linear vtln
 
-#steps/train_lvtln.sh --stage 1000 --cmd "$train_cmd" 1800 9000 \
-#   data/train data/lang exp/tri2b exp/tri3e
+
+steps/train_lvtln.sh --stage 1000 --cmd "$train_cmd" 1800 9000 \
+   data/train data/lang exp/tri2b exp/tri3e
 
 cp -rT data/train data/train_vtln
 cp exp/tri3e/final.warp data/train_vtln/spk2warp

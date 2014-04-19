@@ -129,7 +129,7 @@ void LinearVtln::ComputeTransform(const FmllrDiagGmmAccs &accs,
     BaseFloat objf = FmllrAuxFuncDiagGmm(product, accs);
 
     if (logdet_scale != 1.0)
-      objf += accs.beta_ + (logdet_scale - 1.0) * logdets_[i];
+      objf += accs.beta_ * (logdet_scale - 1.0) * logdets_[i];
     
     if (objf > best_objf) {
       best_objf = objf;

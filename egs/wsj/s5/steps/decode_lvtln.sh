@@ -13,6 +13,7 @@ beam=13.0
 lattice_beam=6.0
 nj=4
 silence_weight=0.01
+logdet_scale=0.5
 cmd=run.pl
 skip_scoring=false
 num_threads=1 # if >1, will use gmm-latgen-faster-parallel
@@ -99,7 +100,7 @@ if [ $stage -le 1 ]; then
     lattice-to-post --acoustic-scale=$acwt ark:- ark:- \| \
     weight-silence-post $silence_weight $silphonelist $srcdir/final.alimdl ark:- ark:- \| \
     gmm-post-to-gpost $srcdir/final.alimdl "$sifeats" ark:- ark:- \| \
-    gmm-est-lvtln-trans --verbose=1 --spk2utt=ark:$sdata/JOB/spk2utt \
+    gmm-est-lvtln-trans --logdet-scale=$logdet_scale --verbose=1 --spk2utt=ark:$sdata/JOB/spk2utt \
        $srcdir/final.mdl $srcdir/final.lvtln "$sifeats" ark,s,cs:- ark:$dir/trans_pass1.JOB \
        ark,t:$dir/warp_pass1.JOB || exit 1;
 fi
@@ -123,7 +124,7 @@ if [ $stage -le 4 ]; then
     lattice-to-post --acoustic-scale=$acwt ark:- ark:- \| \
     weight-silence-post $silence_weight $silphonelist $srcdir/final.mdl ark:- ark:- \| \
     gmm-post-to-gpost $srcdir/final.mdl "$feats1" ark:- ark:- \| \
-    gmm-est-lvtln-trans --verbose=1 --spk2utt=ark:$sdata/JOB/spk2utt \
+    gmm-est-lvtln-trans --logdet-scale=$logdet_scale --verbose=1 --spk2utt=ark:$sdata/JOB/spk2utt \
       $srcdir/final.mdl $srcdir/final.lvtln "$sifeats" ark,s,cs:- ark:$dir/trans.JOB \
       ark,t:$dir/warp.JOB || exit 1;
 fi

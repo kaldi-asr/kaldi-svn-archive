@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# This scripts tests the VTLN estimation where the system used to get the
+# VTLN warps is based on delta+delta-deltas.
+# see also run_vtln2.sh where the system uses LDA+MLLT instead.
+
 . cmd.sh
 featdir=mfcc
 
@@ -45,3 +49,4 @@ steps/compute_cmvn_stats.sh data/test_vtln exp/make_mfcc/test_vtln $featdir
 # With VTLN:
 #%WER 1.99 [ 250 / 12533, 18 ins, 70 del, 162 sub ] exp/tri5d/decode/wer_10
 #%WER 9.89 [ 1239 / 12533, 119 ins, 203 del, 917 sub ] exp/tri5d/decode_ug/wer_13
+
