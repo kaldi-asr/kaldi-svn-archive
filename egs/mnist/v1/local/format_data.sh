@@ -56,7 +56,7 @@ else:
 
 for n in range(num_images):
   label = struct.unpack('B', f.read(1))[0]
-  print "mnist_%s_%d %d" % (subset_name, n, label)
+  print "mnist_%s_%05d %d" % (subset_name, n, label)
 EOF
 done
 
@@ -91,7 +91,7 @@ else:
   subset_name = 't10k'
 
 for n in range(num_images):
-  print "mnist_%s_%d [" % (subset_name, n),
+  print "mnist_%s_%05d [" % (subset_name, n),
   for r in range(num_rows):
     data=f.read(num_cols);
     if len(data) != num_cols:
