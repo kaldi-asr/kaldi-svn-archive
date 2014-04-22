@@ -113,10 +113,10 @@ template<typename Real> void TestCuMatrixTraceMatMat(int32 dim) {
 
 template<typename Real> void TestCuMatrixConvMat(int32 block_dim_y, int32 block_dim_x) {
   int m1 = 9, m2 = 9, A_num_rows = 256;
-  for (int32 n = 0; n < 2; n++) {
-    int32 n1 = 50 + rand() % 10, n2 = 50 + rand() % 10,
+  for (int32 n = 0; n < 1; n++) {
+    int32 n1 = 40 + rand() % 10, n2 = 40 + rand() % 10,
       num_blocks = block_dim_x * block_dim_y;
-    BaseFloat time_in_secs = 0.08;
+    BaseFloat time_in_secs = 0.05;
     CuMatrix<Real> A(A_num_rows, n1 * n2 * block_dim_x);
     A.SetRandn();
     CuMatrix<Real> B(1, m1 * m2 * num_blocks);
