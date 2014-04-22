@@ -38,18 +38,24 @@ int main(int argc, char *argv[]) {
         "(the softmax, and the affine component before it), and add in replacements\n"
         "for them newly initialized by nnet-init.  This program is a more flexible\n"
         "way of adding layers than nnet-insert, but the inserted network needs to\n"
-        "contain replacements for the removed layers.\n"
+        "contain replacements for the removed layers.  This program by default reads/writes\n"
+        "model (.mdl) files, but with the --raw option can also work with 'raw' neural\n"
+        "nets.\n"
         "\n"
-        "Usage:  nnet-replace-last-layers [options] <nnet-in> <raw-nnet-to-insert-in> <nnet-out>\n"
+        "Usage:  nnet-replace-last-layers [options] <model-in> <nnet-to-insert-in> <model-out>\n"
+        "Usage:  nnet-replace-last-layers --raw [options] <nnet-in> <nnet-to-insert-in> <nnet-out>\n"
         "e.g.:\n"
-        " nnet-replace-last-layers 1.nnet \"nnet-init hidden_layer.config -|\" 2.nnet\n";
+        " nnet-replace-last-layers 1.mdl \"nnet-init hidden_layer.config -|\" 2.mdl\n";
 
     bool binary_write = true;
+    bool raw = false;
     int32 remove_layers = 2;
 
     ParseOptions po(usage);
     
     po.Register("binary", &binary_write, "Write output in binary mode");
+    po.Register("raw", &raw, "If true, this program reads/writes raw "
+                "neural nets");
     po.Register("remove-layers", &remove_layers, "Number of final layers "
                 "to remove before adding input raw network.");
     
@@ -66,11 +72,14 @@ int main(int argc, char *argv[]) {
     
     TransitionModel trans_model;
     AmNnet am_nnet;
-    {
+    Nnet nnet;
+    if (!raw) {
       bool binary;
       Input ki(nnet_rxfilename, &binary);
       trans_model.Read(ki.Stream(), binary);
       am_nnet.Read(ki.Stream(), binary);
+    } else {
+      ReadKaldiObject(nnet_rxfilename, &nnet);
     }
 
     Nnet src_nnet; // the one we'll insert.
@@ -80,16 +89,18 @@ int main(int argc, char *argv[]) {
     // This function is declared in nnet-functions.h
     ReplaceLastComponents(src_nnet,
                           remove_layers,
-                          &(am_nnet.GetNnet()));
+                          (raw ? &nnet : &(am_nnet.GetNnet())));
     KALDI_LOG << "Removed " << remove_layers << " components and added "
               << src_nnet.NumComponents();
     
-    {
+    if (!raw) {
       Output ko(nnet_wxfilename, binary_write);
       trans_model.Write(ko.Stream(), binary_write);
       am_nnet.Write(ko.Stream(), binary_write);
+    } else {
+      WriteKaldiObject(nnet, nnet_wxfilename, binary_write);
     }
-    KALDI_LOG << "Write neural-net acoustic model to " <<  nnet_wxfilename;
+    KALDI_LOG << "Wrote neural-net acoustic model to " <<  nnet_wxfilename;
     return 0;
   } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';

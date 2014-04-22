@@ -52,6 +52,7 @@ struct NnetExample {
 
   /// The speaker-specific input, if any, or an empty vector if
   /// we're not using this features.  We'll append this to each of the
+  /// frames of data.
   Vector<BaseFloat> spk_info; 
   
   void Write(std::ostream &os, bool binary) const;

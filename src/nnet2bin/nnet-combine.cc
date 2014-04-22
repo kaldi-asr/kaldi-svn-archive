@@ -38,13 +38,16 @@ int main(int argc, char *argv[]) {
         "do not have to sum to one).  The optimization is BFGS, which is initialized\n"
         "from the best of the individual input neural nets (or as specified by\n"
         "--initial-model)\n"
+        "This version takes 'raw' neural nets as inputs, i.e. just the Nnet object,\n"
+        "see nnet-am-combine which takes the .mdl file (including TransitionModel etc.)\n"
         "\n"
-        "Usage:  nnet-combine [options] <model-in1> <model-in2> ... <model-inN> <valid-examples-in> <model-out>\n"
+        "Usage:  nnet-combine [options] <nnet-in1> <nnet-in2> ... <nnet-inN> <valid-examples-in> <nnet-out>\n"
         "\n"
         "e.g.:\n"
         " nnet-combine 1.1.nnet 1.2.nnet 1.3.nnet ark:valid.egs 2.nnet\n"
-        "Caution: the first input neural net must not be a gradient.\n";
-    
+        "Caution: the first input neural net must not be a gradient.\n"
+        "See also: nnet-am-combine, nnet-average\n";
+
     bool binary_write = true;
     NnetCombineConfig combine_config;
     
@@ -65,32 +68,19 @@ int main(int argc, char *argv[]) {
         valid_examples_rspecifier = po.GetArg(po.NumArgs() - 1),
         nnet_wxfilename = po.GetArg(po.NumArgs());
     
-    TransitionModel trans_model;
-    AmNnet am_nnet1;
-    {
-      bool binary_read;
-      Input ki(nnet1_rxfilename, &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_nnet1.Read(ki.Stream(), binary_read);
-    }
+    Nnet nnet1;
 
     int32 num_nnets = po.NumArgs() - 2;
     std::vector<Nnet> nnets(num_nnets);
-    nnets[0] = am_nnet1.GetNnet();
-    am_nnet1.GetNnet() = Nnet(); // Clear it to save memory.
 
-    for (int32 n = 1; n < num_nnets; n++) {
-      TransitionModel trans_model;
-      AmNnet am_nnet;
-      bool binary_read;
-      Input ki(po.GetArg(1 + n), &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_nnet.Read(ki.Stream(), binary_read);
-      nnets[n] = am_nnet.GetNnet();
-    }      
     
-    std::vector<NnetExample> validation_set; // stores validation
-    // frames.
+    for (int32 n = 0; n < num_nnets; n++)
+      ReadKaldiObject(po.GetArg(n + 1), &(nnets[0]));
+
+
+    std::vector<NnetExample> validation_set; // stores validation frames [may or
+                                             // may not really be held out,
+                                             // depends on script.]
 
     { // This block adds samples to "validation_set".
       SequentialNnetExampleReader example_reader(
@@ -102,18 +92,16 @@ int main(int argc, char *argv[]) {
       KALDI_ASSERT(validation_set.size() > 0);
     }
 
+    Nnet nnet_out;
+    
     CombineNnets(combine_config,
                  validation_set,
                  nnets,
-                 &(am_nnet1.GetNnet()));
+                 &nnet_out);
+
+    WriteKaldiObject(nnet_out, nnet_wxfilename, binary_write);
     
-    {
-      Output ko(nnet_wxfilename, binary_write);
-      trans_model.Write(ko.Stream(), binary_write);
-      am_nnet1.Write(ko.Stream(), binary_write);
-    }
-    
-    KALDI_LOG << "Finished combining neural nets, wrote model to "
+    KALDI_LOG << "Finished combining [raw] neural nets, wrote model to "
               << nnet_wxfilename;
     return (validation_set.size() == 0 ? 1 : 0);
   } catch(const std::exception &e) {

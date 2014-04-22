@@ -1,6 +1,6 @@
-// nnet2bin/nnet-am-average.cc
+// nnet2bin/nnet-average.cc
 
-// Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
+// Copyright 2012-2014  Johns Hopkins University (author:  Daniel Povey)
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -34,13 +34,12 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "This program average (or sums, if --sum=true) the parameters over a number of neural nets.\n"
+        "This is as nnet-am-average, but works on raw neural nets\n"
         "\n"
-        "Usage:  nnet-am-average [options] <model1> <model2> ... <modelN> <model-out>\n"
+        "Usage:  nnet-average [options] <nnet1> <nnet2> ... <nnetN> <nnet-out>\n"
         "\n"
         "e.g.:\n"
-        " nnet-am-average 1.1.mdl 1.2.mdl 1.3.mdl 2.mdl\n"
-        "\n"
-        "See also: nnet-average, nnet-am-combine\n";
+        " nnet-am-average 1.1.nnet 1.2.nnet 1.3.nnet 2.nnet\n";
     
     bool binary_write = true;
     bool sum = false;
@@ -60,41 +59,28 @@ int main(int argc, char *argv[]) {
         nnet1_rxfilename = po.GetArg(1),
         nnet_wxfilename = po.GetArg(po.NumArgs());
     
-    TransitionModel trans_model;
-    AmNnet am_nnet1;
-    {
-      bool binary_read;
-      Input ki(nnet1_rxfilename, &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      am_nnet1.Read(ki.Stream(), binary_read);
-    }
+    Nnet nnet1;
+    ReadKaldiObject(nnet1_rxfilename, &nnet1);
 
     int32 num_inputs = po.NumArgs() - 1;
     BaseFloat scale = (sum ? 1.0 : 1.0 / num_inputs);
 
-    am_nnet1.GetNnet().Scale(scale);
+    nnet1.Scale(scale);
     
     for (int32 i = 2; i <= num_inputs; i++) {
-      bool binary_read;
-      Input ki(po.GetArg(i), &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      AmNnet am_nnet;
-      am_nnet.Read(ki.Stream(), binary_read);
-      am_nnet1.GetNnet().AddNnet(scale, am_nnet.GetNnet());
+      std::string nnet_rxfilename = po.GetArg(i);
+      Nnet nnet;
+      ReadKaldiObject(nnet_rxfilename, &nnet);
+      nnet1.AddNnet(scale, nnet);
     }
-    
-    {
-      Output ko(nnet_wxfilename, binary_write);
-      trans_model.Write(ko.Stream(), binary_write);
-      am_nnet1.Write(ko.Stream(), binary_write);
-    }
+
+    WriteKaldiObject(nnet1, nnet_wxfilename, binary_write);
     
     KALDI_LOG << "Averaged parameters of " << num_inputs
-              << " neural nets, and wrote to " << nnet_wxfilename;
+              << " [raw] neural nets, and wrote to " << nnet_wxfilename;
     return 0; // it will throw an exception if there are any problems.
   } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';
     return -1;
   }
 }
-

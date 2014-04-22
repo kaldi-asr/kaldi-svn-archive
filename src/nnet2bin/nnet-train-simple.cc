@@ -38,6 +38,8 @@ int main(int argc, char *argv[]) {
         "are read via a pipe from nnet-randomize-frames.  This version of the\n"
         "training program does not update the learning rate, but uses\n"
         "the learning rates stored in the neural nets.\n"
+        "By default reads/writes model file (.mdl) but with --raw=true,\n"
+        "reads/writes raw-nnet.\n"
         "\n"
         "Usage:  nnet-train-simple [options] <model-in> <training-examples-in> <model-out>\n"
         "\n"
@@ -48,9 +50,13 @@ int main(int argc, char *argv[]) {
     bool zero_stats = true;
     int32 srand_seed = 0;
     std::string use_gpu = "yes";
+    bool raw = false;    
     NnetSimpleTrainerConfig train_config;
+
     
     ParseOptions po(usage);
+    po.Register("raw", &raw,
+                "If true, read/write raw neural net rather than .mdl");
     po.Register("binary", &binary_write, "Write output in binary mode");
     po.Register("zero-stats", &zero_stats, "If true, zero occupation "
                 "counts stored with the neural net (only affects mixing up).");
@@ -82,30 +88,41 @@ int main(int argc, char *argv[]) {
     {
       TransitionModel trans_model;
       AmNnet am_nnet;
-      {
+      Nnet nnet; // used if raw==true.
+      
+      if (!raw) {
         bool binary_read;
         Input ki(nnet_rxfilename, &binary_read);
         trans_model.Read(ki.Stream(), binary_read);
         am_nnet.Read(ki.Stream(), binary_read);
+      } else {
+        ReadKaldiObject(nnet_rxfilename, &nnet);
+      }
+      
+      if (zero_stats) {
+        if (!raw) am_nnet.GetNnet().ZeroStats();
+        else nnet.ZeroStats();
       }
 
-      if (zero_stats) am_nnet.GetNnet().ZeroStats();
+      Nnet &nnet_ref = (raw ? nnet : am_nnet.GetNnet());
     
       { // want to make sure this object deinitializes before
         // we write the model, as it does something in the destructor.
         NnetSimpleTrainer trainer(train_config,
-                                  &(am_nnet.GetNnet()));
-      
+                                  &nnet_ref);
+        
         SequentialNnetExampleReader example_reader(examples_rspecifier);
 
         for (; !example_reader.Done(); example_reader.Next(), num_examples++)
           trainer.TrainOnExample(example_reader.Value());  // It all happens here!
       }
     
-      {
+      if (!raw) {
         Output ko(nnet_wxfilename, binary_write);
         trans_model.Write(ko.Stream(), binary_write);
         am_nnet.Write(ko.Stream(), binary_write);
+      } else {
+        WriteKaldiObject(nnet, nnet_wxfilename, binary_write);
       }
     }
 #if HAVE_CUDA==1

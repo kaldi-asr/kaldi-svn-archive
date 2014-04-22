@@ -37,18 +37,25 @@ int main(int argc, char *argv[]) {
         "gradient descent using minibatches.  The training frames and labels\n"
         "are read via a pipe from nnet-randomize-frames.  This is like nnet-train-simple,\n"
         "but uses multiple threads in a Hogwild type of update.\n"
+        "By default reads/writes model file (.mdl) but with --raw=true,\n"
+        "reads/writes raw-nnet.\n"
         "\n"
         "Usage:  nnet-train-parallel [options] <model-in> <training-examples-in> <model-out>\n"
+        "or:  nnet-train-parallel --raw [options] <raw-nnet-in> <training-examples-in> <raw-nnet-out>\n"
         "\n"
         "e.g.:\n"
-        "nnet-randomize-frames [args] | nnet-train-simple 1.nnet ark:- 2.nnet\n";
+        "nnet-randomize-frames [args] | nnet-train-simple 1.mdl ark:- 2.nnet\n";
     
     bool binary_write = true;
     bool zero_stats = true;
     int32 minibatch_size = 1024;
     int32 srand_seed = 0;
+    bool raw = false;
     
     ParseOptions po(usage);
+
+    po.Register("raw", &raw,
+                "If true, read/write raw neural net rather than .mdl");
     po.Register("binary", &binary_write, "Write output in binary mode");
     po.Register("zero-stats", &zero_stats, "If true, zero stats "
                 "stored with the neural net (only affects mixing up).");
@@ -74,31 +81,43 @@ int main(int argc, char *argv[]) {
 
     TransitionModel trans_model;
     AmNnet am_nnet;
-    {
+    Nnet nnet; // used if raw==true.
+
+    if (!raw) {
       bool binary_read;
       Input ki(nnet_rxfilename, &binary_read);
       trans_model.Read(ki.Stream(), binary_read);
       am_nnet.Read(ki.Stream(), binary_read);
+    } else {
+      ReadKaldiObject(nnet_rxfilename, &nnet);
     }
+      
 
     KALDI_ASSERT(minibatch_size > 0);
 
-    if (zero_stats) am_nnet.GetNnet().ZeroStats();
-
+    if (zero_stats) {
+      if (!raw) am_nnet.GetNnet().ZeroStats();
+      else nnet.ZeroStats();
+    }
+    
     double num_examples = 0;
     SequentialNnetExampleReader example_reader(examples_rspecifier);
-    
 
-    DoBackpropParallel(am_nnet.GetNnet(),
+
+    Nnet &nnet_ref = (raw ? nnet : am_nnet.GetNnet());
+
+    DoBackpropParallel(nnet_ref,
                        minibatch_size,
                        &example_reader,
                        &num_examples,
-                       &(am_nnet.GetNnet()));
+                       &nnet_ref);
     
-    {
+    if (!raw) {
       Output ko(nnet_wxfilename, binary_write);
       trans_model.Write(ko.Stream(), binary_write);
       am_nnet.Write(ko.Stream(), binary_write);
+    } else {
+      WriteKaldiObject(nnet, nnet_wxfilename, binary_write);
     }
     
     KALDI_LOG << "Finished training, processed " << num_examples

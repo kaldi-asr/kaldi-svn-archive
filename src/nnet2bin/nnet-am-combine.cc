@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         "Usage:  nnet-am-combine [options] <model-in1> <model-in2> ... <model-inN> <valid-examples-in> <model-out>\n"
         "\n"
         "e.g.:\n"
-        " nnet-am-combine 1.1.nnet 1.2.nnet 1.3.nnet ark:valid.egs 2.nnet\n";
+        " nnet-am-combine 1.1.mdl 1.2.mdl 1.3.mdl ark:valid.egs 2.mdl\n";
     
     bool binary_write = true;
     NnetCombineConfig combine_config;
