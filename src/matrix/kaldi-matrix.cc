@@ -172,7 +172,13 @@ void MatrixBase<Real>::AddMatMat(const Real alpha,
               transB, B.data_, B.stride_, beta, data_, num_rows_, num_cols_, stride_);
 
 }
+template<typename Real>
+void MatrixBase<Real>::ConvMat(const MatrixBase<Real> &A, int block_dim_x, 
+                               int A_block_num_rows, int A_block_num_cols,
+                               const MatrixBase<Real> &B, int block_dim_y,
+                               int B_block_num_rows, int B_block_num_cols) {
 
+}
 template<typename Real>
 void MatrixBase<Real>::AddMatMatDivMat(const MatrixBase<Real>& A,
              	     		       const MatrixBase<Real>& B,

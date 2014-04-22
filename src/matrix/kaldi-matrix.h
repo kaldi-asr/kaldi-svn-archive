@@ -499,7 +499,11 @@ class MatrixBase {
                  const MatrixBase<Real>& A, MatrixTransposeType transA,
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
- 
+  /// *this = conv(a,b)
+  void ConvMat(const MatrixBase<Real> &A, int block_dim_x, 
+                               int A_block_num_rows, int A_block_num_cols,
+                               const MatrixBase<Real> &B, int block_dim_y,
+                               int B_block_num_rows, int B_block_num_cols); 
   /// *this = a * b / c (by element; when c = 0, *this = a)
   void AddMatMatDivMat(const MatrixBase<Real>& A,
              	       const MatrixBase<Real>& B,

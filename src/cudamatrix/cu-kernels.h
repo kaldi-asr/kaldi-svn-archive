@@ -178,8 +178,17 @@ inline void cuda_block_add_mat_mat(dim3 Gr, dim3 Bl, CuBlockMatrixData *B_cu_dat
                           D_col_stride, alpha, beta);
 }
 
-
-
+inline void cuda_block_conv_mat(dim3 Gr, dim3 Bl, float *C, int C_row_stride, int C_block_row_stride,
+                                int C_block_num_rows, int C_block_num_cols,
+                                const float *A, int block_dim_x, int A_num_rows, 
+                                int A_block_num_rows, int A_block_num_cols, 
+                                const float *B, int block_dim_y, 
+                                int B_block_num_rows, int B_block_num_cols) {
+  cudaF_block_conv_mat(Gr, Bl, C, C_row_stride, C_block_row_stride, C_block_num_rows, 
+                       C_block_num_cols, A, block_dim_x, A_num_rows, 
+                       A_block_num_rows, A_block_num_cols,
+                       B, block_dim_y, B_block_num_rows, B_block_num_cols);
+}
 /*
  * cu::
  */
@@ -345,6 +354,17 @@ inline void cuda_block_add_mat_mat(dim3 Gr, dim3 Bl, CuBlockMatrixData *B_cu_dat
   cudaD_block_add_mat_mat(Gr, Bl, B_cu_data, num_blocks, C_data, C_num_cols,
                           C_row_stride, C_col_stride, D_data, D_row_stride,
                           D_col_stride, alpha, beta);
+}
+inline void cuda_block_conv_mat(dim3 Gr, dim3 Bl, double *C, int C_row_stride, int C_block_row_stride,
+                                int C_block_num_rows, int C_block_num_cols,
+                                const double *A, int block_dim_x, int A_num_rows, 
+                                int A_block_num_rows, int A_block_num_cols,
+                                const double *B, int block_dim_y, 
+                                int B_block_num_rows, int B_block_num_cols) {
+  cudaD_block_conv_mat(Gr, Bl, C, C_row_stride, C_block_row_stride, C_block_num_rows, 
+                       C_block_num_cols, A, block_dim_x, A_num_rows, 
+                       A_block_num_rows, A_block_num_cols,
+                       B, block_dim_y, B_block_num_rows, B_block_num_cols);
 }
 
 /*

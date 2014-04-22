@@ -126,9 +126,15 @@ void cudaF_block_add_mat_mat(dim3 Gr, dim3 Bl, CuBlockMatrixData *B_cu_data, int
                              const float *C_data, int C_num_cols, int C_row_stride, int C_col_stride,
                              const float *D_data, int D_row_stride, int D_col_stride,
                              float alpha, float beta);
+
 /*
  * cu::
  */
+void cudaF_block_conv_mat(dim3 Gr, dim3 Bl, float *C, int C_row_stride, int C_block_row_stride, 
+                          int C_block_num_rows, int C_block_num_cols,
+                          const float *A, int block_dim_x, int A_num_rows, int A_block_num_rows, 
+                          int A_block_num_cols, const float *B, int block_dim_y, 
+                          int B_block_num_rows, int B_block_num_cols);
 void cudaF_softmax(size_t Gr, size_t Bl, float *y, const float *x, MatrixDim d);
 void cudaF_softmax_reduce(size_t Gr, size_t Bl, float *y, const float *x, MatrixDim d, int src_stride);
 void cudaF_softmax_part(dim3 Gr, dim3 Bl, const float *X, const int32_cuda *vec_ids, float* Y, MatrixDim d);
@@ -256,6 +262,11 @@ void cudaD_block_add_mat_mat(dim3 Gr, dim3 Bl, CuBlockMatrixData *B_cu_data, int
                              const double *D_data, int D_row_stride, int D_col_stride,
                              double alpha, double beta);  
 
+void cudaD_block_conv_mat(dim3 Gr, dim3 Bl, double *C, int C_row_stride, int C_block_row_stride, 
+                          int C_block_num_rows, int C_block_num_cols,
+                          const double *A, int block_dim_x, int A_num_rows, int A_block_num_rows, 
+                          int A_block_num_cols, const double *B, int block_dim_y, 
+                          int B_block_num_rows, int B_block_num_cols);
 
 /*
  * cu::

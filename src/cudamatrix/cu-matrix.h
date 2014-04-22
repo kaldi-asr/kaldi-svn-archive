@@ -282,6 +282,19 @@ class CuMatrixBase {
   /// C = alpha * A(^T)*B(^T) + beta * C
   void AddMatMat(Real alpha, const CuMatrixBase<Real> &A, MatrixTransposeType transA,
                  const CuMatrixBase<Real> &B, MatrixTransposeType transB, Real beta);
+
+  /// each row of A contains #(block_dim_x) blocks, A(i,:) = [A1,A2,...,A(block_dim_x)]
+  /// where each Aj = [Aj(1,:),Aj(2,:),...,Aj(A_block_num_rows,:)]; size(Aj(k,:)) = A_block_num_cols; 
+  /// (#columns of A = block_dim_x  X  A_block_num_rows X A_block_num_cols)
+  /// B contains #(block_dim_y) * #(block_dim_x)  blocks 
+  /// (#columns of B = block_dim_x X block_dim_y X  B_block_num_rows X B_block_num_cols)
+  /// (#(block_dim_y) blocks correspond to each block of A)
+  /// size of each block B is (B_block_num_rows X B_block_num_cols) and all blocks stores in a row.
+  /// #columns of output = block_dim_x X block_dim_y  X  C_block_num_rows X C_block_num_cols
+  void ConvMat(const CuMatrixBase<Real> &A, int block_dim_x,
+               int A_block_num_rows, int A_block_num_cols,    
+               const CuMatrixBase<Real> &B, int block_dim_y, 
+               int B_block_num_rows, int B_block_num_cols);
   /// *this = a * b / c (by element; when c = 0, *this = a)
   void AddMatMatDivMat(const CuMatrixBase<Real> &A, const CuMatrixBase<Real> &B, const CuMatrixBase<Real> &C);
   /// *this = beta * *this + alpha * M M^T, for symmetric matrices.  It only

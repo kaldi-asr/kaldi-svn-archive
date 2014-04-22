@@ -111,6 +111,31 @@ template<typename Real> void TestCuMatrixTraceMatMat(int32 dim) {
   }
 }
 
+template<typename Real> void TestCuMatrixConvMat(int32 block_dim_y, int32 block_dim_x) {
+  int m1 = 9, m2 = 9, A_num_rows = 256;
+  for (int32 n = 0; n < 2; n++) {
+    int32 n1 = 50 + rand() % 10, n2 = 50 + rand() % 10,
+      num_blocks = block_dim_x * block_dim_y;
+    BaseFloat time_in_secs = 0.08;
+    CuMatrix<Real> A(A_num_rows, n1 * n2 * block_dim_x);
+    A.SetRandn();
+    CuMatrix<Real> B(1, m1 * m2 * num_blocks);
+    B.SetRandn();
+    int c_block_row = n1 - m1 + 1, c_block_col = n2 - m2 + 1;
+    CuMatrix<Real> C(A_num_rows, c_block_row * c_block_col * num_blocks);
+    Timer tim;
+    int32 iter = 0;
+    for (;tim.Elapsed() < time_in_secs; iter++) { 
+      C.ConvMat(A, block_dim_x, n1, n2, B, block_dim_y, m1, m2);
+    }
+    BaseFloat num_computation = A_num_rows * (n1 - m1 + 1) * (n2 - m2 + 1) * m1 * m2 * num_blocks;
+
+    BaseFloat gflops = (num_computation * iter) / (tim.Elapsed() * 1.0e+09); 
+    KALDI_LOG << "For CuMatrix::ConvMat for block_dim_y = " << block_dim_y 
+              << " block_dim_x  = " <<block_dim_x << ", speed was " 
+              << gflops << " gigaflops.";   
+  }
+}
 template<typename Real> void TestCuMatrixCopyLowerToUpper(int32 dim) {
   BaseFloat time_in_secs = 0.05;
   CuMatrix<Real> M(dim, dim);
@@ -154,6 +179,7 @@ template<typename Real> void CudaMatrixSpeedTest() {
   sizes.push_back(256);
   sizes.push_back(1024);
   int32 ns = sizes.size();
+  /*
   for (int32 s = 0; s < ns; s++)
     TestCuMatrixMatMat<Real>(sizes[s]);
   for (int32 s = 0; s < ns; s++)
@@ -167,6 +193,9 @@ template<typename Real> void CudaMatrixSpeedTest() {
     TestCuMatrixCopyLowerToUpper<Real>(sizes[s]);
   for (int32 s = 0; s < ns; s++)
     TestCuMatrixCopyUpperToLower<Real>(sizes[s]);
+  */
+  //for (int32 s = 0; s < ns/2; s++)
+    TestCuMatrixConvMat<Real>(static_cast<int32>(1),static_cast<int32>(1));
 }
 
 

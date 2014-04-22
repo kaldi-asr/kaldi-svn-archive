@@ -1452,7 +1452,69 @@ static void _blockadd_mat_blockmat_trans(Real *data, MatrixDim dim, const Real *
     data[index] = alpha * sum + beta * data[index];
   }
 }
+/*
+ template<typename Real>
+ __global__
+ static void _block_conv_mat(Real  *C_block, int C_row_stride, int C_num_rows,
+                             const Real *A_block, int A_block_num_rows, int A_block_num_cols,
+                             const Real *B_block, int B_block_num_rows, int B_block_num_cols) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x; // row-index for A
+  int j = blockIdx.y * blockDim.y + threadIdx.y; // row_index into block c
+  int k = blockIdx.z * blockDim.z + threadIdx.z; // col_indx into block c
+  if (i > C_num_rows) return; 
+  if (j >= (A_block_num_rows - B_block_num_rows + 1) || 
+      k >= (A_block_num_cols - B_block_num_cols + 1)) return; // we are outside dimension of block B; 
+  Real sum = 0; 
+  int A_index_const = i*(A_block_num_rows * A_block_num_cols)+j*A_block_num_cols+k;
+  for (int row = 0; row < B_block_num_rows; row++) { 
+    for (int col = 0; col < B_block_num_cols; col++) {
+      int A_index = A_index_const + row * A_block_num_cols + col;
+      sum += A_block[A_index] * B_block[row * B_block_num_rows + col];
+    }
+  }
+  C_block[i * C_row_stride + j * (A_block_num_cols-B_block_num_cols+1) + k] = sum;  
+}
+*/
 
+template<typename Real>
+__global__
+static void _block_conv_mat(Real  *C, int C_row_stride, int C_block_row_stride,
+                            int C_block_num_rows, int C_block_num_cols,
+                            const Real *A, int block_dim_x, int A_num_rows, 
+                            int A_block_num_rows, int A_block_num_cols, const Real *B, int block_dim_y, 
+                            int B_block_num_rows, int B_block_num_cols) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x; // row-index for A
+  int j = blockIdx.y * blockDim.y + threadIdx.y; // block_index into blocks A and B
+  int k = blockIdx.z * blockDim.z + threadIdx.z; // indx into each block of c
+  if (i > A_num_rows) return; 
+  if (j >= (block_dim_x*block_dim_y) || 
+      (k >= C_block_row_stride)) return; // we are outside dimension of block B;
+  int block_num = j / block_dim_y;
+  int filter_num = j % block_dim_y;
+  int C_block_row_num = k / C_block_num_cols;
+  int C_block_col_num = k % C_block_num_cols; 
+  Real sum = 0;
+  int A_index_const = (i*block_dim_x + block_num) * (A_block_num_rows * A_block_num_cols)+
+                       C_block_row_num * A_block_num_cols + C_block_col_num;
+  int B_index_const = j * B_block_num_rows * B_block_num_cols;
+ 
+  __shared__ Real filter[CU1DBLOCK];//[B_block_num_rows * B_block_num_cols];
+  for (int row = 0; row < B_block_num_rows; row++)
+    for (int col = 0; col < B_block_num_cols; col++)
+      filter[row*B_block_num_cols+col] = B[B_index_const + row * B_block_num_rows + col];
+      
+   __syncthreads(); 
+  for (int row = 0; row < B_block_num_rows; row++) { 
+    for (int col = 0; col < B_block_num_cols; col++) {
+      int A_index = A_index_const + row * A_block_num_cols + col;
+      sum += __mul24(A[A_index], filter[row * B_block_num_rows + col]); 
+      //sum += __mul24(A[A_index], B[B_index_const + row * B_block_num_rows + col]);
+    }
+  }
+  __syncthreads();  
+  int C_index = i * C_row_stride + j * C_block_row_stride + k;
+  C[C_index] = sum;  
+}
 
 // Since this is a newer kernel, x is the row-index and y is the
 // column-index.
@@ -2198,7 +2260,17 @@ void cudaF_block_add_mat_mat(dim3 Gr, dim3 Bl, CuBlockMatrixData *B_cu_data, int
                                 C_row_stride, C_col_stride, D_data, D_row_stride,
                                 D_col_stride, alpha, beta);
 }
+void cudaF_block_conv_mat(dim3 Gr, dim3 Bl, float *C, int C_row_stride, int C_block_row_stride, 
+                          int C_block_num_rows, int C_block_num_cols,
+                          const float *A, int block_dim_x, int A_num_rows, int A_block_num_rows, 
+                          int A_block_num_cols, const float *B, int block_dim_y, 
+                          int B_block_num_rows, int B_block_num_cols) {
 
+  _block_conv_mat<<<Gr, Bl>>>(C, C_row_stride, C_block_row_stride, 
+                              C_block_num_rows, C_block_num_cols, 
+                              A, block_dim_x, A_num_rows, A_block_num_rows, A_block_num_cols,
+                              B, block_dim_y, B_block_num_rows, B_block_num_cols);
+}
 /*
  * cu::
  */
@@ -2618,6 +2690,17 @@ void cudaD_block_add_mat_mat(dim3 Gr, dim3 Bl, CuBlockMatrixData *B_cu_data, int
                                 D_col_stride, alpha, beta);
 }
 
+void cudaD_block_conv_mat(dim3 Gr, dim3 Bl, double *C, int C_row_stride, int C_block_row_stride, 
+                          int C_block_num_rows, int C_block_num_cols,
+                          const double *A, int block_dim_x, int A_num_rows, int A_block_num_rows, 
+                          int A_block_num_cols, const double *B, int block_dim_y, 
+                          int B_block_num_rows, int B_block_num_cols) {
+
+  _block_conv_mat<<<Gr, Bl>>>(C, C_row_stride, C_block_row_stride, 
+                              C_block_num_rows, C_block_num_cols, 
+                              A, block_dim_x, A_num_rows, A_block_num_rows, A_block_num_cols,
+                              B, block_dim_y, B_block_num_rows, B_block_num_cols);
+}
 /*
  * cu::
  */

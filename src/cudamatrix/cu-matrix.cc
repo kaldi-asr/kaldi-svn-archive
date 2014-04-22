@@ -950,7 +950,48 @@ void CuMatrixBase<Real>::AddMatMat(
   }
 }
 
-
+template<typename Real> 
+void CuMatrixBase<Real>::ConvMat(const CuMatrixBase<Real> &A, int block_dim_x, 
+                                   int A_block_num_rows, int A_block_num_cols,
+                                   const CuMatrixBase<Real> &B, int block_dim_y, 
+                                   int B_block_num_rows, int B_block_num_cols) {
+  int num_blocks = block_dim_x * block_dim_y;
+  int C_block_num_rows = A_block_num_rows - B_block_num_rows + 1;
+  int C_block_num_cols = A_block_num_cols - B_block_num_cols + 1;
+  int C_block_row_stride = C_block_num_rows * C_block_num_cols; 
+  int C_row_stride = num_blocks * C_block_row_stride;
+  KALDI_ASSERT(A.NumCols() % block_dim_x == 0 && B.NumCols() % num_blocks == 0);
+  KALDI_ASSERT((A_block_num_rows * A_block_num_cols * block_dim_x) == A.NumCols() &&
+               (B_block_num_rows * B_block_num_cols * num_blocks) == B.NumCols());
+  KALDI_ASSERT(C_row_stride == NumCols() && 
+               A.NumRows() == NumRows());
+  // kernel function on (minibatch size, num_blocks, n1-m1+1 *n2-m2+1)
+  #if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    int32 x_blocksize = std::min(CU1DBLOCK, A.NumRows());
+    int32 y_blocksize = block_dim_x * block_dim_y;
+    while ( y_blocksize * x_blocksize > CU1DBLOCK || y_blocksize > CU2DBLOCK)
+      y_blocksize--;
+    int32 z_blocksize = C_block_row_stride; 
+    while ( x_blocksize * y_blocksize * z_blocksize > CU1DBLOCK || z_blocksize > CU2DBLOCK)
+      z_blocksize--;
+    dim3 dimBlock(x_blocksize, y_blocksize, z_blocksize);
+    dim3 dimGrid(n_blocks(A.NumRows(), x_blocksize),
+                 n_blocks(block_dim_x * block_dim_y, y_blocksize),
+                 n_blocks(C_block_row_stride, z_blocksize));
+   cuda_block_conv_mat(dimGrid, dimBlock, data_, C_row_stride, C_block_row_stride, 
+                        C_block_num_rows, C_block_num_cols, A.Data(), block_dim_x, 
+                        A.NumRows(), A_block_num_rows,
+                        A_block_num_cols, B.Data(), block_dim_y, B_block_num_rows,
+                        B_block_num_cols);  
+    
+  } else
+  #endif
+  {
+    //Mat().ConvMat(A.Mat(), block_dim_x, A_block_num_rows, A_block_num_cols, B.Mat(), block_dim_y, B_block_num_rows, B_block_num_cols);   
+  }
+}
 
 template<typename Real>
 void CuMatrixBase<Real>::SymAddMat2(

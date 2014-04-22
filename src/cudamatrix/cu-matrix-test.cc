@@ -859,7 +859,30 @@ static void UnitTestCuMatrixSymAddMat2() {
   }
 }
 
+template<typename Real>
+static void UnitTestConvMat() {
+  std::cout << "UnitTestConvMat()\n";
+  int A_num_rows = 256;
+  int block_dim_y = 256,block_dim_x = 1, m1 = 9, m2 = 9;
+  for (int32 i = 0; i < 1; i++) {
+    int32 n1 = 50 + rand() % 10, n2 = 50 + rand() % 10,
+      num_blocks = block_dim_x * block_dim_y;
+    CuMatrix<Real> A(A_num_rows, n1 * n2 * block_dim_x);
+    //A.SetRandn();
+    A.Set(1.0);
+    CuMatrix<Real> B(1,m1 * m2 * num_blocks);
+    //B.SetRandn();
+    B.Set(1.0);
+    int c_block_row = n1 - m1 + 1, c_block_col = n2 - m2 + 1;
+    CuMatrix<Real> C(A_num_rows, c_block_row * c_block_col * num_blocks);
+    C.ConvMat(A, block_dim_x, n1, n2, B, block_dim_y, m1, m2);
+    KALDI_LOG << " C(0,0) " << C(0,0);
+    Matrix<Real> C2(A_num_rows, c_block_row * c_block_col * num_blocks);
+    //C2.ConvMat(Matrix<Real>(A), block_dim_x, n1, n2, Matrix<Real>(B), block_dim_y, m1, m2);
 
+    //KALDI_ASSERT(ApproxEqual(Matrix<Real>(C), C2));
+  }
+}
 
 template<typename Real> 
 static void UnitTestCuMatrixSymInvertPosDef() {
@@ -1973,6 +1996,7 @@ template<typename Real> void CudaMatrixUnitTest() {
   UnitTestCuDiffTanh<Real>();
   UnitTestCuVectorAddTpVec<Real>();
   UnitTestCuVectorMulTp<Real>();
+  UnitTestConvMat<Real>();
 }
 
 
