@@ -282,21 +282,36 @@ class CuMatrixBase {
   /// C = alpha * A(^T)*B(^T) + beta * C
   void AddMatMat(Real alpha, const CuMatrixBase<Real> &A, MatrixTransposeType transA,
                  const CuMatrixBase<Real> &B, MatrixTransposeType transB, Real beta);
-  /// This function implements an 2D convolution and it does 2D convolution of blocks of A with corresponding filters in B
-  /// Out = conv2(I,F), conv2(I, F) computes the two-dimensional convolution of matrices I and F
-  /// each row of A contains #(block_dim_x) blocks, A(i,:) = [A1,A2,...,A(block_dim_x)]
-  /// where each Aj = [Aj(1,:),Aj(2,:),...,Aj(A_block_num_rows,:)]; size(Aj(k,:)) = A_block_num_cols; 
-  /// (#columns of A = block_dim_x  X  A_block_num_rows X A_block_num_cols)
-  /// B contains #(block_dim_y) * #(block_dim_x)  blocks as follows:
-  /// B = [B11,B12,B13,..,B1(block_dim_y),...,B(block_dim_x)1,...,B(block_dim_x)(block_dim_y)]; 
-  /// where Bij is the jth filter for ith block of A. Bij = [B(1,:),...,B(m1,:)]
-  /// (#columns of B = block_dim_x X block_dim_y X  B_block_num_rows X B_block_num_cols)
-  /// (#(block_dim_y) blocks correspond to each block of A)
-  /// size of each block B is (B_block_num_rows X B_block_num_cols) and all blocks stores in a row.
-  /// output contains #(block_dim_y) * #(block_dim_x)  blocks as follows:
-  /// output = [C11,C12,...,C1(block_dim_y),...,C(block_dim_x)1,...,C(block_dim_x)(block_dim_y)]; 
-  /// where Cij = conv2(Ai,Bij), Cij is the 2D convolution of i_th block of Ai with filter Bij, size(Cij) = (n1-m1+1, n2-m2+1)
-  /// #columns of output = block_dim_x X block_dim_y  X  C_block_num_rows X C_block_num_cols
+  
+  /// This function is a special implementation of 2D convolution
+  /// Original 2D convolution of A_mat and B_mat is C_mat, 
+  /// where C_mat(i,j) is sum of (A_mat(i+k,j+l) * B_mat(k,l) where k = 1 to B_mat.NumRows(), l = 1 to B_mat.NumCols())
+  /// The size in each dimension of C_mat is equal to the sum of the corresponding dimensions of the input matrices minus one. 
+  /// That is, if the size of A_mat is [n1,n2] and the size of B_mat is [m1,m2], then the size of C_mat is [n1+m1-1,n2+m2-1].
+ 
+  /// In this function, for each experiment, we have n matrices with same size [n1,n2] (A1,...,An) 
+  /// and for each matrix Ai we have m corresponding filter matrices with same size [m1,m2]
+  /// i.e. for matrix Ai we have m filter matrices (Bi1,...,Bim)
+  /// we compute the original 2D convolution of each matrix Ai with its m set of corresponding filters,
+  /// the output is n * m matrices with same size [n1+m1-1,n2+m2-1]. Each output matrix Cij is the original 2D convolution of Ai and Bij
+  
+  /// All Ai, Bij and Cij are stored in a single row. 
+  /// i.e. the form of Ai is [Ai.Row(1),...,Ai.Row(n1)] and Bij is [Bij.Row(1),...,Bij.Row(m1)]
+  ///      the form of Cij is [Cij.Row(1),...,Cij.Row(n1+m1-1)]
+  /// Therefore we store n matrices Ai in a single row of A. 
+  /// A.Row(1) = [A1,...,An] 
+  /// Also the n*m filter matrices are stored in single row of B w.r.t Ai matrices.
+  /// B = [B11,...,B1m,...,Bn1,...,Bnm]
+  /// The output C is also stored in a single row
+  /// C.Row(1) = [C11,...,C1m,...,Cn1,...,Cnm]
+
+  /// A.Row(p) is the p_th experiment which contains n matrices with same size [n1,n2] and we want to compute 
+  /// its 2D convolution with filter matrices B(which is the same for all experiments)
+  /// *this.Row(p) is the output of Convolution of A.Row(p) and filter matrix B.
+  
+  /// block_dim_x = n,  block_dim_y = m 
+  /// (A_block_num_rows, A_block_num_cols) = (n1,n2)
+  /// (B_block_num_rows, B_block_num_cols) = (m1,m2)
   void ConvMat(const CuMatrixBase<Real> &A, int block_dim_x,
                int A_block_num_rows, int A_block_num_cols,    
                const CuMatrixBase<Real> &B, int block_dim_y, 
