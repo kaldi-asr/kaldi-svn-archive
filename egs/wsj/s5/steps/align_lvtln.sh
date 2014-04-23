@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
+# Copyright 2014  Vimal Manohar
 
 # Computes training alignments; assumes features are (LDA+MLLT or delta+delta-delta)
 # Will ignore fMLLR.

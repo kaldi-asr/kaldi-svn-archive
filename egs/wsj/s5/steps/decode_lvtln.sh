@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
+# Copyright 2014  Vimal Manohar
 
 # Decoding script for LVTLN models.  Will estimate VTLN warping factors
 # as a by product, which can be used to extract VTLN-warped features.

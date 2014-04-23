@@ -1,6 +1,7 @@
 // gmmbin/gmm-train-lvtln-special.cc
 
 // Copyright 2009-2011  Microsoft Corporation
+// Copyright 2014       Vimal Manohar
 
 // See ../../COPYING for clarification regarding multiple authors
 //

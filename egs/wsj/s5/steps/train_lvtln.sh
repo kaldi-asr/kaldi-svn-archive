@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Copyright 2012-2014  Johns Hopkins University (Author: Daniel Povey)
-#
+# Copyright 2014       Vimal Manohar
 # This training script trains linear-VTLN models starting from an existing
 # system based on either LDA+MLLT or delta+delta-delta features.
 # Works with either mfcc or plp features, but you need to set the 
