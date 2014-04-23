@@ -29,16 +29,16 @@ cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
 norm_vars=false # false : cmn, true : cmvn.  To turn off CMN completely,
                 # supply the --fake option to compute_cmvn_stats.sh
 
-lvtln_iters="2 4 6 8 12"; # iters on which to recompute LVTLN transform"
+lvtln_iters="2 4 6 8 10 12 14 16 20"; # iters on which to recompute LVTLN transform"
 num_utt_lvtln_init=200; # number of utterances (subset) to initialize
                         # LVTLN transform.  Not too critical.
 min_warp=0.85
-max_warp=1.15
+max_warp=1.25
 warp_step=0.01
 num_classes=$(perl -e "print int(1.5 + ($max_warp - $min_warp) / $warp_step);") || exit 1;
 default_class=$(perl -e "print int(0.5 + (1.0 - $min_warp) / $warp_step);") || exit 1;
 base_feat_type=mfcc # or could be PLP.
-logdet_scale=0.5
+logdet_scale=0.0
 
 # End configuration.
 
@@ -150,6 +150,13 @@ if ! utils/filter_scp.pl $dir/utt_subset $data/feats.scp | \
   echo "    Possibly your feature type is wrong (--base-feat-type option)"
   exit 1;
 fi
+  
+if [ -f $data/segments ]; then
+  subset_utts="ark:extract-segments scp:$sdata/JOB/wav.scp $sdata/JOB/segments ark:- |"
+else
+  echo "$0 [info]: no segments file exists: using wav.scp directly."
+  subset_utts="ark:wav-copy scp:$sdata/JOB/wav.scp ark:- |"
+fi
 
 if [ $stage -le -5 ]; then
   echo "$0: initializing base LVTLN transforms in $dir/0.lvtln (ignore warnings below)"
@@ -159,15 +166,24 @@ if [ $stage -le -5 ]; then
     gmm-init-lvtln --dim=$dim --num-classes=$num_classes --default-class=$default_class \
       $dir/0.lvtln || exit 1;
 
+  $cmd JOB=1:$nj $dir/log/get_weights.JOB.log \
+    ali-to-post "ark:gunzip -c $alidir/ali.JOB.gz |" ark:- \| \
+    weight-silence-post 0.0 "$silphonelist" $alidir/final.mdl ark:- ark:- \| \
+    post-to-weights ark:- "ark,scp:$dir/weights.JOB.ark,$dir/weights.JOB.scp" || exit 1
+
+  for n in `seq 1 $nj`; do 
+    cat $dir/weights.$n.scp
+  done > $dir/weights.scp
+
   for c in $(seq 0 $[$num_classes-1]); do
     this_warp=$(perl -e "print ($min_warp + ($c*$warp_step));")
     orig_feats=ark:$dir/feats.$default_class.ark
     warped_feats=ark:$dir/feats.$c.ark
     logfile=$dir/log/train_special.$c.log
-
     this_featsub_warped="$(echo $featsub_warped | sed s/CLASS/$c/)"
-    if ! gmm-train-lvtln-special --warp=$this_warp --normalize-var=true $c \
-      $dir/0.lvtln $dir/0.lvtln \
+    if ! gmm-train-lvtln-special --warp=$this_warp --normalize-var=true \
+      --weights-in="scp:$dir/weights.scp" \
+      $c $dir/0.lvtln $dir/0.lvtln \
       "$featsub_unwarped" "$this_featsub_warped" 2>$logfile; then
       echo "$0: Error training LVTLN transform, see $logfile";
       exit 1;

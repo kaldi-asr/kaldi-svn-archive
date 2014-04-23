@@ -41,6 +41,8 @@ int main(int argc, char *argv[]) {
     bool binary = true;
     bool normalize_var = false;
     bool normalize_covar = false;
+    std::string weights_rspecifier;
+
     ParseOptions po(usage);
     po.Register("binary", &binary, "Write output in binary mode");
     po.Register("warp", &warp, "If supplied, can be used to set warp factor"
@@ -49,6 +51,9 @@ int main(int argc, char *argv[]) {
                 "to be the same before and after transform.");
     po.Register("normalize-covar", &normalize_covar, "Normalize (matrix-valued) "
                 "covariance to be the same before and after transform.");
+    po.Register("weights-in", &weights_rspecifier, 
+                "Can be used to take posteriors as an scp or ark file of weights "
+                "instead of giving <posteriors-rspecfier>");
 
     po.Read(argc, argv);
 
@@ -109,6 +114,7 @@ int main(int argc, char *argv[]) {
       RandomAccessBaseFloatMatrixReader y_reader(feats_transformed_rspecifier);
 
       RandomAccessPosteriorReader post_reader(posteriors_rspecifier);
+      RandomAccessBaseFloatVectorReader weights_reader(weights_rspecifier);
 
       for (; !x_reader.Done(); x_reader.Next()) {
         std::string utt = x_reader.Key();
@@ -125,7 +131,7 @@ int main(int argc, char *argv[]) {
         }
 
         Vector<BaseFloat> weights(x_feats.NumRows());
-        if (posteriors_rspecifier != "") {
+        if (weights_rspecifier == "" && posteriors_rspecifier != "") {
           if (!post_reader.HasKey(utt)) {
             KALDI_WARN << "No posteriors for utterance " << utt;
             continue;
@@ -136,9 +142,16 @@ int main(int argc, char *argv[]) {
           for (size_t i = 0; i < post.size(); i++)
             for (size_t j = 0; j < post[i].size(); j++)
               weights(i) += post[i][j].second;
+        } else if (weights_rspecifier != "") {
+          if (!weights_reader.HasKey(utt)) {
+            KALDI_WARN << "No weights for utterance " << utt;
+            continue;
+          }
+          weights.CopyFromVec(weights_reader.Value(utt));
         } else {
           weights.Add(1.0);
         }
+
         // Now get stats.
 
         for (int32 i = 0; i < x_feats.NumRows(); i++) {
