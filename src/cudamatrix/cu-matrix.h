@@ -307,7 +307,7 @@ class CuMatrixBase {
 
   /// A.Row(p) is the p_th experiment which contains n matrices with same size [n1,n2] and we want to compute 
   /// its 2D convolution with filter matrices B(which is the same for all experiments)
-  /// *this.Row(p) is the output of Convolution of A.Row(p) and filter matrix B.
+  /// *this.Row(p) is the output of Convolution of A.Row(p) and filter matrix B as described.
   
   /// block_dim_x = n,  block_dim_y = m 
   /// (A_block_num_rows, A_block_num_cols) = (n1,n2)
