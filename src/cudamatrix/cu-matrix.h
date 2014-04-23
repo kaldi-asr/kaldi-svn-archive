@@ -286,14 +286,15 @@ class CuMatrixBase {
   /// This function is a special implementation of 2D convolution
   /// Original 2D convolution of A_mat and B_mat is C_mat, 
   /// where C_mat(i,j) is sum of (A_mat(i+k,j+l) * B_mat(k,l) where k = 1 to B_mat.NumRows(), l = 1 to B_mat.NumCols())
-  /// The size in each dimension of C_mat is equal to the sum of the corresponding dimensions of the input matrices minus one. 
-  /// That is, if the size of A_mat is [n1,n2] and the size of B_mat is [m1,m2], then the size of C_mat is [n1+m1-1,n2+m2-1].
- 
+  /// The size in each dimension of C_mat is equal to the difference of the corresponding dimensions of the input matrices plus one. 
+  /// That is, if the size of A_mat is [n1,n2] and the size of B_mat is [m1,m2], then the size of C_mat is [n1-m1+1,n2-m2+1].
+  /// where n1 > m1 and n2 > m2
+
   /// In this function, for each experiment, we have n matrices with same size [n1,n2] (A1,...,An) 
   /// and for each matrix Ai we have m corresponding filter matrices with same size [m1,m2]
   /// i.e. for matrix Ai we have m filter matrices (Bi1,...,Bim)
   /// we compute the original 2D convolution of each matrix Ai with its m set of corresponding filters,
-  /// the output is n * m matrices with same size [n1+m1-1,n2+m2-1]. Each output matrix Cij is the original 2D convolution of Ai and Bij
+  /// the output is n * m matrices with same size [n1-m1+1,n2-m2+1]. Each output matrix Cij is the original 2D convolution of Ai and Bij
   
   /// All Ai, Bij and Cij are stored in a single row. 
   /// i.e. the form of Ai is [Ai.Row(1),...,Ai.Row(n1)] and Bij is [Bij.Row(1),...,Bij.Row(m1)]
