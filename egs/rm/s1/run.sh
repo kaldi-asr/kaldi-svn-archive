@@ -35,7 +35,7 @@ exit 1 # Don't run this... it's to be run line by line from the shell.
 # RM is a directory with subdirectories rm1_audio1, rm1_audio2, rm2_audio
 cd data_prep
 #*** You have to change the pathname below.***
-./run.sh /path/to/RM
+./run.sh /export/corpora5/LDC/LDC93S3A/rm_comp
 cd ..
 
 mkdir -p data
@@ -52,7 +52,7 @@ steps/prepare_graphs.sh
 # where you have space.  Make sure you create the directory.
 #e.g.: mfccdir=/mnt/matylda6/jhu09/qpovey/kaldi_rm_mfccb
 # Note: mfccdir should be an absolute pathname
-mfccdir=/path/to/mfccdir
+mfccdir=$(pwd)/mfccdir
 steps/make_mfcc_train.sh $mfccdir
 steps/make_mfcc_test.sh $mfccdir
 

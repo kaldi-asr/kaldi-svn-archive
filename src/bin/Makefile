@@ -23,6 +23,7 @@ BINFILES = align-equal align-equal-compiled acc-tree-stats \
         build-pfile-from-ali get-post-on-ali tree-info am-info \
         vector-sum matrix-sum-rows
 
+
 OBJFILES =
 
 ADDLIBS = ../lm/kaldi-lm.a ../decoder/kaldi-decoder.a ../lat/kaldi-lat.a \

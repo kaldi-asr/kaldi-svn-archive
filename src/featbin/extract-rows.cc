@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "Usage: extract-rows [options] <segments-file> <features-rspecifier> <features-wspecifier>\n"
         "  e.g. extract-rows --frame-shift=0.01 segments ark:feats-in.ark ark:feats-out.ark\n"
-        "See also: select-feats, subset-feats, subsample-feats, extract-segments\n";
+        "See also: select-feats, subset-feats, subsample-feats\n";
     
     ParseOptions po(usage);
 

@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
     
     KALDI_LOG << "Processed " << num_done << " feature files, "
               << num_err << " had errors.";
-
+    
     bool similar = (similarity_metric >= threshold);
 
     if (num_done > 0) {
