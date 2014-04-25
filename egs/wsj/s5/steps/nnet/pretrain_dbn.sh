@@ -40,6 +40,7 @@ rbm_lrate=0.4         #RBM learning rate
 rbm_lrate_low=0.01    #lower RBM learning rate (for Gaussian units)
 rbm_l2penalty=0.0002  #L2 penalty (increases RBM-mixing rate)
 rbm_extra_opts=
+cnn=
 # data processing config
 copy_feats=true    # resave the features randomized consecutively to tmpdir
 # feature config
@@ -146,7 +147,7 @@ fi
 
 #get feature dim
 echo -n "Getting feature dim : "
-feat_dim=$(feat-to-dim --print-args=false scp:$dir/train.scp -)
+feat_dim=$(feat-to-dim --print-args=false "$feats" -)
 echo $feat_dim
 
 
@@ -185,6 +186,16 @@ else
   compute-cmvn-stats ark:- - | cmvn-to-nnet - - |\
   nnet-concat --binary=false $feature_transform_old - $feature_transform
 
+  # Add CNN
+  if [ ! -z $cnn ]; then
+    feature_transform_old=$feature_transform
+    feature_transform=${feature_transform%.nnet}_cnn.nnet
+    cnn_full_layers=`cat $(dirname $cnn)/cnn_full_layers`
+    echo "Appending CNN to feature transform."
+    nnet-copy --remove-last-layers=$(((cnn_full_layers+1)*2)) $cnn - |\
+    nnet-concat --binary=false $feature_transform_old - $feature_transform
+  fi
+
   # MAKE LINK TO THE FINAL feature_transform, so the other scripts will find it ######
   [ -f $dir/final.feature_transform ] && unlink $dir/final.feature_transform
   (cd $dir; ln -s $(basename $feature_transform) final.feature_transform )
@@ -208,9 +219,10 @@ for depth in $(seq 1 $nn_depth); do
   if [ "$depth" == "1" ]; then
     #This is Gaussian-Bernoulli RBM
     #initialize
+    [ ! -z $cnn ] && vis_type=bern || vis_type=gauss
     echo "Initializing '$RBM.init'"
     echo "<NnetProto>
-    <Rbm> <InputDim> $num_fea <OutputDim> $num_hid <VisibleType> gauss <HiddenType> bern <ParamStddev> $param_stddev_first
+    <Rbm> <InputDim> $num_fea <OutputDim> $num_hid <VisibleType> $vis_type <HiddenType> bern <ParamStddev> $param_stddev_first
     </NnetProto>
     " > $RBM.proto
     nnet-initialize $RBM.proto $RBM.init 2>$dir/log/nnet-initialize.$depth.log || exit 1
