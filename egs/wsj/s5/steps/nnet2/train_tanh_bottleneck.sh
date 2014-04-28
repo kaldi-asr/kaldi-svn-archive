@@ -119,7 +119,7 @@ if [ $# != 4 ]; then
   echo "  --splice-width <width|4>                         # Number of frames on each side to append for feature input"
   echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
   echo "  --lda-dim <dim|250>                              # Dimension to nsformreduce spliced features to with LDA"
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
+  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet2-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
   echo "  --num-utts-subset <#utts|300>                    # Number of utterances in subsets used for validation and diagnostics"
   echo "                                                   # (the validation subset is held out from training)"
@@ -223,14 +223,14 @@ AffineComponentPreconditioned input-dim=$bottleneck_dim output-dim=$hidden_layer
 TanhComponent dim=$hidden_layer_dim
 EOF
   $cmd $dir/log/nnet_init.log \
-    nnet-am-init $alidir/tree $lang/topo "nnet-init $dir/nnet.config -|" \
+    nnet2-am-init $alidir/tree $lang/topo "nnet2-init $dir/nnet.config -|" \
     $dir/0.mdl || exit 1;
 fi
 
 if [ $stage -le -1 ]; then
   echo "Training transition probabilities and setting priors"
   $cmd $dir/log/train_trans.log \
-    nnet-train-transitions $dir/0.mdl "ark:gunzip -c $alidir/ali.*.gz|" $dir/0.mdl \
+    nnet2-train-transitions $dir/0.mdl "ark:gunzip -c $alidir/ali.*.gz|" $dir/0.mdl \
     || exit 1;
 fi
 
@@ -260,12 +260,12 @@ while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
     # Set off jobs doing some diagnostics, in the background.
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
+      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
     if [ $x -gt 0 ] && [ ! -f $dir/log/mix_up.$[$x-1].log ]; then
       $cmd $dir/log/progress.$x.log \
-        nnet-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+        nnet2-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
     fi
     
     echo "Training neural net (pass $x)"
@@ -274,18 +274,18 @@ while [ $x -lt $num_iters ]; do
       [ $[($x-1) % $add_layers_period] -eq 0 ]; then
       if [ $[($x-1) / $add_layers_period] -eq $[($num_hidden_layers-2)] ]; then
         echo bnf layer with x = $x
-        mdl="nnet-init --srand=$x $dir/bnf.config - | nnet-insert $dir/$x.mdl - - |"  
+        mdl="nnet2-init --srand=$x $dir/bnf.config - | nnet2-insert $dir/$x.mdl - - |"  
       else
-        mdl="nnet-init --srand=$x $dir/hidden.config - | nnet-insert $dir/$x.mdl - - |"
+        mdl="nnet2-init --srand=$x $dir/hidden.config - | nnet2-insert $dir/$x.mdl - - |"
       fi
     else
       mdl=$dir/$x.mdl
     fi
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+      nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
       ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-      nnet-train$train_suffix \
+      nnet2-train$train_suffix \
          --minibatch-size=$minibatch_size --srand=$x "$mdl" \
         ark:- $dir/$[$x+1].JOB.mdl \
       || exit 1;
@@ -297,7 +297,7 @@ while [ $x -lt $num_iters ]; do
 
     learning_rate=`perl -e '($x,$n,$i,$f)=@ARGV; print ($x >= $n ? $f : $i*exp($x*log($f/$i)/$n));' $[$x+1] $num_iters_reduce $initial_learning_rate $final_learning_rate`;
     last_layer_learning_rate=`perl -e "print $learning_rate * $final_learning_rate_factor;"`;
-    nnet-am-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
+    nnet2-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
     nu=`cat $dir/foo | grep num-updatable-components | awk '{print $2}'`
     na=`cat $dir/foo | grep -v Fixed | grep AffineComponent | wc -l` 
     # na is number of last updatable AffineComponent layer [one-based, counting only
@@ -311,12 +311,12 @@ while [ $x -lt $num_iters ]; do
     done
     
     $cmd $dir/log/average.$x.log \
-      nnet-am-average $nnets_list - \| \
-      nnet-am-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
+      nnet2-average $nnets_list - \| \
+      nnet2-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
 
     if $modify_learning_rates && [ $x -ge $first_modify_iter ]; then
       $cmd $dir/log/modify_learning_rates.$x.log \
-        nnet-modify-learning-rates --last-layer-factor=$last_layer_factor \
+        nnet2-modify-learning-rates --last-layer-factor=$last_layer_factor \
           --first-layer-factor=$first_layer_factor --average-learning-rate=$learning_rate \
         $dir/$x.mdl $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
     fi
@@ -324,21 +324,21 @@ while [ $x -lt $num_iters ]; do
     if $shrink && [ $[$x % $shrink_interval] -eq 0 ]; then
       mb=$[($num_frames_shrink+$num_threads-1)/$num_threads]
       $cmd $parallel_opts $dir/log/shrink.$x.log \
-        nnet-subset-egs --n=$num_frames_shrink --randomize-order=true --srand=$x \
+        nnet2-subset-egs --n=$num_frames_shrink --randomize-order=true --srand=$x \
           ark:$egs_dir/train_diagnostic.egs ark:-  \| \
-        nnet-combine-fast --use-gpu=no --num-threads=$num_threads --verbose=3 --minibatch-size=$mb \
+        nnet2-combine-fast --use-gpu=no --num-threads=$num_threads --verbose=3 --minibatch-size=$mb \
           $dir/$[$x+1].mdl ark:- $dir/$[$x+1].mdl || exit 1;
     else
-      # On other iters, do nnet-am-fix which is much faster and has roughly
+      # On other iters, do nnet2-fix which is much faster and has roughly
       # the same effect.
-      nnet-am-fix $dir/$[$x+1].mdl $dir/$[$x+1].mdl 2>$dir/log/fix.$x.log 
+      nnet2-fix $dir/$[$x+1].mdl $dir/$[$x+1].mdl 2>$dir/log/fix.$x.log 
     fi
 
     if [ "$mix_up" -gt 0 ] && [ $x -eq $mix_up_iter ]; then
       # mix up.
       echo Mixing up from $num_leaves to $mix_up components
       $cmd $dir/log/mix_up.$x.log \
-        nnet-am-mixup --min-count=10 --num-mixtures=$mix_up \
+        nnet2-mixup --min-count=10 --num-mixtures=$mix_up \
         $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
     fi
     rm $nnets_list
@@ -356,21 +356,21 @@ start=$[$num_iters-$num_iters_final+1]
 for x in `seq $start $num_iters`; do
   idx=$[$x-$start]
   if [ $x -gt $mix_up_iter ]; then
-    nnets_list[$idx]=$dir/$x.mdl # "nnet-am-copy --remove-dropout=true $dir/$x.mdl - |"
+    nnets_list[$idx]=$dir/$x.mdl # "nnet2-copy --remove-dropout=true $dir/$x.mdl - |"
   fi
 done
 
 if [ $stage -le $num_iters ]; then
-  # Below, use --use-gpu=no to disable nnet-combine-fast from using a GPU, as
+  # Below, use --use-gpu=no to disable nnet2-combine-fast from using a GPU, as
   # if there are many models it can give out-of-memory error; set num-threads to 8
   # to speed it up (this isn't ideal...)
   this_num_threads=$num_threads
   [ $this_num_threads -lt 8 ] && this_num_threads=8
-  num_egs=`nnet-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
+  num_egs=`nnet2-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
   mb=$[($num_egs+$this_num_threads-1)/$this_num_threads]
   [ $mb -gt 512 ] && mb=512
   $cmd $parallel_opts $dir/log/combine.log \
-    nnet-combine-fast --use-gpu=no --num-threads=$this_num_threads \
+    nnet2-combine-fast --use-gpu=no --num-threads=$this_num_threads \
       --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$egs_dir/combine.egs \
       $dir/final.mdl || exit 1;
 fi
@@ -379,9 +379,9 @@ fi
 # the same subset we used for the previous compute_probs, as the
 # different subsets will lead to different probs.
 $cmd $dir/log/compute_prob_valid.final.log \
-  nnet-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
+  nnet2-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
 $cmd $dir/log/compute_prob_train.final.log \
-  nnet-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
+  nnet2-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
 
 sleep 2
 
@@ -404,7 +404,7 @@ fi
 
 name=`basename $data`
 if [ -f $dir/final.mdl ]; then
-  nnet-to-raw-nnet --truncate=$truncate_comp_num $dir/final.mdl $dir/final.raw
+  nnet2-to-raw-nnet2 --truncate=$truncate_comp_num $dir/final.mdl $dir/final.raw
 else 
   echo "$0: we require final.mdl in source dir $dir"
 fi

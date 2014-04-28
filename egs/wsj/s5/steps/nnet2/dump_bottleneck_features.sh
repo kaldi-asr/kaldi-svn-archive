@@ -79,7 +79,7 @@ fi
 if [ $stage -le 1 ]; then
   echo "Making BNF scp and ark."
   $cmd JOB=1:$nj $dir/log/make_bnf_$name.JOB.log \
-    nnet-compute $bnf_nnet "$feats" ark:- \| \
+    nnet2-compute $bnf_nnet "$feats" ark:- \| \
     copy-feats --compress=true ark:- ark,scp:$archivedir/raw_bnfeat_$name.JOB.ark,$archivedir/raw_bnfeat_$name.JOB.scp || exit 1;
 fi
 

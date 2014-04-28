@@ -20,3 +20,7 @@ for x in train train_heldout train_train t10k; do
   utils/validate_data_dir.sh data/$x || exit 1;
 done
 
+dir=exp/nnet2
+steps/nnet2/train_tanh.sh data/train_train data/train_heldout $dir
+steps/nnet2/test.sh data/t10k/ $dir
+

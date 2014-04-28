@@ -116,7 +116,7 @@ echo $feat_dim > $dir/feat_dim
 echo $lda_dim > $dir/lda_dim
 
 if [ $stage -le 1 ]; then
-  nnet-get-feature-transform --write-cholesky=$dir/cholesky.tpmat \
+  nnet2-get-feature-transform --write-cholesky=$dir/cholesky.tpmat \
      --within-class-factor=$within_class_factor --dim=$lda_dim \
       $dir/lda.mat $dir/lda.*.acc \
       2>$dir/log/lda_est.log || exit 1;

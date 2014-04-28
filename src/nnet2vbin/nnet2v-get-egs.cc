@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
                        "Inconsistent feature dimensions.");
         }
         if (left_context == -1) {
-          left_context = feats.NumRows() - 1 / 2;
+          left_context = (feats.NumRows() - 1) / 2;
           right_context = feats.NumRows() - 1 - left_context;
         } else {
           KALDI_ASSERT(feats.NumRows() == left_context + right_context + 1 &&

@@ -79,7 +79,7 @@ if [ $# != 3 ]; then
   echo "                                                   # use multiple threads."
   echo "  --minibatch-size <minibatch-size|128>            # Size of minibatch to process (note: product with --num-threads"
   echo "                                                   # should not get too large, e.g. >2k)."
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
+  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet2-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
   echo "  --stage <stage|-5>                               # Used to run a partially-completed training process from somewhere in"
   echo "                                                   # the middle."
@@ -108,7 +108,7 @@ cp $nnet_dir/tree $dir
 if [ $stage -le -2 ] && [ $mix_up -gt 0 ]; then
   echo Mixing up to $mix_up components
   $cmd $dir/log/mix_up.$x.log \
-    nnet-am-mixup --min-count=10 --num-mixtures=$mix_up \
+    nnet2-mixup --min-count=10 --num-mixtures=$mix_up \
       $nnet_dir/final.mdl $dir/0.mdl || exit 1;
 else 
   cp $nnet_dir/final.mdl $dir/0.mdl || exit 1;
@@ -117,7 +117,7 @@ fi
 if [ $stage -le -1 ] && [ $widen -gt 0 ]; then
   echo "$0: Widening nnet to hidden-layer-dim=$widen"
   $cmd $dir/log/widen.log \
-    nnet-am-widen --hidden-layer-dim=$widen $dir/0.mdl $dir/0.mdl || exit 1;
+    nnet2-widen --hidden-layer-dim=$widen $dir/0.mdl $dir/0.mdl || exit 1;
 fi
 
 num_iters_reduce=$[$num_epochs * $iters_per_epoch];
@@ -133,16 +133,16 @@ while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
     # Set off jobs doing some diagnostics, in the background.
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
+      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
 
     echo "Training neural net (pass $x)"
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+      nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
       ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-      nnet-train-parallel --num-threads=$num_threads \
+      nnet2-train-parallel --num-threads=$num_threads \
          --minibatch-size=$minibatch_size --srand=$x $dir/$x.mdl \
         ark:- $dir/$[$x+1].JOB.mdl \
       || exit 1;
@@ -154,7 +154,7 @@ while [ $x -lt $num_iters ]; do
 
     learning_rate=`perl -e '($x,$n,$i,$f)=@ARGV; print ($x >= $n ? $f : $i*exp($x*log($f/$i)/$n));' $[$x+1] $num_iters_reduce $initial_learning_rate $final_learning_rate`;
     softmax_learning_rate=`perl -e "print $learning_rate * $softmax_learning_rate_factor;"`;
-    nnet-am-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
+    nnet2-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
     nu=`cat $dir/foo | grep num-updatable-components | awk '{print $2}'`
     na=`cat $dir/foo | grep AffineComponent | wc -l` # number of last AffineComopnent layer [one-based]
     lr_string="$learning_rate"
@@ -165,8 +165,8 @@ while [ $x -lt $num_iters ]; do
     done
     
     $cmd $dir/log/average.$x.log \
-      nnet-am-average $nnets_list - \| \
-      nnet-am-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
+      nnet2-average $nnets_list - \| \
+      nnet2-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
 
     rm $nnets_list
   fi
@@ -186,10 +186,10 @@ for x in `seq $start $num_iters`; do
 done
 
 if [ $stage -le $num_iters ]; then
-  num_egs=`nnet-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
+  num_egs=`nnet2-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
   mb=$[($num_egs+$num_threads-1)/$num_threads]
   $cmd $parallel_opts $dir/log/combine.log \
-    nnet-combine-fast --use-gpu=no --num-threads=$num_threads --verbose=3 --minibatch-size=$mb \
+    nnet2-combine-fast --use-gpu=no --num-threads=$num_threads --verbose=3 --minibatch-size=$mb \
     $nnets_list ark:$egs_dir/combine.egs $dir/final.mdl || exit 1;
 fi
 
@@ -199,9 +199,9 @@ sleep 2; # make sure final.mdl exists.
 # the same subset we used for the previous compute_probs, as the
 # different subsets will lead to different probs.
 $cmd $dir/log/compute_prob_valid.final.log \
-  nnet-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
+  nnet2-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
 $cmd $dir/log/compute_prob_train.final.log \
-  nnet-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
+  nnet2-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
 
 echo Done
 

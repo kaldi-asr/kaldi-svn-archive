@@ -113,7 +113,7 @@ lda_dim=`cat $dir/indexes | wc -w`
 echo $lda_dim > $dir/lda_dim
 
 if [ $stage -le 1 ]; then
-  nnet-get-feature-transform-multi --within-class-factor=$within_class_factor $dir/indexes $dir/lda.*.acc $dir/lda.mat \
+  nnet2-get-feature-transform-multi --within-class-factor=$within_class_factor $dir/indexes $dir/lda.*.acc $dir/lda.mat \
       2>$dir/log/lda_est.log || exit 1;
   rm $dir/lda.*.acc
 fi

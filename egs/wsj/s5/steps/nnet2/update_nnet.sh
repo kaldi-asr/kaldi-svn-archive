@@ -90,7 +90,7 @@ if [ $# != 5 ]; then
   echo "                                                   # process."
   echo "  --splice-width <width|4>                         # Number of frames on each side to append for feature input"
   echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
+  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet2-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
   echo "  --num-utts-subset <#utts|300>                    # Number of utterances in subsets used for validation and diagnostics"
   echo "                                                   # (the validation subset is held out from training)"
@@ -156,7 +156,7 @@ num_jobs_nnet=`cat $egs_dir/num_jobs_nnet` || exit 1;
 if [ $stage -le -2 ]; then
   echo "$0: using existing neural net";
   source_model=$sdir/final.mdl
-  nnet-am-copy --learning-rates=${learning_rates} $source_model $dir/0.mdl
+  nnet2-copy --learning-rates=${learning_rates} $source_model $dir/0.mdl
 fi
 
 
@@ -178,13 +178,13 @@ while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
     # Set off jobs doing some diagnostics, in the background.
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
+      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
       
     if [ $x -gt 0 ] ; then
       $cmd $dir/log/progress.$x.log \
-        nnet-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+        nnet2-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
     fi
     
     echo "Training neural net (pass $x)"
@@ -192,9 +192,9 @@ while [ $x -lt $num_iters ]; do
 
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+      nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
       ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-      nnet-train$train_suffix \
+      nnet2-train$train_suffix \
          --minibatch-size=$minibatch_size --srand=$x "$mdl" \
         ark:- $dir/$[$x+1].JOB.mdl \
       || exit 1;
@@ -205,7 +205,7 @@ while [ $x -lt $num_iters ]; do
     done
 
     $cmd $dir/log/average.$x.log \
-      nnet-am-average $nnets_list $dir/$[$x+1].mdl || exit 1;
+      nnet2-average $nnets_list $dir/$[$x+1].mdl || exit 1;
 
     rm $nnets_list
   fi
@@ -221,27 +221,27 @@ fi
 start=$[$num_iters-$num_iters_final+1]
 for x in `seq $start $num_iters`; do
   idx=$[$x-$start]
-  nnets_list[$idx]=$dir/$x.mdl # "nnet-am-copy --remove-dropout=true $dir/$x.mdl - |"
+  nnets_list[$idx]=$dir/$x.mdl # "nnet2-copy --remove-dropout=true $dir/$x.mdl - |"
 done
 
 if [ $stage -le $num_iters ]; then
-  # Below, use --use-gpu=no to disable nnet-combine-fast from using a GPU, as
+  # Below, use --use-gpu=no to disable nnet2-combine-fast from using a GPU, as
   # if there are many models it can give out-of-memory error; set num-threads to 8
   # to speed it up (this isn't ideal...)
   this_num_threads=$num_threads
   [ $this_num_threads -lt 8 ] && this_num_threads=8
-  num_egs=`nnet-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
+  num_egs=`nnet2-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
   mb=$[($num_egs+$this_num_threads-1)/$this_num_threads]
   [ $mb -gt 512 ] && mb=512
   # Setting --initial-model to a large value makes it initialize the combination
   # with the average of all the models.  It's important not to start with a
   # single model, or, due to the invariance to scaling that these nonlinearities
   # give us, we get zero diagonal entries in the fisher matrix that
-  # nnet-combine-fast uses for scaling, which after flooring and inversion, has
+  # nnet2-combine-fast uses for scaling, which after flooring and inversion, has
   # the effect that the initial model chosen gets much higher learning rates
   # than the others.  This prevents the optimization from working well.
   $cmd $parallel_opts $dir/log/combine.log \
-    nnet-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
+    nnet2-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
       --num-threads=$this_num_threads --regularizer=$combine_regularizer \
       --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$egs_dir/combine.egs \
       $dir/final.mdl || exit 1;
@@ -251,9 +251,9 @@ fi
 # the same subset we used for the previous compute_probs, as the
 # different subsets will lead to different probs.
 $cmd $dir/log/compute_prob_valid.final.log \
-  nnet-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
+  nnet2-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
 $cmd $dir/log/compute_prob_train.final.log \
-  nnet-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
+  nnet2-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
 
 sleep 2
 
