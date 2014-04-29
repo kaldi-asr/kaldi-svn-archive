@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-combine.cc
+// nnet2bin/nnet2-combine.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         "Usage:  nnet2-combine [options] <model-in1> <model-in2> ... <model-inN> <valid-examples-in> <model-out>\n"
         "\n"
         "e.g.:\n"
-        " nnet2-am-combine 1.1.mdl 1.2.mdl 1.3.mdl ark:valid.egs 2.mdl\n";
+        " nnet2-combine 1.1.mdl 1.2.mdl 1.3.mdl ark:valid.egs 2.mdl\n";
     
     bool binary_write = true;
     bool raw = false;

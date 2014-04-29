@@ -1,4 +1,4 @@
-// nnet2bin/nnet-to-raw-nnet.cc
+// nnet2bin/nnet2-to-raw-nnet.cc
 
 // Copyright 2013  Johns Hopkins University (author:  Daniel Povey)
 
@@ -35,9 +35,9 @@ int main(int argc, char *argv[]) {
         "Copy a (cpu-based) neural net: reads the AmNnet with its transition model, but\n"
         "writes just the Nnet with no transition model (i.e. the raw neural net.)\n"
         "\n"
-        "Usage:  nnet-to-raw-nnet [options] <nnet-in> <raw-nnet-out>\n"
+        "Usage:  nnet2-to-raw-nnet2 [options] <nnet-in> <raw-nnet-out>\n"
         "e.g.:\n"
-        " nnet-to-raw-nnet --binary=false 1.mdl 1.raw\n";
+        " nnet2-to-raw-nnet2 --binary=false 1.mdl 1.raw\n";
 
     int32 truncate = -1;
     bool binary_write = true;

@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-init.cc
+// nnet2bin/nnet2-am-init.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -37,9 +37,9 @@ int main(int argc, char *argv[]) {
         "without an associated acoustic model.\n"
         "See example scripts to see how this works in practice.\n"
         "\n"
-        "Usage:  nnet-am-init [options] <tree-in> <topology-in> <raw-nnet-in> <nnet-am-out>\n"
+        "Usage:  nnet2-am-init [options] <tree-in> <topology-in> <raw-nnet-in> <nnet-am-out>\n"
         "e.g.:\n"
-        " nnet-am-init tree topo \"nnet-init nnet.config - |\" 1.mdl\n";
+        " nnet2-am-init tree topo \"nnet-init nnet.config - |\" 1.mdl\n";
         
     bool binary_write = true;
     

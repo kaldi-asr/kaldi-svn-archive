@@ -1,4 +1,4 @@
-// nnet2bin/nnet-train-transitions.cc
+// nnet2bin/nnet2-train-transitions.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 

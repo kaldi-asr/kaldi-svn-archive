@@ -1,4 +1,4 @@
-// nnet2bin/nnet-modify-learning-rates.cc
+// nnet2bin/nnet2-modify-learning-rates.cc
 
 // Copyright 2013  Guoguo Chen
 

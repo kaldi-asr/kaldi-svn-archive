@@ -1,4 +1,4 @@
-// nnet2bin/nnet-copy-egs.cc
+// nnet2bin/nnet2-copy-egs.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -55,12 +55,12 @@ int main(int argc, char *argv[]) {
         "possibly changing the binary mode.  Supports multiple wspecifiers, in\n"
         "which case it will write the examples round-robin to the outputs.\n"
         "\n"
-        "Usage:  nnet-copy-egs [options] <egs-rspecifier> <egs-wspecifier1> [<egs-wspecifier2> ...]\n"
+        "Usage:  nnet2-copy-egs [options] <egs-rspecifier> <egs-wspecifier1> [<egs-wspecifier2> ...]\n"
         "\n"
         "e.g.\n"
-        "nnet-copy-egs ark:train.egs ark,t:text.egs\n"
+        "nnet2-copy-egs ark:train.egs ark,t:text.egs\n"
         "or:\n"
-        "nnet-copy-egs ark:train.egs ark:1.egs ark:2.egs\n";
+        "nnet2-copy-egs ark:train.egs ark:1.egs ark:2.egs\n";
         
     bool random = false;
     int32 srand_seed = 0;

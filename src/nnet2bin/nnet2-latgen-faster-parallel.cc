@@ -1,4 +1,4 @@
-// nnet2bin/nnet-latgen-faster-parallel.cc
+// nnet2bin/nnet2-latgen-faster-parallel.cc
 
 // Copyright 2009-2013   Microsoft Corporation
 //                       Johns Hopkins University (author: Daniel Povey)

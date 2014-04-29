@@ -1,4 +1,4 @@
-// nnet2bin/nnet-get-feature-transform.cc
+// nnet2bin/nnet2-get-feature-transform.cc
 
 // Copyright 2013  Johns Hopkins University (author: Daniel Povey)
 
@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Get feature-projection transform using stats obtained with acc-lda.\n"
-        "Usage:  nnet-get-feature-transform [options] <matrix-out> <lda-acc-1> <lda-acc-2> ...\n";
+        "Usage:  nnet2-get-feature-transform [options] <matrix-out> <lda-acc-1> <lda-acc-2> ...\n";
 
     bool binary = true;
     FeatureTransformEstimateOptions opts;

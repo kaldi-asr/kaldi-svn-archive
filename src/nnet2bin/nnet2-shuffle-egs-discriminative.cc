@@ -1,4 +1,4 @@
-// nnet2bin/nnet-shuffle-egs-discriminative.cc
+// nnet2bin/nnet2-shuffle-egs-discriminative.cc
 
 // Copyright 2012-2013  Johns Hopkins University (author:  Daniel Povey)
 
@@ -34,9 +34,9 @@ int main(int argc, char *argv[]) {
         "from the input to output, but randomly shuffle the order.  This program will keep\n"
         "all of the examples in memory at once, so don't give it too many.\n"
         "\n"
-        "Usage:  nnet-shuffle-egs-discriminative [options] <egs-rspecifier> <egs-wspecifier>\n"
+        "Usage:  nnet2-shuffle-egs-discriminative [options] <egs-rspecifier> <egs-wspecifier>\n"
         "\n"
-        "nnet-shuffle-egs-discriminative --srand=1 ark:train.degs ark:shuffled.degs\n";
+        "nnet2-shuffle-egs-discriminative --srand=1 ark:train.degs ark:shuffled.degs\n";
     
     int32 srand_seed = 0;
     int32 buffer_size = 0;

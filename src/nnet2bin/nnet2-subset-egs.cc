@@ -1,4 +1,4 @@
-// nnet2bin/nnet-subset-egs.cc
+// nnet2bin/nnet2-subset-egs.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 

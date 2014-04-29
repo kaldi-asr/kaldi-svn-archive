@@ -1,4 +1,4 @@
-// nnet2bin/nnet-train-parallel.cc
+// nnet2bin/nnet2-train-parallel.cc
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Train the neural network parameters with backprop and stochastic\n"
         "gradient descent using minibatches.  The training frames and labels\n"
-        "are read via a pipe from nnet-randomize-frames.  This is like nnet-train-simple,\n"
+        "are read via a pipe from nnet-randomize-frames.  This is like nnet2-train-simple,\n"
         "but uses multiple threads in a Hogwild type of update.\n"
         "By default reads/writes model file (.mdl) but with --raw=true,\n"
         "reads/writes raw-nnet.\n"

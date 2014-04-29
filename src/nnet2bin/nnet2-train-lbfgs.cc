@@ -1,4 +1,4 @@
-// nnet2bin/nnet-train-lbfgs.cc
+// nnet2bin/nnet2-train-lbfgs.cc
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
@@ -35,10 +35,10 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Train the neural network parameters using L-BFGS on a subset of data\n"
         "\n"
-        "Usage:  nnet-train-lbfgs [options] <model-in> <training-examples-in> <model-out>\n"
+        "Usage:  nnet2-train-lbfgs [options] <model-in> <training-examples-in> <model-out>\n"
         "\n"
         "e.g.:\n"
-        "nnet-randomize-frames [args] | nnet-train-lbfgs 1.nnet ark:- 2.nnet\n";
+        "nnet-randomize-frames [args] | nnet2-train-lbfgs 1.nnet ark:- 2.nnet\n";
     
     bool binary_write = true;
     bool zero_stats = true;

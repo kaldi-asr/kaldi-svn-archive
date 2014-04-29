@@ -1,4 +1,4 @@
-// nnet2bin/nnet-adjust-priors.cc
+// nnet2bin/nnet2-adjust-priors.cc
 
 // Copyright 2014  Johns Hopkins University (author:  Daniel Povey)
 
@@ -79,9 +79,9 @@ int main(int argc, char *argv[]) {
         "posterior with nnet-compute or nnet-compute-from-egs, piped into nnet-sum-rows\n"
         "and then vector-sum, to compute the average posterior\n"
         "\n"
-        "Usage: nnet-adjust-priors [options] <nnet-in> <summed-posterior-vector-in> <nnet-out>\n"
+        "Usage: nnet2-adjust-priors [options] <nnet-in> <summed-posterior-vector-in> <nnet-out>\n"
         "e.g.:\n"
-        " nnet-adjust-priors final.mdl prior.vec final.mdl\n";
+        " nnet2-adjust-priors final.mdl prior.vec final.mdl\n";
     
     bool binary_write = true;
     BaseFloat prior_floor = 1.0e-15; // Have a very low prior floor, since this method

@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-compute.cc
+// nnet2bin/nnet2-compute.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 

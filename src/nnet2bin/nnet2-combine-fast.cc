@@ -1,4 +1,4 @@
-// nnet2bin/nnet-combine-fast.cc
+// nnet2bin/nnet2-combine-fast.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 

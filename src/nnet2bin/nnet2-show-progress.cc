@@ -1,4 +1,4 @@
-// nnet2bin/nnet-show-progress.cc
+// nnet2bin/nnet2-show-progress.cc
 
 // Copyright 2012-2013  Johns Hopkins University (author:  Daniel Povey)
 

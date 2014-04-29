@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-mixup.cc
+// nnet2bin/nnet2-mixup.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 

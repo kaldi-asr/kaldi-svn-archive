@@ -1,4 +1,4 @@
-// nnet2bin/nnet-align-compiled.cc
+// nnet2bin/nnet2-align-compiled.cc
 
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
@@ -40,12 +40,12 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Align features given neural-net-based model\n"
-        "Usage:   nnet-align-compiled [options] model-in graphs-rspecifier feature-rspecifier alignments-wspecifier\n"
+        "Usage:  nnet2-align-compiled [options] model-in graphs-rspecifier feature-rspecifier alignments-wspecifier\n"
         "e.g.: \n"
-        " nnet-align-compiled 1.mdl ark:graphs.fsts scp:train.scp ark:1.ali\n"
+        " nnet2-align-compiled 1.mdl ark:graphs.fsts scp:train.scp ark:1.ali\n"
         "or:\n"
         " compile-train-graphs tree 1.mdl lex.fst ark:train.tra b, ark:- | \\\n"
-        "   nnet-align-compiled 1.mdl ark:- scp:train.scp t, ark:1.ali\n";
+        "   nnet2-align-compiled 1.mdl ark:- scp:train.scp t, ark:1.ali\n";
 
     ParseOptions po(usage);
     std::string use_gpu = "yes";

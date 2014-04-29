@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-fix.cc
+// nnet2bin/nnet2-fix.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -35,18 +35,18 @@ int main(int argc, char *argv[]) {
         "Copy a (cpu-based) neural net and its associated transition model,\n"
         "but modify it to remove certain pathologies.  We use the average\n"
         "derivative statistics stored with the layers derived from\n"
-        "NonlinearComponent.  Note: some processes, such as nnet-combine-fast,\n"
+        "NonlinearComponent.  Note: some processes, such as nnet2-combine-fast,\n"
         "may not process these statistics correctly, and you may have to recover\n"
-        "them using the --stats-from option of nnet-am-copy before you use.\n"
+        "them using the --stats-from option of nnet2-copy before you use.\n"
         "this program.\n"
         "By default reads/writes model file (.mdl) but with --raw=true,\n"
         "reads/writes raw-nnet.\n"
         "\n"
-        "Usage:  nnet-am-fix [options] <nnet-in> <nnet-out>\n"
+        "Usage:  nnet2-fix [options] <nnet-in> <nnet-out>\n"
         "e.g.:\n"
-        " nnet-am-fix 1.mdl 1_fixed.mdl\n"
+        " nnet2-fix 1.mdl 1_fixed.mdl\n"
         "or:\n"
-        " nnet-am-fix --get-counts-from=1.gradient 1.mdl 1_shrunk.mdl\n";
+        " nnet2-fix --get-counts-from=1.gradient 1.mdl 1_shrunk.mdl\n";
 
     bool binary_write = true;
     NnetFixConfig config;

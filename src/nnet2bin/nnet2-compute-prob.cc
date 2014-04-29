@@ -1,4 +1,4 @@
-// nnet2bin/nnet-compute-prob.cc
+// nnet2bin/nnet2-compute-prob.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -34,10 +34,10 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Computes and prints the average log-prob per frame of the given data with a\n"
-        "neural net.  The input of this is the output of e.g. nnet-get-egs\n"
+        "neural net.  The input of this is the output of e.g. nnet22-get-egs\n"
         "Aside from the logging output, which goes to the standard error, this program\n"
         "prints the average log-prob per frame to the standard output.\n"
-        "Also see nnet-logprob, which produces a matrix of log-probs for each utterance.\n"
+        "Also see nnet2-logprob, which produces a matrix of log-probs for each utterance.\n"
         "By default reads/writes model file (.mdl) but with --raw=true,\n"
         "reads/writes raw-nnet.\n"
         "\n"

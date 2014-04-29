@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-widen.cc
+// nnet2bin/nnet2-widen.cc
 
 // Copyright 2012-2013  Johns Hopkins University (author:  Daniel Povey)
 
@@ -40,9 +40,9 @@ int main(int argc, char *argv[]) {
         "By default reads/writes model file (.mdl) but with --raw=true,\n"
         "reads/writes raw-nnet.\n"
         "\n"
-        "Usage:  nnet-am-widen [options] <nnet-in> <nnet-out>\n"
+        "Usage:  nnet2-widen [options] <nnet-in> <nnet-out>\n"
         "e.g.:\n"
-        " nnet-am-widen --hidden-layer-dim=1024 1.mdl 2.mdl\n";
+        " nnet2-widen --hidden-layer-dim=1024 1.mdl 2.mdl\n";
 
     NnetWidenConfig config;
     bool binary_write = true;

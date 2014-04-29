@@ -1,4 +1,4 @@
-// nnet2bin/nnet-combine-egs-discriminative.cc
+// nnet2bin/nnet2-combine-egs-discriminative.cc
 
 // Copyright 2012-2013  Johns Hopkins University (author:  Daniel Povey)
 
@@ -35,10 +35,10 @@ int main(int argc, char *argv[]) {
         "be less than --max-length.  This can help to improve efficiency\n"
         "(--max-length corresponds to minibatch size)\n"
         "\n"
-        "Usage:  nnet-combine-egs-discriminative [options] <egs-rspecifier> <egs-wspecifier>\n"
+        "Usage:  nnet2-combine-egs-discriminative [options] <egs-rspecifier> <egs-wspecifier>\n"
         "\n"
         "e.g.\n"
-        "nnet-combine-egs-discriminative --max-length=512 ark:temp.1.degs ark:1.degs\n";
+        "nnet2-combine-egs-discriminative --max-length=512 ark:temp.1.degs ark:1.degs\n";
         
     int32 max_length = 512;
     int32 hard_max_length = 2048;

@@ -1,4 +1,4 @@
-// nnet2bin/nnet-get-feature-transform-multi.cc
+// nnet2bin/nnet2-get-feature-transform-multi.cc
 
 // Copyright 2013  Johns Hopkins University (author: Daniel Povey)
 
@@ -30,12 +30,12 @@ int main(int argc, char *argv[]) {
         "Get feature-projection transform using stats obtained with acc-lda.\n"
         "The file <index-list> contains a series of line, each containing a list\n"
         "of integer indexes.  For each line we create a transform of the same type\n"
-        "as nnet-get-feature-transform would produce, taking as input just the\n"
+        "as nnet2-get-feature-transform would produce, taking as input just the\n"
         "listed feature dimensions.  The output transform will be the concatenation\n"
         "of all these transforms.  The output-dim will be the number of integers in\n"
         "the file <index-list> (the individual transforms are not dimension-reducing).\n"
         "Do not set the --dim option."
-        "Usage:  nnet-get-feature-transform-multi [options] <index-list> <lda-acc-1> <lda-acc-2> ... <lda-acc-n> <matrix-out>\n";
+        "Usage:  nnet2-get-feature-transform-multi [options] <index-list> <lda-acc-1> <lda-acc-2> ... <lda-acc-n> <matrix-out>\n";
 
     bool binary = true;
 

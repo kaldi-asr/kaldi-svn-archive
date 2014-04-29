@@ -1,4 +1,4 @@
-// nnet2bin/nnet-replace-last-layers.cc
+// nnet2bin/nnet2-replace-last-layers.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -36,16 +36,16 @@ int main(int argc, char *argv[]) {
         "It removes the last --remove-layers layers, and adds the layers from the\n"
         "supplied raw-nnet.  The typical use is to remove the last two layers\n"
         "(the softmax, and the affine component before it), and add in replacements\n"
-        "for them newly initialized by nnet-init.  This program is a more flexible\n"
-        "way of adding layers than nnet-insert, but the inserted network needs to\n"
+        "for them newly initialized by nnet2-init.  This program is a more flexible\n"
+        "way of adding layers than nnet2-insert, but the inserted network needs to\n"
         "contain replacements for the removed layers.  This program by default reads/writes\n"
         "model (.mdl) files, but with the --raw option can also work with 'raw' neural\n"
         "nets.\n"
         "\n"
-        "Usage:  nnet-replace-last-layers [options] <model-in> <nnet-to-insert-in> <model-out>\n"
-        "Usage:  nnet-replace-last-layers --raw [options] <nnet-in> <nnet-to-insert-in> <nnet-out>\n"
+        "Usage:  nnet2-replace-last-layers [options] <model-in> <nnet-to-insert-in> <model-out>\n"
+        "Usage:  nnet2-replace-last-layers --raw [options] <nnet-in> <nnet-to-insert-in> <nnet-out>\n"
         "e.g.:\n"
-        " nnet-replace-last-layers 1.mdl \"nnet-init hidden_layer.config -|\" 2.mdl\n";
+        " nnet2-replace-last-layers 1.mdl \"nnet2-init hidden_layer.config -|\" 2.mdl\n";
 
     bool binary_write = true;
     bool raw = false;

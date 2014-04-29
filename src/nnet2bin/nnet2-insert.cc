@@ -1,4 +1,4 @@
-// nnet2bin/nnet-insert.cc
+// nnet2bin/nnet2-insert.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "Usage:  nnet2-insert [options] <nnet-in> <raw-nnet-to-insert-in> <nnet-out>\n"
         "e.g.:\n"
-        " nnet-insert 1.nnet \"nnet-init hidden_layer.config -|\" 2.nnet\n";
+        " nnet2-insert 1.nnet \"nnet22-init hidden_layer.config -|\" 2.nnet\n";
 
     bool binary_write = true;
     bool randomize_next_component = true;

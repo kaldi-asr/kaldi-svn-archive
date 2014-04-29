@@ -1,4 +1,4 @@
-// nnet2bin/nnet-train-simple.cc
+// nnet2bin/nnet2-train-simple.cc
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         "Usage:  nnet2-train-simple [options] <model-in> <training-examples-in> <model-out>\n"
         "\n"
         "e.g.:\n"
-        "nnet2-randomize-frames [args] | nnet-train-simple 1.nnet ark:- 2.nnet\n";
+        "nnet2-randomize-frames [args] | nnet2-train-simple 1.nnet ark:- 2.nnet\n";
     
     bool binary_write = true;
     bool zero_stats = true;

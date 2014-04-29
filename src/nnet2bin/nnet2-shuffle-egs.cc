@@ -1,4 +1,4 @@
-// nnet2bin/nnet-shuffle-egs.cc
+// nnet2bin/nnet2-shuffle-egs.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 

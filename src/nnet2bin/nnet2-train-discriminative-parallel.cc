@@ -1,4 +1,4 @@
-// nnet2bin/nnet-train-discriminative-parallel.cc
+// nnet2bin/nnet2-train-discriminative-parallel.cc
 
 // Copyright 2013  Johns Hopkins University (author: Daniel Povey)
 
@@ -35,12 +35,12 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Train the neural network parameters with a discriminative objective\n"
         "function (MMI, SMBR or MPFE).  This uses training examples prepared with\n"
-        "nnet-get-egs-discriminative\n"
+        "nnet2-get-egs-discriminative\n"
         "This version uses multiple threads (but no GPU)"
         "\n"
-        "Usage:  nnet-train-discriminative-parallel [options] <model-in> <training-examples-in> <model-out>\n"
+        "Usage:  nnet2-train-discriminative-parallel [options] <model-in> <training-examples-in> <model-out>\n"
         "e.g.:\n"
-        "nnet-train-discriminative-parallel --num-threads=8 1.nnet ark:1.degs 2.nnet\n";
+        "nnet2-train-discriminative-parallel --num-threads=8 1.nnet ark:1.degs 2.nnet\n";
     
     bool binary_write = true;
     std::string use_gpu = "yes";

@@ -1,4 +1,4 @@
-// nnet2bin/nnet-get-egs.cc
+// nnet2bin/nnet2-get-egs.cc
 
 // Copyright 2012-2013  Johns Hopkins University (author:  Daniel Povey)
 
@@ -97,20 +97,20 @@ int main(int argc, char *argv[]) {
         "Get frame-by-frame examples of data for neural network training.\n"
         "Essentially this is a format change from features and posteriors\n"
         "into a special frame-by-frame format.  To split randomly into\n"
-        "different subsets, do nnet-copy-egs with --random=true, but\n"
+        "different subsets, do nnet2-copy-egs with --random=true, but\n"
         "note that this does not randomize the order of frames.\n"
         "Also see nnet-randomize-frames, which uses more memory but also\n"
         "randomizes the order\n"
         "\n"
-        "Usage:  nnet-get-egs [options] <features-rspecifier> "
+        "Usage:  nnet2-get-egs [options] <features-rspecifier> "
         "<pdf-post-rspecifier> <training-examples-out>\n"
         "\n"
         "An example [where $feats expands to the actual features]:\n"
-        "nnet-get-egs --left-context=8 --right-context=8 \"$feats\" \\\n"
+        "nnet2-get-egs --left-context=8 --right-context=8 \"$feats\" \\\n"
         "  \"ark:gunzip -c exp/nnet/ali.1.gz | ali-to-pdf exp/nnet/1.nnet ark:- ark:- | ali-to-post ark:- ark:- |\" \\\n"
         "   ark:- \n"
         "Note: the --left-context and --right-context would be derived from\n"
-        "the output of nnet-info.";
+        "the output of nnet2-info.";
         
     
     int32 left_context = 0, right_context = 0;

@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-average.cc
+// nnet2bin/nnet2-average.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -37,12 +37,12 @@ int main(int argc, char *argv[]) {
         "By default reads/writes model file (.mdl) but with --raw=true,\n"
         "reads/writes raw-nnet.\n"
         "\n"
-        "Usage:  nnet-am-average [options] <model1> <model2> ... <modelN> <model-out>\n"
+        "Usage:  nnet2-average [options] <model1> <model2> ... <modelN> <model-out>\n"
         "\n"
         "e.g.:\n"
         " nnet2-average 1.1.mdl 1.2.mdl 1.3.mdl 2.mdl\n"
         "\n"
-        "See also: nnet-average, nnet-am-combine\n";
+        "See also: nnet2-combine\n";
     
     bool binary_write = true;
     bool sum = false;

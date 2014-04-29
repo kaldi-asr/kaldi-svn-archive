@@ -1,4 +1,4 @@
-// nnet2bin/nnet-get-egs-discriminative.cc
+// nnet2bin/nnet2-get-egs-discriminative.cc
 
 // Copyright 2012-2013  Johns Hopkins University (author:  Daniel Povey)
 
@@ -37,12 +37,12 @@ int main(int argc, char *argv[]) {
         "each one corresponds to part of a file, of variable (and configurable\n"
         "length.\n"
         "\n"
-        "Usage:  nnet-get-egs-discriminative [options] <model|transition-model> "
+        "Usage:  nnet2-get-egs-discriminative [options] <model|transition-model> "
         "<features-rspecifier> <ali-rspecifier> <den-lat-rspecifier> "
         "<training-examples-out>\n"
         "\n"
         "An example [where $feats expands to the actual features]:\n"
-        "nnet-get-egs-discriminative --acoustic-scale=0.1 \\\n"
+        "nnet2-get-egs-discriminative --acoustic-scale=0.1 \\\n"
         "  1.mdl '$feats' 'ark,s,cs:gunzip -c ali.1.gz|' 'ark,s,cs:gunzip -c lat.1.gz|' ark:1.degs\n";
     
     std::string spk_vecs_rspecifier, utt2spk_rspecifier;

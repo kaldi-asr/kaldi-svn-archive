@@ -1,4 +1,4 @@
-// nnet2bin/nnet-normalize-stddev.cc
+// nnet2bin/nnet2-normalize-stddev.cc
 
 // Copyright 2013  Guoguo Chen
 

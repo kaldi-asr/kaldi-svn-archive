@@ -1,4 +1,4 @@
-// nnet2bin/nnet-init.cc
+// nnet2bin/nnet2-init.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         "Initialize the neural network from a config file with a line for each\n"
         "component.  Note, this only outputs the neural net itself, not the associated\n"
         "information such as the transition-model; you'll probably want to pipe\n"
-        "the output into something like am-nnet-init.\n"
+        "the output into something like nnet2-am-init.\n"
         "\n"
         "Usage:  nnet2-init [options] <config-in> <raw-nnet-out>\n"
         "e.g.:\n"

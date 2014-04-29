@@ -1,4 +1,4 @@
-// nnet2bin/nnet-am-info.cc
+// nnet2bin/nnet2-info.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
 
