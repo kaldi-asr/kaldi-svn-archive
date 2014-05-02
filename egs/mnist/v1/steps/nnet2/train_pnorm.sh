@@ -6,7 +6,7 @@
 
 # This is a version of the script for image recognition
 
-# This script trains a fairly vanilla network with tanh nonlinearities.
+# This script trains a network with p-norm nonlinearities.
 
 # Begin configuration section.
 cmd=run.pl
@@ -19,15 +19,12 @@ num_iters_final=20 # Maximum number of final iterations to give to the
 initial_learning_rate=0.04
 final_learning_rate=0.004
 bias_stddev=0.5
-shrink_interval=5 # shrink every $shrink_interval iters except while we are 
-                  # still adding layers, when we do it every iter.
-shrink=true
-num_egs_shrink=2000 # note: must be <= --num-egs-diagnostic option to get_egs.sh, if
-                       # given.
 final_learning_rate_factor=0.5 # Train the two last layers of parameters half as
                                # fast as the other layers.
 
-hidden_layer_dim=500 #  You may want this larger, e.g. 1024 or 2048.
+pnorm_input_dim=1000 
+pnorm_output_dim=500
+p=2
 
 minibatch_size=128 # by default use a smallish minibatch size for neural net
                    # training; this controls instability which would otherwise
@@ -178,13 +175,14 @@ if [ $stage -le -2 ]; then
   # the central row. 
   left_context=$[($num_rows-1)/2]
   right_context=$[$num_rows-$left_context-1];
-  stddev=`perl -e "print 1.0/sqrt($hidden_layer_dim);"`
+  stddev=`perl -e "print 1.0/sqrt($pnorm_input_dim);"`
   spliced_dim=$[$num_rows*$num_cols];
   cat >$dir/nnet.config <<EOF
 SpliceComponent input-dim=$num_cols left-context=$left_context right-context=$right_context
-AffineComponentPreconditioned input-dim=$spliced_dim output-dim=$hidden_layer_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
-TanhComponent dim=$hidden_layer_dim
-AffineComponentPreconditioned input-dim=$hidden_layer_dim output-dim=$num_classes alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
+AffineComponentPreconditioned input-dim=$spliced_dim output-dim=$pnorm_input_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
+PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
+NormalizeComponent dim=$pnorm_output_dim
+AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$num_classes alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
 SoftmaxComponent dim=$num_classes
 EOF
 
@@ -193,9 +191,10 @@ EOF
   # to add new layers.  (now we are using nnet-replace-last-layers instead of
   # nnet-insert, and this involves also replacing the last layer).
   cat >$dir/new_hidden_layer.config <<EOF
-AffineComponentPreconditioned input-dim=$hidden_layer_dim output-dim=$hidden_layer_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
-TanhComponent dim=$hidden_layer_dim
-AffineComponentPreconditioned input-dim=$hidden_layer_dim output-dim=$num_classes alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
+AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$pnorm_input_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
+PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
+NormalizeComponent dim=$pnorm_output_dim
+AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$num_classes alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
 SoftmaxComponent dim=$num_classes
 EOF
   $cmd $dir/log/nnet_init.log \
@@ -291,19 +290,6 @@ while [ $x -lt $num_iters ]; do
         nnet2-modify-learning-rates --raw=true --last-layer-factor=$last_layer_factor \
           --first-layer-factor=$first_layer_factor --average-learning-rate=$learning_rate \
         $dir/$x.nnet $dir/$[$x+1].nnet $dir/$[$x+1].nnet || exit 1;
-    fi
-
-    if $shrink && [ $[$x % $shrink_interval] -eq 0 ]; then
-      mb=$[($num_egs_shrink+$num_threads-1)/$num_threads]
-      $cmd $parallel_opts $dir/log/shrink.$x.log \
-        nnet2-subset-egs --n=$num_egs_shrink --randomize-order=true --srand=$x \
-          ark:$egs_dir/train_diagnostic.egs ark:-  \| \
-        nnet2-combine-fast --raw=true --use-gpu=no --num-threads=$num_threads --verbose=3 --minibatch-size=$mb \
-          $dir/$[$x+1].nnet ark:- $dir/$[$x+1].nnet || exit 1;
-    else
-      # On other iters, do nnet2-fix which is much faster and has roughly
-      # the same effect.
-      nnet2-fix --raw=true $dir/$[$x+1].nnet $dir/$[$x+1].nnet 2>$dir/log/fix.$x.log 
     fi
 
     if [ "$mix_up" -gt 0 ] && [ $x -eq $mix_up_iter ]; then
