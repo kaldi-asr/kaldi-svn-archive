@@ -3,6 +3,7 @@
 // Copyright 2009-2011  Karel Vesely;  Microsoft Corporation
 //                2013  Florent Masson
 //                2013  Johns Hopkins University (author: Daniel Povey)
+//                2014  Vimal Manohar
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -61,6 +62,12 @@ class WaveData {
 
   WaveData() : samp_freq_(0.0) {}
 
+  // Wave data is initialized with random Gaussian noise of unit variance.
+  // The noise in different channels are independent
+  WaveData(BaseFloat samp_freq, int32 num_samples, int32 num_channels = 1, BaseFloat variance = 1.0);
+  
+  WaveData(BaseFloat samp_freq, BaseFloat duration, int32 num_channels = 1, BaseFloat variance = 1.0);
+
   /// Read() will throw on error.  It's valid to call Read() more than once--
   /// in this case it will destroy what was there before.
   /// "is" should be opened in binary mode.
@@ -89,6 +96,18 @@ class WaveData {
     samp_freq_ = 0.0;
   }
 
+  // Returns number of channels
+  int32 NumChannels() const { return data_.NumRows(); }
+  
+  // Returns the duration in number of samples
+  int32 NumSamples() const { return data_.NumCols(); }
+
+  // Compute the mean loudness in dB of the signal in different channels
+  void MeanLoudness(Vector<BaseFloat> &loudness);
+  
+  // Compute the mean loudness in dB of the signal in particular channel
+  BaseFloat MeanLoudness(int32 channel);
+ 
  private:
   Matrix<BaseFloat> data_;
   BaseFloat samp_freq_;

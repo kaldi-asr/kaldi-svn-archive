@@ -3,6 +3,7 @@
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek
 //                2013  Florent Masson
 //                2013  Johns Hopkins University (author: Daniel Povey)
+//                2014  Vimal Manohar
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -28,6 +29,19 @@
 #include "base/kaldi-utils.h"
 
 namespace kaldi {
+  
+WaveData::WaveData(BaseFloat samp_freq, int32 num_samples, int32 num_channels, BaseFloat variance)
+  : samp_freq_(samp_freq) {
+    KALDI_ASSERT(num_channels > 0 && num_samples > 0);
+    data_.Resize(num_channels, num_samples);
+    data_.SetRandn();
+    KALDI_ASSERT(variance > 0.0);
+    if (variance != 1.0)
+      data_.Scale(sqrt((double)variance));
+  }
+
+WaveData::WaveData(BaseFloat samp_freq, BaseFloat duration, int32 num_channels, BaseFloat variance) 
+  : WaveData(samp_freq, static_cast<int32>(duration * samp_freq), num_channels, variance) {}
 
 // static
 void WaveData::Expect4ByteTag(std::istream &is, const char *expected) {
@@ -296,5 +310,18 @@ void WaveData::Write(std::ostream &os) const {
     KALDI_ERR << "Error writing wave data to stream.";
 }
 
+void WaveData::MeanLoudness(Vector<BaseFloat> &loudness) {
+  loudness.Resize(data_.NumRows());
+  for (int32 c = 0; c < data_.NumRows(); c++) {
+    loudness(c) = MeanLoudness(c);
+  }
+}
+
+BaseFloat WaveData::MeanLoudness(int32 c) {
+  Vector<BaseFloat> x(data_.NumCols());
+  x.CopyFromVec(data_.Row(c));
+  x.MulElements(data_.Row(c));
+  return ( 10 * log10( x.Sum() / data_.NumCols() ) );
+}
 
 }  // end namespace kaldi
