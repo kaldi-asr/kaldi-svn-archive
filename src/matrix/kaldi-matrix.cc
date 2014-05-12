@@ -82,7 +82,7 @@ void MatrixBase<Real>::Invert(Real *log_det, Real *det_sign,
       prod *= (*this)(i, i);
       if (i == num_rows_ - 1 || std::fabs(prod) < 1.0e-10 ||
           std::fabs(prod) > 1.0e+10) {
-        if (log_det != NULL) *log_det += std::log(std::fabs(prod));
+        if (log_det != NULL) *log_det += Log(std::fabs(prod));
         if (det_sign != NULL) *det_sign *= (prod > 0 ? 1.0 : -1.0);
         prod = 1.0;
       }
@@ -227,6 +227,22 @@ void MatrixBase<Real>::SymAddMat2(const Real alpha,
                 (transA == kTrans && A.num_cols_ == num_cols_)));
   KALDI_ASSERT(A.data_ != data_);
   if (num_rows_ == 0) return;
+
+  /// When the matrix dimension(this->num_rows_) is not less than 56
+  /// and the transpose type transA == kTrans, the cblas_Xsyrk(...)
+  /// function will produce NaN in the output. This is a bug in the
+  /// ATLAS library. To overcome this, the AddMatMat function, which calls
+  /// cblas_Xgemm(...) rather than cblas_Xsyrk(...), is used in this special
+  /// sitation.
+  /// Wei Shi: Note this bug is observerd for single precision matrix
+  /// on a 64-bit machine
+#ifdef HAVE_ATLAS
+  if (transA == kTrans && num_rows_ >= 56) {
+    this->AddMatMat(alpha, A, kTrans, A, kNoTrans, beta);
+    return;
+  }
+#endif // HAVE_ATLAS
+
   MatrixIndexT A_other_dim = (transA == kNoTrans ? A.num_cols_ : A.num_rows_);
   
   // This function call is hard-coded to update the lower triangle.
@@ -713,13 +729,9 @@ void MatrixBase<Real>::CopyFromSp(const SpMatrix<OtherReal> & M) {
 
 // Instantiate this function
 template
-void MatrixBase<float>::CopyFromSp(const SpMatrix<float> & M);
-template
 void MatrixBase<float>::CopyFromSp(const SpMatrix<double> & M);
 template
 void MatrixBase<double>::CopyFromSp(const SpMatrix<float> & M);
-template
-void MatrixBase<double>::CopyFromSp(const SpMatrix<double> & M);
 
 
 template<typename Real>
@@ -2362,7 +2374,7 @@ Real MatrixBase<Real>::LogSumExp(Real prune) const {
         sum_relto_max_elem += Exp(f - max_elem);
     }
   }
-  return max_elem + std::log(sum_relto_max_elem);
+  return max_elem + Log(sum_relto_max_elem);
 }
 
 template<typename Real>
@@ -2373,7 +2385,7 @@ Real MatrixBase<Real>::ApplySoftMax() {
     for (MatrixIndexT j = 0; j < num_cols_; j++)
       sum += ((*this)(i, j) = Exp((*this)(i, j) - max));
   this->Scale(1.0 / sum);
-  return max + log(sum);
+  return max + Log(sum);
 }
 
 template<typename Real>
