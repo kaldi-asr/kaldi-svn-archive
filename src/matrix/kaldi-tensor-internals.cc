@@ -56,7 +56,7 @@ void ReorderSumToEnd(std::vector<TensorOperationDims> *vec) {
     for (size_t i = 0; i < size; i++) {
       bool is_summed = ((*vec)[i].stride_c == 0 && (*vec)[i].dim != 1);
       // wait till iteration 2 to handle the summed dimensions.
-      if (is_summed = (iter == 2))
+      if (is_summed == (iter == 2))
         order.push_back(i);
     }
   }
