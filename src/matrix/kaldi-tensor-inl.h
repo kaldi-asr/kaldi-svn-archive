@@ -23,29 +23,31 @@
 namespace kaldi {
 
 template<typename Real>
-Real& Tensor<Real>::operator() (int32 d0, int32 d1, int32 d2, int32 d3, int32 d4) {
-  // might later turn this to KALDI_PARANOID_ASSERT if it takes too long.  
-  KALDI_ASSERT(static_cast<size_t>(d0) < static_cast<size_t>(dims_[0].dim) &&
-               static_cast<size_t>(d1) < static_cast<size_t>(dims_[1].dim) &&
-               static_cast<size_t>(d2) < static_cast<size_t>(dims_[2].dim) &&
-               static_cast<size_t>(d3) < static_cast<size_t>(dims_[3].dim) &&
-               static_cast<size_t>(d4) < static_cast<size_t>(dims_[4].dim));
-  return data_[d0 * dims_[0].stride + d1 * dims_[1].stride
-               + d2 * dims_[2].stride + d3 * dims_[3].stride
-               + d4 * dims_[4].stride];
+inline Real& Tensor<Real>::operator() (const std::vector<int32> &indexes) {
+  KALDI_ASSERT(indexes.size() == this->dims_strides_.size());
+  Real *data = this->data_;
+  for (size_t i = 0; i < indexes.size(); i++) {
+    size_t n = indexes[i],
+        dim = this->dims_strides_[i].first,
+        stride = this->dims_strides_[i].second;
+    KALDI_ASSERT(n < dim);
+    data += n * stride;
+  }
+  return *data;
 }
 
 template<typename Real>
-Real Tensor<Real>::operator()(int32 d0, int32 d1, int32 d2, int32 d3, int32 d4) const {
-  // might later turn this to KALDI_PARANOID_ASSERT if it takes too long.
-  KALDI_ASSERT(static_cast<size_t>(d0) < static_cast<size_t>(dims_[0].dim) &&
-               static_cast<size_t>(d1) < static_cast<size_t>(dims_[1].dim) &&
-               static_cast<size_t>(d2) < static_cast<size_t>(dims_[2].dim) &&
-               static_cast<size_t>(d3) < static_cast<size_t>(dims_[3].dim) &&
-               static_cast<size_t>(d4) < static_cast<size_t>(dims_[4].dim));
-  return data_[d0 * dims_[0].stride + d1 * dims_[1].stride
-               + d2 * dims_[2].stride + d3 * dims_[3].stride
-               + d4 * dims_[4].stride];
+inline Real Tensor<Real>::operator() (const std::vector<int32> &indexes) const {
+  KALDI_ASSERT(indexes.size() == this->dims_strides_.size());
+  Real *data = this->data_;
+  for (size_t i = 0; i < indexes.size(); i++) {
+    size_t n = indexes[i],
+        dim = this->dims_strides_[i].first,
+        stride = this->dims_strides_[i].second;
+    KALDI_ASSERT(n < dim);
+    data += n * stride;
+  }
+  return *data;
 }
 
 

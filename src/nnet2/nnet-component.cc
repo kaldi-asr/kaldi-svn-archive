@@ -1,4 +1,4 @@
-// nnet2/nnet-component.cc
+/// nnet2-component.cc
 
 // Copyright 2011-2012  Karel Vesely
 //           2013-2014  Johns Hopkins University (author: Daniel Povey)
@@ -68,6 +68,8 @@ Component* Component::NewComponentOfType(const std::string &component_type) {
     ans = new PowerExpandComponent();
   } else if (component_type == "AffineComponent") {
     ans = new AffineComponent();
+  } else if (component_type == "ConvolutionalComponent") {
+    ans = new ConvolutionalComponent();
   } else if (component_type == "PiecewiseLinearComponent") {
     ans = new PiecewiseLinearComponent();
   } else if (component_type == "AffineComponentA") {
@@ -4225,7 +4227,8 @@ void AffineComponentA::Write(std::ostream &os, bool binary) const {
 }
 
 AffineComponentA::AffineComponentA(const AffineComponent &component):
-    AffineComponent(component) { }
+    AffineComponent(component) {
+}
 
 
 void AffineComponentA::InitializeScatter() {
@@ -4468,6 +4471,502 @@ void AffineComponentA::Precondition(
   component->bias_params_.CopyColFromMat(params,
                                          InputDim());  
 }
+
+int32 ConvolutionalComponent::InputDim() const {
+  int32 ans = 1;
+  for (size_t i = 0; i < input_tensor_dims_.size(); i++)
+    ans *= input_tensor_dims_[i];
+  return ans;
+}
+
+int32 ConvolutionalComponent::OutputDim() const {
+  int32 ans = 1;
+  for (size_t i = 0; i < input_tensor_dims_.size(); i++)
+    ans *= output_tensor_dims_[i];
+  return ans;
+}
+
+void ConvolutionalComponent::Init(BaseFloat learning_rate,
+                                  const std::vector<int32> &input_tensor_dims,
+                                  const std::vector<int32> &output_tensor_dims,
+                                  const std::vector<int32> &param_tensor_dims,
+                                  int32 left_context,
+                                  BaseFloat alpha,
+                                  BaseFloat max_change,
+                                  BaseFloat param_stddev,
+                                  BaseFloat bias_stddev) {
+  input_tensor_dims_ = input_tensor_dims;
+  output_tensor_dims_ = output_tensor_dims;
+  param_tensor_dims_ = param_tensor_dims;
+  learning_rate_ = learning_rate;
+  KALDI_ASSERT(learning_rate >= 0.0);
+  left_context_ = left_context_;
+  alpha_ = alpha;
+  KALDI_ASSERT(alpha > 0.0);
+  max_change_ = max_change; // any value is valid: non-positive will mean it's
+                            // not applied.
+
+  {
+    // Check dimensions.
+    KALDI_ASSERT(input_tensor_dims.size() == output_tensor_dims.size() &&
+                 !input_tensor_dims.empty() &&
+                 param_tensor_dims.size() == input_tensor_dims.size() + 1);
+    int32 right_context = param_tensor_dims.front() - 1 - left_context;
+    KALDI_ASSERT(right_context >= 0);
+    for (size_t i = 0; i < input_tensor_dims.size(); i++) {
+      int32 input_dim = input_tensor_dims[i],
+          output_dim = output_tensor_dims[i],
+          param_dim = param_tensor_dims[i + 1];
+      int32 max_dim = std::max(input_dim,
+                               std::max(output_dim, param_dim));
+      // Of the three dims, either they should all be equal to (max or 1), or we
+      // should have input + 1 = output + param, which is the convolutional
+      // case.
+      if ( !((input_dim == 1 || input_dim == max_dim) &&
+             (output_dim == 1 || output_dim == max_dim) &&
+             (param_dim == 1 || param_dim == max_dim)) &&
+           !(input_dim + 1 == output_dim + param_dim) ) {
+        KALDI_ERR << "Cannot make sense of dims: for index " << i
+                  << " of (input/output)_tensor_dims, and index " << (i+1)
+                  << " of param_tensor_dims. (input,output,param) dims "
+                  << "are " << input_dim << ", " << output_dim
+                  << ", " << param_dim;
+      }
+    }
+  }
+  SetNumColIndexes();
+  InitParams(param_stddev, bias_stddev);
+  SetParamTensors();
+}
+
+
+CuTensor<BaseFloat> ConvolutionalComponent::GetInputTensor(
+    const CuMatrixBase<BaseFloat> &in,
+    int32 num_chunks) const {
+  int32 chunk_size_in = in.NumRows() / num_chunks;
+  KALDI_ASSERT(in.NumRows() / num_chunks == 0);
+  std::vector<std::pair<int32, int32> > dims_strides_in;  
+
+  // dimensions of tensor will be
+  // [ num_chunks, chunk_size_in, input_tensor_dims_ ]
+  
+  dims_strides_in.push_back(std::pair<int32, int32 >(num_chunks,
+                                                     chunk_size_in * in.Stride()));
+
+  dims_strides_in.push_back(std::pair<int32, int32>(chunk_size_in,
+                                                    in.Stride()));
+  
+  // note: cur_dim_in gets divided by the current tensor dimension and becomes
+  // the stride each time.
+  int32 cur_dim_in = in.NumCols(); 
+  for (size_t i = 0; i < input_tensor_dims_.size(); i++) {
+    int32 tensor_dim_in = input_tensor_dims_[i];
+    KALDI_ASSERT(cur_dim_in % tensor_dim_in == 0);
+    int32 stride = cur_dim_in / tensor_dim_in;
+    dims_strides_in.push_back(std::pair<int32, int32>(tensor_dim_in, stride));
+    cur_dim_in = stride;
+  }
+  KALDI_ASSERT(cur_dim_in == 1);
+  return CuTensor<BaseFloat>(dims_strides_in, in);
+}
+
+
+CuTensor<BaseFloat> ConvolutionalComponent::GetOutputTensor(
+    const CuMatrixBase<BaseFloat> &out,
+    int32 num_chunks) const {
+  int32 chunk_size_out = out.NumRows() / num_chunks;
+  KALDI_ASSERT(out.NumRows() % num_chunks == 0);
+  
+  std::vector<std::pair<int32, int32> > dims_strides_out;
+
+  // dimensions of tensor will be
+  // [ num_chunks, chunk_size_out, output_tensor_dims_ ]
+  
+  dims_strides_out.push_back(
+      std::pair<int32, int32>(num_chunks, chunk_size_out * out.Stride()));
+  dims_strides_out.push_back(
+      std::pair<int32, int32>(chunk_size_out, out.Stride()));
+
+  // note: cur_dim_out gets divided by the current tensor dimension and becomes
+  // the stride each time.
+  int32 cur_dim_out = out.NumCols(); 
+  for (size_t i = 0; i < output_tensor_dims_.size(); i++) {
+    int32 tensor_dim_out = output_tensor_dims_[i];
+    KALDI_ASSERT(cur_dim_out % tensor_dim_out == 0);
+    int32 stride = cur_dim_out / tensor_dim_out;
+    dims_strides_out.push_back(std::pair<int32, int32>(tensor_dim_out, stride));
+    cur_dim_out = stride;
+  }
+  KALDI_ASSERT(cur_dim_out == 1);
+  return CuTensor<BaseFloat> (dims_strides_out, out);
+}
+
+
+void ConvolutionalComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
+                                       int32 num_chunks,
+                                       CuMatrix<BaseFloat> *out) const {
+  KALDI_ASSERT(in.NumCols() == InputDim() && num_chunks > 0 &&
+               in.NumRows() % num_chunks == 0);
+  
+  int32 chunk_size_in = in.NumRows() / num_chunks,
+      chunk_size_out = chunk_size_in - LeftContext() - RightContext();
+
+  KALDI_ASSERT(chunk_size_out > 0);
+
+  // This call will also set it to zero.
+  out->Resize(in.NumRows() * chunk_size_out, OutputDim());
+
+  const CuTensor<BaseFloat> in_tensor = GetInputTensor(in, num_chunks);
+  CuTensor<BaseFloat> out_tensor = GetOutputTensor(*out, num_chunks);
+  
+  // Note: the CopyFromTensor call will duplicate any dimensions that need
+  // to be duplicated (such as the num_chunks dimension).
+  out_tensor.CopyFromTensor(bias_params_tensor_);
+  out_tensor.ConvTensorTensor(1.0, in_tensor, linear_params_tensor_);
+}
+
+void ConvolutionalComponent::UpdateSimple(
+    const CuTensor<BaseFloat> &in_value,
+    const CuTensor<BaseFloat> &out_deriv) {
+  bias_params_tensor_.AddTensor(learning_rate_, out_deriv);
+  linear_params_tensor_.ConvTensorTensor(learning_rate_, in_value, out_deriv);
+}
+
+void ConvolutionalComponent::Update(
+    const CuTensor<BaseFloat> &in_value,
+    const CuTensor<BaseFloat> &out_deriv) {
+  // TODO: code a version of PreconditionDirections that will work for this.
+  bias_params_tensor_.AddTensor(learning_rate_, out_deriv);
+  linear_params_tensor_.ConvTensorTensor(learning_rate_, in_value, out_deriv);
+}
+
+void ConvolutionalComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
+                                      const CuMatrixBase<BaseFloat> &out_value,
+                                      const CuMatrixBase<BaseFloat> &out_deriv,
+                                      int32 num_chunks,
+                                      Component *to_update_in,
+                                      CuMatrix<BaseFloat> *in_deriv) const {
+  const CuTensor<BaseFloat> in_value_tensor = GetInputTensor(in_value, num_chunks),
+      out_value_tensor = GetOutputTensor(out_value, num_chunks),
+      out_deriv_tensor = GetOutputTensor(out_deriv, num_chunks);
+
+  in_deriv->Resize(in_value.NumRows(), in_value.NumCols());  
+
+  if (in_deriv != NULL) {
+    CuTensor<BaseFloat> in_deriv_tensor = GetInputTensor(*in_deriv, num_chunks);
+    in_deriv_tensor.ConvTensorTensor(1.0, out_deriv_tensor,
+                                     linear_params_tensor_);
+  }
+  if (to_update_in != NULL) {
+    ConvolutionalComponent *to_update = 
+        dynamic_cast<ConvolutionalComponent*>(to_update_in);
+    KALDI_ASSERT(to_update != NULL);
+    if (to_update->is_gradient_) {
+      to_update->UpdateSimple(in_value_tensor, out_deriv_tensor);
+    } else {
+      to_update->Update(in_value_tensor, out_deriv_tensor);
+    }
+  }
+}
+
+void ConvolutionalComponent::InitFromString(std::string args) {
+  std::string orig_args = args;
+  // Defaults of parameters settable in config are set here.
+  BaseFloat learning_rate = learning_rate_, alpha = 4.0,
+      max_change = 10.0, param_stddev = 0.0, bias_stddev = 0.0,
+      left_context = 0;
+  std::vector<int32> input_tensor_dims,
+      output_tensor_dims,
+      param_tensor_dims;
+  
+  std::string filename;
+  bool ok = ParseFromString("input-tensor-dims", &args,
+                            &input_tensor_dims) &&
+      ParseFromString("output-tensor-dims", &args,
+                      &output_tensor_dims) &&
+      ParseFromString("param-tensor-dims", &args,
+                      &param_tensor_dims);
+  
+  // Optional args:
+  ParseFromString("learning-rate", &args, &learning_rate);
+  ParseFromString("alpha", &args, &alpha);
+  ParseFromString("max-change", &args, &max_change);
+  ParseFromString("bias-stddev", &args, &bias_stddev);
+  ParseFromString("param-stddev", &args, &param_stddev);
+  ParseFromString("left-context", &args, &left_context);
+  
+  if (!ok || !args.empty()) 
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
+
+  Init(learning_rate, input_tensor_dims,
+       output_tensor_dims, param_tensor_dims,
+       left_context, alpha, max_change,
+       param_stddev, bias_stddev);
+}
+
+std::string ConvolutionalComponent::Info() const {
+  KALDI_ERR << "Not finished";
+  // TODO.
+  return "";
+}
+
+void ConvolutionalComponent::Scale(BaseFloat scale) {
+  linear_params_.Scale(scale);
+  bias_params_.Scale(scale);
+}
+
+void ConvolutionalComponent::Add(BaseFloat alpha,
+                                 const UpdatableComponent &other_in) {
+  const ConvolutionalComponent *other =
+      dynamic_cast<const ConvolutionalComponent*>(&other_in);
+  KALDI_ASSERT(other != NULL);
+  linear_params_.AddMat(alpha, other->linear_params_);
+  bias_params_.AddMat(alpha, other->bias_params_);
+}
+
+Component* ConvolutionalComponent::Copy() const {
+  // The initializer below will be the one that takes AffineComponent,
+  // so we need to take care of the remaining parameters.
+  ConvolutionalComponent *ans = new ConvolutionalComponent(*this);
+  return ans;
+}
+
+ConvolutionalComponent::ConvolutionalComponent(
+    const ConvolutionalComponent &other):
+    input_tensor_dims_(other.input_tensor_dims_),
+    output_tensor_dims_(other.output_tensor_dims_),
+    param_tensor_dims_(other.param_tensor_dims_),
+    left_context_(other.left_context_),
+    alpha_(other.alpha_),
+    max_change_(other.max_change_),
+    linear_params_(other.linear_params_),
+    bias_params_(other.bias_params_),
+    is_gradient_(other.is_gradient_) {
+  // Set up linear_params_tensor_ and bias_params_tensor_:
+  SetParamTensors(); 
+}
+
+void ConvolutionalComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<ConvolutionalComponent>");
+  WriteToken(os, binary, "<LearningRate>");
+  WriteBasicType(os, binary, learning_rate_);
+  WriteToken(os, binary, "<InputTensorDims>");
+  WriteIntegerVector(os, binary, input_tensor_dims_);
+  WriteToken(os, binary, "<OutputTensorDims>");
+  WriteIntegerVector(os, binary, output_tensor_dims_);
+  WriteToken(os, binary, "<ParamTensorDims>");
+  WriteIntegerVector(os, binary, param_tensor_dims_);
+  WriteToken(os, binary, "<LeftContext>");
+  WriteBasicType(os, binary, left_context_);
+  WriteToken(os, binary, "<Alpha>");
+  WriteBasicType(os, binary, alpha_);
+  WriteToken(os, binary, "<MaxChange>");
+  WriteBasicType(os, binary, max_change_);
+  WriteToken(os, binary, "<LinearParams>");
+  linear_params_.Write(os, binary);
+  WriteToken(os, binary, "<BiasParams>");
+  bias_params_.Write(os, binary);
+  WriteToken(os, binary, "<IsGradient>");
+  WriteBasicType(os, binary, is_gradient_);
+  WriteToken(os, binary, "</ConvolutionalComponent>");
+}
+
+
+void ConvolutionalComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<ConvolutionalComponent>",
+                       "<LearningRate>");
+  ReadBasicType(is, binary, &learning_rate_);
+  ExpectToken(is, binary, "<InputTensorDims>");
+  ReadIntegerVector(is, binary, &input_tensor_dims_);
+  ExpectToken(is, binary, "<OutputTensorDims>");
+  ReadIntegerVector(is, binary, &output_tensor_dims_);
+  ExpectToken(is, binary, "<ParamTensorDims>");
+  ReadIntegerVector(is, binary, &param_tensor_dims_);
+  ExpectToken(is, binary, "<LeftContext>");
+  ReadBasicType(is, binary, &left_context_);
+  ExpectToken(is, binary, "<Alpha>");
+  ReadBasicType(is, binary, &alpha_);
+  ExpectToken(is, binary, "<MaxChange>");
+  ReadBasicType(is, binary, &max_change_);
+  ExpectToken(is, binary, "<LinearParams>");
+  linear_params_.Read(is, binary);
+  ExpectToken(is, binary, "<BiasParams>");
+  bias_params_.Read(is, binary);
+  ExpectToken(is, binary, "<IsGradient>");
+  ReadBasicType(is, binary, &is_gradient_);
+  ExpectToken(is, binary, "</ConvolutionalComponent>");
+}
+
+
+BaseFloat ConvolutionalComponent::DotProduct(
+    const UpdatableComponent &other_in) const {
+  const ConvolutionalComponent *other =
+      dynamic_cast<const ConvolutionalComponent*>(&other_in);
+  KALDI_ASSERT(other != NULL);
+  return TraceMatMat(linear_params_, other->linear_params_, kTrans) +
+      TraceMatMat(bias_params_, other->bias_params_, kTrans);
+  
+}
+void ConvolutionalComponent::PerturbParams(BaseFloat stddev) {
+  CuMatrix<BaseFloat> rand_mat(linear_params_.NumRows(),
+                               linear_params_.NumCols());
+  rand_mat.SetRandn();
+  linear_params_.AddMat(stddev, rand_mat);
+  rand_mat.Resize(bias_params_.NumRows(),
+                  bias_params_.NumCols());
+  rand_mat.SetRandn();
+  bias_params_.AddMat(stddev, rand_mat);
+}
+
+void ConvolutionalComponent::SetZero(bool treat_as_gradient) {
+  if (treat_as_gradient) {
+    SetLearningRate(1.0);
+    is_gradient_ = true;
+  }
+  linear_params_.SetZero();
+  bias_params_.SetZero();
+}
+
+int32 ConvolutionalComponent::GetParameterDim() const {
+  return linear_params_.NumRows() * linear_params_.NumCols() +
+      bias_params_.NumRows() * bias_params_.NumCols();
+}
+
+void ConvolutionalComponent::Vectorize(VectorBase<BaseFloat> *vec) const {
+  int32 linear_dim = linear_params_.NumRows() * linear_params_.NumCols(),
+      bias_dim = bias_params_.NumRows() * bias_params_.NumCols();
+  KALDI_ASSERT(vec->Dim() == linear_dim * bias_dim);
+  vec->Range(0, linear_dim).CopyRowsFromMat(linear_params_);
+  vec->Range(linear_dim, bias_dim).CopyRowsFromMat(bias_params_);
+}
+
+void ConvolutionalComponent::UnVectorize(const VectorBase<BaseFloat> &vec) {
+  int32 linear_dim = linear_params_.NumRows() * linear_params_.NumCols(),
+      bias_dim = bias_params_.NumRows() * bias_params_.NumCols();
+  KALDI_ASSERT(vec.Dim() == linear_dim * bias_dim);
+  linear_params_.CopyRowsFromVec(vec.Range(0, linear_dim));
+  bias_params_.CopyRowsFromVec(vec.Range(linear_dim, bias_dim));
+}
+
+void ConvolutionalComponent::SetNumColIndexes() {
+  if (linear_params_.NumRows() == 0) {
+    // We need to decide how many indexes to allocate to rows vs. columns of
+    // the storage matrices.
+    int32 min_col_dim = 128;
+    // wait till the column dim is >128 and then assign all remaining dims to
+    // rows.  This is a reasonable balance between assuring as good memory
+    // alignment as possible for as many dims as possible, while not wasting too
+    // much memory.
+    int32 col_dim = 1;
+    num_param_col_indexes_ = 0;
+    for (int32 i = param_tensor_dims_.size() - 1; i >= 0; i--) {
+      num_param_col_indexes_++;
+      col_dim *= param_tensor_dims_[i];
+      if (col_dim >= min_col_dim)
+        break;
+    }
+    
+    col_dim = 1;
+    num_bias_col_indexes_ = 0;
+    for (int32 i = output_tensor_dims_.size() - 1; i >= 0; i--) {
+      num_bias_col_indexes_++;
+      col_dim *= output_tensor_dims_[i];
+      if (col_dim >= min_col_dim)
+        break;
+    }
+  } else {
+    // We may have just read in the object: we need to work out what we
+    // previously decided.
+    num_param_col_indexes_ = 0;
+    int32 col_dim = 1;
+    while (col_dim < linear_params_.NumCols())
+      col_dim *= param_tensor_dims_[param_tensor_dims_.size() - 1 -
+                                    num_param_col_indexes_++];
+    KALDI_ASSERT(col_dim == linear_params_.NumCols());
+    col_dim = 1;
+    num_bias_col_indexes_ = 0;    
+    while (col_dim < bias_params_.NumCols())
+      col_dim *= output_tensor_dims_[output_tensor_dims_.size() - 1 -
+                                     num_bias_col_indexes_++];
+    KALDI_ASSERT(col_dim == bias_params_.NumCols());
+  }
+}
+
+void ConvolutionalComponent::InitParams(BaseFloat linear_param_stddev,
+                                        BaseFloat bias_stddev) {
+  int32 linear_rows = 1, linear_cols = 1;
+  for (int32 i = 0; i < param_tensor_dims_.size(); i++) {
+    if (i < param_tensor_dims_.size() - num_param_col_indexes_)
+      linear_rows *= param_tensor_dims_[i];
+    else
+      linear_cols *= param_tensor_dims_[i];
+  }
+  linear_params_.Resize(linear_rows, linear_cols);
+  linear_params_.SetRandn();
+  linear_params_.Scale(linear_param_stddev);
+
+  std::vector<int32> bias_dims(output_tensor_dims_);
+  
+  int32 bias_rows = 1, bias_cols = 1;
+  for (int32 i = 0; i < bias_dims.size(); i++) {
+    if (i < bias_dims.size() - num_bias_col_indexes_)
+      bias_rows *= bias_dims[i];
+    else
+      bias_cols *= bias_dims[i];
+  }
+  bias_params_.Resize(bias_rows, bias_cols);
+  bias_params_.SetRandn();
+  bias_params_.Scale(bias_stddev);  
+}
+
+void ConvolutionalComponent::SetParamTensors() {
+
+  std::vector<std::pair<int32, int32> > dims_strides_linear;
+  // we'll create the dims and strides reversed.
+  int32 num_indexes = param_tensor_dims_.size(), cur_stride = 1;
+  for (int32 i = num_indexes - 1; i >= 0; i--) {
+    int32 this_dim = param_tensor_dims_[i];
+    dims_strides_linear.push_back(std::make_pair<int32, int32>(this_dim,
+                                                               cur_stride));
+    cur_stride *= this_dim;    
+    if (i == num_indexes - num_param_col_indexes_) {
+      // we've just processed all the column indexes.
+      KALDI_ASSERT(cur_stride == linear_params_.NumCols());
+      cur_stride = linear_params_.Stride();
+    }
+  }
+  KALDI_ASSERT(cur_stride == linear_params_.Stride() * linear_params_.NumRows());  
+  std::reverse(dims_strides_linear.begin(), dims_strides_linear.end());
+  
+  linear_params_tensor_ = CuTensor<BaseFloat>(dims_strides_linear,
+                                              linear_params_);
+
+  std::vector<std::pair<int32, int32> > dims_strides_bias;
+
+  num_indexes = output_tensor_dims_.size();
+  cur_stride = 1;
+  for (int32 i = num_indexes - 1; i >= 0; i--) {
+    int32 this_dim = output_tensor_dims_[i];
+    dims_strides_bias.push_back(std::make_pair<int32, int32>(this_dim,
+                                                             cur_stride));
+    cur_stride *= this_dim;    
+    if (i == num_indexes - num_bias_col_indexes_) {
+      // we've just processed all the column indexes.
+      KALDI_ASSERT(cur_stride == bias_params_.NumCols());
+      cur_stride = bias_params_.Stride();
+    }
+  }
+  KALDI_ASSERT(cur_stride == bias_params_.Stride() * bias_params_.NumRows());
+  std::reverse(dims_strides_bias.begin(), dims_strides_bias.end());
+  
+  bias_params_tensor_ = CuTensor<BaseFloat>(dims_strides_bias,
+                                            bias_params_);
+  
+}
+
+
+
 
 } // namespace nnet2
 } // namespace kaldi

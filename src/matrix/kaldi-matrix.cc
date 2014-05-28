@@ -157,20 +157,23 @@ void MatrixBase<double>::AddVecVec(const double alpha,
 
 template<typename Real>
 void MatrixBase<Real>::AddMatMat(const Real alpha,
-                                  const MatrixBase<Real>& A,
-                                  MatrixTransposeType transA,
-                                  const MatrixBase<Real>& B,
-                                  MatrixTransposeType transB,
-                                  const Real beta) {
+                                 const MatrixBase<Real>& A,
+                                 MatrixTransposeType transA,
+                                 const MatrixBase<Real>& B,
+                                 MatrixTransposeType transB,
+                                 const Real beta) {
   KALDI_ASSERT((transA == kNoTrans && transB == kNoTrans && A.num_cols_ == B.num_rows_ && A.num_rows_ == num_rows_ && B.num_cols_ == num_cols_)
                || (transA == kTrans && transB == kNoTrans && A.num_rows_ == B.num_rows_ && A.num_cols_ == num_rows_ && B.num_cols_ == num_cols_)
                || (transA == kNoTrans && transB == kTrans && A.num_cols_ == B.num_cols_ && A.num_rows_ == num_rows_ && B.num_rows_ == num_cols_)
                || (transA == kTrans && transB == kTrans && A.num_rows_ == B.num_cols_ && A.num_cols_ == num_rows_ && B.num_rows_ == num_cols_));
   KALDI_ASSERT(&A !=  this && &B != this);
   if (num_rows_ == 0) return;
-  cblas_Xgemm(alpha, transA, A.data_, A.num_rows_, A.num_cols_, A.stride_,
-              transB, B.data_, B.stride_, beta, data_, num_rows_, num_cols_, stride_);
-
+  MatrixIndexT summed_dim = (transA == kNoTrans ? A.num_cols_ : A.num_rows_);
+  cblas_Xgemm(transA, transB,
+              num_rows_, num_cols_, summed_dim,
+              alpha, A.data_, A.stride_,
+              B.data_, B.stride_,
+              beta, data_, stride_);
 }
 template<typename Real>
 void MatrixBase<Real>::ConvMat(const MatrixBase<Real> &A, int block_dim_x, 
@@ -231,8 +234,8 @@ void MatrixBase<Real>::SymAddMat2(const Real alpha,
   KALDI_ASSERT(num_rows_ == num_cols_ &&
                ((transA == kNoTrans && A.num_rows_ == num_rows_) ||
                 (transA == kTrans && A.num_cols_ == num_cols_)));
-  KALDI_ASSERT(A.data_ != data_);
   if (num_rows_ == 0) return;
+  KALDI_ASSERT(A.data_ != data_);
 
   /// When the matrix dimension(this->num_rows_) is not less than 56
   /// and the transpose type transA == kTrans, the cblas_Xsyrk(...)
@@ -240,7 +243,7 @@ void MatrixBase<Real>::SymAddMat2(const Real alpha,
   /// ATLAS library. To overcome this, the AddMatMat function, which calls
   /// cblas_Xgemm(...) rather than cblas_Xsyrk(...), is used in this special
   /// sitation.
-  /// Wei Shi: Note this bug is observerd for single precision matrix
+  /// Wei Shi: Note this bug is observed for single precision matrix
   /// on a 64-bit machine
 #ifdef HAVE_ATLAS
   if (transA == kTrans && num_rows_ >= 56) {
@@ -601,13 +604,21 @@ inline void Matrix<Real>::Init(const MatrixIndexT rows,
   
   // allocate the memory and set the right dimensions and parameters
   if (NULL != (data = KALDI_MEMALIGN(16, size, &temp))) {
-    MatrixBase<Real>::data_        = static_cast<Real *> (data);
-    MatrixBase<Real>::num_rows_      = rows;
-    MatrixBase<Real>::num_cols_      = cols;
-    MatrixBase<Real>::stride_  = real_cols;
+    this->data_ = static_cast<Real *> (data);
+    this->num_rows_ = rows;
+    this->num_cols_ = cols;
+    this->stride_  = real_cols;
   } else {
     throw std::bad_alloc();
   }
+#ifdef KALDI_PARANOID
+  // Set NaNs in regions of memory that are outside the matrix; this will help
+  // to make bugs apparent.
+  Real zero = 0.0, nan = zero/zero;
+  for (size_t i = 0; i < rows; i++)
+    for (size_t j = cols; j < real_cols; j++)
+      this->data_[i * real_cols + j] = nan;
+#endif
 }
 
 template<typename Real>
@@ -636,9 +647,9 @@ void Matrix<Real>::Resize(const MatrixIndexT rows,
   }
   // At this point, resize_type == kSetZero or kUndefined.
 
-  if (MatrixBase<Real>::data_ != NULL) {
-    if (rows == MatrixBase<Real>::num_rows_
-        && cols == MatrixBase<Real>::num_cols_) {
+  if (this->data_ != NULL) {
+    if (rows == this->num_rows_
+        && cols == this->num_cols_) {
       if (resize_type == kSetZero)
         this->SetZero();
       return;
@@ -647,7 +658,7 @@ void Matrix<Real>::Resize(const MatrixIndexT rows,
       Destroy();
   }
   Init(rows, cols);
-  if (resize_type == kSetZero) MatrixBase<Real>::SetZero();
+  if (resize_type == kSetZero) this->SetZero();
 }
 
 template<typename Real>
@@ -914,7 +925,7 @@ void Matrix<Real>::RemoveRow(MatrixIndexT i) {
 template<typename Real>
 void Matrix<Real>::Destroy() {
   // we need to free the data block if it was defined
-  if (NULL != MatrixBase<Real>::data_)
+  if (this->data_ != NULL)
     KALDI_MEMALIGN_FREE( MatrixBase<Real>::data_);
   MatrixBase<Real>::data_ = NULL;
   MatrixBase<Real>::num_rows_ = MatrixBase<Real>::num_cols_
@@ -989,7 +1000,7 @@ template<typename Real> void MatrixBase<Real>::Scale(Real alpha) {
   } else {
     Real *data = data_;
     for (MatrixIndexT i = 0; i < num_rows_; ++i, data += stride_) {
-      cblas_Xscal(num_cols_, alpha, data,1);
+      cblas_Xscal(num_cols_, alpha, data, 1);
     }
   }
 }

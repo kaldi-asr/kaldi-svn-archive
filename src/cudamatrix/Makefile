@@ -16,7 +16,8 @@ TESTFILES = cu-vector-test cu-matrix-test cu-matrix-speed-test cu-math-test cu-t
 
 
 OBJFILES = cu-device.o cu-math.o cu-matrix.o cu-packed-matrix.o cu-sp-matrix.o \
-           cu-vector.o cu-common.o cu-tp-matrix.o cu-rand.o cu-block-matrix.o
+           cu-vector.o cu-common.o cu-tp-matrix.o cu-rand.o cu-block-matrix.o \
+           cu-tensor.o
 ifeq ($(CUDA), true)
   OBJFILES += cu-kernels.o cu-randkernels.o cu-choleskykernels.o
 endif

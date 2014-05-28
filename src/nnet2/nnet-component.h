@@ -2,7 +2,7 @@
 
 // Copyright 2011-2013  Karel Vesely
 //                      Johns Hopkins University (author: Daniel Povey)
-//	          2013  Xiaohui Zhang	
+//	              2013  Xiaohui Zhang	
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -1624,6 +1624,200 @@ class AdditiveNoiseComponent: public RandomComponent {
   int32 dim_;  
   BaseFloat stddev_;
 };
+
+
+class ConvolutionalComponent: public UpdatableComponent {
+ public:
+  explicit ConvolutionalComponent(const ConvolutionalComponent &other);
+  /// @brief Initialize the component.
+  ///
+  /// @param learning_rate [in]      Learning rate constant
+  ///
+  /// @param input_tensor_dims [in]  Tensor dimensions of input features [not counting the 
+  ///                                chunk-index/frame-index dimension or the time dimension, which
+  ///                                would appear first in the actual tensors.]
+  ///                                Here is an examples, from the setup that
+  ///                                Tara Sainath has described in her papers.  
+  ///                                input_tensor_dims =  [ 3, 1, 40 ] for [feats,delta,delta-delta = 3] by
+  ///                                [40 log-mel components].
+  ///                                The [1] is understandable by reference to
+  ///                                "output_tensor_dims" below, it's to match the tensor order of the
+  ///                                output.  The fact that we may also have [11 spliced frames]
+  ///                                is not represented here as the "time axis" is special... the network
+  ///                                works out itself how much context it needs.
+  ///
+  /// @param output_tensor_dims [in] Tensor dimensions of output features [not counting the 
+  ///                                chunk-index dimension or the time dimension, which
+  ///                                would appear first in the actual tensors.]
+  ///                                Example: [ 1, 256, 32 ].  This means [256 feature maps], by
+  ///                                [ 1 ] corresponding to the [feats,delta,delta-delta] above,
+  ///                                meaning we have summed over that dimension, else it would be 3.
+  ///                                We assume we have a [9 x 9] feature map, replicated 256 x 3 times.
+  ///                                The dimension [ 32 ] is because 32 = 40 - 9 + 1, because that's how
+  ///                                many times you can shift [ 9 ] in [ 40 ].  There is also implicitly
+  ///                                a [3] here, for the time dimension, but this isn't represented here,
+  ///                                as the time axis is special.
+  ///
+  /// @param param_tensor_dims [in]
+  ///                                Tensor dimension of linear parameters with total
+  ///                                temporal context first, e.g. [ 11, 3, 256, 9 ]
+  ///                                ] - and not counting bias terms, whose
+  ///                                dimension equals output_tensor_dims.  If you remove
+  ///                                the first dim from this vector, the dimensions match up
+  ///                                with those of input_tensor_dims and output_tensor_dims.
+  ///
+  /// @param left_context [in]       Left context, a number of frames >= 0.  The total
+  ///                                temporal context, param_tensor_dims.first(), equals
+  ///                                left_context + right_context + 1, which determines
+  ///                                right_context.
+  ///
+  /// @param alpha [in]              The alpha value for smoothing of the preconditioning with
+  ///                                the unit matrix (suggest 4.0).
+  ///                                If you make this large, it's equivalent to using no
+  ///                                preconditioning, and for alpha >= 1000.0 we turn off
+  ///                                the preconditioning code to save time (by that point it 
+  ///                                would be making no discernible difference).
+  ///
+  /// @param max_change [in]         Maximum parameter change (in 2-norm) per minibatch..
+  ///                                this is not the actual parameter change, but an upper
+  ///                                bound on its 2-norm.
+  ///
+  /// @param param_stddev [in]       Standard deviation with which we initialize the
+  ///                                linear parameters
+  ///
+  /// @param bias_stddev [in]        Standard deviation with which we initialize the
+  ///                                bias parameters  
+  void Init(BaseFloat learning_rate,
+            const std::vector<int32> &input_tensor_dims,
+            const std::vector<int32> &output_tensor_dims,
+            const std::vector<int32> &param_tensor_dims,
+            int32 left_context,
+            BaseFloat alpha,
+            BaseFloat max_change,
+            BaseFloat param_stddev,
+            BaseFloat bias_stddev);
+
+  virtual int32 InputDim() const;
+  virtual int32 OutputDim() const;
+  virtual int32 LeftContext() const { return left_context_; }
+  virtual int32 RightContext() const {
+    return param_tensor_dims_.front() - 1 - left_context_;
+  }
+  
+  virtual std::string Info() const;
+  virtual void InitFromString(std::string args);
+  
+  ConvolutionalComponent(): is_gradient_(false) { } // use Init to really
+                                                    // initialize.
+  
+  virtual std::string Type() const { return "ConvolutionalComponent"; }
+  virtual bool BackpropNeedsInput() const { return true; }
+  virtual bool BackpropNeedsOutput() const { return false; }
+  virtual void Propagate(const CuMatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         CuMatrix<BaseFloat> *out) const;
+  virtual void Scale(BaseFloat scale);
+  virtual void Add(BaseFloat alpha, const UpdatableComponent &other);
+  
+  virtual void Backprop(const CuMatrixBase<BaseFloat> &in_value,
+                        const CuMatrixBase<BaseFloat> &out_value, // dummy
+                        const CuMatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        CuMatrix<BaseFloat> *in_deriv) const;
+  virtual void SetZero(bool treat_as_gradient);
+  virtual void Read(std::istream &is, bool binary);
+  virtual void Write(std::ostream &os, bool binary) const;
+  virtual BaseFloat DotProduct(const UpdatableComponent &other) const;
+  virtual Component* Copy() const;
+  virtual void PerturbParams(BaseFloat stddev);
+
+  virtual int32 GetParameterDim() const;
+  virtual void Vectorize(VectorBase<BaseFloat> *params) const;
+  virtual void UnVectorize(const VectorBase<BaseFloat> &params);
+ private:
+  int32 NumFramesContext() { return param_tensor_dims_.front(); }
+  
+  
+  // Form of "Update" that does not use preconditioning.
+  void UpdateSimple(
+      const CuTensor<BaseFloat> &in_value_tensor,
+      const CuTensor<BaseFloat> &out_deriv_tensor);
+
+  void Update(
+      const CuTensor<BaseFloat> &in_value_tensor,
+      const CuTensor<BaseFloat> &out_deriv_tensor);
+
+  /// This function is used in several places; it returns a tensor corresponding
+  /// to the input activations.  The tensor-dim is [ num_chunks,
+  /// input_frames_per_chunk, input_tensor_dims_ ... ].
+  CuTensor<BaseFloat> GetInputTensor(const CuMatrixBase<BaseFloat> &in_value,
+                                     int32 num_chunks) const;
+
+  /// This function is used in several places; it returns a tensor corresponding
+  /// to the output activations.  The tensor-dim is
+  /// [ num_chunks, output_frames_per_chunk, output_tensor_dims_ ... ].
+  CuTensor<BaseFloat> GetOutputTensor(const CuMatrixBase<BaseFloat> &out_value,
+                                      int32 num_chunks) const;
+
+
+  /// Sets up num_param_col_indexes_ and num_bias_col_indexes_.
+  void SetNumColIndexes();
+
+  /// Initialize the linear_params_ and bias_params_ matrices.
+  /// Must be called after SetNumColIndexes().
+  void InitParams(BaseFloat linear_param_stddev,
+                  BaseFloat bias_stddev);
+
+  /// Sets up linear_params_tensor_ and bias_params_tensor_.
+  /// Must be called after linear_params_ and bias_params_
+  /// are set up.
+  void SetParamTensors();
+  
+  
+  // Disallow assignment operator
+  const ConvolutionalComponent &operator = (const ConvolutionalComponent &other); 
+  
+  
+  // See comments on the args to Init() for the meaning of these.
+  std::vector<int32> input_tensor_dims_;
+  std::vector<int32> output_tensor_dims_;
+  std::vector<int32> param_tensor_dims_;
+  int32 left_context_;
+  BaseFloat alpha_;
+  BaseFloat max_change_;
+  
+  CuMatrix<BaseFloat> linear_params_;   // Storage for linear params.  
+  
+  CuTensor<BaseFloat> linear_params_tensor_;  // The linear params as a tensor
+                                              // (a view of data in
+                                              // linear_params_).  Dim is 
+                                              // [ linear_param_tensor_dims_ ]
+  
+  CuMatrix<BaseFloat> bias_params_;  // storage for bias params.
+
+  CuTensor<BaseFloat> bias_params_tensor_;  // The bias params as a tensor
+                                            // (a view of data in bias_params_).
+                                            // Dimension is [ output_tensor_dims_ ].
+  
+  bool is_gradient_;  // If true, treat this as just a gradient.  [affects whether
+                      // we do preconditioning or not during the update].
+
+  // The following are considered derived parameters and are not included in the
+  // object written to disk.
+  
+  // The number of param_tensor_indexes_ that will make up the col-index in
+  // linear_params_ (the leading ones are row-indexes and the trailing ones
+  // column indexes).
+  int32 num_param_col_indexes_;
+
+  // The number of output_tensor_indexes_ that will make up the col-index in
+  // linear_params_ (the leading ones are row-indexes and the trailing ones
+  // column indexes).
+  int32 num_bias_col_indexes_;
+  
+};
+
 
 
 /// Functions used in Init routines.  Suppose name=="foo", if "string" has a

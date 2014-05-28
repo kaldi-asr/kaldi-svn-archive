@@ -952,9 +952,9 @@ void CuMatrixBase<Real>::AddMatMat(
 
 template<typename Real> 
 void CuMatrixBase<Real>::ConvMat(const CuMatrixBase<Real> &A, int block_dim_x, 
-                                   int A_block_num_rows, int A_block_num_cols,
-                                   const CuMatrixBase<Real> &B, int block_dim_y, 
-                                   int B_block_num_rows, int B_block_num_cols) {
+                                 int A_block_num_rows, int A_block_num_cols,
+                                 const CuMatrixBase<Real> &B, int block_dim_y, 
+                                 int B_block_num_rows, int B_block_num_cols) {
   int num_blocks = block_dim_x * block_dim_y;
   int C_block_num_rows = A_block_num_rows - B_block_num_rows + 1;
   int C_block_num_cols = A_block_num_cols - B_block_num_cols + 1;

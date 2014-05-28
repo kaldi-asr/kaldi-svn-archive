@@ -161,7 +161,7 @@ inline void cblas_Xgemv(MatrixTransposeType trans, MatrixIndexT num_rows,
               num_cols, alpha, Mdata, stride, xdata, incX, beta, ydata, incY);
 }
 
-// sgbmv, dgmmv: y = alpha M x +  + beta * y.
+// sgbmv, dgmmv: y = alpha M x +  beta * y.
 inline void cblas_Xgbmv(MatrixTransposeType trans, MatrixIndexT num_rows,
                         MatrixIndexT num_cols, MatrixIndexT num_below,
                         MatrixIndexT num_above, float alpha, const float *Mdata,
@@ -208,35 +208,33 @@ inline void Xgemv_sparsevec(MatrixTransposeType trans, MatrixIndexT num_rows,
   }
 }
 
-inline void cblas_Xgemm(const float alpha,
-                        MatrixTransposeType transA,
-                        const float *Adata,
-                        MatrixIndexT a_num_rows, MatrixIndexT a_num_cols, MatrixIndexT a_stride,
-                        MatrixTransposeType transB, 
+inline void cblas_Xgemm(MatrixTransposeType transA,
+                        MatrixTransposeType transB,
+                        MatrixIndexT num_rows, MatrixIndexT num_cols, MatrixIndexT summed_dim,
+                        float alpha, const float *Adata, MatrixIndexT a_stride,
                         const float *Bdata, MatrixIndexT b_stride,
-                        const float beta,
-                        float *Mdata, 
-                        MatrixIndexT num_rows, MatrixIndexT num_cols,MatrixIndexT stride) {
+                        const float beta, float *Mdata, MatrixIndexT m_stride) {
   cblas_sgemm(CblasRowMajor, static_cast<CBLAS_TRANSPOSE>(transA), 
               static_cast<CBLAS_TRANSPOSE>(transB),
-              num_rows, num_cols, transA == kNoTrans ? a_num_cols : a_num_rows,
-              alpha, Adata, a_stride, Bdata, b_stride,
-              beta, Mdata, stride); 
+              num_rows, num_cols, summed_dim,
+              alpha, Adata, a_stride,
+              Bdata, b_stride,
+              beta, Mdata, m_stride); 
 }
-inline void cblas_Xgemm(const double alpha,
-                        MatrixTransposeType transA,
-                        const double *Adata,
-                        MatrixIndexT a_num_rows, MatrixIndexT a_num_cols, MatrixIndexT a_stride,
-                        MatrixTransposeType transB, 
+
+
+inline void cblas_Xgemm(MatrixTransposeType transA,
+                        MatrixTransposeType transB,
+                        MatrixIndexT num_rows, MatrixIndexT num_cols, MatrixIndexT summed_dim,
+                        double alpha, const double *Adata, MatrixIndexT a_stride,
                         const double *Bdata, MatrixIndexT b_stride,
-                        const double beta,
-                        double *Mdata, 
-                        MatrixIndexT num_rows, MatrixIndexT num_cols,MatrixIndexT stride) {
+                        const double beta, double *Mdata, MatrixIndexT m_stride) {
   cblas_dgemm(CblasRowMajor, static_cast<CBLAS_TRANSPOSE>(transA), 
               static_cast<CBLAS_TRANSPOSE>(transB),
-              num_rows, num_cols, transA == kNoTrans ? a_num_cols : a_num_rows,
-              alpha, Adata, a_stride, Bdata, b_stride,
-              beta, Mdata, stride); 
+              num_rows, num_cols, summed_dim,
+              alpha, Adata, a_stride,
+              Bdata, b_stride,
+              beta, Mdata, m_stride); 
 }
 
 
@@ -477,3 +475,4 @@ inline void clapack_Xgetri(MatrixIndexT num_rows, double *Mdata, MatrixIndexT st
 // namespace kaldi
 
 #endif
+

@@ -32,6 +32,8 @@
 #include "matrix/srfft.h"
 #include "matrix/compressed-matrix.h"
 #include "matrix/optimization.h"
+#include "matrix/kaldi-tensor.h"
+
 
 #endif
 

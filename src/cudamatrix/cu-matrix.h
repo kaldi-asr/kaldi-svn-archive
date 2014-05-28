@@ -74,6 +74,7 @@ class CuMatrixBase {
   friend class CuRand<Real>;
   friend class CuSubVector<Real>;
   friend class CuBlockMatrix<Real>;
+  friend class CuTensor<Real>;
   friend void cu::RegularizeL1<Real>(CuMatrixBase<Real> *weight,
                                      CuMatrixBase<Real> *grad, Real l1, Real lr);
   friend void cu::Splice<Real>(const CuMatrix<Real> &src,

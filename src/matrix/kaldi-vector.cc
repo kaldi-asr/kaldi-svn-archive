@@ -165,12 +165,23 @@ inline void Vector<Real>::Init(const MatrixIndexT dim) {
 
   size = dim * sizeof(Real);
 
+#ifdef KALDI_PARANOID
+  size += sizeof(Real);
+#endif
+  
   if ((data = KALDI_MEMALIGN(16, size, &free_data)) != NULL) {
     this->data_ = static_cast<Real*> (data);
     this->dim_ = dim;
   } else {
     throw std::bad_alloc();
   }
+#ifdef KALDI_PARANOID
+  // This will help make errors of reading invalid memory past the end
+  // of the region we are supposed to access, more obvious.
+  Real zero = 0.0, nan = zero/zero;
+  this->data_[dim] = nan;
+#endif
+  
 }
 
 

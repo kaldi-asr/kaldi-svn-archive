@@ -2836,7 +2836,7 @@ template<typename Real> static void UnitTestSymAddMat2() {
     T2.CopyFromMat(M2);
     Matrix<Real> X1(T1), X2(T2); // so we can test equality.                                                                  
     AssertEqual(X1, X2);
-    KALDI_ASSERT(dimM == 0 || X1.Trace() != 0);
+    KALDI_ASSERT(dimM == 0 || X1.Trace() != 0 || (alpha == 0 && beta == 0));
   }
 }
 

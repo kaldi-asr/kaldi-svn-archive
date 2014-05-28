@@ -70,8 +70,8 @@ template<typename Real> class CuSubMatrix;
 template<typename Real> class CuPackedMatrix;
 template<typename Real> class CuSpMatrix;
 template<typename Real> class CuTpMatrix;
-
 template<typename Real> class CuBlockMatrix; // this has no non-CU counterpart.
+template<typename Real> class CuTensor;
 
 
 }

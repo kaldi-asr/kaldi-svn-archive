@@ -28,5 +28,6 @@
 #include "cudamatrix/cu-tp-matrix.h"
 #include "cudamatrix/cu-block-matrix.h"
 #include "cudamatrix/cu-rand.h"
+#include "cudamatrix/cu-tensor.h"
 
 #endif

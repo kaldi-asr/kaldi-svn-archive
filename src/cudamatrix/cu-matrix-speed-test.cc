@@ -178,8 +178,8 @@ template<typename Real> void CudaMatrixSpeedTest() {
   sizes.push_back(128);
   sizes.push_back(256);
   sizes.push_back(1024);
-  int32 ns = sizes.size();
   /*
+  int32 ns = sizes.size();
   for (int32 s = 0; s < ns; s++)
     TestCuMatrixMatMat<Real>(sizes[s]);
   for (int32 s = 0; s < ns; s++)
