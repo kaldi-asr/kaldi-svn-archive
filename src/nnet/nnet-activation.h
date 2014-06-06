@@ -155,15 +155,13 @@ class Relu : public Component {
   }
  
   void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
-	out->Relu(in);
-      }
+    out->Relu(in);
+  }
 
   void BackpropagateFnc(const CuMatrix<BaseFloat> &in, const CuMatrix<BaseFloat> &out,
                         const CuMatrix<BaseFloat> &out_diff, CuMatrix<BaseFloat> *in_diff) {
-    	in_diff->DiffRelu(out, out_diff);
+    in_diff->DiffRelu(out, out_diff);
   }
- 
-
 };
 
 
