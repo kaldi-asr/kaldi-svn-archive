@@ -51,6 +51,7 @@ const struct Component::key_value Component::kMarkerMap[] = {
   { Component::kConvolutional2DComponent,"<Convolutional2DComponent>"},
   { Component::kSoftmax,"<Softmax>" },
   { Component::kSigmoid,"<Sigmoid>" },
+  { Component::kRelu,"<Relu>"},
   { Component::kTanh,"<Tanh>" },
   { Component::kDropout,"<Dropout>" },
   { Component::kRbm,"<Rbm>" },
@@ -116,6 +117,9 @@ Component* Component::NewComponentOfType(ComponentType comp_type,
       break;
     case Component::kTanh :
       ans = new Tanh(input_dim, output_dim);
+      break;
+    case Component::kRelu :
+      ans = new Relu(input_dim, output_dim);
       break;
     case Component::kDropout :
       ans = new Dropout(input_dim, output_dim); 

@@ -141,6 +141,31 @@ class Dropout : public Component {
 };
 
 
+class Relu : public Component {
+  public:
+   Relu(int32 dim_in, int32 dim_out):
+      Component(dim_in, dim_out)
+   { }
+   ~Relu()
+   { }
+
+   Component* Copy() const { return new Relu(*this);} 
+   ComponentType GetType() const {
+    return kRelu;
+  }
+ 
+  void PropagateFnc(const CuMatrix<BaseFloat> &in, CuMatrix<BaseFloat> *out) {
+	out->Relu(in);
+      }
+
+  void BackpropagateFnc(const CuMatrix<BaseFloat> &in, const CuMatrix<BaseFloat> &out,
+                        const CuMatrix<BaseFloat> &out_diff, CuMatrix<BaseFloat> *in_diff) {
+    	in_diff->DiffRelu(out, out_diff);
+  }
+ 
+
+};
+
 
 } // namespace nnet1
 } // namespace kaldi

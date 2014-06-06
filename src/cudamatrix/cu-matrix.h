@@ -199,6 +199,8 @@ class CuMatrixBase {
   /// *this = tanh(src).
   void Tanh(const CuMatrixBase<Real> &src);
 
+  void Relu(const CuMatrixBase<Real> &src);
+
   /// Differentiate backward through the sigmoid function.  Here, "value" is the
   /// sigmoid output.  Does, element-by-element, *this = diff * value * (1 - value).
   void DiffSigmoid(const CuMatrixBase<Real> &value,
@@ -209,6 +211,9 @@ class CuMatrixBase {
   void DiffTanh(const CuMatrixBase<Real> &value,
                 const CuMatrixBase<Real> &diff);
   
+  void DiffRelu(const CuMatrixBase<Real> &value,
+		const CuMatrixBase<Real> &diff);
+
   /// Differentiate the block [softmax+cross-entropy] :
   /// dE/da = posterior_mat - target_mat, 
   /// 'E' is error function, 'a' is activation on softmax input

@@ -59,6 +59,7 @@ class Component {
     kSigmoid,
     kTanh,
     kDropout,
+    kRelu,
 
     kTranform = 0x0400,
     kRbm,
