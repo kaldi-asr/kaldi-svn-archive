@@ -126,7 +126,7 @@ num_patch1 = 1 + (feat_raw_dim - o.patch_dim1) / o.patch_step1
 num_pool = 1 + (num_patch1 - o.pool_size) / o.pool_step
 patch_dim2 = 4 * o.num_filters1
 patch_step2 = o.num_filters1
-patch_stride2= num_pool * o.num_filters1 
+patch_stride2 = num_pool * o.num_filters1 
 num_patch2 = 1 + (num_pool * o.num_filters1 - patch_dim2) / patch_step2
 
 convolution_proto = ''  

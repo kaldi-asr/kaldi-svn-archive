@@ -10,15 +10,14 @@ config=            # config, which is also sent to all other scripts
 mlp_init=          # select initialized MLP (override initialization)
 mlp_proto=         # select network prototype (initialize it)
 proto_opts=        # non-default options for 'make_nnet_proto.py'
-convolutional=false # create convolutional nnet 
-cnn_init_opts=  # options for 'make_cnn_proto.py'
 feature_transform= # provide feature transform (=splice,rescaling,...) (don't build new one)
+prepend_cnn=false  # create nnet with convolutional layers
+cnn_init_opts=     # extra options for 'make_cnn_proto.py'
 #
 hid_layers=4       # nr. of hidden layers (prior to sotfmax or bottleneck)
 hid_dim=1024       # select hidden dimension
 bn_dim=            # set a value to get a bottleneck network
 dbn=               # select DBN to prepend to the MLP initialization
-cnn=
 #
 init_opts=         # options, passed to the initialization script
 
@@ -181,6 +180,8 @@ if [ ! -z $feature_transform ]; then
     apply_cmvn=true; norm_vars=$(cat $norm_vars_file);
   fi
   echo "Imported CMVN config from pre-training: apply_cmvn=$apply_cmvn; norm_vars=$norm_vars"
+  delta_order_file=$(dirname $feature_transform)/delta_order
+  [ -r $delta_order_file ] && delta_order=$(cat $delta_order_file) && echo "Imported delta-order $delta_order"
 fi
 # optionally add per-speaker CMVN
 if [ $apply_cmvn == "true" ]; then
@@ -316,13 +317,8 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
   #initializing the MLP, get the i/o dims...
   #input-dim
   num_fea=$(feat-to-dim "$feats_tr nnet-forward $feature_transform ark:- ark:- |" - )
-  { #optioanlly take output dim of DBN and CNN
-    if [ ! -z $cnn ]; then
-      cnn_full_layers=`cat $(dirname $cnn)/cnn_full_layers`
-      num_fea=$(nnet-forward "nnet-copy --remove-last-layers=$(((cnn_full_layers+1)*2)) $cnn - | nnet-concat $feature_transform - - | nnet-concat - $dbn -|" "$feats_tr" ark:- | feat-to-dim ark:- -)
-    elif [ ! -z $dbn ]; then
-      num_fea=$(nnet-forward "nnet-concat $feature_transform $dbn -|" "$feats_tr" ark:- | feat-to-dim ark:- -)
-    fi
+  { #optioanlly take output dim of DBN
+    [ ! -z $dbn ] && num_fea=$(nnet-forward "nnet-concat $feature_transform $dbn -|" "$feats_tr" ark:- | feat-to-dim ark:- -)
     [ -z "$num_fea" ] && echo "Getting nnet input dimension failed!!" && exit 1
   }
 
@@ -332,7 +328,7 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
   # make network prototype
   mlp_proto=$dir/nnet.proto
   echo "Genrating network prototype $mlp_proto"
-  if [ $convolutional == "false" ]; then
+  if [ $prepend_cnn == "false" ]; then
     utils/nnet/make_nnet_proto.py $proto_opts \
       ${bn_dim:+ --bottleneck-dim=$bn_dim} \
       $num_fea $num_tgt $hid_layers $hid_dim >$mlp_proto || exit 1
@@ -341,7 +337,6 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
       --splice $splice --delta-order $delta_order --dir $dir \
       ${bn_dim:+ --bottleneck-dim=$bn_dim} \
       $num_fea $num_tgt $hid_layers $hid_dim >$mlp_proto || exit 1
-    echo $hid_layers >$dir/cnn_full_layers
   fi
   # initialize
   mlp_init=$dir/nnet.init; log=$dir/log/nnet_initialize.log
@@ -353,14 +348,6 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
     mlp_init_old=$mlp_init; mlp_init=$dir/nnet_$(basename $dbn)_dnn.init
     nnet-concat $dbn $mlp_init_old $mlp_init || exit 1 
   fi
-  # optionally prepend cnn to the initializaiton
-  if [ ! -z $cnn ]; then
-    mlp_init_old=$mlp_init; mlp_init=$dir/nnet_cnn_$(basename $dbn)_dnn.init
-    cnn_full_layers=`cat $(dirname $cnn)/cnn_full_layers`
-    nnet-copy --remove-last-layers=$(((cnn_full_layers+1)*2)) $cnn - | nnet-concat - $mlp_init_old $mlp_init
-  fi
-  
-
 fi
 
 
@@ -377,6 +364,11 @@ steps/nnet/train_scheduler.sh \
   ${config:+ --config $config} \
   $mlp_init "$feats_tr" "$feats_cv" "$labels_tr" "$labels_cv" $dir || exit 1
 
+if $prepend_cnn; then
+  echo "Preparing feature transform with CNN layers for RBM pre-training."
+  nnet-concat $dir/final.feature_transform "nnet-copy --remove-last-layers=$(((hid_layers+1)*2)) $dir/final.nnet - |" \
+    $dir/final.feature_transform_cnn 2>$dir/log/concat_transf_cnn.log || exit 1
+fi
 
 echo "$0 successfuly finished.. $dir"
 
