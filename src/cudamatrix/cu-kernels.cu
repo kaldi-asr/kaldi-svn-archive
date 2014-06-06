@@ -1640,6 +1640,17 @@ static void _tanh(Real*y, const Real*x, MatrixDim d, int src_stride) {
   }
 }
 
+template<typename Real>
+__global__
+static void _relu(Real*y, const Real*x, MatrixDim d, int src_stride) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int dst_index = i + j*d.stride, src_index = i + j * src_stride;
+  if( i < d.cols  &&  j < d.rows ) {
+    y[dst_index] = (x[src_index] > 0 ) ? x[src_index] : 0;
+  }
+}
+
 
 template<typename Real>
 __global__
@@ -1649,6 +1660,16 @@ static void _diff_tanh(Real*eout, const Real*e, const Real*y, MatrixDim d) {
   int index = i + j*d.stride;
   if (i < d.cols  && j < d.rows ) 
     eout[index] = (1.0 - y[index]*y[index]) * e[index];
+}
+
+template<typename Real>
+__global__
+static void _diff_relu(Real*eout, const Real*e, const Real*y, MatrixDim d) {
+  int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+  int32_cuda index = i + j*d.stride;
+  if( i < d.cols  && j < d.rows ) 
+    eout[index] = (y[index] > 0) ? e[index] : 0;
 }
 
 template<typename Real>
@@ -2298,6 +2319,14 @@ void cudaF_diff_tanh (dim3 Gr, dim3 Bl, float* eout, const float* e, const float
   _diff_tanh<<<Gr,Bl>>>(eout, e, y, d);
 }
 
+void cudaF_relu (dim3 Gr, dim3 Bl, float* y, const float* x, MatrixDim d, int src_stride) {
+  _relu<<<Gr,Bl>>>(y, x, d, src_stride); 
+}
+
+void cudaF_diff_relu (dim3 Gr, dim3 Bl, float* eout, const float* e, const float* y, MatrixDim d) {
+  _diff_relu<<<Gr,Bl>>>(eout, e, y, d);
+}
+
 void cudaF_softmax (size_t Gr, size_t Bl, float* y, const float* x, MatrixDim d) { 
   _softmax<<<Gr,Bl>>>(y, x, d); 
 }
@@ -2729,6 +2758,13 @@ void cudaD_diff_tanh (dim3 Gr, dim3 Bl, double* eout, const double* e, const dou
   _diff_tanh<<<Gr,Bl>>>(eout, e, y, d);
 }
 
+void cudaD_relu (dim3 Gr, dim3 Bl, double* y, const double* x, MatrixDim d, int src_stride) {
+  _relu<<<Gr,Bl>>>(y, x, d, src_stride); 
+}
+
+void cudaD_diff_relu (dim3 Gr, dim3 Bl, double* eout, const double* e, const double* y, MatrixDim d) {
+  _diff_relu<<<Gr,Bl>>>(eout, e, y, d);
+}
 
 void cudaD_softmax (size_t Gr, size_t Bl, double* y, const double* x, MatrixDim d) { 
   _softmax<<<Gr,Bl>>>(y, x, d); 

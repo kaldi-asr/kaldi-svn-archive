@@ -864,6 +864,19 @@ void VectorBase<Real>::Sigmoid(const VectorBase<Real> &src) {
 }
 #endif
 
+template<typename Real>
+void VectorBase<Real>::Relu(const VectorBase<Real> &src) {
+  KALDI_ASSERT(dim_ == src.dim_);
+  for (MatrixIndexT i = 0; i < dim_; i++) {
+    if (src(i) < 0.0) {
+        data_[i] = 0;
+    }
+    else {
+        data_[i] = src(i);
+    }
+  }
+}
+
 
 template<typename Real>
 void VectorBase<Real>::Add(Real c) {

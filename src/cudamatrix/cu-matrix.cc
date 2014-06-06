@@ -1080,6 +1080,27 @@ void CuMatrixBase<Real>::Sigmoid(const CuMatrixBase<Real> &src) {
 }
 
 template<typename Real>
+void CuMatrixBase<Real>::Relu(const CuMatrixBase<Real> &src) {
+  //KALDI_ASSERT(SameDimAndStride(*this, src));
+#if HAVE_CUDA==1 
+  if (CuDevice::Instantiate().Enabled()) { 
+    Timer tim;
+
+    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
+    dim3 dimGrid(n_blocks(src.NumCols(), CU2DBLOCK), n_blocks(src.NumRows(), CU2DBLOCK));
+
+    cuda_relu(dimGrid, dimBlock, this->data_, src.data_, src.Dim(), src.Stride());
+    CU_SAFE_CALL(cudaGetLastError());
+    
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    Mat().Relu(src.Mat());
+  }
+}
+
+template<typename Real>
 void CuMatrixBase<Real>::SoftHinge(const CuMatrixBase<Real> &src) {
   //KALDI_ASSERT(SameDimAndStride(*this, src));
 #if HAVE_CUDA == 1 
@@ -1120,27 +1141,6 @@ void CuMatrixBase<Real>::GroupPnorm(const CuMatrixBase<Real> &src, Real power) {
   }
 }
 
-
-template<typename Real>
-void CuMatrixBase<Real>::Relu(const CuMatrixBase<Real> &src) {
-  KALDI_ASSERT(SameDimAndStride(*this, src));
-#if HAVE_CUDA==1 
-  if (CuDevice::Instantiate().Enabled()) { 
-    Timer tim;
-
-    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
-    dim3 dimGrid(n_blocks(src.NumCols(), CU2DBLOCK), n_blocks(src.NumRows(), CU2DBLOCK));
-
-    cuda_relu(dimGrid, dimBlock, this->data_, src.data_, src.Dim());
-    CU_SAFE_CALL(cudaGetLastError());
-    
-    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
-  } else
-  #endif
-  {
-    Mat().Relu(src.Mat());
-  }
-}
 
 /*
 Think of sv_labels as a Matrix, denoting the "correct" label of each frame to each phone-state; it's very likely to contain a LOT of zeros

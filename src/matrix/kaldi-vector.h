@@ -147,6 +147,8 @@ class VectorBase {
   /// Sets each element of *this to the sigmoid function of the corresponding
   /// element of "src".
   void Sigmoid(const VectorBase<Real> &src);
+
+  void Relu(const VectorBase<Real> &src);
   
   /// Take all  elements of vector to a power.
   void ApplyPow(Real power);

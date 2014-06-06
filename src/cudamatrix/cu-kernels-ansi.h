@@ -144,6 +144,8 @@ void cudaF_sigmoid(dim3 Gr, dim3 Bl, float *y, const float *x, MatrixDim d, int 
 void cudaF_diff_sigmoid(dim3 Gr, dim3 Bl, float *eout, const float *e, const float *y, MatrixDim d, int src_stride);
 void cudaF_tanh(dim3 Gr, dim3 Bl, float *y, const float *x, MatrixDim d, int src_stride);
 void cudaF_diff_tanh(dim3 Gr, dim3 Bl, float *eout, const float *e, const float *y, MatrixDim d);
+void cudaF_relu(dim3 Gr, dim3 Bl, float *y, const float *x, MatrixDim d, int src_stride);
+void cudaF_diff_relu(dim3 Gr, dim3 Bl, float *eout, const float *e, const float *y, MatrixDim d);
 
 void cudaF_regularize_l1(dim3 Gr, dim3 Bl, float *wei, float *grad, float l1, float lr, MatrixDim d);
 void cudaF_find_row_max_id(dim3 Gr, dim3 Bl, const float *mat, float *vec_val, int32_cuda *vec_id, int32_cuda voff, MatrixDim d);
@@ -280,6 +282,8 @@ void cudaD_sigmoid(dim3 Gr, dim3 Bl, double *y, const double *x, MatrixDim d, in
 void cudaD_diff_sigmoid(dim3 Gr, dim3 Bl, double *eout, const double *e, const double *y, MatrixDim d, int src_stride);
 void cudaD_tanh(dim3 Gr, dim3 Bl, double *y, const double *x, MatrixDim d, int src_stride);
 void cudaD_diff_tanh(dim3 Gr, dim3 Bl, double *eout, const double *e, const double *y, MatrixDim d);
+void cudaD_relu(dim3 Gr, dim3 Bl, double *y, const double *x, MatrixDim d, int src_stride);
+void cudaD_diff_relu(dim3 Gr, dim3 Bl, double *eout, const double *e, const double *y, MatrixDim d);
 
 void cudaD_regularize_l1(dim3 Gr, dim3 Bl, double *wei, double *grad, double l1, double lr, MatrixDim d);
 void cudaD_find_row_max_id(dim3 Gr, dim3 Bl, const double *mat, double *vec_val, int32_cuda *vec_id, int32_cuda voff, MatrixDim d);

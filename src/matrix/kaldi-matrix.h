@@ -426,6 +426,8 @@ class MatrixBase {
   void GroupPnormDeriv(const MatrixBase<Real> &input, const MatrixBase<Real> &output,
                        Real power);
 
+  /// Set each element to y = max(0,x)
+  void Relu(const MatrixBase<Real> &src); 
 
   /// Set each element to the tanh of the corresponding element of "src".
   void Tanh(const MatrixBase<Real> &src);
@@ -438,6 +440,9 @@ class MatrixBase {
   // Function used in backpropagating derivatives of the tanh function:
   // element-by-element, set *this = diff * (1.0 - value^2).
   void DiffTanh(const MatrixBase<Real> &value,
+                const MatrixBase<Real> &diff);
+
+  void DiffRelu(const MatrixBase<Real> &value,
                 const MatrixBase<Real> &diff);
   
   /** Uses Svd to compute the eigenvalue decomposition of a symmetric positive

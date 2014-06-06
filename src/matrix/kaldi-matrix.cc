@@ -2506,6 +2506,24 @@ void MatrixBase<Real>::Sigmoid(const MatrixBase<Real> &src) {
   }
 }
 
+
+template<typename Real>
+void MatrixBase<Real>::Relu(const MatrixBase<Real> &src) {
+  KALDI_ASSERT(SameDim(*this, src));
+
+  if (num_cols_ == stride_ && src.num_cols_ == src.stride_) {
+    SubVector<Real> src_vec(src.data_, num_rows_ * num_cols_),
+        dst_vec(this->data_, num_rows_ * num_cols_);
+    dst_vec.Relu(src_vec);
+  } else {
+    for (MatrixIndexT r = 0; r < num_rows_; r++) {
+      SubVector<Real> src_vec(src, r), dest_vec(*this, r);
+      dest_vec.Relu(src_vec);
+    }
+  }
+}
+
+
 template<typename Real>
 void MatrixBase<Real>::DiffSigmoid(const MatrixBase<Real> &value,
                                    const MatrixBase<Real> &diff) {
@@ -2539,6 +2557,24 @@ void MatrixBase<Real>::DiffTanh(const MatrixBase<Real> &value,
     diff_data += diff_stride;
   }
 }
+
+template<typename Real>
+void MatrixBase<Real>::DiffRelu(const MatrixBase<Real> &value,
+                                   const MatrixBase<Real> &diff) {
+  KALDI_ASSERT(SameDim(*this, value) && SameDim(*this, diff));
+  MatrixIndexT num_rows = num_rows_, num_cols = num_cols_,
+      stride = stride_, value_stride = value.stride_, diff_stride = diff.stride_;
+  Real *data = data_;
+  const Real *value_data = value.data_, *diff_data = diff.data_;
+  for (MatrixIndexT r = 0; r < num_rows; r++) {
+    for (MatrixIndexT c = 0; c < num_cols; c++)
+        data[c] = (value_data[c] > 0) ? diff_data[c] : 0;
+    data += stride;
+    value_data += value_stride;
+    diff_data += diff_stride;
+  }
+}
+
 
 
 template<typename Real>
