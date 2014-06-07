@@ -118,7 +118,30 @@ static void UnitTestCuMatrixTraceMatMat() {
     }
   }
 }
-      
+
+
+template<typename Real> 
+static void UnitTestCuCholesky() {
+  for (int32 i = 0; i < 2; i++) {
+    int32 M = 1 + rand() % 10, N = M + 5;
+    
+    CuMatrix<Real> A(M, N);
+    A.SetRandn();
+    CuMatrix<Real> S(M, M);
+    // SymAddMat2 only copies lower triangle.
+    // it's OK- Cholesky only reads the lower triangle.
+    S.SymAddMat2(1.0, A, kNoTrans, 0.0);
+
+    CuMatrix<Real> C(S);
+    C.Cholesky();
+
+    CuMatrix<Real> S2(M, M);
+    S2.AddMatMat(1.0, C, kNoTrans, C, kTrans, 0.0);
+    S.CopyLowerToUpper();
+    KALDI_ASSERT(S.ApproxEqual(S2));
+  }
+}
+
 
 
 
@@ -600,9 +623,8 @@ static void UnitTestCuMatrixMulRowsVec() {
 
 template<typename Real> 
 static void UnitTestCuMatrixMulRowsGroupMat() {
-  for (int32 i = 0; i < 5; i++) {
+  for (int32 i = 0; i < 2; i++) {
     int32 dimM = 100 + rand() % 200, dimNs = 100 + rand() % 200;
-    // int32 dimM = 1000, dimNs = 1000;
     int32 group_size = 1 + rand() % 10;
     //int32 group_size = 1;
     int32 dimN = group_size * dimNs;
@@ -1303,16 +1325,16 @@ static void UnitTestCuMatrixIO() {
 
 template<typename Real>
 static void UnitTestCuVectorAddTpVec() {
-  Vector<Real> Hv(777);
+  Vector<Real> Hv(300);
   InitRand(&Hv);
-  CuVector<Real> Dv(777);
+  CuVector<Real> Dv(300);
   Dv.CopyFromVec(Hv);
-  Vector<Real> Hv1(777);
+  Vector<Real> Hv1(300);
   InitRand(&Hv1);
-  CuVector<Real> Dv1(777);
+  CuVector<Real> Dv1(300);
   Dv1.CopyFromVec(Hv1);
 
-  TpMatrix<Real> Hm(777);
+  TpMatrix<Real> Hm(300);
   Hm.SetRandn();
   CuTpMatrix<Real> Dm(Hm);
 
@@ -1321,7 +1343,7 @@ static void UnitTestCuVectorAddTpVec() {
   //cpu
   Hv.AddTpVec(1.0,Hm,kNoTrans,Hv1,1.0);
 
-  Vector<Real> Hv2(777);
+  Vector<Real> Hv2(300);
   Dv.CopyToVec(&Hv2);
 
   AssertEqual(Hv,Hv2);
@@ -1345,12 +1367,12 @@ static void UnitTestCuApproxEqual() {
 
 template<typename Real> 
 static void UnitTestCuVectorMulTp() {
-  Vector<Real> Hv(777);
+  Vector<Real> Hv(300);
   InitRand(&Hv);
-  CuVector<Real> Dv(777);
+  CuVector<Real> Dv(300);
   Dv.CopyFromVec(Hv);
 
-  TpMatrix<Real> Hm(777);
+  TpMatrix<Real> Hm(300);
   Hm.SetRandn();
   CuTpMatrix<Real> Dm(Hm);
 
@@ -1359,7 +1381,7 @@ static void UnitTestCuVectorMulTp() {
   //cpu
   Hv.MulTp(Hm,kNoTrans);
 
-  Vector<Real> Hv2(777);
+  Vector<Real> Hv2(300);
   Dv.CopyToVec(&Hv2);
 
   AssertEqual(Hv,Hv2);
@@ -1767,6 +1789,26 @@ static void UnitTestCuMatrixCopyLowerToUpper() {
 }
 
 template<typename Real>
+static void UnitTestCuMatrixSetZeroAboveDiag() {
+  for (int i = 1; i < 2; ++i) {
+    MatrixIndexT dim = 10 * i + rand() % 4 + (i == 9 ? 255 : 0);
+    if (i == 8) dim = 0;
+    CuMatrix<Real> A(dim, dim);
+    A.SetRandn();
+    Matrix<Real> A_orig(A);
+    A.SetZeroAboveDiag();
+    Matrix<Real> A_copy(A);
+        
+    for (int32 i = 0; i < dim;  i++) {
+      for (int32 j = 0; j < dim; j++) {
+        Real aval = A_copy(i, j), aorigval = A_orig(i, j);
+        KALDI_ASSERT(aval == (j > i ? 0.0 : aorigval));
+      }
+    }
+  }
+}
+
+template<typename Real>
 static void UnitTestCuMatrixCopyUpperToLower() {
   for (int i = 1; i < 10; ++i) {
     MatrixIndexT dim = 10 * i + rand() % 4 + (i == 9 ? 255 : 0);
@@ -1855,7 +1897,7 @@ static void UnitTestCuMatrixAddElements() {
     for (int32 j = 0; j < 100 + rand() % 10; j++) {
       MatrixIndexT r = rand() % dimM;
       MatrixIndexT c = rand() % dimN;
-      BaseFloat offset = -1 + (0.33 * (rand() % 5));
+      Real offset = -1 + (0.33 * (rand() % 5));
       M(r, c) += scale * offset;
       MatrixElement<Real> t = {r, c, offset};
       input.push_back(t);
@@ -1958,6 +2000,7 @@ template<typename Real> void CudaMatrixUnitTest() {
   UnitTestCuMatrixTranspose<Real>();
   UnitTestCuMatrixCopyUpperToLower<Real>();
   UnitTestCuMatrixCopyLowerToUpper<Real>();
+  UnitTestCuMatrixSetZeroAboveDiag<Real>();
   UnitTestCuMatrixAddElements<Real>();
   UnitTestCuMatrixLookup<Real>();
   UnitTestCuMatrixEqualElementMask<Real>(); 
@@ -1993,6 +2036,7 @@ template<typename Real> void CudaMatrixUnitTest() {
   UnitTestSwapCu2M<Real>();
   UnitTestCuMatrixAddDiagVecMat<Real>();
   UnitTestCuTanh<Real>();
+  UnitTestCuCholesky<Real>();
   UnitTestCuDiffTanh<Real>();
   UnitTestCuVectorAddTpVec<Real>();
   UnitTestCuVectorMulTp<Real>();
