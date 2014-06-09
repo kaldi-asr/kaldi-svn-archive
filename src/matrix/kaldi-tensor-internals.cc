@@ -571,11 +571,8 @@ void ScaleTensor(int32 num_indexes,
   std::vector<std::pair<int32,int32> > dims_strides;
   dims_strides.reserve(num_indexes);
   for (int32 i = 0; i < num_indexes; i++)
-    // if we just put nonzero strides in dims_strides, it makes problem.
-    // e.g. if we compute 2-Norm of a 4D-tensor using function FrobeniusNorm(),
-    // we need to multiply tensor by itself and put it in an scalar, 
-    // that fails, since scalar stride size is zero.
-    dims_strides.push_back(std::pair<int32,int32>(dims[i].dim,
+    if (dims[i].stride_c != 0)
+      dims_strides.push_back(std::pair<int32,int32>(dims[i].dim,
                                                     dims[i].stride_c));
 
   Tensor<Real> tensor(dims_strides, c_data);

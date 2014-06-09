@@ -144,7 +144,6 @@ void Tensor<Real>::Init(const std::vector<std::pair<int32, int32> > &dims_stride
 
 template<typename Real>
 void TensorBase<Real>::CheckAndFixDims() {
-  KALDI_ASSERT(!dims_strides_.empty());
   for (size_t i = 0; i < dims_strides_.size(); i++) {
     KALDI_ASSERT(dims_strides_[i].first >= 1);
     if (dims_strides_[i].first == 1)
@@ -280,8 +279,7 @@ void Tensor<Real>::AddTensorTensor(Real alpha,
     }
     dims.push_back(TensorOperationDims(m,
                                        t1.dims_strides_[i].second,
-                                  
-                                  t2.dims_strides_[i].second,
+                                       t2.dims_strides_[i].second,
                                        this->dims_strides_[i].second));
   }
   AddTensorTensorToplevel(dims, alpha, t1.Data(), t2.Data(), this->Data(),
@@ -478,7 +476,7 @@ Real Tensor<Real>::FrobeniusNorm() const {
   typedef std::pair<int32, int32> DimsStrides;
   Matrix<Real> tmp(1,1);
   std::vector<DimsStrides> norm_dims_strides;
-  norm_dims_strides.push_back(DimsStrides(1,2));
+  norm_dims_strides.push_back(DimsStrides(1,0));
   Tensor<Real> t_norm(norm_dims_strides, tmp);
   t_norm.AddTensorTensor(static_cast<Real>(1.0), *this, *this, static_cast<Real>(0.0));
   return std::sqrt(*t_norm.Data());
