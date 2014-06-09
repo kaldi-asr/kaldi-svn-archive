@@ -1,7 +1,7 @@
 // matrix/kaldi-tensor.cc
 
 // Copyright 2014  Johns Hopkins University (author: Daniel Povey)
-//                 Pegah Ghahremani
+//           2014  Pegah Ghahremani
 // See ../../COPYING for clarification regarding multiple authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
