@@ -124,7 +124,7 @@ void AddTensorTensorOrder1(const TensorOperationDims *dims,
       } else {
         // sum the vector a, times scalar b; add to scalar c.
         *c_data = beta * *c_data +
-            *b_data * cblas_Xasum(dims0.dim, a_data, dims0.stride_a);
+            *b_data * Xsum(dims0.dim, a_data, dims0.stride_a);
       }
     }
   } else { // stride_a == 0
@@ -139,7 +139,7 @@ void AddTensorTensorOrder1(const TensorOperationDims *dims,
       } else {
         // sum the vector b, times scalar a; add to scalar c.
         *c_data = beta * *c_data +
-            *a_data * cblas_Xasum(dims0.dim, b_data, dims0.stride_b);
+            *a_data * Xsum(dims0.dim, b_data, dims0.stride_b);
       }
     } else { // stride_b == 0
       if (dims0.stride_c != 0) {
@@ -571,9 +571,13 @@ void ScaleTensor(int32 num_indexes,
   std::vector<std::pair<int32,int32> > dims_strides;
   dims_strides.reserve(num_indexes);
   for (int32 i = 0; i < num_indexes; i++)
-    if (dims[i].stride_c != 0)
-      dims_strides.push_back(std::pair<int32,int32>(dims[i].dim,
+    // if we just put nonzero strides in dims_strides, it makes problem.
+    // e.g. if we compute 2-Norm of a 4D-tensor using function FrobeniusNorm(),
+    // we need to multiply tensor by itself and put it in an scalar, 
+    // that fails, since scalar stride size is zero.
+    dims_strides.push_back(std::pair<int32,int32>(dims[i].dim,
                                                     dims[i].stride_c));
+
   Tensor<Real> tensor(dims_strides, c_data);
   tensor.Scale(alpha);
 }
@@ -686,7 +690,7 @@ inline void AddTensorOrder1(const TensorOperationDims *dims,
     for (size_t i = 0; i < n; i++)
       c_data[i * stride_c] += a;
   } else if (dims[0].stride_a != 0 && dims[0].stride_c == 0) {
-    *c_data += cblas_Xasum(dims[0].dim, a_data,
+    *c_data += Xsum(dims[0].dim, a_data,
                            dims[0].stride_a);
   } else {
     KALDI_ERR << "Invalid dimensions"; // both strides zero, does not make

@@ -1,7 +1,7 @@
 // matrix/kaldi-tensor.cc
 
 // Copyright 2014  Johns Hopkins University (author: Daniel Povey)
-
+//                 Pegah Ghahremani
 // See ../../COPYING for clarification regarding multiple authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -279,9 +279,10 @@ void Tensor<Real>::AddTensorTensor(Real alpha,
                 << ", t2.Dim(i) = " << c;
     }
     dims.push_back(TensorOperationDims(m,
-                                       this->dims_strides_[i].second,
                                        t1.dims_strides_[i].second,
-                                       t2.dims_strides_[i].second));
+                                  
+                                  t2.dims_strides_[i].second,
+                                       this->dims_strides_[i].second));
   }
   AddTensorTensorToplevel(dims, alpha, t1.Data(), t2.Data(), this->Data(),
                           beta);
@@ -318,21 +319,21 @@ void Tensor<Real>::AddTensor(Real alpha,
     }
     // we set stride_a and stride_c; stride_b is always zero.
     dims.push_back(TensorOperationDims(m,
-                                       this->dims_strides_[i].second,
+                                       t.dims_strides_[i].second,
                                        0,
-                                       t.dims_strides_[i].second));
+                                       this->dims_strides_[i].second));
   }
   AddTensorToplevel(dims, alpha, t.Data(), this->Data());
 }
 
 template<typename Real>
 void Tensor<Real>::Scale(Real alpha) {
-  Tensor<Real> t(*this);  // Note: this uses the default copy constructor.
+  Tensor<Real> t(this->NumIndexes(), *this);  // Note: this uses the default copy constructor.
   t.Flatten();  // This removes aliasing.  It may fail if this is not possible
                 // to do; this will only be the case for quite strange tensors,
                 // and for now we just don't support scaling of such tensors.
 
-  ScaleTensor(this->NumIndexes(),
+  ScaleTensor(t.NumIndexes(),
               t.dims_strides_.empty() ? NULL : &(t.dims_strides_[0]),
               alpha, t.data_);
 }
@@ -424,7 +425,7 @@ void Tensor<Real>::ConvTensorTensor(Real alpha,
       } else if (d2 + 1 == d0 + d1) {
         dims_strides0.push_back(std::pair<int32, int32>(d0, s0));
         dims_strides0.push_back(std::pair<int32, int32>(1, 0));
-        dims_strides1.push_back(std::pair<int32, int32>(0, 1));
+        dims_strides1.push_back(std::pair<int32, int32>(1, 0));
         dims_strides1.push_back(std::pair<int32, int32>(d1, s1));
         dims_strides2.push_back(std::pair<int32, int32>(d0, s2));
         dims_strides2.push_back(std::pair<int32, int32>(d1, s2));
@@ -440,7 +441,6 @@ void Tensor<Real>::ConvTensorTensor(Real alpha,
       t2mod(dims_strides2, t2.Data());
   t0mod.AddTensorTensor(alpha, t1mod, t2mod, 1.0);
 }
-
 template<class Real>
 Tensor<Real>::Tensor(int32 new_order,
                      const Tensor<Real> &tensor) {
@@ -452,8 +452,64 @@ Tensor<Real>::Tensor(int32 new_order,
   dims_strides.insert(dims_strides.end(),
                       tensor.dims_strides_.begin(),
                       tensor.dims_strides_.end());
+  
   this->Init(dims_strides, tensor.data_);
 }
+
+template<class Real>
+Tensor<Real>::Tensor(const Tensor<Real> &tensor) {
+  std::vector<std::pair<int32, int32> > dims_strides;
+  dims_strides.reserve(tensor.NumIndexes());
+  dims_strides.insert(dims_strides.end(), tensor.dims_strides_.begin(),
+                      tensor.dims_strides_.end()); 
+  int32 min_offset, max_offset;
+  tensor.GetMinAndMaxOffset(-1, &min_offset, &max_offset);
+  void *data;
+  void *temp;
+  size_t size = static_cast<size_t>(max_offset+1) * sizeof(Real);
+  if (NULL != (data = KALDI_MEMALIGN(16, size, &temp))) 
+    this->data_ = static_cast<Real *> (data);
+  this->dims_strides_ = dims_strides;
+  this->CopyFromTensor(tensor);
+}
+
+template<typename Real> 
+Real Tensor<Real>::FrobeniusNorm() const {
+  typedef std::pair<int32, int32> DimsStrides;
+  Matrix<Real> tmp(1,1);
+  std::vector<DimsStrides> norm_dims_strides;
+  norm_dims_strides.push_back(DimsStrides(1,2));
+  Tensor<Real> t_norm(norm_dims_strides, tmp);
+  t_norm.AddTensorTensor(static_cast<Real>(1.0), *this, *this, static_cast<Real>(0.0));
+  return std::sqrt(*t_norm.Data());
+}
+
+template<typename Real> 
+Real Tensor<Real>::Sum() const {
+  typedef std::pair<int32, int32> DimsStrides; 
+  std::vector<DimsStrides> dims_strides;
+  dims_strides.push_back(DimsStrides(1,1));
+  Matrix<Real> mat(1, 1);
+  Tensor<Real> temp(dims_strides, mat);
+  temp.AddTensor(1.0, *this);
+  return (*temp.Data());
+}
+
+template<typename Real> 
+bool Tensor<Real>::ApproxEqual(const Tensor<Real> &other, float tol) const {
+  // Check dimensions and strides mismatch
+  if (this->NumIndexes() != other.NumIndexes()) 
+    KALDI_ERR << "ApproxEqual: size mismatch.";
+  for (int i = 0; i < this->NumIndexes(); i++)  { 
+    if ( this->Stride(i) != other.Stride(i) || this->Dim(i) != other.Dim(i))
+      KALDI_ERR << "ApproxEqual: size mismatch.";
+  }
+  Tensor<Real> tmp(*this);
+  tmp.AddTensor(-1.0, other);
+  return (tmp.FrobeniusNorm() <= static_cast<Real>(tol) *
+          this->FrobeniusNorm());
+}
+
 
 template class TensorBase<float>;
 template class TensorBase<double>;
@@ -461,6 +517,7 @@ template class TensorBase<double>;
 
 template class Tensor<float>;
 template class Tensor<double>;
+
 
 } // namespace kaldi
 

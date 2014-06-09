@@ -42,7 +42,13 @@ struct TensorOperationDims {
   TensorOperationDims() { }
 };
 
-
+/// returns the sum of the elements in a vector 
+template<typename Real> 
+inline Real Xsum(const int N, const Real *X, const int incX) {
+  Real sum = 0.0;
+  for (int i =0; i < N; i++) { sum += X[i * incX];}
+  return sum;
+}
 /// Removes any index-positions for which dim == 1 (even if
 /// that would leave us with zero index-positions.
 void ExciseUnitDims(std::vector<TensorOperationDims> *vec);

@@ -1,7 +1,7 @@
 // matrix/kaldi-tensor.h
 
 // Copyright 2014  Johns Hopkins University (author: Daniel Povey)
-
+//                 Pegah Ghahremani
 // See ../../COPYING for clarification regarding multiple authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -171,11 +171,14 @@ class Tensor: public TensorBase<Real> {
   Tensor(int32 new_num_indices,
          const Tensor<Real> &tensor);
 
+  /// this is  a copy constructor from Tensor class
+  /// It allocates new memory
+  Tensor(const Tensor<Real> &tensor);
+
   /// This constructor can be used to modify the order of the tensor indices.
   /// Index i of *this will correspond to index "index_order[i]" of "tensor".
   Tensor(const std::vector<int32> index_order,
          const Tensor<Real> &tensor);
-  
   /// Convenience constructor for order-3 tensors.
   /// Note: in setting the strides, view them as strides on the raw data
   /// pointer, so if a particular index corresponds to the row-index of the
@@ -201,7 +204,6 @@ class Tensor: public TensorBase<Real> {
          int32 dim2, int32 stride2,
          int32 dim3, int32 stride3,
          int32 dim4, int32 stride4);
-
 
   /// Indexing operator
   inline Real& operator() (const std::vector<int32> &indexes);
@@ -284,7 +286,15 @@ class Tensor: public TensorBase<Real> {
   void ConvTensorTensor(Real alpha,
                         const Tensor<Real> &t1,
                         const Tensor<Real> &t2);
+  /// Frobenius norm, which is the sqrt of sum of square elements of tensor
+  Real FrobeniusNorm() const;
   
+  /// Returns sum of all elements of Tensor
+  Real Sum() const;
+  /// Returns true if ((*this)-other).FrobeniusNorm()
+  /// <= tol * (*this).FrobeniusNorm()
+  bool ApproxEqual(const Tensor<Real> &other, float tol = 0.01) const;
+
   /// Use default copy and assignment operators.  
 
   // This struct is used by some functions that implement tensor operations, so
@@ -309,7 +319,7 @@ class Tensor: public TensorBase<Real> {
   void AddTensorTensor(Real alpha,
                        Tensor<Real> *t1,
                        Tensor<Real> *t2);
-
+  
 };
 
 
