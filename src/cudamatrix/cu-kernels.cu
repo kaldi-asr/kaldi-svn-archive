@@ -1933,7 +1933,7 @@ static void _find_row_max_id(const Real* mat, Real* vec_val, int32_cuda* vec_id,
   __syncthreads();
   
   //get the id of the max value
-  int32_cuda out_max = _max_id_reduce(value,index);
+  int32_cuda out_max = _max_id_reduce(value, index);
   __syncthreads();
 
   //see if it's bigger value
@@ -1944,7 +1944,6 @@ static void _find_row_max_id(const Real* mat, Real* vec_val, int32_cuda* vec_id,
     }
   }
 }
-
 
 
 template<typename Real>
