@@ -212,6 +212,13 @@ void CuTensor<Real>::ConvTensorTensor(Real alpha,
   // TODO.
 }
 
+template<typename Real>
+void CuTensor<Real>::ConvTensorTensor(Real alpha,
+                                      const CuTensor<Real> &t1,
+                                      const CuTensor<Real> &t2) {
+  // TODO.
+}
+
 // Explicit instantiation of the classes
 template class CuTensor<float>;
 template class CuTensor<double>;
