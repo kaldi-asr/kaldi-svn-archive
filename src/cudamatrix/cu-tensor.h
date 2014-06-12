@@ -190,6 +190,10 @@ class CuTensor: public TensorBase<Real> {
                         const CuTensor<Real> &t2);
 
   
+  /// Returns true if ((*this)-other).FrobeniusNorm()
+  /// <= tol * (*this).FrobeniusNorm()
+  bool ApproxEqual(const Tensor<Real> &other, float tol = 0.01) const;
+  bool ApproxEqual(const CuTensor<Real> &other, float tol = 0.01) const;
   /// Use default copy and assignment operators.  
 
   // This struct is used by some functions that implement tensor operations, so
@@ -199,6 +203,20 @@ class CuTensor: public TensorBase<Real> {
     int32 stride;
     DimInfo(int32 dim, int32 stride): dim(dim), stride(stride) { }
   };  
+
+ protected:
+  // The following two functions should only be called if we did not compile with CUDA
+  // or could not get a CUDA card; in that case the contents are interpreted the
+  // same as a regular tensor.
+  inline const Tensor<Real> &GetTensor() const {
+    return *(reinterpret_cast< const Tensor<Real>* >(this));
+  }
+
+  inline Tensor<Real> &GetTensor() {
+    return *(reinterpret_cast<Tensor<Real>* >(this));
+  }
+ 
+
  private:
   /// This is called from constructors.
   void Init(const std::vector<std::pair<int32, int32> > &dims_strides,

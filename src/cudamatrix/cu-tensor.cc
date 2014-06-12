@@ -130,28 +130,36 @@ void CuTensor<Real>::AddTensorTensor(Real alpha,
   // three to be nonzero, which is a little less common but
   // still valid.
   
-  size_t order = this->dims_strides_.size();
-  std::vector<TensorOperationDims> dims;
-  dims.reserve(order);
-  
-  for (size_t i = 0; i < order; i++) {
-    int32 a = this->dims_strides_[i].first,
-        b = t1.dims_strides_[i].first,
-        c = t2.dims_strides_[i].first,
-        m = std::max(a, std::max(b, c));
-    if (!(a == 1 || a == m) || !(b == 1 || b == m) || !(c == 1 || c == m)) {
-      KALDI_ERR << "Tensor dimension mismatch: for index i = " << i
-                << " this->Dim(i) = " << a << ", t1.Dim(i) = " << b
-                << ", t2.Dim(i) = " << c;
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    size_t order = this->dims_strides_.size();
+    std::vector<TensorOperationDims> dims;
+    dims.reserve(order);
+    
+    for (size_t i = 0; i < order; i++) {
+      int32 a = this->dims_strides_[i].first,
+          b = t1.dims_strides_[i].first,
+          c = t2.dims_strides_[i].first,
+          m = std::max(a, std::max(b, c));
+      if (!(a == 1 || a == m) || !(b == 1 || b == m) || !(c == 1 || c == m)) {
+        KALDI_ERR << "Tensor dimension mismatch: for index i = " << i
+                  << " this->Dim(i) = " << a << ", t1.Dim(i) = " << b
+                  << ", t2.Dim(i) = " << c;
+      }
+      dims.push_back(TensorOperationDims(m,
+                                         this->dims_strides_[i].second,
+                                         t1.dims_strides_[i].second,
+                                         t2.dims_strides_[i].second));
     }
-    dims.push_back(TensorOperationDims(m,
-                                       this->dims_strides_[i].second,
-                                       t1.dims_strides_[i].second,
-                                       t2.dims_strides_[i].second));
+    // TODO.
+    // AddTensorTensorToplevel(dims, alpha, t1.Data(), t2.Data(), this->Data(),
+    //  beta);
+    KALDI_ERR << "Not Implemented";
+  } else
+#endif
+  {
+    GetTensor().AddTensorTensor(alpha, t1.GetTensor(), t2.GetTensor(), beta);
   }
-  // TODO.
-  // AddTensorTensorToplevel(dims, alpha, t1.Data(), t2.Data(), this->Data(),
-  //  beta);
 }
 
 template<class Real>
@@ -164,59 +172,135 @@ void CuTensor<Real>::AddTensor(Real alpha,
   // a = this->Dim(i), b = t1.Dim(i)
   // We must have either a == b or a = 1 or b = 1.
   
-  size_t order = this->dims_strides_.size();
-  std::vector<TensorOperationDims> dims;
-  dims.reserve(order);
-  
-  for (size_t i = 0; i < order; i++) {
-    int32 a = this->dims_strides_[i].first,
-        b = t.dims_strides_[i].first,
-        m = std::max(a, b);
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    size_t order = this->dims_strides_.size();
+    std::vector<TensorOperationDims> dims;
+    dims.reserve(order);
+    
+    for (size_t i = 0; i < order; i++) {
+      int32 a = this->dims_strides_[i].first,
+          b = t.dims_strides_[i].first,
+          m = std::max(a, b);
 
-    if (!(a == b || a == 1 || b == 1)) {
-      KALDI_ERR << "Tensor dimension mismatch: for index i = " << i
-                << " this->Dim(i) = " << a << ", t.Dim(i) = " << b;
+      if (!(a == b || a == 1 || b == 1)) {
+        KALDI_ERR << "Tensor dimension mismatch: for index i = " << i
+                  << " this->Dim(i) = " << a << ", t.Dim(i) = " << b;
+      }
+      // we set stride_a and stride_c; stride_b is always zero.
+      dims.push_back(TensorOperationDims(m,
+                                         this->dims_strides_[i].second,
+                                         0,
+                                         t.dims_strides_[i].second));
+      // TODO.
+      // AddTensorToplevel(dims, alpha, t.Data(), this->Data());
     }
-    // we set stride_a and stride_c; stride_b is always zero.
-    dims.push_back(TensorOperationDims(m,
-                                       this->dims_strides_[i].second,
-                                       0,
-                                       t.dims_strides_[i].second));
+      KALDI_ERR << __func__ <<  " Not Implemented!";
+  } else
+#endif
+  {
+    GetTensor().AddTensor(alpha, t.GetTensor());
   }
-  // TODO.
-  // AddTensorToplevel(dims, alpha, t.Data(), this->Data());
+ 
 }
 
 template<typename Real>
 void CuTensor<Real>::Scale(Real alpha) {
-  CuTensor<Real> t(*this);  // Note: this uses the default copy constructor.
-  t.Flatten();  // This removes aliasing.  It may fail if this is not possible
-                // to do; this will only be the case for quite strange tensors,
-                // and for now we just don't support scaling of such tensors.
-
   // TODO.
   //ScaleTensor(this->NumIndexes(),
   //              t.dims_strides_.empty() ? NULL : &(t.dims_strides_[0]),
-  //              alpha, t.data_);
+
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+
+    CuTensor<Real> t(*this);  // Note: this uses the default copy constructor.
+    t.Flatten();  // This removes aliasing.  It may fail if this is not possible
+                  // to do; this will only be the case for quite strange tensors,
+                  // and for now we just don't support scaling of such tensors.
+
+    //              alpha, t.data_);
+    // TODO.
+    KALDI_ERR << __func__ <<  " Not Implemented!";
+  } else
+#endif
+  {
+    GetTensor().Scale(alpha);
+  }
 }
 
 template<typename Real>
 void CuTensor<Real>::CopyFromTensor(const CuTensor<Real> &t) {
-  // TODO.
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    // TODO.
+    KALDI_ERR << __func__ <<  " Not Implemented!";
+  } else
+#endif
+  {
+    GetTensor().CopyFromTensor(t.GetTensor());
+  }
 }
 
 template<typename Real>
 void CuTensor<Real>::ConvTensorTensor(Real alpha,
                                       const Tensor<Real> &t1,
                                       const Tensor<Real> &t2) {
-  // TODO.
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    // TODO.
+    KALDI_ERR << __func__ <<  " Not Implemented!";
+  } else
+#endif
+  {
+    GetTensor().ConvTensorTensor(alpha, t1, t2);
+  }
 }
 
 template<typename Real>
 void CuTensor<Real>::ConvTensorTensor(Real alpha,
                                       const CuTensor<Real> &t1,
                                       const CuTensor<Real> &t2) {
-  // TODO.
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    KALDI_ERR << __func__ <<  " Not Implemented!";
+    // TODO.
+  } else
+#endif
+  {
+    GetTensor().ConvTensorTensor(alpha, t1.GetTensor(), t2.GetTensor());
+  }
+}
+
+template<typename Real> 
+bool CuTensor<Real>::ApproxEqual(const CuTensor<Real> &other, float tol) const {
+  // Check dimensions and strides mismatch
+  if (this->NumIndexes() != other.NumIndexes()) 
+    KALDI_ERR << "ApproxEqual: size mismatch.";
+  for (int i = 0; i < this->NumIndexes(); i++)  { 
+    if ( this->Stride(i) != other.Stride(i) || this->Dim(i) != other.Dim(i))
+      KALDI_ERR << "ApproxEqual: size mismatch.";
+  }
+  CuTensor<Real> tmp(*this);
+  tmp.AddTensor(-1.0, other);
+  return (tmp.GetTensor().FrobeniusNorm() <= static_cast<Real>(tol) *
+          this->GetTensor().FrobeniusNorm());
+}
+
+
+template<typename Real> 
+bool CuTensor<Real>::ApproxEqual(const Tensor<Real> &other, float tol) const {
+  // Check dimensions and strides mismatch
+  if (this->NumIndexes() != other.NumIndexes()) 
+    KALDI_ERR << "ApproxEqual: size mismatch.";
+  for (int i = 0; i < this->NumIndexes(); i++)  { 
+    if ( this->Stride(i) != other.Stride(i) || this->Dim(i) != other.Dim(i))
+      KALDI_ERR << "ApproxEqual: size mismatch.";
+  }
+  CuTensor<Real> tmp(*this);
+  Tensor<Real> tmp2 = tmp.GetTensor();
+  tmp2.AddTensor(-1.0, other);
+  return (tmp2.FrobeniusNorm() <= static_cast<Real>(tol) *
+          this->GetTensor().FrobeniusNorm());
 }
 
 // Explicit instantiation of the classes
