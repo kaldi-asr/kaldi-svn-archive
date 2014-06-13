@@ -147,9 +147,9 @@ void CuTensor<Real>::AddTensorTensor(Real alpha,
                   << ", t2.Dim(i) = " << c;
       }
       dims.push_back(TensorOperationDims(m,
-                                         this->dims_strides_[i].second,
                                          t1.dims_strides_[i].second,
-                                         t2.dims_strides_[i].second));
+                                         t2.dims_strides_[i].second,
+                                         this->dims_strides_[i].second));
     }
     // TODO.
     // AddTensorTensorToplevel(dims, alpha, t1.Data(), t2.Data(), this->Data(),
@@ -189,9 +189,9 @@ void CuTensor<Real>::AddTensor(Real alpha,
       }
       // we set stride_a and stride_c; stride_b is always zero.
       dims.push_back(TensorOperationDims(m,
-                                         this->dims_strides_[i].second,
+                                         t.dims_strides_[i].second,
                                          0,
-                                         t.dims_strides_[i].second));
+                                         this->dims_strides_[i].second));
       // TODO.
       // AddTensorToplevel(dims, alpha, t.Data(), this->Data());
     }
@@ -207,7 +207,7 @@ void CuTensor<Real>::AddTensor(Real alpha,
 template<typename Real>
 void CuTensor<Real>::Scale(Real alpha) {
   // TODO.
-  //ScaleTensor(this->NumIndexes(),
+  //ScaleTensor(t->NumIndexes(),
   //              t.dims_strides_.empty() ? NULL : &(t.dims_strides_[0]),
 
 #if HAVE_CUDA == 1
@@ -280,9 +280,9 @@ bool CuTensor<Real>::ApproxEqual(const CuTensor<Real> &other, float tol) const {
     if ( this->Stride(i) != other.Stride(i) || this->Dim(i) != other.Dim(i))
       KALDI_ERR << "ApproxEqual: size mismatch.";
   }
-  CuTensor<Real> tmp(*this);
-  tmp.AddTensor(-1.0, other);
-  return (tmp.GetTensor().FrobeniusNorm() <= static_cast<Real>(tol) *
+  Tensor<Real> tmp = this->GetTensor();
+  tmp.AddTensor(-1.0, other.GetTensor());
+  return (tmp.FrobeniusNorm() <= static_cast<Real>(tol) *
           this->GetTensor().FrobeniusNorm());
 }
 
@@ -296,8 +296,7 @@ bool CuTensor<Real>::ApproxEqual(const Tensor<Real> &other, float tol) const {
     if ( this->Stride(i) != other.Stride(i) || this->Dim(i) != other.Dim(i))
       KALDI_ERR << "ApproxEqual: size mismatch.";
   }
-  CuTensor<Real> tmp(*this);
-  Tensor<Real> tmp2 = tmp.GetTensor();
+  Tensor<Real> tmp2 = this->GetTensor();
   tmp2.AddTensor(-1.0, other);
   return (tmp2.FrobeniusNorm() <= static_cast<Real>(tol) *
           this->GetTensor().FrobeniusNorm());

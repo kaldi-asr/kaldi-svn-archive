@@ -66,10 +66,12 @@ void TestScale() {
       dims_strides.push_back(DimsStrides(k, n * m));
      
       KALDI_LOG<<n<<" "<<m<<" "<<k;
-      Matrix<Real> m1(1, n * m * k);
-      m1.SetRandn();
-      CuTensor<Real> ct1(dims_strides, CuMatrix<Real>(m1));
-      Tensor<Real> t1(dims_strides, m1);
+      CuMatrix<Real> m1(1, n * m * k);
+      Matrix<Real> m2(1, n * m * k); 
+      m2.SetRandn();
+      m1.CopyFromMat(m2);
+      CuTensor<Real> ct1(dims_strides, m1);
+      Tensor<Real> t1(dims_strides, m2);
       t1.Scale(scaling_coeff);
       ct1.Scale(scaling_coeff);
 
@@ -122,17 +124,18 @@ void TestGetTensor() {
 template<class Real>
 void TestCopyFromTensor() {
  typedef std::pair<int32, int32> DimsStrides;
- Matrix<Real> m(1,150), m2(1,150), m3(1,150);
- m.SetRandn();
- m3.CopyFromMat(m);
+ CuMatrix<Real> m1(1,150), m2(1,150);
+ Matrix<Real> m3(1,150);
+ m3.SetRandn();
+ m1.CopyFromMat(m3);
 
  std::vector<DimsStrides> dims_strides;
  dims_strides.push_back(DimsStrides(10,1));
  dims_strides.push_back(DimsStrides(3,10));
  dims_strides.push_back(DimsStrides(5,30));
  
- CuTensor<Real> ct(dims_strides, CuMatrix<Real>(m));
- CuTensor<Real> ct2(dims_strides, CuMatrix<Real>(m2));
+ CuTensor<Real> ct(dims_strides, m1);
+ CuTensor<Real> ct2(dims_strides, m2);
  Tensor<Real> t(dims_strides, m3);
  ct2.CopyFromTensor(ct);
 
@@ -156,13 +159,13 @@ void TestAddTensor() {
       std::vector<DimsStrides> A_dims_strides, B_dims_strides;
       A_dims_strides.push_back(DimsStrides(n,1));
       A_dims_strides.push_back(DimsStrides(m,n));
-      Matrix<Real> A_mat(1, n * m);
+      Matrix<Real> A_mat(1, n * m), B_mat(1, n * m);
       A_mat.SetRandn();
-      Matrix<Real> B_mat(1, n * m);
       B_mat.SetRandn();
+      CuMatrix<Real> A_mat2(A_mat), B_mat2(B_mat);
 
-      CuTensor<Real> A_cutensor(A_dims_strides, CuMatrix<Real>(A_mat));
-      CuTensor<Real> B_cutensor(A_dims_strides, CuMatrix<Real>(B_mat));
+      CuTensor<Real> A_cutensor(A_dims_strides, A_mat2);
+      CuTensor<Real> B_cutensor(A_dims_strides, B_mat2);
       A_cutensor.AddTensor(alpha, B_cutensor);
   
       Tensor<Real> A_tensor(A_dims_strides, A_mat);
@@ -185,7 +188,7 @@ void TestAddTensorTensor() {
         C_dims_strides;
       A_dims_strides.push_back(DimsStrides(n,1));
       A_dims_strides.push_back(DimsStrides(k,n));
-      A_dims_strides.push_back(DimsStrides(1,n*k));
+      A_dims_strides.push_back(DimsStrides(1,n * k));
       B_dims_strides.push_back(DimsStrides(1,1));
       B_dims_strides.push_back(DimsStrides(k,1));
       B_dims_strides.push_back(DimsStrides(m,k));
@@ -196,15 +199,17 @@ void TestAddTensorTensor() {
       Matrix<Real> A_mat(1, n * k), B_mat(1, m * k),
         C_mat(1, n * m);
       A_mat.SetRandn(); B_mat.SetRandn();
-     
-      CuTensor<Real> A_cutensor(A_dims_strides, CuMatrix<Real>(A_mat)),
-        B_cutensor(B_dims_strides, CuMatrix<Real>(B_mat)),
-        C_cutensor(C_dims_strides, CuMatrix<Real>(C_mat));
-      C_cutensor.AddTensorTensor(1.0, A_cutensor, B_cutensor, 0.0);
+      CuMatrix<Real> A_mat2(A_mat), B_mat2(B_mat), C_mat2(C_mat);
 
-      Tensor<Real> A_tensor(B_dims_strides, A_mat),
+      CuTensor<Real> A_cutensor(A_dims_strides, A_mat2),
+        B_cutensor(B_dims_strides, B_mat2),
+        C_cutensor(C_dims_strides, C_mat2);
+
+      Tensor<Real> A_tensor(A_dims_strides, A_mat),
         B_tensor(B_dims_strides, B_mat),
         C_tensor(C_dims_strides, C_mat);
+
+      C_cutensor.AddTensorTensor(1.0, A_cutensor, B_cutensor, 0.0);
       C_tensor.AddTensorTensor(1.0, A_tensor, B_tensor, 0.0);
 
       KALDI_ASSERT( C_cutensor.ApproxEqual(C_tensor));
@@ -235,13 +240,15 @@ void TestConvTensorTensor() {
       C_dims_strides.push_back(DimsStrides(m3,n3));
 
       Matrix<Real> A_mat(1, n1 * m1), B_mat(1, n2 * m2),
-                   C_mat(1, n3 * m3), C_mat2(1, n3 * m3);
+                   C_mat(1, n3 * m3);
       A_mat.SetRandn();
       B_mat.SetRandn();
-      CuTensor<Real> A_cutensor(A_dims_strides, CuMatrix<Real>(A_mat)),
-        B_cutensor(B_dims_strides, CuMatrix<Real>(B_mat)),
-        C_cutensor(C_dims_strides, CuMatrix<Real>(C_mat)),
-        C_cutensor2(C_dims_strides, CuMatrix<Real>(C_mat2));
+      CuMatrix<Real> A_mat2(A_mat), B_mat2(B_mat), 
+        C_mat2(C_mat), C_mat3(C_mat);
+      CuTensor<Real> A_cutensor(A_dims_strides, A_mat2),
+        B_cutensor(B_dims_strides, B_mat2),
+        C_cutensor(C_dims_strides, C_mat2),
+        C_cutensor2(C_dims_strides, C_mat3);
       
       // Checks if the two convolution outputs are equal
       C_cutensor.ConvTensorTensor(1.0, A_cutensor, B_cutensor);
@@ -263,7 +270,7 @@ void TestConvTensorTensor() {
 template<class Real>
 void CuTensorUnitTest() {
   //TestFlatten<Real>();
-  TestGetTensor<Real>();
+  //TestGetTensor<Real>();
   TestCopyFromTensor<Real>();
   TestScale<Real>();
   TestAddTensor<Real>();

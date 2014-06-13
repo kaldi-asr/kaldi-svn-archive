@@ -195,7 +195,7 @@ class CuTensor: public TensorBase<Real> {
   bool ApproxEqual(const Tensor<Real> &other, float tol = 0.01) const;
   bool ApproxEqual(const CuTensor<Real> &other, float tol = 0.01) const;
   /// Use default copy and assignment operators.  
-
+  
   // This struct is used by some functions that implement tensor operations, so
   // we make it public.
   struct DimInfo {
