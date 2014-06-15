@@ -130,6 +130,13 @@ class CuTensor: public TensorBase<Real> {
                        const CuTensor<Real> &t2,
                        Real beta);
 
+  /// This internal-only version of AddTensorTensor may reorder the
+  /// tensor dimensions; it's called from the public AddTensorTensor
+  /// after creating copies of the objects.
+  void AddTensorTensor(Real alpha,
+                       CuTensor<Real> *t1,
+                       CuTensor<Real> *t2);
+
   /// Does *this += alpha * Conv(t1 * t2), and related operations.
   ///
   /// This is defined as follows.  Like AddTensorTensor, in general the
@@ -226,13 +233,7 @@ class CuTensor: public TensorBase<Real> {
             const Real *data);
 
   
-  /// This internal-only version of AddTensorTensor may reorder the
-  /// tensor dimensions; it's called from the public AddTensorTensor
-  /// after creating copies of the objects.
-  void AddTensorTensor(Real alpha,
-                       CuTensor<Real> *t1,
-                       CuTensor<Real> *t2);
-  
+    
 };
 
 

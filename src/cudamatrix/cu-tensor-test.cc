@@ -80,9 +80,8 @@ void TestScale() {
   }
   KALDI_LOG<<__func__<<" passed! ";
 }
-/*
- * Not available as GetTensor() is a protected method.
-template<class Real>
+ // Not available as GetTensor() is a protected method.
+/*template<class Real>
 void TestGetTensor() {
  typedef std::pair<int32, int32> DimsStrides;
  std::vector<DimsStrides> dims_strides;
@@ -104,7 +103,7 @@ void TestGetTensor() {
    for (int j=0; j < d2; j++) {
      for (int k=0; k < d3; k++) {
        indices[0]=i; indices[1]=j; indices[2]=k;
-        ct(indices)=i*j*k;
+        ct(indices)=static_cast<Real>(i*j*k);
      }
    }
  }
@@ -118,8 +117,7 @@ void TestGetTensor() {
    }
  }
  KALDI_LOG<< " Tensor access passed.";
-}
-*/
+}*/
 
 template<class Real>
 void TestCopyFromTensor() {
@@ -136,12 +134,12 @@ void TestCopyFromTensor() {
  
  CuTensor<Real> ct(dims_strides, m1);
  CuTensor<Real> ct2(dims_strides, m2);
- Tensor<Real> t(dims_strides, m3);
+
  ct2.CopyFromTensor(ct);
-
+ 
  KALDI_ASSERT(ct2.ApproxEqual(ct));
- KALDI_ASSERT(ct2.ApproxEqual(t));
 
+ KALDI_LOG<<__func__<<" test passed!";
 }
 
 template<typename Real>
@@ -288,4 +286,3 @@ int main() {
   kaldi::CuTensorUnitTest<float>();
   KALDI_LOG << "Tests succeeded.\n";
 }
-
