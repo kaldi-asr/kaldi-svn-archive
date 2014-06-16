@@ -10,6 +10,8 @@
 
 # Begin configuration section.
 cmd=run.pl
+distortion_config=conf/dist.conf 
+use_distortion=true # if true, it generates distorted examples to train net
 num_epochs=15      # Number of epochs during which we reduce
                    # the learning rate; number of iteration is worked out from this.
 num_epochs_extra=5 # Number of epochs after we stop reducing
@@ -76,7 +78,6 @@ echo "$0 $@"  # Print the command line for logging
 
 if [ -f path.sh ]; then . ./path.sh; fi
 . parse_options.sh || exit 1;
-
 
 if [ $# != 3 ]; then
   echo "Usage: $0 [opts] <train-data> <heldout-data> <exp-dir>"
@@ -253,15 +254,24 @@ while [ $x -lt $num_iters ]; do
       mdl=$dir/$x.nnet
     fi
 
-
-    $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
-      ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-      nnet2-train$train_suffix \
-         --raw=true --minibatch-size=$minibatch_size --srand=$x "$mdl" \
-        ark:- $dir/$[$x+1].JOB.nnet \
-      || exit 1;
-
+    if $use_distortion; then
+      $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
+        nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+        ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
+        nnet2v-distort-egs --config=$distortion_config ark:- ark:- \| \
+        nnet2-train$train_suffix \
+           --raw=true --minibatch-size=$minibatch_size --srand=$x "$mdl" \
+          ark:- $dir/$[$x+1].JOB.nnet \
+        || exit 1;
+    else
+      $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
+        nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+        ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
+        nnet2-train$train_suffix \
+           --raw=true --minibatch-size=$minibatch_size --srand=$x "$mdl" \
+          ark:- $dir/$[$x+1].JOB.nnet \
+        || exit 1;
+    fi
     nnets_list=
     for n in `seq 1 $num_jobs_nnet`; do
       nnets_list="$nnets_list $dir/$[$x+1].$n.nnet"
