@@ -1712,7 +1712,7 @@ class ConvolutionalComponent: public UpdatableComponent {
   
   virtual std::string Type() const { return "ConvolutionalComponent"; }
   virtual bool BackpropNeedsInput() const { return true; }
-  virtual bool BackpropNeedsOutput() const { return false; }
+  virtual bool BackpropNeedsOutput() const { return true; }
   virtual void Propagate(const CuMatrixBase<BaseFloat> &in,
                          int32 num_chunks,
                          CuMatrix<BaseFloat> *out) const;

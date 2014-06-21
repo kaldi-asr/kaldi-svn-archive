@@ -4500,7 +4500,7 @@ void ConvolutionalComponent::Init(BaseFloat learning_rate,
   param_tensor_dims_ = param_tensor_dims;
   learning_rate_ = learning_rate;
   KALDI_ASSERT(learning_rate >= 0.0);
-  left_context_ = left_context_;
+  left_context_ = left_context;
   alpha_ = alpha;
   KALDI_ASSERT(alpha > 0.0);
   max_change_ = max_change; // any value is valid: non-positive will mean it's
@@ -4544,17 +4544,16 @@ CuTensor<BaseFloat> ConvolutionalComponent::GetInputTensor(
     const CuMatrixBase<BaseFloat> &in,
     int32 num_chunks) const {
   int32 chunk_size_in = in.NumRows() / num_chunks;
-  KALDI_ASSERT(in.NumRows() / num_chunks == 0);
+  KALDI_ASSERT(in.NumRows() % num_chunks == 0);
   std::vector<std::pair<int32, int32> > dims_strides_in;  
 
   // dimensions of tensor will be
   // [ num_chunks, chunk_size_in, input_tensor_dims_ ]
-  
   dims_strides_in.push_back(std::pair<int32, int32 >(num_chunks,
                                                      chunk_size_in * in.Stride()));
 
   dims_strides_in.push_back(std::pair<int32, int32>(chunk_size_in,
-                                                    in.Stride()));
+                                                    in.Stride())); 
   
   // note: cur_dim_in gets divided by the current tensor dimension and becomes
   // the stride each time.
@@ -4614,7 +4613,7 @@ void ConvolutionalComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   KALDI_ASSERT(chunk_size_out > 0);
 
   // This call will also set it to zero.
-  out->Resize(in.NumRows() * chunk_size_out, OutputDim());
+  out->Resize(num_chunks * chunk_size_out, OutputDim());
 
   const CuTensor<BaseFloat> in_tensor = GetInputTensor(in, num_chunks);
   CuTensor<BaseFloat> out_tensor = GetOutputTensor(*out, num_chunks);
@@ -4706,9 +4705,26 @@ void ConvolutionalComponent::InitFromString(std::string args) {
 }
 
 std::string ConvolutionalComponent::Info() const {
-  KALDI_ERR << "Not finished";
+  //KALDI_ERR << "Not finished";
   // TODO.
-  return "";
+  std::stringstream stream;
+  BaseFloat linear_params_size = static_cast<BaseFloat>(linear_params_.NumRows())
+    * static_cast<BaseFloat>(linear_params_.NumCols());
+  BaseFloat bias_params_size = static_cast<BaseFloat>(bias_params_.NumRows())
+    * static_cast<BaseFloat>(bias_params_.NumCols());
+  BaseFloat linear_stddev =
+      std::sqrt(TraceMatMat(linear_params_, linear_params_, kTrans) /
+                linear_params_size),
+      bias_stddev = std::sqrt(TraceMatMat(bias_params_, bias_params_, kTrans) /
+                              bias_params_size);
+  stream << Type() << " , input-dim=" << InputDim()
+         << ", output-dim=" << OutputDim()
+         << ", linear-params-stddev=" << linear_stddev
+         << ", bias-params-stddev=" << bias_stddev
+         << ", learning-rate=" << LearningRate()
+         << ", alpha=" << alpha_
+         << ", max-change=" << max_change_;
+  return stream.str();
 }
 
 void ConvolutionalComponent::Scale(BaseFloat scale) {
@@ -4724,6 +4740,7 @@ void ConvolutionalComponent::Add(BaseFloat alpha,
   linear_params_.AddMat(alpha, other->linear_params_);
   bias_params_.AddMat(alpha, other->bias_params_);
 }
+
 
 Component* ConvolutionalComponent::Copy() const {
   // The initializer below will be the one that takes AffineComponent,
@@ -4744,6 +4761,7 @@ ConvolutionalComponent::ConvolutionalComponent(
     bias_params_(other.bias_params_),
     is_gradient_(other.is_gradient_) {
   // Set up linear_params_tensor_ and bias_params_tensor_:
+  SetNumColIndexes(); 
   SetParamTensors(); 
 }
 
@@ -4772,7 +4790,6 @@ void ConvolutionalComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "</ConvolutionalComponent>");
 }
 
-
 void ConvolutionalComponent::Read(std::istream &is, bool binary) {
   ExpectOneOrTwoTokens(is, binary, "<ConvolutionalComponent>",
                        "<LearningRate>");
@@ -4796,8 +4813,9 @@ void ConvolutionalComponent::Read(std::istream &is, bool binary) {
   ExpectToken(is, binary, "<IsGradient>");
   ReadBasicType(is, binary, &is_gradient_);
   ExpectToken(is, binary, "</ConvolutionalComponent>");
+  SetNumColIndexes(); 
+  SetParamTensors();           
 }
-
 
 BaseFloat ConvolutionalComponent::DotProduct(
     const UpdatableComponent &other_in) const {
@@ -4808,6 +4826,7 @@ BaseFloat ConvolutionalComponent::DotProduct(
       TraceMatMat(bias_params_, other->bias_params_, kTrans);
   
 }
+
 void ConvolutionalComponent::PerturbParams(BaseFloat stddev) {
   CuMatrix<BaseFloat> rand_mat(linear_params_.NumRows(),
                                linear_params_.NumCols());

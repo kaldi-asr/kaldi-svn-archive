@@ -1,7 +1,7 @@
 // nnet2/nnet-component-test.cc
 
 // Copyright 2012  Johns Hopkins University (author:  Daniel Povey)
-
+//           2014  Pegah Ghahremani
 // See ../../COPYING for clarification regarding multiple authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +30,6 @@ void UnitTestGenericComponentInternal(const Component &component) {
       output_dim = component.OutputDim();
 
   KALDI_LOG << component.Info();
-  
   CuVector<BaseFloat> objf_vec(output_dim); // objective function is linear function of output.
   objf_vec.SetRandn(); // set to Gaussian noise.
   
@@ -61,7 +60,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
   }
   
   { // Test backward derivative is correct.
-    CuVector<BaseFloat> output_objfs(num_egs);
+    CuVector<BaseFloat> output_objfs(output.NumRows());
     output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec, 0.0);
     BaseFloat objf = output_objfs.Sum();
 
@@ -113,7 +112,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
           }
         }        
         component.Propagate(perturbed_input, 1, &perturbed_output);
-        CuVector<BaseFloat> perturbed_output_objfs(num_egs);
+        CuVector<BaseFloat> perturbed_output_objfs(output.NumRows());
         perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
                                          objf_vec, 0.0);
         BaseFloat perturbed_objf = perturbed_output_objfs.Sum(),
@@ -152,7 +151,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
       BaseFloat perturb_stddev = 5.0e-04;
       perturbed_ucomponent->PerturbParams(perturb_stddev);
       
-      CuVector<BaseFloat> output_objfs(num_egs);
+      CuVector<BaseFloat> output_objfs(output.NumRows());
       output_objfs.AddMatVec(1.0, output, kNoTrans, objf_vec, 0.0);
       BaseFloat objf = output_objfs.Sum();
 
@@ -180,7 +179,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
           }
         }        
         perturbed_ucomponent->Propagate(input, 1, &output_perturbed);
-        CuVector<BaseFloat> output_objfs_perturbed(num_egs);
+        CuVector<BaseFloat> output_objfs_perturbed(output_perturbed.NumRows());
         output_objfs_perturbed.AddMatVec(1.0, output_perturbed,
                                          kNoTrans, objf_vec, 0.0);
         objf_perturbed = output_objfs_perturbed.Sum();
@@ -773,7 +772,45 @@ void BasicDebugTestForSpliceMax(bool output=false) {
 
   delete c;
 }
+void UnitTestConvolutionalComponent() {
+  BaseFloat learning_rate = 0.01,
+    param_stddev = 0.1, bias_stddev = 1.0, 
+    alpha = 1, max_change = 100.0;
+  std::vector<int32> input_tensor_dims,
+    param_tensor_dims,output_tensor_dims;
+  int32 num_freq_warp = 40 + rand() % 10, 
+    x_filter_size = 6 + rand() % 2 ,
+    y_filter_size = 6 + rand() % 6,
+    num_filters = 200 + rand() % 50,
+    num_channels = 5 + rand() % 2;
+  input_tensor_dims.push_back(num_channels);
+  input_tensor_dims.push_back(1);
+  input_tensor_dims.push_back(num_freq_warp);
 
+  param_tensor_dims.push_back(x_filter_size);
+  param_tensor_dims.push_back(num_channels);
+  param_tensor_dims.push_back(num_filters);
+  param_tensor_dims.push_back(y_filter_size);
+
+  output_tensor_dims.push_back(1);
+  output_tensor_dims.push_back(num_filters);
+  output_tensor_dims.push_back(num_freq_warp - y_filter_size + 1);
+  int32 left_context = static_cast<int32>(x_filter_size / 2);
+  {
+    ConvolutionalComponent conv;  
+    conv.Init(learning_rate, input_tensor_dims,
+              output_tensor_dims, param_tensor_dims,
+              left_context, alpha, max_change,
+              param_stddev, bias_stddev);
+    UnitTestGenericComponentInternal(conv);
+  }
+  {
+    const char *str = "input-tensor-dims=3:1:40 output-tensor-dims=1:256:32 param-tensor-dims=5:3:256:9 bias-stddev=1.0 param-stddev=0.1 left-context=2 ";
+    ConvolutionalComponent conv;
+    conv.InitFromString(str); 
+    UnitTestGenericComponentInternal(conv); 
+  }
+}
 
 } // namespace nnet2
 } // namespace kaldi
@@ -827,6 +864,8 @@ int main() {
       UnitTestDropoutComponent();
       UnitTestAdditiveNoiseComponent();
       UnitTestParsing();
+      if (loop == 0)  
+        UnitTestConvolutionalComponent();
       if (loop == 0)
         KALDI_LOG << "Tests without GPU use succeeded.\n";
       else

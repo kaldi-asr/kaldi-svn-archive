@@ -76,7 +76,7 @@ class CuTensor: public TensorBase<Real> {
            int32 dim3, int32 stride3,
            int32 dim4, int32 stride4);
 
-
+  CuTensor(int32 new_order, const CuTensor &tensor);
   /// Indexing operator
   inline Real& operator() (const std::vector<int32> &indexes);
 

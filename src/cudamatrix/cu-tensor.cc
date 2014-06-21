@@ -78,6 +78,20 @@ CuTensor<Real>::CuTensor(const std::vector<std::pair<int32, int32> > &dims_strid
 }
 
 template<typename Real>
+CuTensor<Real>::CuTensor(int32 new_order, 
+                         const CuTensor<Real> &tensor) {
+  KALDI_ASSERT(new_order >= static_cast<int32>(tensor.NumIndexes()));
+  std::vector<std::pair<int32, int32> > dims_strides;
+  dims_strides.reserve(new_order);
+  for (int32 i =0; i < new_order - tensor.NumIndexes(); i++)
+    dims_strides.push_back(std::pair<int32, int32>(1, 0));
+  dims_strides.insert(dims_strides.end(),
+                      tensor.dims_strides_.begin(),
+                      tensor.dims_strides_.end());
+  this->Init(dims_strides, tensor.data_); 
+}
+
+template<typename Real>
 CuTensor<Real>::CuTensor(const std::vector<std::pair<int32, int32> > &dims_strides,
                        const Real *data) {
   Init(dims_strides, data);
@@ -166,8 +180,14 @@ template<class Real>
 void CuTensor<Real>::AddTensor(Real alpha,
                                const CuTensor<Real> &t) {
   
-  KALDI_ASSERT(this->NumIndexes() == t.NumIndexes());
-
+  if (this->NumIndexes() != t.NumIndexes()) {
+    int32 new_num_indexes= std::max(this->NumIndexes(),
+                                    t.NumIndexes());
+    CuTensor this_mod(new_num_indexes, *this),
+      t_mod(new_num_indexes, t);
+    this_mod.AddTensor(alpha, t_mod);
+    return;
+  }
   // Dimension check.  For each index 0 <= i < NumIndexes(), let
   // a = this->Dim(i), b = t1.Dim(i)
   // We must have either a == b or a = 1 or b = 1.

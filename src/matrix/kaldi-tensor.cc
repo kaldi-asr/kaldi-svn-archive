@@ -338,16 +338,18 @@ void Tensor<Real>::Scale(Real alpha) {
 
 template<typename Real>
 void Tensor<Real>::CopyFromTensor(const Tensor<Real> &t) {
-  KALDI_ASSERT(this->NumIndexes() == t.NumIndexes());
+  KALDI_ASSERT(this->NumIndexes() >= t.NumIndexes());
+  Tensor t_new(this->NumIndexes(), t);
+  
   if (this->HasAliasing()) {
     KALDI_ERR << "Attempt to copy to a tensor that has aliasing.";
   }
   std::vector<TensorOperationDims> dims(this->NumIndexes());
   for (int32 i = 0; i < this->NumIndexes(); i++) {
     int32 dest_dim = this->dims_strides_[i].first,
-        src_dim = t.dims_strides_[i].first,
+        src_dim = t_new.dims_strides_[i].first,
         dest_stride= this->dims_strides_[i].second,
-        src_stride = t.dims_strides_[i].second;
+        src_stride = t_new.dims_strides_[i].second;
     if (!(src_dim == dest_dim || src_dim == 1)) {
       // We support broadcasting from dim 1 to a higher dim, or copying, but it
       // doesn't make sense to copy from many to one (it could sensibly imply
@@ -364,7 +366,7 @@ void Tensor<Real>::CopyFromTensor(const Tensor<Real> &t) {
     dims[i].stride_a = src_stride;
     dims[i].stride_b = dest_stride;
   }
-  CopyTensorToplevel(dims, t.data_, this->data_);
+  CopyTensorToplevel(dims, t_new.data_, this->data_);
 }
 
 template<class Real>
@@ -507,7 +509,6 @@ bool Tensor<Real>::ApproxEqual(const Tensor<Real> &other, float tol) const {
   return (tmp.FrobeniusNorm() <= static_cast<Real>(tol) *
           this->FrobeniusNorm());
 }
-
 
 template class TensorBase<float>;
 template class TensorBase<double>;
