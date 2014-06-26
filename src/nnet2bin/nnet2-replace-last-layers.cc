@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     ReadKaldiObject(raw_nnet_rxfilename, &src_nnet);
 
     
-    // This function is declared in nnet-functions.h
+    // This function is declared in nnet2-functions.h
     ReplaceLastComponents(src_nnet,
                           remove_layers,
                           (raw ? &nnet : &(am_nnet.GetNnet())));

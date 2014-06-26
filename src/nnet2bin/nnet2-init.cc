@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
         "information such as the transition-model; you'll probably want to pipe\n"
         "the output into something like nnet2-am-init.\n"
         "\n"
-        "Usage:  nnet2-init [options] <config-in> <raw-nnet-out>\n"
+        "Usage:  nnet2-init [options] <config-in> <raw-nnet2-out>\n"
         "e.g.:\n"
         " nnet2-init tree topo nnet.config 1.nnet\n";
     

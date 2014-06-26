@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
         "By default reads/writes model file (.mdl) but with --raw=true,\n"
         "reads/writes raw-nnet.\n"
         "\n"
-        "Usage:  nnet2-insert [options] <nnet-in> <raw-nnet-to-insert-in> <nnet-out>\n"
+        "Usage:  nnet2-insert [options] <nnet-in> <raw-nnet2-to-insert-in> <nnet-out>\n"
         "e.g.:\n"
         " nnet2-insert 1.nnet \"nnet22-init hidden_layer.config -|\" 2.nnet\n";
 
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
       // the softmax layer.
     }
     
-    // This function is declared in nnet-functions.h
+    // This function is declared in nnet2-functions.h
     InsertComponents(src_nnet,
                      insert_at,
                      &((raw ? nnet : am_nnet.GetNnet())));

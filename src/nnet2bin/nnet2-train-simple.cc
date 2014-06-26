@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Train the neural network parameters with backprop and stochastic\n"
         "gradient descent using minibatches.  The training frames and labels\n"
-        "are read via a pipe from nnet-randomize-frames.  This version of the\n"
+        "are read via a pipe from nnet2-randomize-frames.  This version of the\n"
         "training program does not update the learning rate, but uses\n"
         "the learning rates stored in the neural nets.\n"
         "By default reads/writes model file (.mdl) but with --raw=true,\n"

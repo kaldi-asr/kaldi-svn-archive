@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         "circumstances than using the priors of the class labels in the training data\n"
         "\n"
         "Typical usage of this program will involve computation of an average pdf-level\n"
-        "posterior with nnet-compute or nnet-compute-from-egs, piped into nnet-sum-rows\n"
+        "posterior with nnet2-compute or nnet2-compute-from-egs, piped into nnet2-sum-rows\n"
         "and then vector-sum, to compute the average posterior\n"
         "\n"
         "Usage: nnet2-adjust-priors [options] <nnet-in> <summed-posterior-vector-in> <nnet-out>\n"

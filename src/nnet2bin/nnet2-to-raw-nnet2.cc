@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
         "Copy a (cpu-based) neural net: reads the AmNnet with its transition model, but\n"
         "writes just the Nnet with no transition model (i.e. the raw neural net.)\n"
         "\n"
-        "Usage:  nnet2-to-raw-nnet2 [options] <nnet-in> <raw-nnet-out>\n"
+        "Usage:  nnet2-to-raw-nnet2 [options] <nnet-in> <raw-nnet2-out>\n"
         "e.g.:\n"
         " nnet2-to-raw-nnet2 --binary=false 1.mdl 1.raw\n";
 

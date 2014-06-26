@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
         "without an associated acoustic model.\n"
         "See example scripts to see how this works in practice.\n"
         "\n"
-        "Usage:  nnet2-am-init [options] <tree-in> <topology-in> <raw-nnet-in> <nnet-am-out>\n"
+        "Usage:  nnet2-am-init [options] <tree-in> <topology-in> <raw-nnet2-in> <nnet-am-out>\n"
         "e.g.:\n"
         " nnet2-am-init tree topo \"nnet-init nnet.config - |\" 1.mdl\n";
         

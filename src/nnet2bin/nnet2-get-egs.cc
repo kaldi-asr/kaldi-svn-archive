@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
         "into a special frame-by-frame format.  To split randomly into\n"
         "different subsets, do nnet2-copy-egs with --random=true, but\n"
         "note that this does not randomize the order of frames.\n"
-        "Also see nnet-randomize-frames, which uses more memory but also\n"
+        "Also see nnet2-randomize-frames, which uses more memory but also\n"
         "randomizes the order\n"
         "\n"
         "Usage:  nnet2-get-egs [options] <features-rspecifier> "
