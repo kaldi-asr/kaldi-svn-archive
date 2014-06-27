@@ -14,17 +14,16 @@
 # Begin configuration section.
 cmd=run.pl
 num_epochs=15      # Number of epochs during which we reduce
-                   # the learning rate; number of iteration is worked out from this.
+                   # the learning rate; number of iterations is worked out from this.
 num_epochs_extra=5 # Number of epochs after we stop reducing
                    # the learning rate.
 num_iters_final=20 # Maximum number of final iterations to give to the
-                   # optimization over the validation set.
+                   # optimization over the validation set (maximum)
 initial_learning_rate=0.04
 final_learning_rate=0.004
 bias_stddev=0.5
 softmax_learning_rate_factor=1.0 # In the default setting keep the same learning rate.
 
-combine_regularizer=1.0e-14 # Small regularizer so that parameters won't go crazy.
 pnorm_input_dim=3000 
 pnorm_output_dim=300
 first_component_power=1.0  # could set this to 0.5, sometimes seems to improve results.
@@ -48,6 +47,9 @@ shuffle_buffer_size=5000 # This "buffer_size" variable controls randomization of
                 # randomization, but this would both consume memory and cause spikes in
                 # disk I/O.  Smaller is easier on disk and memory but less random.  It's
                 # not a huge deal though, as samples are anyway randomized right at the start.
+                # (the point of this is to get data in different minibatches on different iterations,
+                # since in the preconditioning method, 2 samples in the same minibatch can
+                # affect each others' gradients.
 
 add_layers_period=2 # by default, add new layers every 2 iterations.
 num_hidden_layers=3
@@ -56,8 +58,10 @@ stage=-5
 io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time.   These don't
 splice_width=4 # meaning +- 4 frames on each side for second LDA
 randprune=4.0 # speeds up LDA.
-alpha=4.0
-max_change=10.0
+alpha=4.0 # relates to preconditioning.
+update_period=4 # relates to preconditioning: says how often we update the subspace.
+num_samples_history=2000 # relates to online preconditioning
+max_change_per_sample=0.1
 mix_up=0 # Number of components to mix up to (should be > #tree leaves, if
         # specified.)
 num_threads=16
@@ -71,6 +75,8 @@ egs_opts=
 transform_dir=     # If supplied, overrides alidir
 prior_subset_size=10000 # 10k samples per job, for computing priors.  Should be
                         # more than enough.
+precondition_rank_in=20
+precondition_rank_out=80
 # End configuration section.
 
 
@@ -117,7 +123,7 @@ if [ $# != 4 ]; then
   echo "  --splice-width <width|4>                         # Number of frames on each side to append for feature input"
   echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
   echo "  --lda-dim <dim|250>                              # Dimension to reduce spliced features to with LDA"
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet2-combine-fast to "
+  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
   echo "  --num-utts-subset <#utts|300>                    # Number of utterances in subsets used for validation and diagnostics"
   echo "                                                   # (the validation subset is held out from training)"
@@ -126,6 +132,7 @@ if [ $# != 4 ]; then
   echo "                                                   # 0.5 seems to help under some circumstances."
   echo "  --stage <stage|-9>                               # Used to run a partially-completed training process from somewhere in"
   echo "                                                   # the middle."
+
   
   exit 1;
 fi
@@ -210,11 +217,13 @@ if [ $stage -le -2 ]; then
     ext_feat_dim=$feat_dim
   fi
 
+  online_preconditioning_opts="alpha=$alpha num-samples-history=$num_samples_history update-period=$update_period rank-in=$precondition_rank_in rank-out=$precondition_rank_out max-change-per-sample=$max_change_per_sample"
+
   stddev=`perl -e "print 1.0/sqrt($pnorm_input_dim);"`
   cat >$dir/nnet.config <<EOF
 SpliceComponent input-dim=$ext_feat_dim left-context=$splice_width right-context=$splice_width const-component-dim=$spk_vec_dim
 FixedAffineComponent matrix=$lda_mat
-AffineComponentPreconditioned input-dim=$ext_lda_dim output-dim=$pnorm_input_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
+AffineComponentPreconditionedOnline input-dim=$ext_lda_dim output-dim=$pnorm_input_dim $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
 PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
 EOF
   if [ $first_component_power != 1.0 ]; then
@@ -222,26 +231,26 @@ EOF
   fi
   cat >>$dir/nnet.config <<EOF
 NormalizeComponent dim=$pnorm_output_dim
-AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$num_leaves alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
+AffineComponentPreconditionedOnline input-dim=$pnorm_output_dim output-dim=$num_leaves $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
 SoftmaxComponent dim=$num_leaves
 EOF
 
   # to hidden.config it will write the part of the config corresponding to a
   # single hidden layer; we need this to add new layers. 
   cat >$dir/hidden.config <<EOF
-AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$pnorm_input_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
+AffineComponentPreconditionedOnline input-dim=$pnorm_output_dim output-dim=$pnorm_input_dim $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
 PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
 NormalizeComponent dim=$pnorm_output_dim
 EOF
   $cmd $dir/log/nnet_init.log \
-    nnet2-am-init $alidir/tree $lang/topo "nnet2-init $dir/nnet.config -|" \
+    nnet-am-init $alidir/tree $lang/topo "nnet-init $dir/nnet.config -|" \
     $dir/0.mdl || exit 1;
 fi
 
 if [ $stage -le -1 ]; then
   echo "Training transition probabilities and setting priors"
   $cmd $dir/log/train_trans.log \
-    nnet2-train-transitions $dir/0.mdl "ark:gunzip -c $alidir/ali.*.gz|" $dir/0.mdl \
+    nnet-train-transitions $dir/0.mdl "ark:gunzip -c $alidir/ali.*.gz|" $dir/0.mdl \
     || exit 1;
 fi
 
@@ -276,28 +285,30 @@ while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
     # Set off jobs doing some diagnostics, in the background.
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
+      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
     if [ $x -gt 0 ] && [ ! -f $dir/log/mix_up.$[$x-1].log ]; then
       $cmd $dir/log/progress.$x.log \
-        nnet2-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+        nnet-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl \
+          ark:$egs_dir/train_diagnostic.egs '&&' \
+        nnet-am-info $dir/$x.mdl &
     fi
     
     echo "Training neural net (pass $x)"
     if [ $x -gt 0 ] && \
       [ $x -le $[($num_hidden_layers-1)*$add_layers_period] ] && \
       [ $[($x-1) % $add_layers_period] -eq 0 ]; then
-      mdl="nnet2-init --srand=$x $dir/hidden.config - | nnet2-insert $dir/$x.mdl - - |"
+      mdl="nnet-init --srand=$x $dir/hidden.config - | nnet-insert $dir/$x.mdl - - |"
     else
       mdl=$dir/$x.mdl
     fi
 
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+      nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
       ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-      nnet2-train$train_suffix \
+      nnet-train$train_suffix \
          --minibatch-size=$minibatch_size --srand=$x "$mdl" \
         ark:- $dir/$[$x+1].JOB.mdl \
       || exit 1;
@@ -309,7 +320,7 @@ while [ $x -lt $num_iters ]; do
 
     learning_rate=`perl -e '($x,$n,$i,$f)=@ARGV; print ($x >= $n ? $f : $i*exp($x*log($f/$i)/$n));' $[$x+1] $num_iters_reduce $initial_learning_rate $final_learning_rate`;
     softmax_learning_rate=`perl -e "print $learning_rate * $softmax_learning_rate_factor;"`;
-    nnet2-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
+    nnet-am-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
     nu=`cat $dir/foo | grep num-updatable-components | awk '{print $2}'`
     na=`cat $dir/foo | grep -v Fixed | grep AffineComponent | wc -l` 
     # na is number of last updatable AffineComponent layer [one-based, counting only
@@ -322,17 +333,22 @@ while [ $x -lt $num_iters ]; do
     done
     
     $cmd $dir/log/average.$x.log \
-      nnet2-average $nnets_list - \| \
-      nnet2-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
+      nnet-am-average $nnets_list - \| \
+      nnet-am-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
 
     if [ "$mix_up" -gt 0 ] && [ $x -eq $mix_up_iter ]; then
       # mix up.
       echo Mixing up from $num_leaves to $mix_up components
       $cmd $dir/log/mix_up.$x.log \
-        nnet2-mixup --min-count=10 --num-mixtures=$mix_up \
+        nnet-am-mixup --min-count=10 --num-mixtures=$mix_up \
         $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
     fi
     rm $nnets_list
+    [ ! -f $dir/$[$x+1].mdl ] && exit 1;
+    if [ -f $dir/$[$x-1].mdl ] && $cleanup && \
+       [ $[($x-1)%100] -ne 0  ] && [ $[$x-1] -le $[$num_iters-$num_iters_final] ]; then
+      rm $dir/$[$x-1].mdl
+    fi
   fi
   x=$[$x+1]
 done
@@ -347,45 +363,45 @@ start=$[$num_iters-$num_iters_final+1]
 for x in `seq $start $num_iters`; do
   idx=$[$x-$start]
   if [ $x -gt $mix_up_iter ]; then
-    nnets_list[$idx]=$dir/$x.mdl # "nnet2-copy --remove-dropout=true $dir/$x.mdl - |"
+    nnets_list[$idx]=$dir/$x.mdl # "nnet-am-copy --remove-dropout=true $dir/$x.mdl - |"
   fi
 done
 
 if [ $stage -le $num_iters ]; then
   echo "Doing final combination to produce final.mdl"
-  # Below, use --use-gpu=no to disable nnet2-combine-fast from using a GPU, as
+  # Below, use --use-gpu=no to disable nnet-combine-fast from using a GPU, as
   # if there are many models it can give out-of-memory error; set num-threads to 8
   # to speed it up (this isn't ideal...)
   this_num_threads=$num_threads
   [ $this_num_threads -lt 8 ] && this_num_threads=8
-  num_egs=`nnet2-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
+  num_egs=`nnet-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
   mb=$[($num_egs+$this_num_threads-1)/$this_num_threads]
   [ $mb -gt 512 ] && mb=512
   # Setting --initial-model to a large value makes it initialize the combination
   # with the average of all the models.  It's important not to start with a
   # single model, or, due to the invariance to scaling that these nonlinearities
   # give us, we get zero diagonal entries in the fisher matrix that
-  # nnet2-combine-fast uses for scaling, which after flooring and inversion, has
+  # nnet-combine-fast uses for scaling, which after flooring and inversion, has
   # the effect that the initial model chosen gets much higher learning rates
   # than the others.  This prevents the optimization from working well.
   $cmd $parallel_opts $dir/log/combine.log \
-    nnet2-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
-      --num-threads=$this_num_threads --regularizer=$combine_regularizer \
+    nnet-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
+      --num-threads=$this_num_threads \
       --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$egs_dir/combine.egs \
       $dir/final.mdl || exit 1;
 
   # Normalize stddev for affine or block affine layers that are followed by a
   # pnorm layer and then a normalize layer.
   $cmd $parallel_opts $dir/log/normalize.log \
-    nnet2-normalize-stddev $dir/final.mdl $dir/final.mdl || exit 1;
+    nnet-normalize-stddev $dir/final.mdl $dir/final.mdl || exit 1;
 
   # Compute the probability of the final, combined model with
   # the same subset we used for the previous compute_probs, as the
   # different subsets will lead to different probs.
   $cmd $dir/log/compute_prob_valid.final.log \
-    nnet2-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
+    nnet-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
   $cmd $dir/log/compute_prob_train.final.log \
-    nnet2-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
+    nnet-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
 fi
 
 if [ $stage -le $[$num_iters+1] ]; then
@@ -393,8 +409,8 @@ if [ $stage -le $[$num_iters+1] ]; then
   # Note: this just uses CPUs, using a smallish subset of data.
   rm $dir/post.*.vec 2>/dev/null
   $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.JOB.log \
-    nnet2-subset-egs --n=$prior_subset_size ark:$egs_dir/egs.JOB.0.ark ark:- \| \
-    nnet2-compute-from-egs "nnet2-to-raw-nnet2 $dir/final.mdl -|" ark:- ark:- \| \
+    nnet-subset-egs --n=$prior_subset_size ark:$egs_dir/egs.JOB.0.ark ark:- \| \
+    nnet-compute-from-egs "nnet-to-raw-nnet $dir/final.mdl -|" ark:- ark:- \| \
     matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.JOB.vec || exit 1;
 
   sleep 3;  # make sure there is time for $dir/post.*.vec to appear.
@@ -406,7 +422,7 @@ if [ $stage -le $[$num_iters+1] ]; then
 
   echo "Re-adjusting priors based on computed posteriors"
   $cmd $dir/log/adjust_priors.log \
-    nnet2-adjust-priors $dir/final.mdl $dir/post.vec $dir/final.mdl || exit 1;
+    nnet-adjust-priors $dir/final.mdl $dir/post.vec $dir/final.mdl || exit 1;
 fi
 
 
@@ -420,11 +436,4 @@ if $cleanup; then
     echo Removing training examples
     rm $dir/egs/egs*
   fi
-  echo Removing most of the models
-  for x in `seq 0 $num_iters`; do
-    if [ $[$x%100] -ne 0 ] && [ $x -lt $[$num_iters-$num_iters_final+1] ]; then 
-       # delete all but every 100th model; don't delete the ones which combine to form the final model.
-      rm $dir/$x.mdl
-    fi
-  done
 fi
