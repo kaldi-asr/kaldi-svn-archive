@@ -119,7 +119,7 @@ mkdir -p $dir/{log,nnet}
 ###### PREPARE ALIGNMENTS ######
 echo
 echo "# PREPARING ALIGNMENTS"
-if [ ! -z $labels ]; then
+if [ ! -z "$labels" ]; then
   echo "Using targets '$labels' (by force)"
   labels_tr="$labels"
   labels_cv="$labels"
