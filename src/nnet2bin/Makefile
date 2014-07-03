@@ -8,7 +8,8 @@ LDLIBS += $(CUDA_LDLIBS)
 
 BINFILES = nnet2-randomize-frames nnet2-info nnet2-init \
    nnet2-train-simple nnet2-train-ensemble nnet2-train-transitions nnet2-latgen-faster nnet2-copy \
-   nnet2-am-init nnet2-insert nnet2-align-compiled \
+   nnet2-am-init nnet2-am-average nnet2-am-combine nnet2-am-compute nnet2-am-copy nnet2-am-fix	\
+   nnet2-am-info nnet2-am-mixup nnet2-am-widen nnet2-compute-stats nnet2-insert nnet2-align-compiled \
    nnet2-compute-prob nnet2-copy-egs nnet2-am-shrink nnet2-shrink nnet2-combine nnet2-combine-a \
    nnet2-average nnet2-compute nnet2-mixup  \
    nnet2-train-lbfgs nnet2-get-egs nnet2-train-parallel nnet2-gradient \
