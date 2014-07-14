@@ -126,10 +126,11 @@ struct WordBoundaryInfo {
   // silence phones behave in this way.
 
   // This initializer is to be used in future.
+  WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts);
   WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
                    std::string word_boundary_file);
-  WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
-                   std::istream &stream);
+
+  void Init(std::istream &stream, bool binary);
 
   enum PhoneType {
     kNoPhone = 0,
@@ -164,7 +165,6 @@ struct WordBoundaryInfo {
  private:
   // This is to be removed eventually, when we all move to s5 scripts.
   void SetOptions(const std::string int_list, PhoneType phone_type);
-  void load(std::istream &stream);
 };
 
 /// Align lattice so that each arc has the transition-ids on it
