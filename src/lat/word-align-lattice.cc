@@ -678,11 +678,11 @@ WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
   partial_word_label = opts.partial_word_label;
   bool binary_in;
   Input ki(word_boundary_file, &binary_in);
-  Init(ki.Stream(), binary_in);
+  KALDI_ASSERT(!binary_in && "Not expecting binary word-boundary file.");
+  Init(ki.Stream());
 }
 
-void WordBoundaryInfo::Init(std::istream &stream, bool binary) {
-  KALDI_ASSERT(!binary && "Not expecting binary word-boundary file.");
+void WordBoundaryInfo::Init(std::istream &stream) {
   std::string line;
   while (std::getline(stream, line)) {
     std::vector<std::string> split_line;  

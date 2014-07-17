@@ -130,7 +130,7 @@ struct WordBoundaryInfo {
   WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
                    std::string word_boundary_file);
 
-  void Init(std::istream &stream, bool binary);
+  void Init(std::istream &stream);
 
   enum PhoneType {
     kNoPhone = 0,
