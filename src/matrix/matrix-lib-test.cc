@@ -3083,6 +3083,53 @@ template<typename Real> static void UnitTestLbfgs() {
 }
 
 
+template<typename Real> static void UnitTestLinearCgd() {
+  for (int i = 0; i < 20 ; i++) {
+    MatrixIndexT M = 1 + rand() % 20;
+    
+    SpMatrix<Real> A(M);
+    RandPosdefSpMatrix(M, &A);
+    Vector<Real> x(M), b(M), b2(M);
+
+    LinearCgdOptions opts;
+    if (rand() % 2 == 0)
+      opts.max_iters = 1 + rand() % 10;
+    if (rand() % 2 == 0)
+      opts.max_error = 1.0;  // note: an absolute, not relative, error.
+    
+    x.SetRandn();
+    
+    b.AddSpVec(1.0, A, x, 0.0);
+    Vector<Real> x_e(M);  // x_e means x_estimated.
+    x_e.SetRandn();
+    
+    int32 iters = LinearCgd(opts, A, b, &x_e);
+    
+    b2.AddSpVec(1.0, A, x_e, 0.0);
+
+    Vector<Real> residual_error(b);
+    residual_error.AddVec(-1.0, b2);
+
+    BaseFloat error = residual_error.Norm(2.0);
+
+    if (iters >= M) {
+      // should have converged fully.
+      KALDI_ASSERT(error < 1.0e-05 * b.Norm(2.0));
+    } else {
+      BaseFloat wiggle_room = 1.1;
+      if (opts.max_iters >= 0) {
+        KALDI_ASSERT(iters <= opts.max_iters);
+        if (iters < opts.max_iters) {
+          KALDI_ASSERT(error <= wiggle_room * opts.max_error);
+        }
+      } else {
+        KALDI_ASSERT(error <= wiggle_room * opts.max_error);        
+      }
+    }
+  }
+}
+
+
 template<typename Real> static void UnitTestMaxMin() {
 
   MatrixIndexT M = 1 + rand() % 10, N = 1 + rand() % 10;
@@ -3264,6 +3311,7 @@ template<typename Real> static void UnitTestSplitRadixComplexFft() {
     MatrixIndexT N = 1 << logn;
 
     MatrixIndexT twoN = 2*N;
+    std::vector<Real> temp_buffer;
     SplitRadixComplexFft<Real> srfft(N);
     for (MatrixIndexT p = 0; p < 3; p++) {
       Vector<Real> v(twoN), w_base(twoN), w_alg(twoN), x_base(twoN), x_alg(twoN);
@@ -3272,7 +3320,11 @@ template<typename Real> static void UnitTestSplitRadixComplexFft() {
 
       if (N< 100) ComplexFt(v, &w_base, true);
       w_alg.CopyFromVec(v);
-      srfft.Compute(w_alg.Data(), true);
+
+      if (rand() % 2 == 0)
+        srfft.Compute(w_alg.Data(), true);
+      else
+        srfft.Compute(w_alg.Data(), true, &temp_buffer);
 
       if (N< 100) AssertEqual(w_base, w_alg, 0.01*N);
 
@@ -3432,13 +3484,18 @@ template<typename Real> static void UnitTestSplitRadixRealFft() {
         N = 1 << logn;
 
     SplitRadixRealFft<Real> srfft(N);
+    std::vector<Real> temp_buffer;    
     for (MatrixIndexT q = 0; q < 3; q++) {
       Vector<Real> v(N), w(N), x(N), y(N);
       InitRand(&v);
       w.CopyFromVec(v);
       RealFftInefficient(&w, true);
       y.CopyFromVec(v);
-      srfft.Compute(y.Data(), true);  // test efficient one.
+      if (rand() % 2 == 0)
+        srfft.Compute(y.Data(), true);
+      else
+        srfft.Compute(y.Data(), true, &temp_buffer);
+      
       // KALDI_LOG <<"v = "<<v;
       // KALDI_LOG << "Inefficient real fft of v is: "<< w;
       // KALDI_LOG << "Efficient real fft of v is: "<< y;
@@ -4131,7 +4188,7 @@ template<typename Real> static void UnitTestTriVecSolver() {
 
     bool bad = false;
     for (int32 i = 0; i < dim; i++) {
-      if (fabs(T(i, i)) < 0.1)
+      if (fabs(T(i, i)) < 0.2)
         bad = true;
     }
     if (bad) {
@@ -4157,6 +4214,7 @@ template<typename Real> static void MatrixUnitTest(bool full_test) {
   UnitTestFloorUnit<Real>();
   UnitTestAddMat2Sp<Real>();
   UnitTestLbfgs<Real>();
+  UnitTestLinearCgd<Real>();
   // UnitTestSvdBad<Real>(); // test bug in Jama SVD code.
   UnitTestCompressedMatrix<Real>();
   UnitTestResize<Real>();
