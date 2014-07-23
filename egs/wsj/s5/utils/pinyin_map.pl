@@ -57,7 +57,7 @@ while (<STDIN>) {
       $tone = $final;
       $final =~ s:([A-Z]+)[0-9]:$1:;
       $tone =~ s:[A-Z]+([0-9]):$1:;
-      if (!(exists $py2ph{$initial}) or !(exists $py2ph{$final})) { print "1: no entry find for ", $A[$i], " ", $initial, " ", $final;  exit;}
+      if (!(exists $py2ph{$initial}) or !(exists $py2ph{$final})) { print STDERR "1: no entry found for ", $A[$i], " ", $initial, " ", $final;  exit;}
       push(@entry, @{$py2ph{$initial}}); 
       @tmp = @{$py2ph{$final}};
       for($j = 0; $j < @tmp ; $j++) {$tmp[$j] = $tmp[$j].$tone;}
@@ -67,7 +67,7 @@ while (<STDIN>) {
       $tone = $A[$i];
       $A[$i] =~ s:([A-Z]+)[0-9]:$1:;   
       $tone =~ s:[A-Z]+([0-9]):$1:;
-      if (!(exists $py2ph{$A[$i]})) { print "2: no entry find for ", $A[$i];  exit;}
+      if (!(exists $py2ph{$A[$i]})) { print STDERR "2: no entry found for ", $A[$i];  exit;}
       @tmp = @{$py2ph{$A[$i]}};
       for($j = 0; $j < @tmp ; $j++) {$tmp[$j] = $tmp[$j].$tone;}
       push(@entry, @tmp); 
