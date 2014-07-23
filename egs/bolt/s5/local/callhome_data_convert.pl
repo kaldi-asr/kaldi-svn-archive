@@ -73,7 +73,7 @@ open($reco, ">$dest_dir/reco2file_and_channel")
   or die "Could not open the file $dest_dir/reco2file_and_channel: $_\n";
 
 $sph2pipe=`which sph2pipe`
-  or die "Could not find the sph2pipe binary on $PATH: $_";
+  or die "Could not find the sph2pipe binary on PATH: $_";
 chomp $sph2pipe;
 
 while ($filename=<STDIN>) {
