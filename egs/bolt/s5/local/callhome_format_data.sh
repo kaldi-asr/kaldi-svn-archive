@@ -13,11 +13,11 @@ arpa_lm=data/local/lm/3gram-mincount/lm_unpruned.gz
 # Copy stuff into its final locations...
 
 for f in spk2utt utt2spk wav.scp text segments reco2file_and_channel; do
-  cp data/local/train/$f data/train/$f || exit 1;
+  cp data/local/train.callhome/$f data/train/$f || exit 1;
 done
 
 for f in spk2utt utt2spk wav.scp text segments reco2file_and_channel; do
-  cp data/local/dev/$f data/dev/$f || exit 1;
+  cp data/local/devtest.callhome/$f data/dev/$f || exit 1;
 done
 
 rm -r data/lang_test

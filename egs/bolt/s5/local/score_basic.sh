@@ -39,10 +39,11 @@ mkdir -p $dir/scoring/log
 
 
 function filter_text {
-  perl -e 'foreach $w (@ARGV) { $bad{$w} = 1; } 
+  perl -e 'binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; 
+   foreach $w (@ARGV) { $bad{$w} = 1; } 
    while(<STDIN>) { @A  = split(" ", $_); $id = shift @A; print "$id ";
-     foreach $a (@A) { if (!defined $bad{$a}) { print "$a "; }} print "\n"; }' \
-   '[NOISE]' '[LAUGHTER]' '[VOCALIZED-NOISE]' '<UNK>' '%HESITATION'
+     foreach $a (@A) { if (!defined $bad{$a} )  { print "$a "; }} print "\n"; }' \
+   '<NOISE>' '<LAUGHTER>' '<V-NOISE>' '<UNK>' '<HES>'
 }
 
 $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/best_path.LMWT.log \
@@ -56,15 +57,17 @@ done
 
 filter_text <$data/text >$dir/scoring/text.filt
 
-unset LC_ALL
+##unset LC_ALL
 #for character error rate
 cat $dir/scoring/text.filt | awk '{ print $1}' > $dir/scoring/utt_id
-cat $dir/scoring/text.filt | awk '{{for (i = 2; i <= NF; i++) printf(" %s", $i);} printf("\n"); }' | sed -e 's/\(\S\)/\1 /g' > $dir/scoring/utt_tra 
+cat $dir/scoring/text.filt | awk '{{for (i = 2; i <= NF; i++) printf(" %s", $i);} printf("\n"); }' | \
+  perl -pe 'binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; s/(\S)/\1 /g' > $dir/scoring/utt_tra 
 paste $dir/scoring/utt_id $dir/scoring/utt_tra  > $dir/scoring/char.filt
 
 for lmwt in `seq $min_lmwt $max_lmwt`; do
   cat $dir/scoring/$lmwt.txt | awk '{ print $1}' > $dir/scoring/utt_id 
-  cat $dir/scoring/$lmwt.txt | awk '{{for (i = 2; i <= NF; i++) printf(" %s", $i);} printf("\n"); }' | sed -e 's/\(\S\)/\1 /g' > $dir/scoring/utt_tra 
+  cat $dir/scoring/$lmwt.txt | awk '{{for (i = 2; i <= NF; i++) printf(" %s", $i);} printf("\n"); }' | \
+  perl -pe 'binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; s/(\S)/\1 /g' > $dir/scoring/utt_tra 
   paste $dir/scoring/utt_id $dir/scoring/utt_tra  > $dir/scoring/${lmwt}.char
 done
 

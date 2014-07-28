@@ -3,17 +3,16 @@
 # Apache 2.0
 
 # Begin configuration section.  
-iters=5
 stage=0
 encoding='utf-8'
-remove_tags=true
-only_words=true
 icu_transform="Any-Lower"
 var_counts=3  #Generate upto N variants
 var_mass=0.9  #Generate so many variants to produce 90 % of the prob mass
 cmd=run.pl
 nj=10          #Split the task into several parallel, to speedup things
 model=
+output_lex=
+with_probs=true
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -44,7 +43,9 @@ output=$3
 
 mkdir -p $output/log
 
-model=$modeldir/g2p.model.final
+[ -z "$output_lex" ] &&  output_lex=$output/lexicon.lex
+[ -z "$model" ] && model=$modeldir/g2p.model.final
+
 [ ! -f $model ] && echo "File $model not found in the directory $data." && exit 1
 #[ ! -x $wordlist ] && echo "File $wordlist not found!" && exit 1
 
@@ -74,7 +75,7 @@ if [ $stage -le 0 ]; then
   $cmd JOBS=1:$nj $output/log/apply.JOBS.log \
     split -n l/JOBS/$nj $output/wordlist.txt \| \
     g2p.py -V $var_mass --variants-number $var_counts --encoding $encoding \
-      --model $modeldir/g2p.model.final --apply - \
+      --model $model --apply - \
     \> $output/output.JOBS
 fi
 cat $output/output.* > $output/output
@@ -84,7 +85,6 @@ cat $output/output.* > $output/output
 #and use the transform_map file we generated beforehand
 #Also, because the sequitur output is not readily usable as lexicon (it adds 
 #one more column with ordering of the pron. variants) convert it into the proper lexicon form
-output_lex=$output/lexicon.lex
 if [ ! -z $icu_transform ] ; then
   #also, the transform is generally N -> 1, i.e. we have to take
   #extra care of words that might have been mapped into the same one
@@ -109,7 +109,13 @@ if [ ! -z $icu_transform ] ; then
     $output/transform_map.txt $output/output | sort -u > $output_lex
 else
   #Just convert it to a proper lexicon format
-  cut -f 1,3,4 $output/output $output_lex
+  cut -f 1,3,4 $output/output > $output_lex
+fi
+
+if ! $with_probs ; then
+  mv $output_lex $output_lex.with_probs
+  cut -f 1,3 $output_lex.with_probs > $output_lex
+  rm $output_lex.with_probs
 fi
 
 #Some words might have been removed or skipped during the process,

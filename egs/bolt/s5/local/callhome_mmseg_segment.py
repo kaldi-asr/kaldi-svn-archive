@@ -2,11 +2,15 @@
 #!/usr/bin/env python
 import sys
 from mmseg import seg_txt
+import re
+
+nonspeech_events=re.compile(r"\<.*\>");
+
 for line in sys.stdin:
   blks = str.split(line)
   out_line = blks[0]
   for i in range(1, len(blks)):
-    if blks[i] == "[VOCALIZED-NOISE]" or blks[i] == "[NOISE]" or blks[i] == "[LAUGHTER]":
+    if nonspeech_events.match(blks[i]) :
       out_line += " " + blks[i]
       continue
     for j in seg_txt(blks[i]):

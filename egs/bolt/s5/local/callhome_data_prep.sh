@@ -89,11 +89,10 @@ fi
 #TODO: The text filtering should be improved
 echo -e "\n----Preparing audio training transcripts in $train_dir"
 cat $train_dir/transcripts.txt |\
-  sed -e 's/<[a-zA-Z][a-zA-Z]*_/</g' |\
   sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
   sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-  local/hkust_normalize.pl |\
+  local/callhome_normalize.pl |\
   python local/hkust_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
 utils/fix_data_dir.sh $train_dir
@@ -101,11 +100,10 @@ utils/fix_data_dir.sh $train_dir
 for dataset in $devtest_dir $evltest_dir; do
   echo -e "\n----Preparing audio (reference) transcripts in $dataset"
   cat $dataset/transcripts.txt |\
-    sed -e 's/<[a-zA-Z][a-zA-Z]*_/</g' |\
     sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
     sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
     sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-    local/hkust_normalize.pl |\
+    local/callhome_normalize.pl |\
     python local/hkust_segment.py |\
     awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text
   utils/fix_data_dir.sh $dataset
