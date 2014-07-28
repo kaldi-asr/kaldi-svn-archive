@@ -92,8 +92,9 @@ cat $train_dir/transcripts.txt |\
   sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
   sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+  sed '/^\s*$/d' |\
   local/callhome_normalize.pl |\
-  python local/hkust_segment.py |\
+  python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
 utils/fix_data_dir.sh $train_dir
 
@@ -104,7 +105,7 @@ for dataset in $devtest_dir $evltest_dir; do
     sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
     sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
     local/callhome_normalize.pl |\
-    python local/hkust_segment.py |\
+    python local/callhome_mmseg_segment.py |\
     awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text
   utils/fix_data_dir.sh $dataset
 done

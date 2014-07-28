@@ -70,5 +70,5 @@ fsttablecompose data/lang/L_disambig.fst data/lang_test/G.fst | \
    fstisstochastic || echo LG is not stochastic
 
 
-echo hkust_format_data succeeded.
+echo callhome_format_data succeeded.
 

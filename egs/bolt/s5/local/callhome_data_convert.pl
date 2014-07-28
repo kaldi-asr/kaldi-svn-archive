@@ -88,8 +88,8 @@ while ($filename=<STDIN>) {
   print $wav "$rec_id-A $sph2pipe -f wav -p -c 1 " . $UTT2SPH{$rec_id} . "|\n";
   print $wav "$rec_id-B $sph2pipe -f wav -p -c 2 " . $UTT2SPH{$rec_id} . "|\n";
 
-  print $reco "$rec_id-A $rec_id 1\n";
-  print $reco "$rec_id-B $rec_id 2\n";
+  print $reco "$rec_id-A $rec_id A\n";
+  print $reco "$rec_id-B $rec_id B\n";
 
   open($fh, "<:encoding(GBK)", "$filename")
     or die "Could not open the file $filename: $_\n";
