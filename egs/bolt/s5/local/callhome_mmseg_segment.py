@@ -5,7 +5,7 @@ from mmseg import seg_txt
 import re
 
 nonspeech_events=re.compile(r"\<.*\>");
-nonchinese_words=re.compile(r"[A-Z'-]+");
+nonchinese_words=re.compile(r"^[A-Z'-]+$");
 
 for line in sys.stdin:
   blks = str.split(line)
