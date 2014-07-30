@@ -96,6 +96,8 @@ cat $train_dir/transcripts.txt |\
   local/callhome_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
+
+local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $train_dir
 utils/fix_data_dir.sh $train_dir
 
 for dataset in $devtest_dir $evltest_dir; do
@@ -108,6 +110,8 @@ for dataset in $devtest_dir $evltest_dir; do
     python local/callhome_mmseg_segment.py |\
     awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text
   utils/fix_data_dir.sh $dataset
+
+  local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $dataset
 done
 
 echo -e "\n\nCALLHOME data preparation succeeded..."
