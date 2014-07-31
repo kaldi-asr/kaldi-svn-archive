@@ -24,10 +24,11 @@ cat $train_dir/text $dev_dir/text | cut -f 2- -d ' '|\
   sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full.txt  
 
 # prepare the non-speech phones"
-(echo "<SIL>";
- cat $train_dir/text $dev_dir/text | cut -f 2- -d ' '|\
-  sed -e 's/ /\n/g' | sort -u | grep  "<.*>" 
-) | \
+(
+echo "<SIL> <sil>";
+echo "<UNK> <unk>";
+cat $train_dir/text $dev_dir/text | cut -f 2- -d ' '|\
+  sed -e 's/ /\n/g' | sort -u | grep  "<.*>" | grep -v "UNK|SIL" |\
   perl -ne '
     chomp;
     $word=$_;
@@ -36,7 +37,7 @@ cat $train_dir/text $dev_dir/text | cut -f 2- -d ' '|\
     $line=~ s/-//g;
     $line=lc($line);
     print "$word $line\n"
-  ' > $dict_dir/lexicon_extra.txt
+  ') > $dict_dir/lexicon_extra.txt
 
 
 # split into English and Chinese

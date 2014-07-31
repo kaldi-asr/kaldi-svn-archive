@@ -15,6 +15,8 @@ set -o pipefail
 . ./path.sh
 . ./cmd.sh
 
+extra_decoding_opts=(--num-threads 4 --parallel-opts '-pe smp 4' )
+
 #In the config we expect the path to corpora
 #. ./config.conf
 CALLHOME_MA_CORPUS_A=/export/corpora/LDC/LDC96S34/CALLHOME/ 
@@ -58,81 +60,80 @@ utils/mkgraph.sh --mono data/lang_test exp/mono0a exp/mono0a/graph || exit 1
 # test, and afterwards averages the WERs into (in this case
 # exp/mono/decode/
 
-
-steps/decode.sh --config conf/decode.config --nj 16 \
+set -x
+steps/decode.sh --config conf/decode.config --nj 16 "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/mono0a/graph data/dev exp/mono0a/decode_dev
 
 
 
 # Get alignments from monophone system.
-steps/align_si.sh --nj 16 \
+steps/align_si.sh --nj 16 --cmd "$train_cmd"\
   data/train data/lang exp/mono0a exp/mono_ali || exit 1;
 
 # train tri1 [first triphone pass]
-steps/train_deltas.sh \
+steps/train_deltas.sh --cmd "$train_cmd"\
  2500 20000 data/train data/lang exp/mono_ali exp/tri1 || exit 1;
 
 # decode tri1
 utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph || exit 1;
 
-steps/decode.sh --config conf/decode.config --nj 16 \
+steps/decode.sh --config conf/decode.config --nj 16 "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri1/graph data/dev exp/tri1/decode_dev
 
 
-
 # align tri1
-steps/align_si.sh --nj 16 \
+steps/align_si.sh --nj 16 --cmd "$train_cmd"\
   data/train data/lang exp/tri1 exp/tri1_ali || exit 1;
 
 # train tri2 [delta+delta-deltas]
-steps/train_deltas.sh \
+steps/train_deltas.sh --cmd "$train_cmd"\
  2500 20000 data/train data/lang exp/tri1_ali exp/tri2 || exit 1;
 
 # decode tri2
 utils/mkgraph.sh data/lang_test exp/tri2 exp/tri2/graph
-steps/decode.sh --config conf/decode.config --nj 16 \
+steps/decode.sh --config conf/decode.config --nj 16 "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri2/graph data/dev exp/tri2/decode_dev
 
 # train and decode tri2b [LDA+MLLT]
 
-steps/align_si.sh --nj 16 \
+steps/align_si.sh --nj 16 --cmd "$train_cmd"\
   data/train data/lang exp/tri2 exp/tri2_ali || exit 1;
 
 # Train tri3a, which is LDA+MLLT, 
-steps/train_lda_mllt.sh \
+steps/train_lda_mllt.sh --cmd "$train_cmd"\
  2500 20000 data/train data/lang exp/tri2_ali exp/tri3a || exit 1;
 
 utils/mkgraph.sh data/lang_test exp/tri3a exp/tri3a/graph || exit 1;
-steps/decode.sh --nj 16 --config conf/decode.config \
+steps/decode.sh --nj 16 --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri3a/graph data/dev exp/tri3a/decode_dev
 # From now, we start building a more serious system (with SAT), and we'll
 # do the alignment with fMLLR.
 
-steps/align_fmllr.sh --nj 16 \
+steps/align_fmllr.sh --nj 16 --cmd "$train_cmd"\
   data/train data/lang exp/tri3a exp/tri3a_ali || exit 1;
 
-steps/train_sat.sh \
+steps/train_sat.sh --cmd "$train_cmd"\
   2500 20000 data/train data/lang exp/tri3a_ali exp/tri4a || exit 1;
 
 utils/mkgraph.sh data/lang_test exp/tri4a exp/tri4a/graph
-steps/decode_fmllr.sh --nj 16 --config conf/decode.config \
+steps/decode_fmllr.sh --nj 16 --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri4a/graph data/dev exp/tri4a/decode_dev
 
-steps/align_fmllr.sh --nj 16 \
+steps/align_fmllr.sh --nj 16 --cmd "$train_cmd"\
   data/train data/lang exp/tri4a exp/tri4a_ali
 
 # Building a larger SAT system.
 
-steps/train_sat.sh \
+steps/train_sat.sh --cmd "$train_cmd"\
   3500 160000 data/train data/lang exp/tri4a_ali exp/tri5a || exit 1;
 
 utils/mkgraph.sh data/lang_test exp/tri5a exp/tri5a/graph || exit 1;
-steps/decode_fmllr.sh --nj 16 --config conf/decode.config \
+steps/decode_fmllr.sh --nj 16 --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
    exp/tri5a/graph data/dev exp/tri5a/decode_dev || exit 1;
 
