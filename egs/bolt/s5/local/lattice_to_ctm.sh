@@ -68,12 +68,12 @@ if [ $stage -le 1 ]; then
     cp $x $x.bkup1;
     cat $x.bkup1 | grep -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
       grep -v -E '<UNK>|%HESITATION|\(\(\)\)' | \
-      grep -v -E '<eps>' | \
-      grep -v -E '<noise>' | \
-      grep -v -E '<silence>' | \
-      grep -v -E '<hes>' | \
-      grep -v -E '<unk>' | \
-      grep -v -E '<v-noise>' | \
+      grep -v -E -i '<eps>' | \
+      grep -v -E -i '<noise>' | \
+      grep -v -E -i '<silence>' | \
+      grep -v -E -i '<hes>' | \
+      grep -v -E -i '<unk>' | \
+      grep -v -E -i '<v-noise>' | \
       perl -e '@list = (); %list = ();
       while(<>) {
         chomp; 
