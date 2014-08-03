@@ -1,14 +1,13 @@
 #!/bin/bash
-
-# Copyright 2012 Chao Weng
-#           2014 Jan Trmal, Hainan Xu, Samuel Zhang
+#
+# Copyright 2014 Jan Trmal, Hainan Xu, Samuel Zhang, Xin Lei
 # Apache 2.0
+#
+# This is a shell script to run BOLT evaluation recipe. It's recommended
+# that you run the commands one by one by copy-and-paste into the shell.
+# Caution: some of the graph creation steps use quite a bit of memory, so
+# you should run this on a machine that has sufficient memory.
 
-#exit 1;
-# This is a shell script, but it's recommended that you run the commands one by
-# one by copying and pasting into the shell.
-# Caution: some of the graph creation steps use quite a bit of memory, so you
-# should run this on a machine that has sufficient memory.
 set -e
 set -o pipefail
 
@@ -17,13 +16,12 @@ set -o pipefail
 
 extra_decoding_opts=(--num-threads 4 --parallel-opts '-pe smp 4' )
 
-#In the config we expect the path to corpora
-#. ./config.conf
+# The path to training corpora:
 CALLHOME_MA_CORPUS_A=/export/corpora/LDC/LDC96S34/CALLHOME/ 
 CALLHOME_MA_CORPUS_T=/export/corpora/LDC/LDC96T16/
 
 # Data Preparation, 
-local/callhome_data_prep.sh   "$CALLHOME_MA_CORPUS_A" "$CALLHOME_MA_CORPUS_T" data/local || exit 1;
+local/callhome_data_prep.sh "$CALLHOME_MA_CORPUS_A" "$CALLHOME_MA_CORPUS_T" data/local || exit 1;
 
 # Lexicon Preparation,
 local/callhome_prepare_dict.sh || exit 1;
@@ -169,6 +167,3 @@ steps/decode.sh --nj 16 --config conf/decode.config \
 # getting results (see RESULTS file)
 for x in exp/*/decode; do [ -d $x ] && grep Sum $x/score_*/*.sys | utils/best_wer.sh; done 2>/dev/null
 for x in exp/*/decode; do [ -d $x ] && grep WER $x/cer_* | utils/best_wer.sh; done 2>/dev/null
-
-exit 1;
-

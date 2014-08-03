@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 # Copyright 2014  Johns Hopkins University (author: Jan Trmal)\
-#                Hainan Xu
-#                Xiaohui Zhang
+#                 Hainan Xu, Xiaohui Zhang
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +16,9 @@
 # limitations under the License.
 
 
-#Converts the CALLHOME corpus into kaldi data directory.
-#Tries to be smart about preventing upper-case/lower-case issues
-#(which might not be really smart)
+# Converts the CALLHOME corpus into kaldi data directory.
+# Tries to be smart about preventing upper-case/lower-case issues
+# (which might not be really smart)
 
 
 use utf8;
@@ -83,7 +82,7 @@ while ($filename=<STDIN>) {
   $rec_id=~ s/\.txt//i;
   $rec_id=uc($rec_id);
 
-  die "Could not remap the utternace id $rec_id into audio recording filename\n"
+  die "Could not remap the utterance id $rec_id into audio recording filename\n"
     unless exists $UTT2SPH{$rec_id};
   print $wav "$rec_id-A $sph2pipe -f wav -p -c 1 " . $UTT2SPH{$rec_id} . "|\n";
   print $wav "$rec_id-B $sph2pipe -f wav -p -c 2 " . $UTT2SPH{$rec_id} . "|\n";
@@ -98,7 +97,7 @@ while ($filename=<STDIN>) {
     chomp $line;
     @A=split(" ",$line);
     if (@A <= 3) {
-      print STDERR "Cannot parse the line \"$line\"\n" if $line;
+      print STDERR "Cannot parse line \"$line\" in $filename\n" if $line;
       next;
     } else {
       $spk_id=$A[2];
