@@ -1,5 +1,7 @@
 #!/bin/bash 
 #
+set -e
+set -o pipefail
 
 if [ -f path.sh ]; then . path.sh; fi
 
@@ -7,6 +9,7 @@ silprob=0.5
 mkdir -p data/lang_test data/train data/dev
 
 
+#arpa_lm=data/local/srilm/lm.gz
 arpa_lm=data/local/lm/3gram-mincount/lm_unpruned.gz
 [ ! -f $arpa_lm ] && echo No such file $arpa_lm && exit 1;
 
@@ -40,16 +43,15 @@ gunzip -c "$arpa_lm" | \
    utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=data/lang_test/words.txt \
      --osymbols=data/lang_test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
     fstrmepsilon > data/lang_test/G.fst
-  fstisstochastic data/lang_test/G.fst
 
 
 echo  "Checking how stochastic G is (the first of these numbers should be small):"
-fstisstochastic data/lang_test/G.fst 
+fstisstochastic data/lang_test/G.fst || true
 
 ## Check lexicon.
 ## just have a look and make sure it seems sane.
 echo "First few lines of lexicon FST:"
-fstprint   --isymbols=data/lang/phones.txt --osymbols=data/lang/words.txt data/lang/L.fst  | head
+(fstprint   --isymbols=data/lang/phones.txt --osymbols=data/lang/words.txt data/lang/L.fst  | head ) || true
 
 echo Performing further checks
 
