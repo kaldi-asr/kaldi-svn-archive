@@ -719,6 +719,30 @@ void CuMatrixBase<Real>::MulRowsGroupMat(const CuMatrixBase<Real> &src) {
     Mat().MulRowsGroupMat(src.Mat());
   }
 }
+template<typename Real> 
+void CuMatrixBase<Real>::MulRows2dGroupMat(const CuMatrixBase<Real> &src, int num_chunks) {
+  KALDI_ASSERT(src.NumCols() > 0);
+#if HAVE_CUDA == 1 
+  if (CuDevice::Instantiate().Enabled()) { 
+    Timer tim;
+    int col_group_size = this->NumCols() / src.NumCols(),
+      row_group_size = this->NumRows() / src.NumRows();
+    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CU2DBLOCK),
+                 n_blocks(NumRows(), CU2DBLOCK));
+
+    //cuda_mul_rows_group_mat(dimGrid, dimBlock, this->data_, src.data_,
+    //                        this->Dim(), src.Stride(), col_group_size);
+    KALDI_ASSERT(0 && "not implemented yet");
+    CU_SAFE_CALL(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().MulRows2dGroupMat(src.Mat(), num_chunks);
+  }
+}
 template<typename Real>
 void CuMatrixBase<Real>::GroupPnormDeriv(const CuMatrixBase<Real> &src1,
                                          const CuMatrixBase<Real> &src2,
@@ -744,6 +768,33 @@ void CuMatrixBase<Real>::GroupPnormDeriv(const CuMatrixBase<Real> &src1,
   }
 }
 
+template<typename Real>
+void CuMatrixBase<Real>::Group2dPnormDeriv(const CuMatrixBase<Real> &src1,
+                                         const CuMatrixBase<Real> &src2,
+                                         int num_chunks, Real power) {
+  KALDI_ASSERT(src2.NumCols() > 0);
+  int col_group_size = this->NumCols() / src2.NumCols(),
+    row_group_size = this->NumRows() / src2.NumRows();
+  KALDI_ASSERT(this->NumCols() == src2.NumCols() * col_group_size);
+#if HAVE_CUDA == 1 
+  if (CuDevice::Instantiate().Enabled()) { 
+    Timer tim;
+
+    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CU2DBLOCK), n_blocks(NumRows(), CU2DBLOCK));
+
+    //cuda_calc_pnorm_deriv(dimGrid, dimBlock, this->data_, src1.Data(), 
+    //                      src2.Data(), Dim(), src2.Stride(), col_group_size, power);
+    KALDI_ASSERT(0 && "not implemented yet");
+    CU_SAFE_CALL(cudaGetLastError());
+
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().Group2dPnormDeriv(src1.Mat(), src2.Mat(), num_chunks, power);
+  }
+}
 template<typename Real>
 void CuMatrixBase<Real>::DivRowsVec(const CuVectorBase<Real> &div) {
 #if HAVE_CUDA == 1
@@ -1131,6 +1182,27 @@ void CuMatrixBase<Real>::GroupPnorm(const CuMatrixBase<Real> &src, Real power) {
   }
 }
 
+template<typename Real>
+void CuMatrixBase<Real>::Group2dPnorm(const CuMatrixBase<Real> &src, 
+                                      int num_chunks, Real power) {
+  int col_group_size = src.NumCols() / this->NumCols(),
+      row_group_size = src.NumRows() / this->NumRows();
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) { 
+    Timer tim;
+    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
+    dim3 dimGrid(n_blocks(src.NumCols(), CU2DBLOCK), n_blocks(src.NumRows(), CU2DBLOCK));
+    //cuda_group_pnorm(dimGrid, dimBlock, this->data_, src.data_, 
+    //                 this->Dim(), src.Stride(), col_group_size, power);
+    KALDI_ASSERT(0 && "not implemented yet");
+    CU_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+  #endif
+  {
+    Mat().Group2dPnorm(src.Mat(), num_chunks, power);
+  }
+}
 
 
 /*

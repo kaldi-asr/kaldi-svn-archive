@@ -407,6 +407,47 @@ void TestConvTensorTensor() {
   KALDI_LOG << "=== TestConvTensorTensor() ===\n";
   typedef std::pair<int32, int32> DimsStrides;
   {
+    for (int t = 0; t < 10; t++) {
+      int b0 = 12 + rand() % 4, b1 = 4 + rand() % 3, b2 = 1 , b3 = 12 + rand() % 4,
+        c0 = 8 + rand() % 2, c1 = b1, c2 = 4 + rand() % 2, c3 = 8 + rand() % 2,
+        a0 = b0 - c0 + 1, a1 = c1, a2 = c2, a3 = b3 - c3 + 1,
+        n = 128 + rand() % 10;
+      Real scalar = RandGauss();
+      std::vector<DimsStrides> A_dims_strides, B_dims_strides, C_dims_strides;
+      B_dims_strides.push_back(DimsStrides(n, b0 * b1 * b2 * b3));
+      B_dims_strides.push_back(DimsStrides(b0,b1 * b2 * b3)); 
+      B_dims_strides.push_back(DimsStrides(b1, b2 * b3));
+      B_dims_strides.push_back(DimsStrides(b2, 0));
+      B_dims_strides.push_back(DimsStrides(b3, 1));
+
+      C_dims_strides.push_back(DimsStrides(n, c0 * c1 * c2 * c3));
+      C_dims_strides.push_back(DimsStrides(c0, c1 * c2 * c3));
+      C_dims_strides.push_back(DimsStrides(c1, c2 * c3));
+      C_dims_strides.push_back(DimsStrides(c2, c3));
+      C_dims_strides.push_back(DimsStrides(c3, 1));
+      
+      A_dims_strides.push_back(DimsStrides(a0, a1 * a2 * a3));
+      A_dims_strides.push_back(DimsStrides(a1, a2 * a3));
+      A_dims_strides.push_back(DimsStrides(a2, a3));
+      A_dims_strides.push_back(DimsStrides(a3, 1));
+
+      for (int i = 0; i < 5; i++) {
+        Matrix<Real> A_mat(1, a0 * a1 * a2 * a3),
+          B_mat(1, n * b0 * b1 * b2 * b3),
+          C_mat(1, n * c0 * c1 * c2 * c3);
+        B_mat.Set(1.0);
+        C_mat.Set(1.0);
+        Tensor<Real> A_tensor(A_dims_strides, A_mat),
+          B_tensor(B_dims_strides, B_mat),
+          C_tensor(C_dims_strides, C_mat);
+        Matrix<Real> tmp(1, a0 * a1 * a2 * a3);     
+        A_tensor.ConvTensorTensor(scalar, B_tensor, C_tensor);
+        tmp.Add(scalar * c0 * c3 * n);
+        KALDI_ASSERT(A_mat.ApproxEqual(tmp));
+      }
+    }
+  }
+  {
     // test 2D convolution of 2D matrices
     // Check if ConvTensorTensor(t1, t2) = ConvTensorTensor(t2, t1)
     // d3 + 1 = d1 + d2 
@@ -521,7 +562,108 @@ void TestConvTensorTensor() {
     }
   }
 }
+template<typename Real> 
+void TestMinMax() {
+  typedef std::pair<int32, int32> DimsStrides;   
+  {
+    for (int i = 0; i < 10; i++) {
+      int n1 = 20 + rand() % 10, m1 = 30 + rand() % 10;
+      std::vector<DimsStrides> A_dims_strides;
+      A_dims_strides.push_back(DimsStrides(n1,1));  
+      A_dims_strides.push_back(DimsStrides(m1,n1));  
+      Matrix<Real> A_mat(1, n1 * m1);
+      A_mat.SetRandn();
+      Tensor<Real> A_tensor(A_dims_strides, A_mat);
+      AssertEqual(A_mat.Max(), A_tensor.Max());
+      AssertEqual(A_mat.Min(), A_tensor.Min());
+      KALDI_LOG << " Tensor Max .vs. true Max " << A_tensor.Max() << " " << A_mat.Max(); 
+      KALDI_LOG << " Tensor Min .vs. true Min " << A_tensor.Min() << " " << A_mat.Min();
+    }
+  }
+  {
+    for (int i = 0; i < 10; i++) {
+      int n1 = 20 + rand() % 10, n2 = 30 + rand() % 10,
+        n3 = 10 + rand() % 5;
+      std::vector<DimsStrides> A_dims_strides;
+      A_dims_strides.push_back(DimsStrides(n1, 1));
+      A_dims_strides.push_back(DimsStrides(1, 0));
+      A_dims_strides.push_back(DimsStrides(n2, n1));
+      A_dims_strides.push_back(DimsStrides(n3, n1 * n2));
+      Matrix<Real> A_mat(1, n1 * n2 * n3);
+      A_mat.SetRandn();
+      Tensor<Real> A_tensor(A_dims_strides, A_mat);
+      AssertEqual(A_mat.Max(), A_tensor.Max());
+      AssertEqual(A_mat.Min(), A_tensor.Min());
+      KALDI_LOG << " Tensor Max .vs. true Max " << A_tensor.Max() << " " << A_mat.Max(); 
+      KALDI_LOG << " Tensor Min .vs. true Min " << A_tensor.Min() << " " << A_mat.Min();
+    }
+  }
+}
+template<class Real>
+void TestApplyPow() {
+  typedef std::pair<int32, int32> DimsStrides;
+  {
+    for (int i = 0; i < 10; i++) {  
+      int n1 = 20 + rand() % 10, m1 = 30 + rand() % 10; 
+      std::vector<DimsStrides> A_dims_strides;
+      A_dims_strides.push_back(DimsStrides(n1,1));  
+      A_dims_strides.push_back(DimsStrides(m1,n1));  
+      Matrix<Real> A_mat(1, n1 * m1);
+      A_mat.SetRandn();
+      A_mat.Add(std::abs(2 * A_mat.Min()));
+      Matrix<Real> B_mat(A_mat);
+      Tensor<Real> A_tensor(A_dims_strides, A_mat);
+      Real power = 2 + RandUniform();
+      A_tensor.ApplyPow(3.1);
+      B_mat.ApplyPow(3.1);
+      Real tmp1 = A_tensor.Sum(), tmp2 = B_mat.Sum();
+      AssertEqual(tmp1, tmp2);
+      KALDI_LOG << " power .vs. tmp1 .vs. tmp2 " << power << " " << tmp1 << " " << tmp2;
+    }
+  }
+  {
+    for (int i = 0; i < 10; i++) { 
+      int n1 = 20 + rand() % 10, n2 = 30 + rand() % 10,
+        n3 = 10 + rand() % 5; 
+      std::vector<DimsStrides> A_dims_strides,
+        B_dims_strides;
+      A_dims_strides.push_back(DimsStrides(n1,1));  
+      A_dims_strides.push_back(DimsStrides(n2,n1));  
+      Matrix<Real> A0(1, n1 * n2), A1_mat(1, n1 * n2),
+        A2_mat(1, n1 * n2);
+      A0.SetRandn();
+      A0.MulElements(A0);
 
+      A1_mat.CopyFromMat(A0);
+      Tensor<Real> A_tensor(A_dims_strides, A1_mat); 
+      A_tensor.ApplyPow(0.5);
+      A_tensor.ApplyPow(2.0);
+      AssertEqual(A1_mat, A0);
+
+      A2_mat.CopyFromMat(A0);
+      Tensor<Real> A2_tensor(A_dims_strides, A2_mat);
+      A2_tensor.ApplyPow(1.0/3.0);
+      A2_tensor.ApplyPow(3.0);
+      AssertEqual(A2_mat, A0);
+
+      //
+      B_dims_strides.push_back(DimsStrides(n1, 1));
+      B_dims_strides.push_back(DimsStrides(1, 0));
+      B_dims_strides.push_back(DimsStrides(n2, n1));
+      B_dims_strides.push_back(DimsStrides(n3, n1 * n2));
+      Matrix<Real> B(1, n1 * n2 * n3), B1_mat(1, n1 * n2 * n3);
+      B.SetRandn();
+      B.MulElements(B);
+      B1_mat.CopyFromMat(B);
+      Tensor<Real> B1_tensor(B_dims_strides, B1_mat);
+      B1_tensor.ApplyPow(0.5);
+      B1_tensor.ApplyPow(2.0);
+      AssertEqual(B1_mat, B);
+
+      //
+    }
+  }
+}
 template<class Real>
 void TensorUnitTest() {
   TestFirstDimOverlaps();
@@ -531,6 +673,8 @@ void TensorUnitTest() {
   TestAddTensor<Real>();
   TestAddTensorTensor<Real>();
   TestConvTensorTensor<Real>();
+  TestMinMax<Real>(); 
+  TestApplyPow<Real>();
 }
 
 

@@ -27,17 +27,26 @@ namespace nnet2 {
 
 void UnitTestGenericComponentInternal(const Component &component) {
   int32 input_dim = component.InputDim(),
-      output_dim = component.OutputDim();
-
+    output_dim = component.OutputDim();
   KALDI_LOG << component.Info();
+  
   CuVector<BaseFloat> objf_vec(output_dim); // objective function is linear function of output.
   objf_vec.SetRandn(); // set to Gaussian noise.
-  
-  int32 num_egs = 10 + rand() % 5;
+  int32 num_chunks = 3 + rand() % 2,
+    input_frames_per_chunk = 25 + rand() % 5,
+    num_egs = input_frames_per_chunk * num_chunks;
   CuMatrix<BaseFloat> input(num_egs, input_dim),
-      output(num_egs, output_dim);
+    output(num_egs, output_dim);
+  KALDI_ASSERT(input_frames_per_chunk >= 1 + component.LeftContext() 
+    + component.RightContext());
+  if (component.Type().compare("Pnorm2dComponent") == 0) {
+    const Pnorm2dComponent *pnorm_comp = dynamic_cast<const Pnorm2dComponent*>(&component);
+    const std::vector<int32> input_dims = pnorm_comp->InputDimVec(),
+    output_dims = pnorm_comp->OutputDimVec();
+    input.Resize(input_dims[0] * num_chunks, input_dims[1]);
+    output.Resize(output_dims[0] * num_chunks, output_dims[1]);
+  } 
   input.SetRandn();
-  
   int32 rand_seed = rand();
 
   RandomComponent *rand_component =
@@ -46,7 +55,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
     srand(rand_seed);
     rand_component->ResetGenerator();
   }
-  component.Propagate(input, 1, &output);
+  component.Propagate(input, num_chunks, &output);
   {
     bool binary = (rand() % 2 == 0);
     Output ko("tmpf", binary);
@@ -77,7 +86,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
         (component_copy->BackpropNeedsInput() ? input : empty_mat),
         &output_ref =
         (component_copy->BackpropNeedsOutput() ? output : empty_mat);
-    int32 num_chunks = 1;
+    //int32 num_chunks = 1;
 
     
     component_copy->Backprop(input_ref, output_ref,
@@ -111,7 +120,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
             rand_component->ResetGenerator();
           }
         }        
-        component.Propagate(perturbed_input, 1, &perturbed_output);
+        component.Propagate(perturbed_input, num_chunks, &perturbed_output);
         CuVector<BaseFloat> perturbed_output_objfs(output.NumRows());
         perturbed_output_objfs.AddMatVec(1.0, perturbed_output, kNoTrans,
                                          objf_vec, 0.0);
@@ -121,7 +130,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
                   << " and " << observed_difference;
         if (fabs(predicted_difference - observed_difference) >
             0.15 * fabs((predicted_difference + observed_difference)/2) &&
-            fabs(predicted_difference - observed_difference) > 1.0e-06) {
+            fabs(predicted_difference - observed_difference) > 1.0e-05) {
           KALDI_WARN << "Bad difference!";
           num_bad++;
         } else {
@@ -160,7 +169,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
         output_deriv.Row(i).CopyFromVec(objf_vec);
       CuMatrix<BaseFloat> input_deriv; // (input.NumRows(), input.NumCols());
 
-      int32 num_chunks = 1;
+      //int32 num_chunks = 1;
 
       // This will compute the parameter gradient.
       ucomponent->Backprop(input, output, output_deriv, num_chunks,
@@ -178,7 +187,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
             rand_component->ResetGenerator();
           }
         }        
-        perturbed_ucomponent->Propagate(input, 1, &output_perturbed);
+        perturbed_ucomponent->Propagate(input, num_chunks, &output_perturbed);
         CuVector<BaseFloat> output_objfs_perturbed(output_perturbed.NumRows());
         output_objfs_perturbed.AddMatVec(1.0, output_perturbed,
                                          kNoTrans, objf_vec, 0.0);
@@ -193,7 +202,7 @@ void UnitTestGenericComponentInternal(const Component &component) {
                 << " and " << delta_objf_predicted;
       if (fabs(delta_objf_predicted - delta_objf_observed) >
           0.05 * (fabs(delta_objf_predicted + delta_objf_observed)/2) &&
-          fabs(delta_objf_predicted - delta_objf_observed) > 1.0e-06) {
+          fabs(delta_objf_predicted - delta_objf_observed) > 1.0e-05) {
         KALDI_WARN << "Bad difference!";
         num_bad++;
       } else {
@@ -291,7 +300,36 @@ void UnitTestPnormComponent() {
   }
 }
 
+void UnitTest2dPnormComponent() {
+  // works if it has an initializer from int,
+  // e.g. tanh, sigmoid.
+  
+  // We're testing that the gradients are computed correctly:
+  // the input gradients and the model gradients.
 
+  for (int32 i = 0; i < 5; i++) {
+    std::vector<int32> output_dims(2, 0), input_dims(2, 0);
+    int32 group_size = 5 + rand() % 5;
+    
+    output_dims[0] = 10 + rand() % 5;
+    output_dims[1] = 10 + rand() % 20;
+    input_dims[0] = 20 + rand () % 5;//* group_size;
+    input_dims[1] = output_dims[1] * group_size;
+    BaseFloat p = 0.8 + 0.1 * (rand() % 20);
+    
+    Pnorm2dComponent component(input_dims, output_dims, p);
+    UnitTestGenericComponentInternal(component);
+    KALDI_LOG << " output_dims[0] " << output_dims[0] 
+              << " input_dims[0] " << input_dims[0]
+              << " left_context " << component.LeftContext();
+  }
+
+  {
+    Pnorm2dComponent component;
+    component.InitFromString("input-dims=15:15 output-dims=5:5 p=3.0");
+    UnitTestGenericComponentInternal(component);
+  }
+}
 
 void UnitTestAffineComponent() {
   BaseFloat learning_rate = 0.01,
@@ -809,7 +847,7 @@ void UnitTestConvolutionalComponent() {
     UnitTestGenericComponentInternal(conv);
   }
   {
-    const char *str = "input-tensor-dims=3:1:40 output-tensor-dims=1:256:32 param-tensor-dims=5:3:256:9 bias-stddev=1.0 param-stddev=0.1 left-context=2 ";
+    const char *str = "input-tensor-dims=3:1:40 output-tensor-dims=1:256:32 param-tensor-dims=5:3:256:9 bias-stddev=1.0 param-stddev=0.1 left-context=2 learning-rate=0.01";
     ConvolutionalComponent conv;
     conv.InitFromString(str); 
     UnitTestGenericComponentInternal(conv); 
@@ -837,7 +875,7 @@ int main() {
     
     BasicDebugTestForSplice(true);
     BasicDebugTestForSpliceMax(true);
-    for (int32 i = 0; i < 3; i++) {
+    for (int32 i = 0; i < 3; i++) { 
       UnitTestGenericComponent<SigmoidComponent>();
       UnitTestGenericComponent<TanhComponent>();
       UnitTestGenericComponent<PowerComponent>("power=1.5");
@@ -868,8 +906,10 @@ int main() {
       UnitTestDropoutComponent();
       UnitTestAdditiveNoiseComponent();
       UnitTestParsing();
-      if (loop == 0)  
+      if (loop == 0)  { 
         UnitTestConvolutionalComponent();
+        UnitTest2dPnormComponent();
+      }
       if (loop == 0)
         KALDI_LOG << "Tests without GPU use succeeded.\n";
       else

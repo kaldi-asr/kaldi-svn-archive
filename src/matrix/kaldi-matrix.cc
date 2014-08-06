@@ -51,12 +51,12 @@ void MatrixBase<Real>::Invert(Real *log_det, Real *det_sign,
     throw std::bad_alloc();
 
   clapack_Xgetrf2(&M, &N, data_, &LDA, pivot, &result);
-  const int pivot_offset = 1;
+  const int32 pivot_offset = 1;
 #else
   int *pivot = new int[num_rows_];
-  int result;
+  int32 result;
   clapack_Xgetrf(num_rows_, num_cols_, data_, stride_, pivot, &result);
-  const int pivot_offset = 0;
+  const int32 pivot_offset = 0;
 #endif
   KALDI_ASSERT(result >= 0 && "Call to CLAPACK sgetrf_ or ATLAS clapack_sgetrf "
                "called with wrong arguments");
@@ -70,7 +70,7 @@ void MatrixBase<Real>::Invert(Real *log_det, Real *det_sign,
     }
   }
   if (det_sign != NULL) {
-    int sign = 1;
+    int32 sign = 1;
     for (MatrixIndexT i = 0; i < num_rows_; i++)
       if (pivot[i] != static_cast<int>(i) + pivot_offset) sign *= -1;
     *det_sign = sign;
@@ -176,10 +176,10 @@ void MatrixBase<Real>::AddMatMat(const Real alpha,
               beta, data_, stride_);
 }
 template<typename Real>
-void MatrixBase<Real>::ConvMat(const MatrixBase<Real> &A, int block_dim_x, 
-                               int A_block_num_rows, int A_block_num_cols,
-                               const MatrixBase<Real> &B, int block_dim_y,
-                               int B_block_num_rows, int B_block_num_cols) {
+void MatrixBase<Real>::ConvMat(const MatrixBase<Real> &A, int32 block_dim_x, 
+                               int32 A_block_num_rows, int32 A_block_num_cols,
+                               const MatrixBase<Real> &B, int32 block_dim_y,
+                               int32 B_block_num_rows, int32 B_block_num_cols) {
 
 }
 template<typename Real>
@@ -382,12 +382,12 @@ void MatrixBase<Real>::AddMat(const Real alpha, const MatrixBase<Real>& A,
       }
     }
   } else {
-    int aStride = (int) A.stride_, stride = stride_;
+    MatrixIndexT a_Stride = A.stride_, stride = stride_;
     Real *adata = A.data_, *data = data_;
     if (transA == kNoTrans) {
       KALDI_ASSERT(A.num_rows_ == num_rows_ && A.num_cols_ == num_cols_);
       if (num_rows_ == 0) return;
-      for (MatrixIndexT row = 0; row < num_rows_; row++, adata += aStride,
+      for (MatrixIndexT row = 0; row < num_rows_; row++, adata += a_Stride,
                data += stride) {
         cblas_Xaxpy(num_cols_, alpha, adata, 1, data, 1);
       }
@@ -395,7 +395,7 @@ void MatrixBase<Real>::AddMat(const Real alpha, const MatrixBase<Real>& A,
       KALDI_ASSERT(A.num_cols_ == num_rows_ && A.num_rows_ == num_cols_);
       if (num_rows_ == 0) return;      
       for (MatrixIndexT row = 0; row < num_rows_; row++, adata++, data += stride)
-        cblas_Xaxpy(num_cols_, alpha, adata, aStride, data, 1);
+        cblas_Xaxpy(num_cols_, alpha, adata, a_Stride, data, 1);
     }
   }
 }
@@ -1020,54 +1020,182 @@ void MatrixBase<Real>::MulRowsVec(const VectorBase<Real> &scale) {
 
 template<typename Real> 
 void MatrixBase<Real>::MulRowsGroupMat(const MatrixBase<Real> &src) {
-  KALDI_ASSERT(src.NumCols() > 0 && src.NumCols() <= this->NumCols());
-  KALDI_ASSERT(this->NumCols() % src.NumCols() == 0 || 
-  	this->NumCols() % (src.NumCols() - 1) < this->NumCols() / (src.NumCols() - 1));
-  int group_size = 0;
-  if (this->NumCols() % src.NumCols() == 0) {
-    group_size = this->NumCols() / src.NumCols();
-  } else {
-    group_size = this->NumCols() / src.NumCols() + 1; 
-  }
-  MatrixIndexT M = num_rows_, N = num_cols_;
+  KALDI_ASSERT(src.NumRows() == this->NumRows() &&
+               this->NumCols() % src.NumCols() == 0);
+  int32 group_size = this->NumCols() / src.NumCols(),
+      num_groups = this->NumCols() / group_size;
+  MatrixIndexT num_rows = this->NumRows();
 
-  for (MatrixIndexT i = 0; i < M; i++) 
-    for (MatrixIndexT j = 0; j < N; j++) 
-      (*this)(i, j) *= src(i, j / group_size);
+  for (MatrixIndexT i = 0; i < num_rows; i++) {
+    Real *data = this->RowData(i);
+    for (MatrixIndexT j = 0; j < num_groups; j++, data += group_size) {
+      Real scale = src(i, j);
+      cblas_Xscal(group_size, scale, data, 1);
+    }
+  }
 }
 
 template<typename Real> 
-void MatrixBase<Real>::GroupPnormDeriv(const MatrixBase<Real> &src1,
-                                       const MatrixBase<Real> &src2,
-                                       Real power) {
-  KALDI_ASSERT(src2.NumCols() > 0 && src2.NumCols() <= this->NumCols());
-  KALDI_ASSERT(this->NumCols() % src2.NumCols() == 0 || 
-  	this->NumCols() % (src2.NumCols() - 1) < this->NumCols() / (src2.NumCols() - 1));
-  int group_size = 0;
-  if (this->NumCols() % src2.NumCols() == 0) {
-    group_size = this->NumCols() / src2.NumCols();
+void MatrixBase<Real>::MulRows2dGroupMat(const MatrixBase<Real> &src, int32 num_chunks) {
+  if (num_chunks > 1) {
+    KALDI_ASSERT(this->NumRows() % num_chunks == 0 &&
+                 src.NumRows() % num_chunks == 0);
+    int32 this_chunk_size = this->NumRows() / num_chunks,   
+      src_chunk_size = src.NumRows() / num_chunks;
+    for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+      this->RowRange(chunk * this_chunk_size, this_chunk_size).MulRows2dGroupMat(
+        src.RowRange(chunk * src_chunk_size, src_chunk_size), 1);
+    }
   } else {
-    group_size = this->NumCols() / src2.NumCols() + 1; 
-  }
-  MatrixIndexT M = this->NumRows(), N = this->NumCols(); 
+    KALDI_ASSERT(num_chunks == 1);
+    KALDI_ASSERT(this->NumCols() % src.NumCols() == 0);
+    MatrixIndexT num_rows = this->NumRows(), num_col_groups = src.NumCols();
+    int32 col_group_size = this->NumCols() / src.NumCols(),
+      num_larger_groups = num_rows % src.NumRows(),
+      larger_row_group_size = (num_rows + src.NumRows() - 1) / src.NumRows(),
+      smaller_row_group_size = num_rows / src.NumRows(),
+      this_num_rows_large = num_larger_groups * larger_row_group_size;
 
-  if (power == 1.0) {   
-    for (MatrixIndexT i = 0; i < M; i++) 
-      for (MatrixIndexT j = 0; j < N; j++) 
-	  (*this)(i, j) = (src1(i, j) == 0 ? 0 : (src1(i, j) > 0 ? 1 : -1));
-  } else {
-    for (MatrixIndexT i = 0; i < M; i++) {
-      for (MatrixIndexT j = 0; j < N; j++) {
-        if (src2(i, j / group_size) == 0) {
-          (*this)(i, j) = 0;
-        } else {
-      	  (*this)(i, j) = pow(std::abs(src1(i, j)), power - 1) * 
-              (src2(i, j / group_size) > 0 ? pow(src2(i, j / group_size), 1 - power) : 1) * 
-              (src1(i, j) >= 0 ? 1 : -1) ;
-        }
+    for (MatrixIndexT i = 0; i < num_rows; i++) {
+      int32 src_row_index = (i > this_num_rows_large ? num_larger_groups + 
+        (i -  this_num_rows_large) / smaller_row_group_size : i / larger_row_group_size); 
+      Real *data = this->RowData(i);
+      for(MatrixIndexT j = 0; j < num_col_groups; j++, data += col_group_size) {
+        Real scale = src(src_row_index, j);
+        cblas_Xscal(col_group_size, scale, data, 1);
       }
     }
   }
+}
+template<typename Real>
+Real MatrixBase<Real>::EntrywiseNorm(Real p) const{
+  KALDI_ASSERT(p >= 0.0);
+  Real sum = 0.0;
+  if (p == 0.0) {
+    for (MatrixIndexT i = 0; i < NumRows(); i++)
+      for (MatrixIndexT j = 0; j < NumCols(); j++) 
+        if ((*this)(i, j) != 0.0) sum += 1.0;
+    return sum;
+  } else if (p == 1.0) {
+    for (MatrixIndexT i = 0; i < NumRows(); i++)
+      for (MatrixIndexT j = 0; j < NumCols(); j++)  
+        sum += std::abs((*this)(i, j));
+    return sum;
+  } else if (p == 2.0) {
+    for (MatrixIndexT i = 0; i < NumRows(); i++)
+      for (MatrixIndexT j = 0; j < NumCols(); j++)
+        sum += (*this)(i, j) * (*this)(i, j);
+    return std::sqrt(sum);
+  } else {
+    Real tmp;
+    bool ok = true;
+    for (MatrixIndexT i = 0; i < NumRows(); i++) {
+      for (MatrixIndexT j = 0; j < NumCols(); j++) { 
+        tmp = pow(std::abs((*this)(i, j)), p);
+        if (tmp == HUGE_VAL) // HUGE_VAL is what pow returns on error.
+          ok = false;
+        sum += tmp;
+      }
+    }
+    tmp = pow(sum, static_cast<Real>(1.0/p));
+    KALDI_ASSERT(tmp != HUGE_VAL); // should not happen here.
+    if (ok) {
+      return tmp;
+    } else {
+      Real maximum = this->Max(), minimum = this->Min(),
+          max_abs = std::max(maximum, -minimum);
+      KALDI_ASSERT(max_abs > 0); // Or should not have reached here.
+      Matrix<Real> tmp(*this);
+      tmp.Scale(1.0 / max_abs);
+      return tmp.EntrywiseNorm(p) * max_abs;
+    }      
+  }
+}
+
+template<typename Real> 
+void MatrixBase<Real>::GroupPnormDeriv(const MatrixBase<Real> &input,
+                                       const MatrixBase<Real> &output,
+                                       Real power) {
+  KALDI_ASSERT(input.NumCols() == this->NumCols() && input.NumRows() == this->NumRows());
+  KALDI_ASSERT(this->NumCols() % output.NumCols() == 0 &&
+               this->NumRows() == output.NumRows());
+
+  int32 group_size = this->NumCols() / output.NumCols(),
+    num_rows = this->NumRows(), num_cols = this->NumCols(); 
+
+  if (power == 1.0) {   
+    for (MatrixIndexT i = 0; i < num_rows; i++) { 
+      for (MatrixIndexT j = 0; j < num_cols; j++) {
+        Real input_val = input(i, j);
+        (*this)(i, j) = (input_val == 0 ? 0 : (input_val > 0 ? 1 : -1));
+      }
+    }
+  } else {
+    for (MatrixIndexT i = 0; i < num_rows; i++) {
+      for (MatrixIndexT j = 0; j < num_cols; j++) {
+        Real output_val = output(i, j / group_size),
+          input_val = input(i, j);
+        if (output_val == 0) 
+          (*this)(i, j) = 0;
+         else
+      	  (*this)(i, j) = pow(std::abs(input_val), power - 1) * 
+              pow(output_val, 1 - power) * (input_val >= 0 ? 1 : -1) ;
+      }
+    }
+  }
+}
+
+template<typename Real> 
+void MatrixBase<Real>::Group2dPnormDeriv(const MatrixBase<Real> &input,
+                                       const MatrixBase<Real> &output,
+                                       int32 num_chunks,
+                                       Real power) {
+  if (num_chunks > 1) {
+    KALDI_ASSERT(this->NumRows() % num_chunks == 0 &&
+                 input.NumRows() % num_chunks == 0 &&
+                 output.NumRows() % num_chunks == 0);
+    int32 input_chunk_size = input.NumRows() / num_chunks,
+        output_chunk_size = output.NumRows() / num_chunks;
+    for (int32 chunk = 0; chunk < num_chunks; chunk++) {
+      this->RowRange(chunk * input_chunk_size, input_chunk_size).Group2dPnormDeriv(
+        input.RowRange(chunk * input_chunk_size, input_chunk_size), 
+        output.RowRange(chunk * output_chunk_size, output_chunk_size), 1, power);
+    }
+  } else {
+    KALDI_ASSERT(num_chunks == 1);
+    KALDI_ASSERT(this->NumRows() == input.NumRows() && 
+                 this->NumCols() == input.NumCols());
+    KALDI_ASSERT(this->NumCols() % output.NumCols() == 0); 
+    MatrixIndexT num_rows = this->NumRows(), num_cols = this->NumCols(); 
+    int32 col_group_size = this->NumCols() / output.NumCols(),
+      num_larger_groups = input.NumRows() % output.NumRows(),
+      larger_row_group_size = (input.NumRows() + output.NumRows() - 1) / output.NumRows(),
+      smaller_row_group_size = input.NumRows() / output.NumRows(),
+      input_num_rows_large = num_larger_groups * larger_row_group_size;
+    Real output_val = 0, input_val = 0;
+    if (power == 1.0) {   
+      for (MatrixIndexT i = 0; i < num_rows; i++) { 
+        for (MatrixIndexT j = 0; j < num_cols; j++) {
+          input_val = input(i, j);
+          (*this)(i, j) = (input_val == 0 ? 0 : (input_val > 0 ? 1 : -1));
+        }
+      }
+    } else {
+      for (MatrixIndexT i = 0; i < num_rows; i++) {
+        int32 output_row_index = (i > input_num_rows_large ? num_larger_groups + 
+          (i -  input_num_rows_large) / smaller_row_group_size : i / larger_row_group_size); 
+        for (MatrixIndexT j = 0; j < num_cols; j++) {
+          output_val = output(output_row_index, j / col_group_size);// output_val >= 0
+          input_val = input(i, j);
+          if (output_val == 0)
+            (*this)(i, j) = 0;
+          else 
+            (*this)(i, j) = pow(std::abs(input_val), power - 1) * pow(output_val, 1 - power) *
+                (input_val >= 0 ? 1 : -1);
+        }
+      }
+    } 
+  } 
 }
 
 template<typename Real>  // scales each column by scale[i].
@@ -1234,7 +1362,7 @@ void Matrix<Real>::Read(std::istream & is, bool binary, bool add) {
     if (peekval == other_token_start) {  // need to instantiate the other type to read it.
       typedef typename OtherReal<Real>::Real OtherType;  // if Real == float, OtherType == double, and vice versa.
       Matrix<OtherType> other(this->num_rows_, this->num_cols_);
-      other.Read(is, binary, false);  // add is false at this point anyway.
+      other.Read(is, binary, false);  // add is false at this point32 anyway.
       this->Resize(other.NumRows(), other.NumCols());
       this->CopyFromMat(other);
       return;
@@ -1282,7 +1410,7 @@ void Matrix<Real>::Read(std::istream & is, bool binary, bool add) {
     std::vector<std::vector<Real>* > data;
     std::vector<Real> *cur_row = new std::vector<Real>;
     while (1) {
-      int i = is.peek();
+      int32 i = is.peek();
       if (i == -1) { specific_error << "Got EOF while reading matrix data"; goto cleanup; }
       else if (static_cast<char>(i) == ']') {  // Finished reading matrix.
         is.get();  // eat the "]".
@@ -1381,7 +1509,7 @@ SubMatrix<Real>::SubMatrix(const MatrixBase<Real> &M,
                static_cast<UnsignedMatrixIndexT>(M.num_rows_ - ro) &&
                static_cast<UnsignedMatrixIndexT>(c) <=
                static_cast<UnsignedMatrixIndexT>(M.num_cols_ - co));
-  // point to the begining of window
+  // point32 to the begining of window
   MatrixBase<Real>::num_rows_ = r;
   MatrixBase<Real>::num_cols_ = c;
   MatrixBase<Real>::stride_ = M.Stride();
@@ -2444,13 +2572,50 @@ void MatrixBase<Real>::SoftHinge(const MatrixBase<Real> &src) {
     }
   }
 }
+
 template<typename Real>
 void MatrixBase<Real>::GroupPnorm(const MatrixBase<Real> &src, Real power) {
-  int group_size = src.NumCols() / this->NumCols();
-  KALDI_ASSERT(src.NumCols() == this->NumCols() * group_size);
-  for (MatrixIndexT i = 0; i < src.NumRows(); i++)
-    for (MatrixIndexT j = 0; j < this->NumCols(); j++)
+  KALDI_ASSERT(src.NumCols() % this->NumCols() == 0 &&
+               src.NumRows() == this->NumRows());
+  int32 group_size = src.NumCols() / this->NumCols(),
+    num_rows = this->NumRows(), num_cols = this->NumCols();
+  for (MatrixIndexT i = 0; i < num_rows; i++)
+    for (MatrixIndexT j = 0; j < num_cols; j++)
       (*this)(i, j) = src.Row(i).Range(j * group_size,  group_size).Norm(power);
+}
+
+template<typename Real>
+void MatrixBase<Real>::Group2dPnorm(const MatrixBase<Real> &src, int32 num_chunks, Real power) {
+  if (num_chunks > 1) {
+    KALDI_ASSERT(this->NumRows() % num_chunks == 0 && 
+                 src.NumRows() % num_chunks == 0);
+    int32 this_chunk_size = this->NumRows() / num_chunks,
+      src_chunk_size = src.NumRows() / num_chunks;
+      for (MatrixIndexT chunk = 0; chunk < num_chunks; chunk++) {
+        this->RowRange(chunk * this_chunk_size, this_chunk_size).Group2dPnorm(
+          src.RowRange(chunk * src_chunk_size, src_chunk_size), 1, power);
+      }
+  } else {
+    KALDI_ASSERT(num_chunks == 1);
+    KALDI_ASSERT(src.NumCols() % this->NumCols() == 0);
+    int32 col_group_size = src.NumCols() / this->NumCols(),
+      num_cols = this->NumCols(), num_groups = this->NumRows(), 
+      num_larger_groups = src.NumRows() % this->NumRows(),
+      num_smaller_groups = num_groups - num_larger_groups,
+      smaller_row_group_size = src.NumRows() / this->NumRows(),
+      larger_row_group_size = (src.NumRows() + this->NumRows() - 1) / this->NumRows();
+
+    for (MatrixIndexT j = 0; j < num_cols; j++) {
+      int32 col_offset = j * col_group_size; 
+      for (MatrixIndexT i = 0; i < num_larger_groups; i++)
+        (*this)(i, j) = src.Range(i * larger_row_group_size, larger_row_group_size, 
+          col_offset, col_group_size).EntrywiseNorm(power); 
+      int32 const_row_offset = num_larger_groups * larger_row_group_size;
+      for (MatrixIndexT i = 0; i < num_smaller_groups; i++) 
+        (*this)(i + num_larger_groups, j) = src.Range(const_row_offset + i * smaller_row_group_size, smaller_row_group_size, 
+          col_offset, col_group_size).EntrywiseNorm(power); 
+    }
+  }
 }
 
 template<typename Real>

@@ -737,7 +737,6 @@ static void UnitTestSimpleForMat() {  // test some simple operates on all kinds 
           N(m, n) -= 2.0;
       AssertEqual(M, N);
     }
-
     Matrix<Real> N(M), M1(M);
     M1.MulElements(M);
     Real tmp1 = sqrt(M1.Sum());
@@ -820,7 +819,98 @@ static void UnitTestSimpleForMat() {  // test some simple operates on all kinds 
       }
   }
 }
-
+template<typename Real>
+static void UnitTestEntrywiseNorm() {
+  for (MatrixIndexT p = 0; p < 10; p++) {          
+    MatrixIndexT dimM = 10 + rand() % 10, dimN = 10 + rand() % 10;
+    Matrix<Real> M(dimM, dimN);  
+    InitRand(&M);    
+    {
+      // Check EntrywiseNorm()
+      // p = 2
+      Matrix<Real> N(M);
+      Real tmp1 = N.EntrywiseNorm(2.0);
+      Real tmp2 = M.FrobeniusNorm();    
+      KALDI_ASSERT(std::abs(tmp1 - tmp2) < 0.00001);   
+      // p = 3
+      Matrix<Real> N1(M);
+      N1.SetRandn();
+      N1.Add(std::abs(2 * N1.Min()));
+      Matrix<Real> M1(N1);
+      M1.MulElements(N1);  
+      M1.MulElements(N1);
+      tmp1 = pow(M1.Sum(), static_cast<Real>(1.0/3.0));
+      tmp2 = N1.EntrywiseNorm(3.0); 
+      KALDI_ASSERT(std::abs(tmp1 - tmp2) < 0.00001);     
+    }
+    {
+      Real scalar = RandGauss();
+      if (scalar == 0.0) continue;
+      if (scalar < 0) scalar *= -1.0;
+      Real Mnorm1 = M.EntrywiseNorm(1.0),
+           Mnorm2 = M.EntrywiseNorm(2.0),
+           Mnorm3 = M.EntrywiseNorm(3.0);
+      M.Scale(scalar);
+      KALDI_ASSERT(ApproxEqual(M.EntrywiseNorm(1.0), Mnorm1 * scalar));
+      KALDI_ASSERT(ApproxEqual(M.EntrywiseNorm(2.0), Mnorm2 * scalar));
+      KALDI_ASSERT(ApproxEqual(M.EntrywiseNorm(3.0), Mnorm3 * scalar));
+    }
+  }
+}
+template<typename Real>
+static void UnitTestGroup2dPnorm() {
+  KALDI_LOG << " === UnitTestGroup2dPnorm() === \n";
+  for (int32 t = 0; t < 10; t++) { 
+    int32 num_chunks = 5 + rand() % 3, input_chunk_size = 10 + rand() % 4,
+      output_chunk_size = 4 + rand() % 2, N1 = num_chunks * output_chunk_size,
+      N2 = num_chunks * input_chunk_size, row_group_size = 4 + rand() % 2, 
+      M1 = 10 + rand() % 4, M2 = row_group_size * M1;
+    Real power = 1; 
+    Matrix<Real> output(N1, M1), input(N2, M2), corr_output(N1, M1);
+    input.Set(1.0);
+    output.Group2dPnorm(input, num_chunks, power);
+    int32 smaller_size = input_chunk_size / output_chunk_size,
+      larger_size = (input_chunk_size + output_chunk_size - 1) / output_chunk_size,
+      small_group_val = smaller_size * row_group_size,
+      large_group_val = larger_size * row_group_size,
+      num_large_group = input_chunk_size % output_chunk_size;
+    for (int32 i = 0; i < num_chunks; i++) {
+      for (int32 j = 0; j < num_large_group; j++) 
+        corr_output.Row(i * output_chunk_size + j).Set(large_group_val);
+      for (int32 j = num_large_group; j < output_chunk_size; j++)  
+        corr_output.Row(i * output_chunk_size + j).Set(small_group_val);
+    }
+    KALDI_ASSERT(output.ApproxEqual(corr_output));
+  }
+}
+template<typename Real>
+static void UnitTestMulRows2dGroupMat() {
+  KALDI_LOG << "=== UnitTestMulRows2dGroupMat() ===\n";
+  for (int32 t = 0; t < 10; t++) {
+    int num_chunks = 5 + rand() % 3, row_group_size = 4 + rand() % 2,
+      src1_chunk_size = 6 + rand() % 3, src2_chunk_size = 10 + rand() % 2,
+      N1 = num_chunks * src1_chunk_size, N2 = num_chunks * src2_chunk_size,
+      M1 = 10 + rand() % 4, M2 = row_group_size * M1;
+    Matrix<Real> src1(N1, M1), src2(N2, M2);
+    src1.SetRandn();
+    src2.SetRandn();
+    {
+      Matrix<Real> src3(N1, M1), src2_orig(src2);
+      for (int i = 0; i < N1; i++) 
+        for (int j = 0; j < M1; j++)
+          src3(i, j) = 1.0 / src1(i, j);
+      src2.MulRows2dGroupMat(src1, num_chunks);      
+      src2.MulRows2dGroupMat(src3, num_chunks);
+      KALDI_ASSERT(src2.ApproxEqual(src2_orig));
+    }
+    {
+      Matrix<Real> src2_orig(src2), src2_copy(src2);
+      src2.MulRows2dGroupMat(src2_orig, num_chunks); 
+      src2_copy.MulElements(src2_orig);
+      KALDI_ASSERT(src2_copy.ApproxEqual(src2));
+    }
+  }
+}
 
 template<typename Real> static void UnitTestRow() {
 
@@ -4212,6 +4302,8 @@ template<typename Real> static void MatrixUnitTest(bool full_test) {
   UnitTestVectorMax<Real>();
   UnitTestVectorMin<Real>();
   UnitTestSimpleForMat<Real>();
+  UnitTestEntrywiseNorm<Real>();
+  UnitTestMulRows2dGroupMat<Real>();
   UnitTestTanh<Real>();
   UnitTestSigmoid<Real>();
   UnitTestSoftHinge<Real>();
@@ -4255,6 +4347,7 @@ template<typename Real> static void MatrixUnitTest(bool full_test) {
   UnitTestPca2<Real>(full_test);
   UnitTestAddVecVec<Real>();
   UnitTestReplaceValue<Real>();
+  UnitTestGroup2dPnorm<Real>();
   // The next one is slow.  The upshot is that Eig is up to ten times faster
   // than SVD. 
   // UnitTestSvdSpeed<Real>();

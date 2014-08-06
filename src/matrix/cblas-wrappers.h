@@ -86,6 +86,7 @@ inline void cblas_Xscal(const int N, const double alpha, double *data,
                         const int inc) {
   cblas_dscal(N, alpha, data, inc);
 }
+
 inline void cblas_Xspmv(const float alpha, const int num_rows, const float *Mdata,
                         const float *v, const int v_inc,
                         const float beta, float *y, const int y_inc) {

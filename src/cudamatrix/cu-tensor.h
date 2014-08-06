@@ -78,7 +78,7 @@ class CuTensor: public TensorBase<Real> {
 
   CuTensor(int32 new_order, const CuTensor &tensor);
   /// Indexing operator
-  inline Real& operator() (const std::vector<int32> &indexes);
+  inline CuValue<Real> operator() (const std::vector<int32> &indexes);
 
   /// Indexing operator (const version)
   inline Real operator() (const std::vector<int32> &indexes) const;
@@ -166,6 +166,8 @@ class CuTensor: public TensorBase<Real> {
   /// scales the data found there.
   void Scale(Real alpha);
   
+  /// Apply power to all elements of Tensor
+  void ApplyPow(Real power);
   /// Does *this = alpha * Conv(t1 * t2) + beta * *this.
   /// Conv(t1 * t2) is a generic kind of convolution, of the type required
   /// by convolutional neural networks (see papers by Yann LeCun)... I'd say it's
@@ -240,4 +242,6 @@ class CuTensor: public TensorBase<Real> {
 
 } // namespace
 
-#endif
+#include "cudamatrix/cu-tensor-inl.h"
+
+#endif  // KALDI_CUDAMATRIX_CU_TENSOR_H_ 

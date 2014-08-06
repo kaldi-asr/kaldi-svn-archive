@@ -109,7 +109,7 @@ void AddTensorTensorOrder1(const TensorOperationDims *dims,
       } else {
         // dot product
         *c_data = beta * *c_data +
-            cblas_Xdot(dims0.dim,
+            alpha * cblas_Xdot(dims0.dim,
                        a_data, dims0.stride_a,
                        b_data, dims0.stride_b);
       }
@@ -124,7 +124,7 @@ void AddTensorTensorOrder1(const TensorOperationDims *dims,
       } else {
         // sum the vector a, times scalar b; add to scalar c.
         *c_data = beta * *c_data +
-            *b_data * Xsum(dims0.dim, a_data, dims0.stride_a);
+            alpha * *b_data * Xsum(dims0.dim, a_data, dims0.stride_a);
       }
     }
   } else { // stride_a == 0
@@ -139,7 +139,7 @@ void AddTensorTensorOrder1(const TensorOperationDims *dims,
       } else {
         // sum the vector b, times scalar a; add to scalar c.
         *c_data = beta * *c_data +
-            *a_data * Xsum(dims0.dim, b_data, dims0.stride_b);
+            alpha * *a_data * Xsum(dims0.dim, b_data, dims0.stride_b);
       }
     } else { // stride_b == 0
       if (dims0.stride_c != 0) {
@@ -592,6 +592,93 @@ void ScaleTensor(int32 num_indexes,
                  double *c_data);
 
 template<class Real>
+void ApplyPowTensor(int32 num_indexes,
+                    const std::pair<int32, int32> *dims_strides,
+                    Real power,
+                    Real *data) {
+  if (num_indexes > 1) {
+    int32 dim = dims_strides[0].first, stride = dims_strides[0].second;
+    for (int32 i = 0; i < dim; i++, data += stride)
+      ApplyPowTensor(num_indexes - 1, dims_strides + 1, power, data);
+  } else if (num_indexes == 1) {
+    int32 dim = dims_strides[0].first, stride = dims_strides[0].second;
+    Xpow(dim, power, data, stride);
+  } else {
+    Xpow(1, power, data, 0);
+  }
+}
+
+template 
+void ApplyPowTensor(int32 num_indexes,
+                    const std::pair<int32, int32> *dims_strides, 
+                    float power,
+                    float *data);
+template 
+void ApplyPowTensor(int32 num_indexes,
+                    const std::pair<int32, int32> *dims_strides,   
+                    double power,
+                    double *data);
+
+// Find the min value of a tensor
+template<class Real>
+Real MinInternal(int32 num_indexes,
+                 const std::pair<int32, int32> *dims_strides,
+                 Real *data) {
+  int32 dim = dims_strides[0].first, stride = dims_strides[0].second;
+  Real min_value = std::numeric_limits<Real>::infinity(); 
+  if (num_indexes > 1) {
+    for (int32 i = 0; i < dim; i++, data += stride) {
+      MinInternal(num_indexes - 1, dims_strides + 1, data);
+    }
+  } else if (num_indexes == 1) {                 
+    Real tmp = Xmin(dim, data, stride);  
+    min_value = std::min(min_value, tmp);
+  } else {
+    min_value = *data;
+  }
+  return min_value;
+}
+// Instantiate the template above
+template
+float MinInternal(int32 num_indexes,  
+                  const std::pair<int32, int32> *dims_strides, 
+                  float *data);
+template
+double MinInternal(int32 num_indexes,
+                   const std::pair<int32, int32> *dims_strides,   
+                   double *data);
+//
+// Find the max value of a tensor
+template<class Real>
+Real MaxInternal(int32 num_indexes,
+                 const std::pair<int32, int32> *dims_strides,
+                 Real *data) {
+  int32 dim = dims_strides[0].first, stride = dims_strides[0].second;
+  Real max_value = -std::numeric_limits<Real>::infinity();
+  if (num_indexes > 1) {
+    for (int32 i = 0; i < dim; i++, data += stride) {
+      MaxInternal(num_indexes - 1, dims_strides + 1, data);
+    } 
+  } else if (num_indexes == 1) {
+    Real tmp = Xmax(dim, data, stride);
+    max_value = std::max(tmp, max_value);
+  } else {
+    max_value = *data;
+  }
+  return max_value;
+}
+// Instantiate the template above
+template
+float MaxInternal(int32 num_indexes,  
+                 const std::pair<int32, int32> *dims_strides, 
+                 float *data);
+template
+double MaxInternal(int32 num_indexes,
+                 const std::pair<int32, int32> *dims_strides,   
+                 double *data);
+
+//
+template<class Real>
 void AddTensorTensorGeneric(size_t num_indexes,
                             TensorOperationDims *dims,
                             Real alpha,
@@ -687,7 +774,7 @@ inline void AddTensorOrder1(const TensorOperationDims *dims,
     for (size_t i = 0; i < n; i++)
       c_data[i * stride_c] += a;
   } else if (dims[0].stride_a != 0 && dims[0].stride_c == 0) {
-    *c_data += Xsum(dims[0].dim, a_data,
+    *c_data += alpha * Xsum(dims[0].dim, a_data,
                            dims[0].stride_a);
   } else {
     KALDI_ERR << "Invalid dimensions"; // both strides zero, does not make

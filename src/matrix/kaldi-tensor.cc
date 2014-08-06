@@ -53,7 +53,6 @@ void TensorBase<Real>::GetMinAndMaxOffset(int32 min_excluded_stride,
     }
   }
 }
-
 template<typename Real>
 Tensor<Real>::Tensor(const MatrixBase<Real> &mat,
                      int32 dim0, int32 stride0,
@@ -127,7 +126,7 @@ template<typename Real>
 void Tensor<Real>::Init(const std::vector<std::pair<int32, int32> > &dims_strides,
                         const MatrixBase<Real> &mat) {
   this->Init(dims_strides, mat.Data());
-
+  
   int32 min_offset, max_offset;
   this->GetMinAndMaxOffset(-1, &min_offset, &max_offset);
   KALDI_ASSERT(min_offset == 0 &&
@@ -250,7 +249,7 @@ void Tensor<Real>::AddTensorTensor(Real alpha,
         t1mod(new_num_indexes, t1),
         t2mod(new_num_indexes, t2);
     t0mod.AddTensorTensor(alpha, t1mod, t2mod, beta);
-    return;
+    return; 
   }
 
   // Dimension check.  For each index 0 <= i < NumIndexes(), let
@@ -336,6 +335,14 @@ void Tensor<Real>::Scale(Real alpha) {
               alpha, t.data_);
 }
 
+template<typename Real>
+void Tensor<Real>::ApplyPow(Real power) {
+  Tensor<Real> t(this->NumIndexes(), *this);
+  t.Flatten();
+  ApplyPowTensor(t.NumIndexes(),
+                 t.dims_strides_.empty() ? NULL : &(t.dims_strides_[0]), 
+                 power, t.data_);  
+}
 template<typename Real>
 void Tensor<Real>::CopyFromTensor(const Tensor<Real> &t) {
   KALDI_ASSERT(this->NumIndexes() >= t.NumIndexes());
@@ -452,7 +459,7 @@ Tensor<Real>::Tensor(int32 new_order,
   dims_strides.insert(dims_strides.end(),
                       tensor.dims_strides_.begin(),
                       tensor.dims_strides_.end());
-  
+
   this->Init(dims_strides, tensor.data_);
 }
 
@@ -495,6 +502,25 @@ Real Tensor<Real>::Sum() const {
   return (*temp.Data());
 }
 
+template<typename Real>
+Real Tensor<Real>::Min() const {
+  Tensor<Real> t(*this);
+  t.Flatten();
+  Real min = MinInternal(t.NumIndexes(), 
+              t.dims_strides_.empty() ? NULL : &(t.dims_strides_[0]), 
+              t.data_);
+  return min;
+}
+
+template<typename Real>
+Real Tensor<Real>::Max() const {
+  Tensor<Real> t(*this);
+  t.Flatten();
+  Real max = MaxInternal(t.NumIndexes(),
+              t.dims_strides_.empty() ? NULL : &(t.dims_strides_[0]),
+              t.data_);
+  return max;
+}
 template<typename Real> 
 bool Tensor<Real>::ApproxEqual(const Tensor<Real> &other, float tol) const {
   // Check dimensions and strides mismatch

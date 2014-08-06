@@ -22,6 +22,16 @@ for x in train train_heldout train_train t10k; do
   utils/validate_data_dir.sh data/$x || exit 1;
 done
 
+# train and test using convolutional neural network. Result: %WER 1.68 [ 168 / 10000, 0 ins, 0 del, 168 sub]
+dir=exp_cnn/nnet2
+use_distortion=false
+if [ ! -f $dir/.done ]; then
+  steps/nnet2/train_cnn.sh --use-distortion $use_distortion --num-threads 16 --num-epochs $num_epochs \
+    --num-epochs-extra $num_epochs_extra data/train_train data/train_heldout $dir
+  touch $dir/.done
+fi
+steps/nnet2/test.sh data/t10k/ $dir
+
 # train and test using tanh network. Result: %WER 1.97 [ 197 / 10000, 0 ins, 0 del, 197 sub ]
 dir=exp/nnet2
 steps/nnet2/train_tanh.sh data/train_train data/train_heldout $dir

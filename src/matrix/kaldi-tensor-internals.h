@@ -49,6 +49,44 @@ inline Real Xsum(const int N, const Real *X, const int incX) {
   for (int i =0; i < N; i++) { sum += X[i * incX];}
   return sum;
 }
+
+/// returns min element in a vector
+template<typename Real>
+inline Real Xmin(const int N, const Real *X, const int incX) {
+  Real min_value = std::numeric_limits<Real>::infinity();
+  for (int i = 0; i < N; i++) { min_value = std::min(min_value, X[i * incX]);}
+  return min_value;
+}
+/// returns max element in a vector
+template<typename Real>
+inline Real Xmax(const int N, const Real *X, const int incX) {
+  Real max_value = -std::numeric_limits<Real>::infinity();
+  for (int i = 0; i < N; i++) { max_value = std::max(max_value, X[i * incX]);}
+  return max_value;
+}
+/// Apply power to elements of vector
+template <typename Real>
+inline void Xpow(const int N, const Real power, Real *data, const int incX) {
+  if (power == 1.0) return;
+  if (power == 2.0) {
+    for (int32 i =0; i < N; i++)
+      data[i * incX] = data[i * incX] * data[i * incX];
+  } else if (power == 0.5) {
+    for (int32 i =0; i < N; i++) {  
+      if(!(data[i * incX] >= 0.0))
+        KALDI_ERR << "Cannot take square root of negative value "
+                  << data[i * incX];
+      data[i * incX] = std::sqrt(data[i * incX]);
+    }
+  } else {
+    for (int32 i =0; i < N; i++) {
+      data[i * incX] = pow(data[i * incX], power);
+      if (data[i * incX] == HUGE_VAL)
+        KALDI_ERR << "Could not raise element " << i << "to power"
+                  << power << ": returned value = " << data[i * incX];
+    }
+  }
+}
 /// Removes any index-positions for which dim == 1 (even if
 /// that would leave us with zero index-positions.
 void ExciseUnitDims(std::vector<TensorOperationDims> *vec);
@@ -73,7 +111,6 @@ void ScaleTensor(int32 num_indexes,
                  const TensorOperationDims *dims,
                  Real alpha,
                  Real *c_data);
-
 /// This is called internally from Tensor::ScaleTensor().  Note: it does not
 /// support tensors with aliasing or negative strides, and the calling code
 /// takes care of this: the calling code removes any negative strides and
@@ -86,8 +123,25 @@ void ScaleTensor(int32 num_indexes,
                  const std::pair<int32, int32> *dims_strides,
                  Real alpha,
                  Real *data);
-
-
+/// This is called internally from Tensor::ApplyPow().
+/// This function applies power to all elements of tensor.
+template<class Real>
+void ApplyPowTensor(int32 num_indexes, 
+                    const std::pair<int32, int32> *dims_strides, 
+                    Real power,
+                    Real *data);
+/// This is called internally from Tensor::Min(). 
+/// It will find min value of a tensor.
+template<class Real>
+Real MinInternal(int32 num_indexes,
+                 const std::pair<int32, int32> *dims_strides,
+                 Real *data);
+/// This is called internally from Tensor::Max(). 
+/// It will find max value of a tensor.
+template<class Real>
+Real MaxInternal(int32 num_indexes,
+                 const std::pair<int32, int32> *dims_strides,
+                 Real *data);
 /// This is a general-purpose, top-level form of the CopyTensor operation.
 /// It uses the fields dim, stride_a and stride_b in "dims".
 template<class Real>

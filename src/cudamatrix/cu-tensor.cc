@@ -131,8 +131,8 @@ void CuTensor<Real>::AddTensorTensor(Real alpha,
                                      const CuTensor<Real> &t1,
                                      const CuTensor<Real> &t2,
                                      Real beta) {
-  KALDI_ASSERT(this->NumIndexes() == t1.NumIndexes() &&
-               t1.NumIndexes() == t2.NumIndexes());
+  //KALDI_ASSERT(this->NumIndexes() == t1.NumIndexes() &&
+  //             t1.NumIndexes() == t2.NumIndexes());
   
   // Dimension check.  For each index 0 <= i < NumIndexes(), let
   // a = this->Dim(i), b = t1.Dim(i) and c = t2.Dim(i).
@@ -248,6 +248,20 @@ void CuTensor<Real>::Scale(Real alpha) {
   }
 }
 
+template<typename Real>
+void CuTensor<Real>::ApplyPow(Real power) {
+  //TODO.
+
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+  // TODO.
+  KALDI_ERR << __func__ << "Not Implemented!";
+  } else 
+#endif
+  {
+    GetTensor().ApplyPow(power);
+  }
+}
 template<typename Real>
 void CuTensor<Real>::CopyFromTensor(const CuTensor<Real> &t) {
 #if HAVE_CUDA == 1

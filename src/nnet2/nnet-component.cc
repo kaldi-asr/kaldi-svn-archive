@@ -62,6 +62,8 @@ Component* Component::NewComponentOfType(const std::string &component_type) {
     ans = new SoftHingeComponent();
   } else if (component_type == "PnormComponent") {
     ans = new PnormComponent();
+  } else if (component_type == "Pnorm2dComponent") {
+    ans = new Pnorm2dComponent();
   } else if (component_type == "MaxoutComponent") {
     ans = new MaxoutComponent();
   } else if (component_type == "ScaleComponent") {
@@ -590,8 +592,6 @@ std::string MaxoutComponent::Info() const {
 void PnormComponent::Init(int32 input_dim, int32 output_dim, BaseFloat p)  {
   input_dim_ = input_dim;
   output_dim_ = output_dim;
-  if (input_dim_ == 0)
-    input_dim_ = 10 * output_dim_; // default group size : 10
   p_ = p;
   KALDI_ASSERT(input_dim_ > 0 && output_dim_ >= 0 && p_ >= 0);
   KALDI_ASSERT(input_dim_ % output_dim_ == 0) 
@@ -629,7 +629,90 @@ void PnormComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
   in_deriv->GroupPnormDeriv(in_value, out_value, p_);
   in_deriv->MulRowsGroupMat(out_deriv); 
 }
+//
+void Pnorm2dComponent::Init(std::vector<int32> input_dims, 
+                            std::vector<int32> output_dims, BaseFloat p)  {
+  KALDI_ASSERT(input_dims.size() == 2 && output_dims.size() == 2);
+  input_dims_ = input_dims;
+  output_dims_ = output_dims;
+  p_ = p;
+  KALDI_ASSERT(input_dims_[0] > 0 && output_dims_[0] >= 0 && 
+               input_dims_[1] > 0 && output_dims_[1] >= 0 && 
+               p_ >= 0);
+  KALDI_ASSERT(input_dims_[1] % output_dims_[1] == 0);
+}
 
+void Pnorm2dComponent::InitFromString(std::string args) {
+  std::string orig_args(args);
+  std::vector<int32> input_dims(2, 1);
+  std::vector<int32> output_dims(2, 1);
+  BaseFloat p = 2;
+  bool ok = ParseFromString("output-dims", &args, &output_dims) &&
+      ParseFromString("input-dims", &args, &input_dims);
+  ParseFromString("p", &args, &p);
+  if (!ok || !args.empty() || output_dims[0] <= 0 || output_dims[1] <= 0)
+    KALDI_ERR << "Invalid initializer for layer of type "
+              << Type() << ": \"" << orig_args << "\"";
+  Init(input_dims, output_dims, p);
+}
+
+
+void Pnorm2dComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
+                               int32 num_chunks,
+                               CuMatrix<BaseFloat> *out) const {
+
+  if (in.NumRows() % num_chunks != 0 ||
+      in.NumRows() / num_chunks != input_dims_[0]) 
+    KALDI_ERR << "Invalid input dims for Pnorm2DComponent layer"
+              << ", input rows should be divisible by num_chunks. \n"
+              << input_dims_[0] << " should be equal to input chunk-size";
+  out->Resize(num_chunks * output_dims_[0], output_dims_[1], kUndefined);
+  out->Group2dPnorm(in, num_chunks, p_);
+}
+
+void Pnorm2dComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
+                              const CuMatrixBase<BaseFloat> &out_value,
+                              const CuMatrixBase<BaseFloat> &out_deriv,
+                              int32 num_chunks,
+                              Component *to_update, // to_update
+                              CuMatrix<BaseFloat> *in_deriv) const {
+  KALDI_ASSERT(in_value.NumRows() / num_chunks == input_dims_[0] &&
+               out_value.NumRows() / num_chunks == output_dims_[0]);
+  in_deriv->Resize(in_value.NumRows(), in_value.NumCols(), kSetZero);
+  in_deriv->Group2dPnormDeriv(in_value, out_value, num_chunks, p_);
+  in_deriv->MulRows2dGroupMat(out_deriv, num_chunks); 
+}
+
+void Pnorm2dComponent::Read(std::istream &is, bool binary) {
+  ExpectOneOrTwoTokens(is, binary, "<Pnorm2dComponent>", "<InputDims>");
+  ReadIntegerVector(is, binary, &input_dims_);
+  ExpectToken(is, binary, "<OutputDims>");
+  ReadIntegerVector(is, binary, &output_dims_);
+  ExpectToken(is, binary, "<P>");
+  ReadBasicType(is, binary, &p_);
+  ExpectToken(is, binary, "</Pnorm2dComponent>");
+}
+
+void Pnorm2dComponent::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<Pnorm2dComponent>");
+  WriteToken(os, binary, "<InputDims>");
+  WriteIntegerVector(os, binary, input_dims_);
+  WriteToken(os, binary, "<OutputDims>");
+  WriteIntegerVector(os, binary, output_dims_);
+  WriteToken(os, binary, "<P>");
+  WriteBasicType(os, binary, p_);
+  WriteToken(os, binary, "</Pnorm2dComponent>");
+}
+
+std::string Pnorm2dComponent::Info() const {
+  std::stringstream stream;
+  stream << Type() << ", input-dims = " << input_dims_[0] 
+         << ":" << input_dims_[1] << ", output-dims = " 
+         << output_dims_[0] << ":" << output_dims_[1]
+	       << ", p = " << p_;
+  return stream.str();
+}
+//
 void PnormComponent::Read(std::istream &is, bool binary) {
   ExpectOneOrTwoTokens(is, binary, "<PnormComponent>", "<InputDim>");
   ReadBasicType(is, binary, &input_dim_);
@@ -1109,8 +1192,8 @@ std::string AffineComponent::Info() const {
                 linear_params_size),
       bias_stddev = std::sqrt(VecVec(bias_params_, bias_params_) /
                               bias_params_.Dim());
-  stream << Type() << ", input-dim=" << InputDim()
-         << ", output-dim=" << OutputDim()
+  stream << Type() << ", input-dim=" << InputDim() 
+         << ", output-dim=" << OutputDim() 
          << ", linear-params-stddev=" << linear_stddev
          << ", bias-params-stddev=" << bias_stddev
          << ", learning-rate=" << LearningRate();
@@ -4777,10 +4860,69 @@ void ConvolutionalComponent::Update(
     const CuTensor<BaseFloat> &in_value,
     const CuTensor<BaseFloat> &out_deriv) {
   // TODO: code a version of PreconditionDirections that will work for this.
-  bias_params_tensor_.AddTensor(learning_rate_, out_deriv);
-  linear_params_tensor_.ConvTensorTensor(learning_rate_, in_value, out_deriv);
+
+  BaseFloat minibatch_scale = 1.0;
+  // GetScalingFactor function needs to check and modify
+  //if (max_change_ > 0) 
+  //  minibatch_scale = GetScalingFactor(in_value, out_deriv);
+  BaseFloat l_rate = minibatch_scale * learning_rate_;  
+  bias_params_tensor_.AddTensor(l_rate, out_deriv);
+  linear_params_tensor_.ConvTensorTensor(l_rate, in_value, out_deriv);
 }
 
+BaseFloat ConvolutionalComponent::GetScalingFactor(
+  const CuTensor<BaseFloat> &in_value, 
+  const CuTensor<BaseFloat> &out_deriv) { 
+  static int scaling_factor_printed = 0;
+  BaseFloat ans = 1.0;
+  KALDI_ASSERT(in_value.Dim(0) == out_deriv.Dim(0));
+  std::vector<std::pair<int32, int32> > in_dims_strides, out_deriv_dims_strides,
+    dot_prod_dims_strides;
+  in_dims_strides.push_back(std::pair<int32, int32>(in_value.Dim(0), 1));
+  out_deriv_dims_strides.push_back(std::pair<int32, int32>(out_deriv.Dim(0), 1));
+  for (int32 i = 1; i < in_value.NumIndexes(); i++)
+    in_dims_strides.push_back(std::pair<int32, int32>(1, 0));
+  for (int32 i = 1; i < out_deriv.NumIndexes(); i++) 
+    out_deriv_dims_strides.push_back(std::pair<int32, int32>(1, 0));
+  dot_prod_dims_strides.push_back(std::pair<int32, int32>(1,1));
+  CuMatrix<BaseFloat> in_norm_mat(1, in_value.Dim(0)),
+    out_deriv_mat(1, out_deriv.Dim(0)), dot_prod_mat(1,1);
+  CuTensor<BaseFloat> in_norm(in_dims_strides, in_norm_mat),
+    out_deriv_norm(out_deriv_dims_strides, out_deriv_mat),
+    dot_prod_t(dot_prod_dims_strides, dot_prod_mat);
+
+  // we compute l2 norm of each chunk for in_value and out_deriv tensors. 
+  // then sum over the row-index of the product of two norm-vector.
+  // (dot product of two norm vectors.)
+  in_norm.AddTensorTensor(1.0, in_value, in_value, 0.0);
+  out_deriv_norm.AddTensorTensor(1.0, out_deriv, out_deriv, 0.0);
+  // Get the actual l2 norms, not the squared l2 norm.
+  in_norm.ApplyPow(0.5);
+  out_deriv_norm.ApplyPow(0.5);
+  BaseFloat sum  = 0;
+  for (int32 i = 0; i < in_value.Dim(0); i++) {
+    std::vector<int32> index(in_norm.NumIndexes(), 0);
+    index[0] = i;
+    sum += in_norm(index) * out_deriv_norm(index);
+  }
+  sum *= learning_rate_;
+  // sum is the product of norms that we are trying to limit to max_value_.
+  KALDI_ASSERT(sum == sum && sum - sum == 0.0 &&
+               "NaN in backprop");
+  KALDI_ASSERT(sum >= 0.0);
+  if (sum <= max_change_) return 1.0;
+  else {
+    ans = max_change_ / sum;
+    KALDI_LOG << " sum " << sum;
+    if (scaling_factor_printed < 11) {
+      KALDI_LOG << "Limiting step size to " << max_change_
+                << " using scaling factor " << ans << ", for component index "
+                << Index();
+      scaling_factor_printed++;
+    }
+  }
+  return ans;
+}
 void ConvolutionalComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
                                       const CuMatrixBase<BaseFloat> &out_value,
                                       const CuMatrixBase<BaseFloat> &out_deriv,
@@ -4792,7 +4934,6 @@ void ConvolutionalComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
       out_deriv_tensor = GetOutputTensor(out_deriv, num_chunks);
 
   in_deriv->Resize(in_value.NumRows(), in_value.NumCols());  
-
   if (in_deriv != NULL) {
     CuTensor<BaseFloat> in_deriv_tensor = GetInputTensor(*in_deriv, num_chunks);
     in_deriv_tensor.ConvTensorTensor(1.0, out_deriv_tensor,

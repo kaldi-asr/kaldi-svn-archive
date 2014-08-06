@@ -50,7 +50,6 @@ class TensorBase {
 
   /// 0 <= index < NumIndexes()
   int32 Stride(int32 index) const;
-
   TensorBase(): data_(NULL) { } 
 
   /// Returns true if there is 'aliasing' in the tensor.  By 'aliasing' we mean
@@ -263,6 +262,9 @@ class Tensor: public TensorBase<Real> {
   /// scales the data found there.
   void Scale(Real alpha);
   
+  /// Apply power to all elements of tensor
+  void ApplyPow(Real power);
+
   /// Does *this += alpha * Conv(t1 * t2), and related operations.
   ///
   /// This is defined as follows.  Like AddTensorTensor, in general the
@@ -291,6 +293,10 @@ class Tensor: public TensorBase<Real> {
   
   /// Returns sum of all elements of Tensor
   Real Sum() const;
+  /// Returns min element of Tensor
+  Real Min() const;
+  /// Return max element of Tensor
+  Real Max() const;
   /// Returns true if ((*this)-other).FrobeniusNorm()
   /// <= tol * (*this).FrobeniusNorm()
   bool ApproxEqual(const Tensor<Real> &other, float tol = 0.01) const;

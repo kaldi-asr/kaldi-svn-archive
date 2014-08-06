@@ -68,7 +68,6 @@ class Component {
   
   /// Get size of output vectors 
   virtual int32 OutputDim() const = 0;
-  
   /// Number of left-context frames the component sees for each output frame;
   /// nonzero only for splicing layers.
   virtual int32 LeftContext() const { return 0; }
@@ -393,6 +392,81 @@ class PnormComponent: public Component {
  protected:
   int32 input_dim_;
   int32 output_dim_;
+  BaseFloat p_;
+};
+
+class Pnorm2dComponent: public Component {
+ /// This component is intended to do 2D pnorm-pooling for vision tasks such as MNist (not speech).
+ /// P-norm pooling is similar to max-pooling layer in Convolutinal neural network.
+ /// This component is called on "num_chunks" equally size sub-matrices, formed by 
+ /// dividing up time axis into "num_chunks" equal blocks and pooling should be done 
+ /// through each chunk.
+ /// In the 2D pnorm-pooling, the input chunk of features is partitioned into a set of non-overlapping 
+ /// rectangular blocks with time and feature dimensions (input_dims_[0] / output_dims_[0]) and 
+ /// (input_dims_[1] / output_dims_[1]) respectively.
+ /// Then p-norm value for block (i,j) of each input chunk outputs 
+ /// in the element (i,j) corresponding to a same chunk number in output.
+ /// 
+ /// Unlike other components, this component has fixed number of frames per chunk and 
+ /// input chunk size(number of input frames per chunk) is equal to input_dims_[0] and 
+ /// output chunk size(number of output frames per chunk) is equal to output_dims_[0].
+ /// P-norm value of a sub-matrix is (the sum of pth power of all absolute value of elements
+ /// of matrix)^(1/p).
+ /// P-norm pooling helps to reduces complexity of input layer.
+ ///
+ /// @param input_dims_       Dimension of input chunk of frames that contains the time and 
+ ///                          feature dimensions.
+ ///                          For example, input_dims_ = [10, 40], the first dimension is chunk-index
+ ///                          dimension or time dimension and second dimension is feature dimension.
+ /// @param output_dims_      The dimension of output chunk of frames, which contains time and 
+ ///                          frequency dimensions.
+ ///                          Example : [5, 20]. This means the time and feature dimension of 
+ ///                          the output is 5 and 20 and pooling window size is 2 in 2 dimensions.
+ ///                          size of pnorm-pooling window is [10/5, 40/20] = [2, 2].
+ ///                          input_dims_[1] should be divisible by output_dims_[1], but 
+ ///                          input_dims_[0] is not necessary multiple of output_dims_[0].
+ ///                          if not, the row size of the first (input_dims_[0] % output_dims_[0]) 
+ ///                          pooling regions is ((output_dims[0] + input_dims[0] - 1) / input_dims[0]), 
+ ///                          and the remaining ones have (output_dims[0] / input_dims[0]) rows.
+ public:
+  void Init(std::vector<int32> input_dims, std::vector<int32> output_dims, BaseFloat p);
+  explicit Pnorm2dComponent(std::vector<int32> input_dims, std::vector<int32> output_dims, BaseFloat p) {
+    Init(input_dims, output_dims, p);
+  }
+  Pnorm2dComponent(): p_(0) {input_dims_.resize(2,0);
+                             output_dims_.resize(2,0);}
+  inline const std::vector<int32>& InputDimVec() const { return input_dims_; }
+  inline const std::vector<int32>& OutputDimVec() const { return output_dims_; }
+  virtual std::string Type() const { return "Pnorm2dComponent"; }
+  virtual void InitFromString(std::string args); 
+  virtual int32 InputDim() const { return input_dims_[1]; }
+  virtual int32 OutputDim() const { return output_dims_[1]; }
+  virtual int32 LeftContext() const { return (input_dims_[0] - output_dims_[0]) / 2; }
+  virtual int32 RightContext() const { return (input_dims_[0] - output_dims_[0] - LeftContext());}
+  virtual void Propagate(const CuMatrixBase<BaseFloat> &in,
+                         int32 num_chunks,
+                         CuMatrix<BaseFloat> *out) const;
+  virtual void Backprop(const CuMatrixBase<BaseFloat> &in_value,
+                        const CuMatrixBase<BaseFloat> &, // out_value
+                        const CuMatrixBase<BaseFloat> &out_deriv,
+                        int32 num_chunks,
+                        Component *to_update, // may be identical to "this".
+                        CuMatrix<BaseFloat> *in_deriv) const;
+  virtual bool BackpropNeedsInput() const { return true; }
+  virtual bool BackpropNeedsOutput() const { return true; }
+  virtual Component* Copy() const { return new Pnorm2dComponent(input_dims_,
+                                                              output_dims_, p_); }
+  
+  virtual void Read(std::istream &is, bool binary); // This Read function
+  // requires that the Component has the correct type.
+  
+  /// Write component to stream
+  virtual void Write(std::ostream &os, bool binary) const;
+
+  virtual std::string Info() const;
+ protected:
+  std::vector<int32> input_dims_;
+  std::vector<int32> output_dims_;
   BaseFloat p_;
 };
 
@@ -1804,6 +1878,9 @@ class ConvolutionalComponent: public UpdatableComponent {
   int32 NumFramesContext() { return param_tensor_dims_.front(); }
   
   
+  BaseFloat GetScalingFactor(const CuTensor<BaseFloat> &in_value,
+                             const CuTensor<BaseFloat> &out_deriv);
+
   // Form of "Update" that does not use preconditioning.
   void UpdateSimple(
       const CuTensor<BaseFloat> &in_value_tensor,

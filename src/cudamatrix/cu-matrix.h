@@ -190,6 +190,30 @@ class CuMatrixBase {
   ///  src.NumCols() / this->NumCols() must be an integer.
   void GroupPnorm(const CuMatrixBase<Real> &src, Real pow);
 
+  /// This function computes the p-norm (see definition below) of rectangular blocks 
+  /// of "src" and puts the output in elements of *this. 
+  /// The "num_chunks" argument must be >= 1.  If it is greater than 1, 
+  /// then this->NumRows() and src.NumRows() must both be divisible by num_chunks, 
+  /// and it is as if this function had been called separately on "num_chunks" 
+  /// equally sized sub-matrices of *this and src, formed by dividing up the rows 
+  /// into "num_chunks" equal blocks. The rest of this comment describes 
+  /// the behavior of this function assuming "num_chunks" equals 1.
+  ///
+  /// "src" is partitioned into a set of non-overlapping rectangular blocks 
+  /// with row and column size of (src.NumRows() / *this.NumRows()) and 
+  /// (src.NumCols() / *this.NumCols()) respectively. 
+  /// Then p-norm value for block (i,j) of "src" outputs to this[i,j].
+  /// src.NumCols() should be divisible by *this.NumCols(), but src.NumRows()
+  /// is not necessary multiple of *this.NumRows(). If not, the row size of 
+  /// the first (src.NumRows() % this.NumRows()) blocks is
+  /// ((src.NumRows() + *this.NumRows() - 1) / *this.NumRows()) and 
+  /// the remaining blocks have (src.NumRows() / *this.NumRows()) rows.
+  ///
+  /// Pnorm value for each block is computed as (sum over pth power of all absolute value of element
+  /// of that block)^(1/p).
+  /// "power" is the p used in the p-norm value computation.
+  void Group2dPnorm(const CuMatrixBase<Real> &src, int num_chunks, Real pow);
+
   /// Calculate derivatives for the GroupPnorm function above...
   /// if "input" is the input to the GroupPnorm function above (i.e. the "src" variable),
   /// and "output" is the result of the computation (i.e. the "this" of that function
@@ -198,7 +222,24 @@ class CuMatrixBase {
   /// "output-elem" is whichever element of output depends on that input element.
   void GroupPnormDeriv(const CuMatrixBase<Real> &input,
                        const CuMatrixBase<Real> &output, Real power);
+
+  /// calculate derivative for the Group2dPnorm function.
+  /// "num_chunks" is the number of equally-sized chunks of rows in "input", 
+  /// "output" and "*this". (It is described in detail in the Group2dPnorm function.)
+  ///
+  /// The rest of this comment describes the behavior of this function assuming 
+  /// "num_chunks" equals 1. 
+  /// "input" is the input to the Group2dPnorm functions(i.e. the "src" variable), 
+  /// and "output" is the result of the Group2dPnorm computation, and "*this" has the same
+  /// dimension as "input". 
+  /// it sets each element in "*this" to the derivative d(output-elem)/d(input-elem) 
+  /// for each element of "input", where "output-elem" is the elements of the output that 
+  /// depends on that input element. 
+  void Group2dPnormDeriv(const CuMatrixBase<Real> &input,
+                         const CuMatrixBase<Real> &output, 
+                         int num_chunks, Real power);
   
+ 
   /// Compute the hyperbolic tangent (tanh) function; element by element,
   /// *this = tanh(src).
   void Tanh(const CuMatrixBase<Real> &src);
@@ -288,8 +329,20 @@ class CuMatrixBase {
   void MulColsVec(const CuVectorBase<Real> &scale); 
   /// scale i'th row by scale[i]
   void MulRowsVec(const CuVectorBase<Real> &scale);
-  /// divide each row into src.NumCols() groups, and then scale i'th row's jth group of elements by src[i, j].   
+  /// Divide each row into src.NumCols() equal groups, and then scale the i'th row's
+  /// the j'th group of elements by src(i, j).  Requires src.NumRows() ==
+  /// this->NumRows() and this->NumCols() % src.NumCols() == 0.
   void MulRowsGroupMat(const CuMatrixBase<Real> &src);
+
+  /// "num_chunks" argument is described in detail in the Group2dPnorm function,
+  /// and "*this" and "src" contain "num_chunks" equally size chunks of rows.
+  /// The rest of this comment describes the behavior of this function 
+  /// assuming "num_chunks" equals 1.
+  /// This function divide "*this" into a set of non-overlapping rectangular blocks
+  /// with row and column size of (src.NumRows() / *this.NumRows()) 
+  /// and (src.NumCols() / *this.NumCols()) respectively. Then scale all the elements of 
+  /// the block(i,j) of *this by src[i,j].
+  void MulRows2dGroupMat(const CuMatrixBase<Real> &src, int num_chunks);
   /// divide i'th row by scale[i]
   void DivRowsVec(const CuVectorBase<Real> &div);
   /// invert the matrix by elements.

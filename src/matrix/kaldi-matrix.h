@@ -240,10 +240,20 @@ class MatrixBase {
   /// each row by a scalar taken from that dimension of the vector.
   void MulRowsVec(const VectorBase<Real> &scale);
 
-  /// divide each row into src.NumCols() groups, 
-  /// and then scale i'th row's jth group of elements by src[i, j].   
+  /// Divide each row into src.NumCols() equal groups, and then scale the i'th row's
+  /// the j'th group of elements by src(i, j).  Requires src.NumRows() ==
+  /// this->NumRows() and this->NumCols() % src.NumCols() == 0.
   void MulRowsGroupMat(const MatrixBase<Real> &src);
-    
+  
+  /// "num_chunks" argument is described in detail in the Group2dPnorm function,
+  /// and "*this" and "src" contain "num_chunks" equally size chunks of rows.
+  /// The rest of this comment describes the behavior of this function 
+  /// assuming "num_chunks" equals 1.
+  /// This function divides "*this" into a set of non-overlapping rectangular blocks
+  /// with row and column size of (src.NumRows() / *this.NumRows()) 
+  /// and (src.NumCols() / *this.NumCols()) respectively. Then it scales all the elements of 
+  /// the block(i,j) of *this by src[i,j].
+  void MulRows2dGroupMat(const MatrixBase<Real> &src, int32 num_chunks);      
   /// Returns logdet of matrix.
   Real LogDet(Real *det_sign = NULL) const;
   
@@ -390,7 +400,7 @@ class MatrixBase {
   /// Frobenius norm, which is the sqrt of sum of square elements.  Same as Schatten 2-norm,
   /// or just "2-norm".
   Real FrobeniusNorm() const;
-
+  
   /// Returns true if ((*this)-other).FrobeniusNorm()
   /// <= tol * (*this).FrobeniusNorm().
   bool ApproxEqual(const MatrixBase<Real> &other, float tol = 0.01) const;
@@ -418,11 +428,38 @@ class MatrixBase {
   /// Set each element to y = log(1 + exp(x))
   void SoftHinge(const MatrixBase<Real> &src);
   
-  /// Apply the function y(i) = (sum_{j = i*G}^{(i+1)*G-1} x_j ^ (power)) ^ (1 / p)
-  /// where G = x.NumCols() / y.NumCols() must be an integer.
+  /// Compute the p-norm of the Matrix as (sum of pth power of all elements of matrix)^(1 / p)
+  Real EntrywiseNorm(Real p) const;
+
+  /// Apply the function y(i) = (sum_{j = i*G}^{(i+1)*G-1} x_j^(power))^(1 / p)
+  /// Requires src.NumRows() == this->NumRows() and  src.NumCols() % this->NumCols() == 0.
   void GroupPnorm(const MatrixBase<Real> &src, Real power);
-
-
+ 
+  /// This function computes the p-norm (see definition below) of rectangular blocks 
+  /// of "src" and puts the output in elements of *this. 
+  /// The "num_chunks" argument must be >= 1.  If it is greater than 1, 
+  /// then this->NumRows() and src.NumRows() must both be divisible by num_chunks, 
+  /// and it is as if this function had been called separately on "num_chunks" 
+  /// equally sized sub-matrices of *this and src, formed by dividing up the rows 
+  /// into "num_chunks" equal blocks. The rest of this comment describes 
+  /// the behavior of this function assuming "num_chunks" equals 1.
+  ///
+  /// "src" is partitioned into a set of non-overlapping rectangular blocks 
+  /// with row and column size of (src.NumRows() / *this.NumRows()) and 
+  /// (src.NumCols() / *this.NumCols()) respectively. 
+  /// Then p-norm value of each (i,j)'th block of the input is put in 
+  /// element (i, j) of the outputs.
+  /// src.NumCols() should be divisible by *this.NumCols(), but src.NumRows()
+  /// is not necessary multiple of *this.NumRows(). If not, the row size of 
+  /// the first (src.NumRows() % this.NumRows()) blocks is
+  /// ((src.NumRows() + *this.NumRows() - 1) / *this.NumRows()) and 
+  /// the remaining blocks have (src.NumRows() / *this.NumRows()) rows.
+  ///
+  /// Pnorm value for each block is computed as (sum over pth power of all absolute value of element
+  /// of that block)^(1/p).
+  /// "power" is the p used in the p-norm value computation.
+  void Group2dPnorm(const MatrixBase<Real> &src, int32 num_chunks, Real power);
+  
   /// Calculate derivatives for the GroupPnorm function above...
   /// if "input" is the input to the GroupPnorm function above (i.e. the "src" variable),
   /// and "output" is the result of the computation (i.e. the "this" of that function
@@ -432,6 +469,20 @@ class MatrixBase {
   void GroupPnormDeriv(const MatrixBase<Real> &input, const MatrixBase<Real> &output,
                        Real power);
 
+  /// calculate derivative for the Group2dPnorm function.
+  /// "num_chunks" is the number of equally-sized chunks of rows in "input", 
+  /// "output" and "*this". (It is described in detail in the Group2dPnorm function.)
+  ///
+  /// The rest of this comment describes the behavior of this function assuming 
+  /// "num_chunks" equals 1. 
+  /// "input" is the input to the Group2dPnorm functions(i.e. the "src" variable), 
+  /// and "output" is the result of the Group2dPnorm computation, and "*this" has the same
+  /// dimension as "input". 
+  /// it sets each element in "*this" to the derivative d(output-elem)/d(input-elem) 
+  /// for each element of "input", where "output-elem" is the elements of the output that 
+  /// depends on that input element. 
+  void Group2dPnormDeriv(const MatrixBase<Real> &input, const MatrixBase<Real> &output, 
+                         int32 num_chunks, Real power);
   /// Set each element to y = max(0,x)
   void Relu(const MatrixBase<Real> &src); 
 
@@ -511,10 +562,10 @@ class MatrixBase {
                  const MatrixBase<Real>& B, MatrixTransposeType transB,
                  const Real beta);
   /// *this = conv(a,b)
-  void ConvMat(const MatrixBase<Real> &A, int block_dim_x, 
-                               int A_block_num_rows, int A_block_num_cols,
-                               const MatrixBase<Real> &B, int block_dim_y,
-                               int B_block_num_rows, int B_block_num_cols); 
+  void ConvMat(const MatrixBase<Real> &A, int32 block_dim_x, 
+                               int32 A_block_num_rows, int32 A_block_num_cols,
+                               const MatrixBase<Real> &B, int32 block_dim_y,
+                               int32 B_block_num_rows, int32 B_block_num_cols); 
   /// *this = a * b / c (by element; when c = 0, *this = a)
   void AddMatMatDivMat(const MatrixBase<Real>& A,
              	       const MatrixBase<Real>& B,

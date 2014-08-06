@@ -264,7 +264,32 @@ void TestConvTensorTensor() {
     }
   }
 }
-
+template<typename Real>
+static void TestOperator() {
+  typedef std::pair<int32, int32> DimsStrides; 
+  {
+    for (int t = 0; t < 1; t++) {
+      int32 n1 = 4 + rand() % 10, m1 = n1 + 5;
+      std::vector<DimsStrides> A_dims_strides;
+      A_dims_strides.push_back(DimsStrides(n1,1));
+      A_dims_strides.push_back(DimsStrides(m1,n1));    
+      CuMatrix<Real> A_mat(1, n1 * m1);
+      A_mat.SetRandn();
+      CuTensor<Real> A_tensor(A_dims_strides, A_mat);
+      Real tensor_sum = 0;
+      std::vector<int> index(2,0);
+      for (int i = 0; i < n1; i++) {
+        index[0] = i;
+        for (int j = 0; j < m1; j++) {
+          index[1] = j;
+          tensor_sum += A_tensor(index);
+        }
+      }
+      KALDI_LOG << " tensor .vs. matrix sum " << tensor_sum << " " << A_mat.Sum();
+      AssertEqual(tensor_sum, A_mat.Sum());
+    }
+  }
+}
 template<class Real>
 void CuTensorUnitTest() {
   //TestFlatten<Real>();
@@ -274,6 +299,7 @@ void CuTensorUnitTest() {
   TestAddTensor<Real>();
   TestAddTensorTensor<Real>();
   TestConvTensorTensor<Real>();
+  TestOperator<Real>();
 }
 
 
