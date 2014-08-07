@@ -53,10 +53,12 @@ set -e
 set -o pipefail
 set -u
 
-ScoringProgram=`which sclite` || ScoringProgram=$KALDI_ROOT/tools/sctk-2.4.0/bin/sclite
-[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && exit 1;
-SortingProgram=`which hubscr.pl` || SortingProgram=$KALDI_ROOT/tools/sctk-2.4.0/bin/hubscr.pl
-[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && exit 1;
+ScoringProgram=`which sclite` || ScoringProgram=$KALDI_ROOT/tools/sctk/bin/sclite
+[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && \
+                            echo "You might need to go to $KALDI_ROOT/tools and call 'make sclite' " && exit 1;
+SortingProgram=`which hubscr.pl` || SortingProgram=$KALDI_ROOT/tools/sctk/bin/hubscr.pl
+[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram." && \
+                            echo "You might need to go to $KALDI_ROOT/tools and call 'make sclite' " && exit 1;
 
 
 for f in $data/stm  ; do
@@ -97,7 +99,7 @@ if [ $stage -le 1 ]; then
   if [ $cer -eq 1 ]; then
     $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.char.log \
       $ScoringProgram -s -r $dir/score_LMWT/stm stm -h $dir/score_LMWT/${name}.ctm ctm \
-        -n "$name.char.ctm"  -o sum rsum prf dtl sgml -f 0 -D -F -c NOASCII DH -e utf-8 || exit 1
+        -n "$name.char.ctm" -o sum rsum prf dtl sgml -f 0 -D -F -c NOASCII DH -e utf-8 || exit 1
   fi
 fi
 
