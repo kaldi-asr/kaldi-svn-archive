@@ -1,9 +1,5 @@
-exp/mono0a/decode/cer_9:%WER 80.54 [ 45228 / 56154, 1435 ins, 11484 del, 32309 sub ]
-exp/tri1/decode/cer_12:%WER 60.34 [ 33881 / 56154, 2720 ins, 6019 del, 25142 sub ]
-exp/tri2/decode/cer_12:%WER 59.69 [ 33521 / 56154, 2800 ins, 5618 del, 25103 sub ]
-exp/tri3a/decode/cer_13:%WER 57.65 [ 32370 / 56154, 2535 ins, 5673 del, 24162 sub ]
-exp/tri4a/decode/cer_12:%WER 53.02 [ 29774 / 56154, 2724 ins, 4791 del, 22259 sub ]
-exp/tri5a/decode/cer_13:%WER 49.67 [ 27891 / 56154, 2877 ins, 4538 del, 20476 sub ]
-exp/tri5a_mce/decode/cer_11:%WER 44.74 [ 25125 / 56154, 2112 ins, 4108 del, 18905 sub ]
-exp/tri5a_mmi_b0.1/decode/cer_11:%WER 44.24 [ 24840 / 56154, 2060 ins, 4118 del, 18662 sub ]
-exp/tri5a_mpe/decode/cer_12:%WER 44.96 [ 25247 / 56154, 2233 ins, 4174 del, 18840 sub ]
+%WER 65.4 | 6164 43778 | 38.6 44.4 17.0 4.0 65.4 84.2 | -0.615 | tri1/decode_dev/score_12/dev.char.ctm.sys
+%WER 65.1 | 6164 43778 | 39.4 45.0 15.6 4.6 65.1 84.3 | -0.737 | tri2/decode_dev/score_11/dev.char.ctm.sys
+%WER 63.0 | 6164 43778 | 41.0 42.9 16.1 4.1 63.0 83.4 | -0.642 | tri3a/decode_dev/score_11/dev.char.ctm.sys
+%WER 58.7 | 6164 43778 | 45.9 40.5 13.6 4.6 58.7 82.2 | -0.695 | tri4a/decode_dev/score_11/dev.char.ctm.sys
+%WER 51.2 | 6164 57276 | 52.3 35.2 12.5 3.5 51.2 82.8 | -0.715 | tri5a/decode_dev/score_10/dev.char.ctm.sys

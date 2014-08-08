@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2014 Jan Trmal, Hainan Xu, Samuel Zhang, Xin Lei
+# Copyright 2014 Jan Trmal, Hainan Xu, Xiaohui Zhang, Xin Lei
 # Apache 2.0
 #
 # This is a shell script to run BOLT evaluation recipe. It's recommended
