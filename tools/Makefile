@@ -97,7 +97,7 @@ sclite_compiled: sctk_configured
 
 sctk_configured:sctk/.configured
 
-sctk/.configured:
+sctk/.configured:sctk
 	cd sctk; $(MAKE) config
 	touch sctk/.configured
 
