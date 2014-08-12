@@ -39,12 +39,12 @@ while (<STDIN>) {
     $a = $A[$n]; 
     $n+=1;
 
-    if ( grep { $_ eq $a } @vocalized_noise ) {
+    if ( grep { $_ =~ m/\Q$a/i } @vocalized_noise ) {
       print "<V-NOISE> ";
       next;
     }
 
-    if (($a eq "{laugh}")) {
+    if ( $a =~ /{laugh}/i ) {
       print "<LAUGHTER> ";
       next;
     }
@@ -147,8 +147,8 @@ while (<STDIN>) {
       next;
     }
     
-    if ( $a =~ /\<English_.*\>/ ) {
-      $a=~ s/\<English_(.*)\>/$1/;
+    if ( $a =~ /\<English_.*\>/i ) {
+      $a=~ s/\<English_(.*)\>/$1/i;
       @words=split("_",uc($a));
       $i=0;
       while ($i < @words) {
@@ -160,11 +160,13 @@ while (<STDIN>) {
         }
         if ($word =~ /\(\(.*/ ) {
           while (( $word !~ /.*\)\)/ )) {
-            print "<UNK> ";
+            #print "<UNK> ";
+            print "$word ";
             $word=$words[$i];
             $i+=1;
           }
-          print "<UNK> ";
+          #print "<UNK> ";
+          print "$word ";
           next; # if $i < @words;
 
         }

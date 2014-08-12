@@ -1,90 +1,92 @@
 #!/bin/bash
+# Copyright 2013  Johns Hopkins University (author: Daniel Povey)
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+# WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+# MERCHANTABLITY OR NON-INFRINGEMENT.
+# See the Apache 2 License for the specific language governing permissions and
+# limitations under the License.
 
 
-. path.sh
+corpus_id=hkust
 
-if [ $# != 1 ]; then
-   echo "Usage: hkust_data_prep.sh /path/to/HKUST"
+[ -f ./path.sh ] &&  . ./path.sh
+
+. ./utils/parse_options.sh
+
+if [ $# != 3 ]; then
+   echo "Usage: $0 /path/to/speech_audio /path/to/transcription /path/to/destination"
    exit 1;
 fi
 
-HKUST_DIR=$1
+AUDIO_DIR=$1
+TRANS_DIR=$2
+DESTINATION=$3
 
-train_dir=data/local/train
-dev_dir=data/local/dev
+train_dir=$DESTINATION/train.${corpus_id}
+devtest_dir=$DESTINATION/devtest.${corpus_id}
 
-
-case 0 in    #goto here
-    1)
-;;           #here:
-esac
 
 mkdir -p $train_dir
-mkdir -p $dev_dir
+mkdir -p $devtest_dir
 
-#data directory check
-if [ ! -d $HKUST_DIR ]; then
-  echo "Error: run.sh requires a directory argument"
+# Data directory check
+if [ ! -d $AUDIO_DIR ] || [ ! -d $TRANS_DIR ]; then
+  echo "Usage: $0 /path/to/speech_audio /path/to/transcription /path/to/destination"
   exit 1;
 fi
 
-#find sph audio file for train dev resp.
-find $HKUST_DIR -iname "*.sph" | grep -i "audio/train" > $train_dir/sph.flist
-find $HKUST_DIR -iname "*.sph" | grep -i "audio/dev" > $dev_dir/sph.flist
+# Find sph audio file for train dev resp.
+find -L $AUDIO_DIR -iname "*.sph" -ipath "*/train/*"> $train_dir/sph.flist
+find -L $AUDIO_DIR -iname "*.sph" -ipath  "*/dev/*" > $devtest_dir/sph.flist
 
-n=`cat $train_dir/sph.flist $dev_dir/sph.flist | wc -l`
+n=`cat $train_dir/sph.flist $devtest_dir/sph.flist | wc -l`
 [ $n -ne 897 ] && \
-  echo Warning: expected 897 data data files, found $n
+  echo Warning: expected 897 data files, found $n
 
 
-#Transcriptions preparation
+for dataset in train ; do
+  eval dest_dir=\$${dataset}_dir
+  echo -e "\n----Converting the $corpus_id $dataset dataset into kaldi directory in $dest_dir"
+  find -L $TRANS_DIR -iname "*.txt" -ipath "*/train/*" |\
+    perl local/callhome_data_convert.pl $dest_dir/sph.flist $dest_dir || exit 1
 
-#collect all trans, convert encodings to utf-8,
-find $HKUST_DIR -iname "*.txt" | grep -i "trans/train" | xargs cat |\
-  iconv -f GBK -t utf-8 - | perl -e '
-    while (<STDIN>) {
-      @A = split(" ", $_);
-      if (@A <= 1) { next; }
-      if ($A[0] eq "#") { $utt_id = $A[1]; } 
-      if (@A >= 3) {
-        $A[2] =~ s:^([AB])\:$:$1:; 
-        printf "%s-%s-%06.0f-%06.0f", $utt_id, $A[2], 100*$A[0] + 0.5, 100*$A[1] + 0.5; 
-        for($n = 3; $n < @A; $n++) { print " $A[$n]" }; 
-        print "\n"; 
-      }
-    }
-  ' | sort -k1 > $train_dir/transcripts.txt 
+  cat $dest_dir/utt2spk | utils/utt2spk_to_spk2utt.pl > $dest_dir/spk2utt || exit 1
+done
+echo "All $corpus_id datasets converted..."
+# We prepare the full kaldi directory (with the exception of the text file)
+#d irectly in one pass through the data
 
-find $HKUST_DIR -iname "*.txt" | grep -i "trans/dev" | xargs cat |\
-  iconv -f GBK -t utf-8 - | perl -e '
-    while (<STDIN>) {
-      @A = split(" ", $_);
-      if (@A <= 1) { next; }
-      if ($A[0] eq "#") { $utt_id = $A[1]; } 
-      if (@A >= 3) {
-        $A[2] =~ s:^([AB])\:$:$1:; 
-        printf "%s-%s-%06.0f-%06.0f", $utt_id, $A[2], 100*$A[0] + 0.5, 100*$A[1] + 0.5; 
-        for($n = 3; $n < @A; $n++) { print " $A[$n]" }; 
-        print "\n"; 
-      }
-    }
-  ' | sort -k1  > $dev_dir/transcripts.txt
+for dataset in dev ; do
+  eval dest_dir=\$${dataset}test_dir
+  echo -e "\n----Converting the $corpus_id $dataset dataset into kaldi directory in $dest_dir"
+  find -L $TRANS_DIR -iname "*.txt" -ipath "*/dev/*" |\
+    perl local/callhome_data_convert.pl $dest_dir/sph.flist $dest_dir || exit 1
 
+  cat $dest_dir/utt2spk | utils/utt2spk_to_spk2utt.pl > $dest_dir/spk2utt || exit 1
+done
+echo "All $corpus_id datasets converted..."
 
-
-#transcripts normalization and segmentation 
-#(this needs external tools),
-#Download and configure segment tools   
+# TODO: This should be moved to kaldi-tools directory
+# Transcripts normalization and segmentation (this needs external tools).
+# Download and configure word segmentation tool.
 pyver=`python --version 2>&1 | sed -e 's:.*\([2-3]\.[0-9]\+\).*:\1:g'`
 export PYTHONPATH=$PYTHONPATH:`pwd`/tools/mmseg-1.3.0/lib/python${pyver}/site-packages
 if [ ! -d tools/mmseg-1.3.0/lib/python${pyver}/site-packages ]; then
   echo "--- Downloading mmseg-1.3.0 ..."
   echo "NOTE: it assumes that you have Python, Setuptools installed on your system!"
-  wget -P tools http://pypi.python.org/packages/source/m/mmseg/mmseg-1.3.0.tar.gz 
+  wget -P tools http://pypi.python.org/packages/source/m/mmseg/mmseg-1.3.0.tar.gz
   tar xf tools/mmseg-1.3.0.tar.gz -C tools
   cd tools/mmseg-1.3.0
   mkdir -p lib/python${pyver}/site-packages
-  python setup.py build 
+    python setup.py build
   python setup.py install --prefix=.
   cd ../..
   if [ ! -d tools/mmseg-1.3.0/lib/python${pyver}/site-packages ]; then
@@ -93,70 +95,34 @@ if [ ! -d tools/mmseg-1.3.0/lib/python${pyver}/site-packages ]; then
   fi
 fi
 
+# TODO: The text filtering should be improved
+echo -e "\n----Preparing audio training transcripts in $train_dir"
 cat $train_dir/transcripts.txt |\
-  sed -e 's/<foreign language=\"[a-zA-Z]\+\">/ /g' |\
-  sed -e 's/<\/foreign>/ /g' |\
-  sed -e 's/<noise>\(.\+\)<\/noise>/\1/g' |\
+  sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
+  sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
   sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-  local/hkust_normalize.pl |\
-  python local/hkust_segment.py |\
-  awk '{if (NF > 1) print $0;}' > $train_dir/text
+  sed '/^\s*$/d' |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+  local/callhome_normalize.pl |\
+  python local/callhome_mmseg_segment.py |\
+  awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
 
-cat $dev_dir/transcripts.txt |\
-  sed -e 's/<foreign language=\"[a-zA-Z]\+\">/ /g' |\
-  sed -e 's/<\/foreign>/ /g' |\
-  sed -e 's/<noise>\(.\+\)<\/noise>/\1/g' |\
-  sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-  local/hkust_normalize.pl |\
-  python local/hkust_segment.py |\
-  awk '{if (NF > 1) print $0;}' > $dev_dir/text
+local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $train_dir
+utils/fix_data_dir.sh $train_dir
 
-#Make segment files from transcript
-#segments file format is: utt-id side-id start-time end-time, e.g.:
-#sw02001-A_000098-001156 sw02001-A 0.98 11.56
+for dataset in $devtest_dir ; do
+  echo -e "\n----Preparing audio (reference) transcripts in $dataset"
+  cat $dataset/transcripts.txt |\
+    sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
+    sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
+    sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+    uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+    local/callhome_normalize.pl |\
+    python local/callhome_mmseg_segment.py |\
+    awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text
+  utils/fix_data_dir.sh $dataset
 
+  local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $dataset
+done
 
-awk '{ segment=$1; split(segment,S,"-"); side=S[2]; audioname=S[1];startf=S[3];endf=S[4];
-   print segment " " audioname "-" side " " startf/100 " " endf/100}' <$train_dir/text > $train_dir/segments
-awk '{name = $0; gsub(".sph$","",name); gsub(".*/","",name); print(name " " $0)}' $train_dir/sph.flist > $train_dir/sph.scp
-
-awk '{ segment=$1; split(segment,S,"-"); side=S[2]; audioname=S[1];startf=S[3];endf=S[4];
-   print segment " " audioname "-" side " " startf/100 " " endf/100}' <$dev_dir/text > $dev_dir/segments
-awk '{name = $0; gsub(".sph$","",name); gsub(".*/","",name); print(name " " $0)}' $dev_dir/sph.flist > $dev_dir/sph.scp
-
-
-
-sph2pipe=`cd ../../..; echo $PWD/tools/sph2pipe_v2.5/sph2pipe`
-[ ! -f $sph2pipe ] && echo "Could not find the sph2pipe program at $sph2pipe" && exit 1;
-
-cat $train_dir/sph.scp | awk -v sph2pipe=$sph2pipe '{printf("%s-A %s -f wav -p -c 1 %s |\n", $1, sph2pipe, $2); 
-    printf("%s-B %s -f wav -p -c 2 %s |\n", $1, sph2pipe, $2);}' | \
-   sort > $train_dir/wav.scp || exit 1;
-
-cat $dev_dir/sph.scp | awk -v sph2pipe=$sph2pipe '{printf("%s-A %s -f wav -p -c 1 %s |\n", $1, sph2pipe, $2); 
-    printf("%s-B %s -f wav -p -c 2 %s |\n", $1, sph2pipe, $2);}' | \
-   sort > $dev_dir/wav.scp || exit 1;
-#side A - channel 1, side B - channel 2
-
-# this file reco2file_and_channel maps recording-id (e.g. sw02001-A)
-# to the file name sw02001 and the A, e.g.
-# sw02001-A  sw02001 A
-# In this case it's trivial, but in other corpora the information might
-# be less obvious.  Later it will be needed for ctm scoring.
-cat $train_dir/wav.scp | awk '{print $1}' | \
-  perl -ane '$_ =~ m:^(\S+)-([AB])$: || die "bad label $_"; print "$1-$2 $1 $2\n"; ' \
-  > $train_dir/reco2file_and_channel || exit 1;
-cat $dev_dir/wav.scp | awk '{print $1}' | \
-  perl -ane '$_ =~ m:^(\S+)-([AB])$: || die "bad label $_"; print "$1-$2 $1 $2\n"; ' \
-  > $dev_dir/reco2file_and_channel || exit 1;
-
-
-cat $train_dir/segments | awk '{spk=substr($1,1,33); print $1 " " spk}' > $train_dir/utt2spk || exit 1;
-cat $train_dir/utt2spk | sort -k 2 | utils/utt2spk_to_spk2utt.pl > $train_dir/spk2utt || exit 1;
-
-cat $dev_dir/segments | awk '{spk=substr($1,1,33); print $1 " " spk}' > $dev_dir/utt2spk || exit 1;
-cat $dev_dir/utt2spk | sort -k 2 | utils/utt2spk_to_spk2utt.pl > $dev_dir/spk2utt || exit 1;
-
-echo HKUST data preparation succeeded
-  
-exit 1;
+echo -e "\n\n$corpus_id data preparation succeeded..."

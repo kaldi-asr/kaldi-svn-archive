@@ -31,13 +31,8 @@ TRANS_DIR=$2
 DESTINATION=$3
 
 train_dir=$DESTINATION/train.${corpus_id}
-devtest_dir=$DESTINATION/devtest.${corpus_id}
-evltest_dir=$DESTINATION/evltest.${corpus_id}
-
 
 mkdir -p $train_dir
-mkdir -p $devtest_dir
-mkdir -p $evltest_dir
 
 # Data directory check
 if [ ! -d $AUDIO_DIR ] || [ ! -d $TRANS_DIR ]; then
@@ -46,22 +41,20 @@ if [ ! -d $AUDIO_DIR ] || [ ! -d $TRANS_DIR ]; then
 fi
 
 # Find sph audio file for train dev resp.
-find -L $AUDIO_DIR -iname "*.sph" -ipath "*/train/*" > $train_dir/sph.flist
-find -L $AUDIO_DIR -iname "*.sph" -ipath "*/devtest/*" > $devtest_dir/sph.flist
-find -L $AUDIO_DIR -iname "*.sph" -ipath "*/evltest/*" > $evltest_dir/sph.flist
+find -L $AUDIO_DIR -iname "*.sph"  > $train_dir/sph.flist
 
-n=`cat $train_dir/sph.flist $devtest_dir/sph.flist | wc -l`
-[ $n -ne 100 ] && \
-  echo Warning: expected 100 data files, found $n
+n=`cat $train_dir/sph.flist | wc -l`
+[ $n -ne 42 ] && \
+  echo Warning: expected 42 data files, found $n
 
 
 # We prepare the full kaldi directory (with the exception of the text file)
 #d irectly in one pass through the data
 
-for dataset in train devtest evltest ; do
+for dataset in train ; do
   eval dest_dir=\$${dataset}_dir;
   echo -e "\n----Converting the $corpus_id $dataset dataset into kaldi directory in $dest_dir"
-  find -L $TRANS_DIR -iname "*.txt" -ipath "*/${dataset}/*" |\
+  find -L $TRANS_DIR -iname "*.txt"  |\
     perl local/callhome_data_convert.pl $dest_dir/sph.flist $dest_dir || exit 1
 
   cat $dest_dir/utt2spk | utils/utt2spk_to_spk2utt.pl > $dest_dir/spk2utt || exit 1
@@ -96,7 +89,7 @@ cat $train_dir/transcripts.txt |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
   sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
   sed '/^\s*$/d' |\
-  uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
   local/callhome_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
@@ -104,19 +97,5 @@ cat $train_dir/transcripts.txt |\
 local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $train_dir
 utils/fix_data_dir.sh $train_dir
 
-for dataset in $devtest_dir $evltest_dir; do
-  echo -e "\n----Preparing audio (reference) transcripts in $dataset"
-  cat $dataset/transcripts.txt |\
-    sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
-    sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-    sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-    uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
-    local/callhome_normalize.pl |\
-    python local/callhome_mmseg_segment.py |\
-    awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text
-  utils/fix_data_dir.sh $dataset
-
-  local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $dataset
-done
 
 echo -e "\n\n$corpus_id data preparation succeeded..."

@@ -15,29 +15,29 @@
 # limitations under the License.
 
 
-corpus_id=callhome
+corpus_id=rt04f
 
 [ -f ./path.sh ] &&  . ./path.sh
 
 . ./utils/parse_options.sh
 
-if [ $# != 3 ]; then
+if [ $# != 5 ]; then
    echo "Usage: $0 /path/to/speech_audio /path/to/transcription /path/to/destination"
    exit 1;
 fi
 
-AUDIO_DIR=$1
-TRANS_DIR=$2
-DESTINATION=$3
+AUDIO_TRAIN_DIR=$1
+TRANS_TRAIN_DIR=$2
+AUDIO_DEV_DIR=$3
+TRANS_DEV_DIR=$4
+DESTINATION=$5
 
 train_dir=$DESTINATION/train.${corpus_id}
 devtest_dir=$DESTINATION/devtest.${corpus_id}
-evltest_dir=$DESTINATION/evltest.${corpus_id}
 
 
 mkdir -p $train_dir
 mkdir -p $devtest_dir
-mkdir -p $evltest_dir
 
 # Data directory check
 if [ ! -d $AUDIO_DIR ] || [ ! -d $TRANS_DIR ]; then
@@ -46,22 +46,30 @@ if [ ! -d $AUDIO_DIR ] || [ ! -d $TRANS_DIR ]; then
 fi
 
 # Find sph audio file for train dev resp.
-find -L $AUDIO_DIR -iname "*.sph" -ipath "*/train/*" > $train_dir/sph.flist
-find -L $AUDIO_DIR -iname "*.sph" -ipath "*/devtest/*" > $devtest_dir/sph.flist
-find -L $AUDIO_DIR -iname "*.sph" -ipath "*/evltest/*" > $evltest_dir/sph.flist
+find -L $AUDIO_TRAIN_DIR -iname "*.sph" > $train_dir/sph.flist
+find -L $AUDIO_DEV_DIR -iname "*.sph"  > $devtest_dir/sph.flist
 
 n=`cat $train_dir/sph.flist $devtest_dir/sph.flist | wc -l`
-[ $n -ne 100 ] && \
-  echo Warning: expected 100 data files, found $n
+[ $n -ne 275 ] && \
+  echo Warning: expected 275 data files, found $n
 
 
+for dataset in train ; do
+  eval dest_dir=\$${dataset}_dir
+  echo -e "\n----Converting the $corpus_id $dataset dataset into kaldi directory in $dest_dir"
+  find -L $TRANS_TRAIN_DIR -iname "*.txt"   |\
+    perl local/callhome_data_convert.pl $dest_dir/sph.flist $dest_dir || exit 1
+
+  cat $dest_dir/utt2spk | utils/utt2spk_to_spk2utt.pl > $dest_dir/spk2utt || exit 1
+done
+echo "All $corpus_id datasets converted..."
 # We prepare the full kaldi directory (with the exception of the text file)
 #d irectly in one pass through the data
 
-for dataset in train devtest evltest ; do
-  eval dest_dir=\$${dataset}_dir;
+for dataset in dev ; do
+  eval dest_dir=\$${dataset}test_dir
   echo -e "\n----Converting the $corpus_id $dataset dataset into kaldi directory in $dest_dir"
-  find -L $TRANS_DIR -iname "*.txt" -ipath "*/${dataset}/*" |\
+  find -L $TRANS_DEV_DIR -iname "*.txt"  |\
     perl local/callhome_data_convert.pl $dest_dir/sph.flist $dest_dir || exit 1
 
   cat $dest_dir/utt2spk | utils/utt2spk_to_spk2utt.pl > $dest_dir/spk2utt || exit 1
@@ -96,7 +104,7 @@ cat $train_dir/transcripts.txt |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
   sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
   sed '/^\s*$/d' |\
-  uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
   local/callhome_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
@@ -104,13 +112,13 @@ cat $train_dir/transcripts.txt |\
 local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $train_dir
 utils/fix_data_dir.sh $train_dir
 
-for dataset in $devtest_dir $evltest_dir; do
+for dataset in $devtest_dir ; do
   echo -e "\n----Preparing audio (reference) transcripts in $dataset"
   cat $dataset/transcripts.txt |\
     sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
     sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
     sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-    uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
+    uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
     local/callhome_normalize.pl |\
     python local/callhome_mmseg_segment.py |\
     awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text

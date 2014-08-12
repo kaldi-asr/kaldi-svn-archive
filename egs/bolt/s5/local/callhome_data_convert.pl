@@ -22,6 +22,17 @@
 
 
 use utf8;
+use warnings;
+use strict;
+
+use PerlIO::encoding;
+use Encode qw(:fallbacks decode encode );
+
+binmode STDIN, ":utf8";
+binmode STDOUT, ":utf8";
+binmode STDERR, ":utf8";
+
+#$PerlIO::encoding::fallback = sub{ sprintf "<U+%04X>", shift };
 
 if ( @ARGV != 2 ) {
   print STDERR "The script reads the paths of the txt files (transcriptions) \n";
@@ -35,17 +46,17 @@ if ( @ARGV != 2 ) {
   print STDERR "                 directory must exist already!\n";
 }
 
-$sph_list=$ARGV[0];
-$dest_dir=$ARGV[1];
-%UTT2SPH={};
+my $sph_list=$ARGV[0];
+my $dest_dir=$ARGV[1];
+my %UTT2SPH;
 
 
-open($sph, "<$sph_list")
+open(my $sph, "<$sph_list")
   or die "Could not open the file $sph_list: $_\n";
 
-while($line=<$sph>) {
+while(my $line=<$sph>) {
   chomp $line;
-  $rec_id=`basename $line`;
+  my $rec_id=`basename $line`;
   chomp $rec_id;
   $rec_id=~ s/\.sph//i;
   $rec_id=uc($rec_id);
@@ -60,24 +71,25 @@ while($line=<$sph>) {
 }
 close($sph);
 
-open($wav, ">$dest_dir/wav.scp")
+open(my $wav, ">$dest_dir/wav.scp")
   or die "Could not open the file $dest_dir/wav.scp: $_\n";
-open($segments, ">$dest_dir/segments")
+open(my $segments, ">$dest_dir/segments")
   or die "Could not open the file $dest_dir/segments: $_\n";
-open($text, ">:encoding(utf8)", "$dest_dir/transcripts.txt")
+open(my $text, ">:encoding(utf8)", "$dest_dir/transcripts.txt")
   or die "Could not open the file $dest_dir/transcripts.txt: $_\n";
-open($utt2spk, ">$dest_dir/utt2spk")
+open(my $utt2spk, ">$dest_dir/utt2spk")
   or die "Could not open the file $dest_dir/utt2spk: $_\n";
-open($reco, ">$dest_dir/reco2file_and_channel")
+open(my $reco, ">$dest_dir/reco2file_and_channel")
   or die "Could not open the file $dest_dir/reco2file_and_channel: $_\n";
 
-$sph2pipe=`which sph2pipe`
+my $sph2pipe=`which sph2pipe`
   or die "Could not find the sph2pipe binary on PATH: $_";
 chomp $sph2pipe;
 
-while ($filename=<STDIN>) {
+while (my $filename=<STDIN>) {
+  print $filename;
   chomp $filename;
-  $rec_id=`basename $filename`;
+  my $rec_id=`basename $filename`;
   chomp $rec_id;
   $rec_id=~ s/\.txt//i;
   $rec_id=uc($rec_id);
@@ -90,28 +102,39 @@ while ($filename=<STDIN>) {
   print $reco "$rec_id-A $rec_id A\n";
   print $reco "$rec_id-B $rec_id B\n";
 
-  open($fh, "<:encoding(GBK)", "$filename")
+  #open(my $fh, "cat $filename | uconv -f GB18030 -t utf-8 --callback substitute|")
+  open(my $fh, $filename)
     or die "Could not open the file $filename: $_\n";
 
-  while ($line=<$fh>) {
+  while (my $line=<$fh>) {
+    $line= decode("GBK", $line,  sub{ sprintf "<U+%04X>", shift });
+    #$line= decode("GBK", $line,  sub{ sprintf "<U+FFFD>", shift });
+    if ($line =~ /\<U\+[a-fA-f0-9]+\>/i ) {
+      print "Skipping line $line";
+      next;
+    }
     chomp $line;
-    @A=split(" ",$line);
+    next if $line =~ /^#.*/;
+    $line =~ s/^\s+|\s+$//g;
+    my @A=split(" ",$line);
     if (@A <= 3) {
       print STDERR "Cannot parse line \"$line\" in $filename\n" if $line;
       next;
     } else {
-      $spk_id=$A[2];
+      my $spk_id=$A[2];
       $spk_id=~ s/^([AB]\d*).*/$1/;
 
-      $chan_id=$spk_id;
+      my $chan_id=$spk_id;
       $chan_id=~s/^([AB]).*/$1/;
 
-      $utt_start=$A[0];
-      $utt_end=$A[1];
+      my $utt_start=$A[0];
+      my $utt_end=$A[1];
 
-      $utt_id=sprintf "%s-%s-%06.0f-%06.0f", $rec_id, $spk_id, 100*$utt_start, 100*$utt_end;
+      next if (($utt_end - $utt_start) * 100 le 1);
+
+      my $utt_id=sprintf "%s-%s-%06.0f-%06.0f", $rec_id, $spk_id, 100*$utt_start, 100*$utt_end;
       print $text $utt_id;
-      for($n = 3; $n < @A; $n++) { print $text " $A[$n]" };
+      for(my $n = 3; $n < @A; $n++) { print $text " $A[$n]" };
       print $text "\n";
 
       print $utt2spk "$utt_id $rec_id-$spk_id\n";

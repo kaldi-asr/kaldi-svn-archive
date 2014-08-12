@@ -12,13 +12,15 @@ set -e
 set -o pipefail
 
 [ $# != 0 ] && echo "Usage: local/callhome_prepare_dict.sh" && exit 1;
-
-train_dir=data/local/train.callhome
-dev_dir=data/local/devtest.callhome
+corpora="callhome,hkust,rt04f,hub5"
+train_dir=data/local/train
+dev_dir=data/local/devtest
 dict_dir=data/local/dict
 mkdir -p $dict_dir
 
-
+eval utils/combine_data.sh --extra-files "stm" $train_dir data/local/train.{$corpora}
+#eval utils/combine_data.sh $dev_dir data/local/devtest.{$corpora}
+rm -rf data/local/devtest && cp -r data/local/devtest.callhome data/local/devtest
 # extract full vocabulary
 cat $train_dir/text $dev_dir/text | cut -f 2- -d ' '|\
   sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full.txt  
@@ -41,8 +43,10 @@ cat $train_dir/text $dev_dir/text | cut -f 2- -d ' '|\
 
 
 # split into English and Chinese
-cat $dict_dir/vocab-full.txt | grep '[a-zA-Z]' > $dict_dir/vocab-en.txt
-cat $dict_dir/vocab-full.txt | grep -v '[a-zA-Z]' > $dict_dir/vocab-ch.txt
+cat $dict_dir/vocab-full.txt | \
+  perl -CIOED -ne 'if (! /\p{Block=CJK_Unified_Ideographs}/) {print;}'> $dict_dir/vocab-en.txt
+cat $dict_dir/vocab-full.txt | \
+  perl -CIOED -ne 'if ( /\p{Block=CJK_Unified_Ideographs}/) {print;}' > $dict_dir/vocab-ch.txt
 
 
 # produce pronunciations for english 
@@ -107,6 +111,13 @@ cat $dict_dir/cedict_1_0_ts_utf-8_mdbg.txt | grep -v '#' | awk -F '/' '{print $1
       print " $tmp";
     }
     print "\n";
+    print $A[0];
+    for($n = 2; $n < @A; $n++) {
+      $A[$n] =~ s:\[?([a-zA-Z0-9\:]+)\]?:$1:; 
+      $tmp = uc($A[$n]); 
+      print " $tmp";
+    }
+    print "\n";
   }
  ' | sort -k1 > $dict_dir/ch-dict.txt 
 
@@ -125,7 +136,10 @@ wc -l $dict_dir/vocab-ch-*.txt
 
 
 # first make sure number of characters and pinyins 
-# are equal  
+# are equal
+# Also, a small addition to the previous version of the script is
+# that we use uconv to provide the pinyin transliteration f0r
+# characters that are not in the CEDICT (there is a few of such)
 cat $dict_dir/vocab-ch-oov.txt |\
   perl -e '
   use utf8;
@@ -163,9 +177,12 @@ cat $dict_dir/vocab-ch-oov.txt |\
     for ($i = 0; $i < $word_len; $i+= 1) {
       $ch=substr($line, $i, 1);
       if ( not exists $vocab{$ch} ) {
-        print STDERR "Could not translate OOV $line: $ch has unknow pinyin.\n";
-        next LINE;
-      }
+        print STDERR "Could not translate OOV $line: $ch has unknow pinyin -- ";
+        $pin = `echo "$ch" | uconv -f utf-8 -t utf-8 -x "Any-Latin;Latin-NumericPinyin;Any-Upper"`;
+        chomp $pin;
+        $vocab{$ch}{$pin} = +1;
+        print STDERR "UCONV gave: $ch -> $pin. Using that.\n";
+      } 
       @pinyins= keys $vocab{$ch};
       foreach $fragment(@variants) {
         foreach $p(@pinyins) {
@@ -188,11 +205,9 @@ cat $dict_dir/vocab-ch-oov.txt |\
 cat $dict_dir/lexicon-ch-oov.txt $dict_dir/lexicon-ch-iv.txt |\
   awk '{if (NF > 1) print $0;}' > $dict_dir/lexicon-ch.txt 
 
-
 cat $dict_dir/lexicon-ch.txt | \
   sed -e 's/U:/V/g' | \
   sed -e 's/ R\([0-9]\)/ ER\1/g'|\
-  sed -e 's/.* M2$//g' |\
   sed '/^\s*$/d' |\
   utils/pinyin_map.pl conf/pinyin2cmu > $dict_dir/lexicon-ch-cmu.txt
 

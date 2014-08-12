@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+use Data::Dumper;
+
 $num_args = $#ARGV + 1;
 if ($num_args != 1) {
   print "\nUsage: pinyin2phone.pl pinyin2phone\n";
@@ -55,19 +57,28 @@ while (<STDIN>) {
     elsif ($A[$i] =~ /^Z[A-Z0-9]+$/) {$initial =~ s:(Z)[A-Z0-9]+:$1:; $final =~ s:Z([A-Z0-9]+):$1:;}
     if ($initial ne $A[$i]) {
       $tone = $final;
-      $final =~ s:([A-Z]+)[0-9]:$1:;
-      $tone =~ s:[A-Z]+([0-9]):$1:;
-      if (!(exists $py2ph{$initial}) or !(exists $py2ph{$final})) { print STDERR "1: no entry found for ", $A[$i], " ", $initial, " ", $final;  exit;}
-      push(@entry, @{$py2ph{$initial}}); 
-      @tmp = @{$py2ph{$final}};
-      for($j = 0; $j < @tmp ; $j++) {$tmp[$j] = $tmp[$j].$tone;}
-      push(@entry, @tmp); 
+      $final =~ s:([A-Z]*)[0-9]:$1:;
+      $tone =~ s:[A-Z]*([0-9]):$1:;
+      if (!(exists $py2ph{$initial})) {
+        print STDERR "1a: no entry found for ", $A[$i], " ", $initial, " ", $final;  exit;
+      }
+      if ( !(exists $py2ph{$final}) and $final) {
+        print STDERR "1b: no entry found for ", $A[$i], " ", $initial, " ", $final, " tone=$tone \n";  exit;
+      }
+      if (! $final ) {
+        push(@entry, @{$py2ph{$initial}});
+      } else {
+        push(@entry, @{$py2ph{$initial}}); 
+        @tmp = @{$py2ph{$final}};
+        for($j = 0; $j < @tmp ; $j++) {$tmp[$j] = $tmp[$j].$tone;}
+        push(@entry, @tmp);
+      }
     }
     else {
       $tone = $A[$i];
       $A[$i] =~ s:([A-Z]+)[0-9]:$1:;   
       $tone =~ s:[A-Z]+([0-9]):$1:;
-      if (!(exists $py2ph{$A[$i]})) { print STDERR "2: no entry found for ", $A[$i];  exit;}
+      if (!(exists $py2ph{$A[$i]})) { print STDERR Dumper(\%py2ph); print STDERR "2: no entry found for ", $A[$i];  exit;}
       @tmp = @{$py2ph{$A[$i]}};
       for($j = 0; $j < @tmp ; $j++) {$tmp[$j] = $tmp[$j].$tone;}
       push(@entry, @tmp); 

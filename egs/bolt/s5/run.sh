@@ -13,16 +13,14 @@ set -o pipefail
 
 . ./path.sh
 . ./cmd.sh
+. ./conf.sh
 
-extra_decoding_opts=(--num-threads 4 --parallel-opts '-pe smp 4' )
-
-# The path to training corpora:
-CALLHOME_MA_CORPUS_A=/export/corpora/LDC/LDC96S34/CALLHOME/ 
-CALLHOME_MA_CORPUS_T=/export/corpora/LDC/LDC96T16/
-
-if false; then
 # Data Preparation, 
 local/callhome_data_prep.sh "$CALLHOME_MA_CORPUS_A" "$CALLHOME_MA_CORPUS_T" data/local || exit 1;
+local/hkust_data_prep.sh --corpus-id "hkust" "$HKUST_MA_CORPUS_A" "$HKUST_MA_CORPUS_T" data/local || exit 1;
+local/hub5_data_prep.sh --corpus-id "hub5" "$HUB5_MA_CORPUS_A" "$HUB5_MA_CORPUS_T" data/local || exit 1;
+local/rt04f_data_prep.sh --corpus-id "rt04f"  "$RT04F_MA_TRAIN_CORPUS_A" "$RT04F_MA_TRAIN_CORPUS_T" \
+  "$RT04F_MA_DEV_CORPUS_A" "$RT04F_MA_DEV_CORPUS_T" data/local || exit 1;
 
 # Lexicon Preparation,
 local/callhome_prepare_dict.sh || exit 1;
@@ -35,13 +33,12 @@ local/callhome_train_lms.sh
 
 # G compilation, check LG composition
 local/callhome_format_data.sh
-
 # Now make MFCC features.
 # mfccdir should be some place with a largish disk where you
 # want to store MFCC features.
 mfccdir=param
 for x in train dev; do 
-  steps/make_mfcc_pitch.sh --nj 32 --cmd "$train_cmd" data/$x exp/make_mfcc/$x $mfccdir || exit 1;
+  steps/make_mfcc_pitch.sh --nj $train_nj --cmd "$train_cmd" data/$x exp/make_mfcc/$x $mfccdir || exit 1;
   steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $mfccdir || exit 1;
 done
 # after this, the next command will remove the small number of utterances
@@ -49,9 +46,8 @@ done
 utils/fix_data_dir.sh data/train || exit 1;
 utils/fix_data_dir.sh data/dev || exit 1;
 
-fi
 
-steps/train_mono.sh --nj 16 \
+steps/train_mono.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/mono0a || exit 1;
 
 
@@ -61,13 +57,13 @@ utils/mkgraph.sh --mono data/lang_test exp/mono0a exp/mono0a/graph || exit 1
 # test, and afterwards averages the WERs into (in this case
 # exp/mono/decode/
 
-steps/decode.sh --config conf/decode.config --nj 16 "${extra_decoding_opts[@]}"\
+steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/mono0a/graph data/dev exp/mono0a/decode_dev
 
 
 # Get alignments from monophone system.
-steps/align_si.sh --nj 16 --cmd "$train_cmd"\
+steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/mono0a exp/mono_ali || exit 1;
 
 # train tri1 [first triphone pass]
@@ -77,13 +73,13 @@ steps/train_deltas.sh --cmd "$train_cmd"\
 # decode tri1
 utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph || exit 1;
 
-steps/decode.sh --config conf/decode.config --nj 16 "${extra_decoding_opts[@]}"\
+steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri1/graph data/dev exp/tri1/decode_dev
 
 
 # align tri1
-steps/align_si.sh --nj 16 --cmd "$train_cmd"\
+steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/tri1 exp/tri1_ali || exit 1;
 
 # train tri2 [delta+delta-deltas]
@@ -92,13 +88,13 @@ steps/train_deltas.sh --cmd "$train_cmd"\
 
 # decode tri2
 utils/mkgraph.sh data/lang_test exp/tri2 exp/tri2/graph
-steps/decode.sh --config conf/decode.config --nj 16 "${extra_decoding_opts[@]}"\
+steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri2/graph data/dev exp/tri2/decode_dev
 
 # train and decode tri2b [LDA+MLLT]
 
-steps/align_si.sh --nj 16 --cmd "$train_cmd"\
+steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/tri2 exp/tri2_ali || exit 1;
 
 # Train tri3a, which is LDA+MLLT, 
@@ -106,24 +102,24 @@ steps/train_lda_mllt.sh --cmd "$train_cmd"\
  2500 20000 data/train data/lang exp/tri2_ali exp/tri3a || exit 1;
 
 utils/mkgraph.sh data/lang_test exp/tri3a exp/tri3a/graph || exit 1;
-steps/decode.sh --nj 16 --config conf/decode.config "${extra_decoding_opts[@]}"\
+steps/decode.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri3a/graph data/dev exp/tri3a/decode_dev
 # From now, we start building a more serious system (with SAT), and we'll
 # do the alignment with fMLLR.
 
-steps/align_fmllr.sh --nj 16 --cmd "$train_cmd"\
+steps/align_fmllr.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/tri3a exp/tri3a_ali || exit 1;
 
 steps/train_sat.sh --cmd "$train_cmd"\
   2500 20000 data/train data/lang exp/tri3a_ali exp/tri4a || exit 1;
 
 utils/mkgraph.sh data/lang_test exp/tri4a exp/tri4a/graph
-steps/decode_fmllr.sh --nj 16 --config conf/decode.config "${extra_decoding_opts[@]}"\
+steps/decode_fmllr.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
   exp/tri4a/graph data/dev exp/tri4a/decode_dev
 
-steps/align_fmllr.sh --nj 16 --cmd "$train_cmd"\
+steps/align_fmllr.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/tri4a exp/tri4a_ali
 
 # Building a larger SAT system.
@@ -132,7 +128,7 @@ steps/train_sat.sh --cmd "$train_cmd"\
   3500 160000 data/train data/lang exp/tri4a_ali exp/tri5a || exit 1;
 
 utils/mkgraph.sh data/lang_test exp/tri5a exp/tri5a/graph || exit 1;
-steps/decode_fmllr_extra.sh --nj 16 --cmd "$decode_cmd" "${extra_decoding_opts[@]}"\
+steps/decode_fmllr_extra.sh --nj $decode_nj --cmd "$decode_cmd" "${extra_decoding_opts[@]}"\
    --config conf/decode.config  --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
    exp/tri5a/graph data/dev exp/tri5a/decode_dev || exit 1;
 
@@ -140,10 +136,10 @@ exit 0;
 
 # MMI starting from system in tri5a
 # Later we'll use all of it.
-steps/align_fmllr.sh --nj 16 --cmd "$train_cmd"\
+steps/align_fmllr.sh --nj $decode_nj --cmd "$train_cmd"\
   data/train data/lang exp/tri5a exp/tri5a_ali || exit 1;
 
-steps/make_denlats.sh --nj 16 --cmd "$train_cmd" "${extra_decoding_opts[@]}"\
+steps/make_denlats.sh --nj $train_nj --cmd "$train_cmd" "${extra_decoding_opts[@]}"\
   --config conf/decode.config --transform-dir exp/tri5a_ali \
   data/train data/lang exp/tri5a exp/tri5a_denlats || exit 1;
 
@@ -151,7 +147,7 @@ steps/train_mmi.sh --drop-frames true --num-iters 4 --boost 0.1 --cmd "$train_cm
   data/train data/lang exp/tri5a_ali exp/tri5a_denlats exp/tri5a_mmi_b0.1 || exit 1;
 
 for iter in `seq 1 4` ; do
-  steps/decode.sh --iter $iter --nj 16 --cmd "$train_cmd" "${extra_decoding_opts[@]}" \
+  steps/decode.sh --iter $iter --nj $decode_nj --cmd "$train_cmd" "${extra_decoding_opts[@]}" \
     --transform-dir exp/tri5a/decode_dev  --config conf/decode.config \
     exp/tri5a/graph data/dev exp/tri5a_mmi_b0.1/decode_dev.it$iter  || exit 1 ; 
 done
@@ -161,7 +157,7 @@ steps/train_mpe.sh --num-iters 4 --boost 0.1  --cmd "$train_cmd" \
   data/train data/lang exp/tri5a_ali exp/tri5a_denlats exp/tri5a_mpe_b0.1 || exit 1;
 
 for iter in `seq 1 4` ; do
-  steps/decode.sh --iter $iter --nj 16 --cmd "$train_cmd" "${extra_decoding_opts[@]}" \
+  steps/decode.sh --iter $iter --nj $decode_nj --cmd "$train_cmd" "${extra_decoding_opts[@]}" \
     --transform-dir exp/tri5a/decode_dev  --config conf/decode.config \
     exp/tri5a/graph data/dev exp/tri5a_mpe_b0.1/decode_dev.it$iter  || exit 1 ; 
 done
