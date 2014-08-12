@@ -1,6 +1,5 @@
 #!/usr/bin/perl -w
 
-use Data::Dumper;
 
 $num_args = $#ARGV + 1;
 if ($num_args != 1) {
@@ -78,7 +77,7 @@ while (<STDIN>) {
       $tone = $A[$i];
       $A[$i] =~ s:([A-Z]+)[0-9]:$1:;   
       $tone =~ s:[A-Z]+([0-9]):$1:;
-      if (!(exists $py2ph{$A[$i]})) { print STDERR Dumper(\%py2ph); print STDERR "2: no entry found for ", $A[$i];  exit;}
+      if (!(exists $py2ph{$A[$i]})) { print STDERR "2: no entry found for ", $A[$i];  exit;}
       @tmp = @{$py2ph{$A[$i]}};
       for($j = 0; $j < @tmp ; $j++) {$tmp[$j] = $tmp[$j].$tone;}
       push(@entry, @tmp); 
