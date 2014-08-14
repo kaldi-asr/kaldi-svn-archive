@@ -9,162 +9,126 @@
 
 stage=0
 
-export LC_ALL=C
+echo $0 $@
+. ./utils/parse_options.sh
 
+set -e
+set -o pipefail
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 3 ]; then
    echo "Arguments should be the location of the Callhome Egyptian Arabic Speech and Transcript Directories, se
 e ../run.sh for example."
    exit 1;
 fi
 
-cdir=`pwd`
-dir=`pwd`/data/local/data
-local=`pwd`/local
-utils=`pwd`/utils
-tmpdir=`pwd`/data/local/tmp
 
-mkdir -p $dir
-mkdir -p $tmpdir
+TEXT_DATA=$2
+AUDIO_DATA=$1
+OUTPUT=$3
+
+mkdir -p $OUTPUT
 
 . ./path.sh || exit 1; # Needed for KALDI_ROOT
-export PATH=$PATH:$KALDI_ROOT/tools/irstlm/bin
-sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
+
+sph2pipe=`which sph2pipe` || sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
 if [ ! -x $sph2pipe ]; then
    echo "Could not find (or execute) the sph2pipe program at $sph2pipe";
    exit 1;
 fi
-cd $dir
+sph2pipe=`readlink -f $sph2pipe`
 
-# Make directory of links to the ECA data.  This relies on the command
-# line arguments being absolute pathnames.
-rm -r links/ 2>/dev/null
-mkdir links/
-ln -s $* links
 
 # Basic spot checks to see if we got the data that we needed
-if [ ! -d links/LDC97S45 -o ! -d links/LDC97T19 ];
-then
-        echo "The speech and the data directories need to be named LDC97S45 and LDC97T19 respecti
-vely"
+if [ ! -d $TEXT_DATA ] || [ ! -d $AUDIO_DATA ]; then
+        echo "Either $TEXT_DATA or $AUDIO_DATA data directories do not exist (or are not directories)"
         exit 1;
 fi
 
-if [ ! -d links/LDC97S45/CALLHOME/ARABIC/DEVTEST -o ! -d links/LDC97S45/CALLHOME/ARABIC/EVLTEST -o ! -d links/LDC97S45/CALLHOME/ARABIC/TRAIN ];
-then
-        echo "Dev, Eval or Train directories missing or not properly organised within the speech data dir"
-        exit 1;
-fi
+train_dir=$OUTPUT/train.callhome
+evltest_dir=$OUTPUT/evltest.callhome
+devtest_dir=$OUTPUT/devtest.callhome
 
-#Check the transcripts directories as well to see if they exist
-if [ ! -d links/LDC97T19/callhome_arabic_trans_970711/transcrp/devtest -o ! -d links/LDC97T19/callhome_arabic_trans_970711/transcrp/evaltest -o ! -d links/LDC97T19/callhome_arabic_trans_970711/transcrp/train ]
-then
-        echo "Transcript directories missing or not properly organised"
-        exit 1;
-fi
+if [ "$stage" -le 0 ] ; then
+  for dataset in train devtest ; do
+    eval datadir=\$${dataset}_dir
+    
+    echo "datadir=$datadir"
+    mkdir -p $datadir
+    find -L $AUDIO_DATA -ipath "*/$dataset/*" -iname '*.SPH' > $datadir/sph.flist
+    find -L $TEXT_DATA -ipath "*/transcrp/$dataset/script/*" -iname '*.scr' > $datadir/txt.flist
+    
+    eval fcount_${dataset}=`cat $datadir/sph.flist| wc -l`
+    eval fcount_t_${dataset}=`cat $datadir/txt.flist| wc -l`
 
-speech_train=$dir/links/LDC97S45/CALLHOME/ARABIC/TRAIN
-speech_dev=$dir/links/LDC97S45/CALLHOME/ARABIC/DEVTEST
-speech_test=$dir/links/LDC97S45/CALLHOME/ARABIC/EVLTEST
-transcripts_train=$dir/links/LDC97T19/callhome_arabic_trans_970711/transcrp/train/roman 
-transcripts_dev=$dir/links/LDC97T19/callhome_arabic_trans_970711/transcrp/devtest/roman
-transcripts_test=$dir/links/LDC97T19/callhome_arabic_trans_970711/transcrp/evaltest/roman
-                                                                                   
-fcount_train=`find ${speech_train} -iname '*.SPH' | wc -l` 
-fcount_dev=`find ${speech_dev} -iname '*.SPH' | wc -l`                                             
-fcount_test=`find ${speech_test} -iname '*.SPH' | wc -l`                                             
-fcount_t_train=`find ${transcripts_train} -iname '*.txt' | wc -l` 
-fcount_t_dev=`find ${transcripts_dev} -iname '*.txt' | wc -l` 
-fcount_t_test=`find ${transcripts_test} -iname '*.txt' | wc -l` 
+    eval echo "\\\$fcount_${dataset}=\$fcount_${dataset}"
+    eval echo "\\\$fcount_t_${dataset}=\$fcount_t_${dataset}"
+  done
+  for datadir in $evltest_dir ; do
+    #This is because LDC has a poor QA and they called the same directory 
+    #evaltest (for text data) and evltest (for audio data)
+    echo "datadir=$datadir"
+    mkdir -p $datadir
+    find -L $AUDIO_DATA -ipath "*/evltest/*" -iname '*.SPH' > $datadir/sph.flist
+    find -L $TEXT_DATA -ipath "*/transcrp/evaltest/script/*" -iname '*.scr' > $datadir/txt.flist
+    
+    fcount_evltest=`cat $datadir/sph.flist| wc -l`
+    fcount_t_evltest=`cat $datadir/txt.flist| wc -l`
 
-#Now check if we got all the files that we needed
-if [ $fcount_train != 80 -o $fcount_dev != 20 -o $fcount_test != 20 -o $fcount_t_train != 80 -o $fcount_t_dev != 20 -o $fcount_t_test != 20 ];                 
-then                                                                               
-        echo "Incorrect number of files in the data directories"                   
-        echo "The paritions should contain 80/20/20 files"
-        exit 1;                                                                    
-fi   
+    echo "\$fcount_evltest=$fcount_evltest"
+    echo "\$fcount_t_evltest=$fcount_t_evltest"
+  done
 
-if [ $stage -le 0 ]; then
-	#Gather all the speech files together to create a file list
-	(
-	    find $speech_train -iname '*.sph';
-	    find $speech_dev -iname '*.sph';
-	    find $speech_test -iname '*.sph';
-	)  > $tmpdir/callhome_train_sph.flist
-
-	#Get all the transcripts in one place
-
-	(                                                                              
-    find $transcripts_train -iname '*.txt';
-    find $transcripts_dev -iname '*.txt';
-    find $transcripts_test -iname '*.txt';
-    )  > $tmpdir/callhome_train_transcripts.flist 
-
-fi
-
+  #Now check if we got all the files that we needed
+  if [ "$fcount_train" -ne 80   ] || [ "$fcount_t_train" -ne 80   ] || \
+     [ "$fcount_devtest" -ne 20 ] || [ "$fcount_t_devtest" -ne 20 ] || \
+     [ "$fcount_evltest" -ne 20 ] || [ "$fcount_t_evltest" -ne 20 ]; then                                                                               
+          echo "Incorrect number of files in the data directories"
+          echo "The paritions should contain 80/20/20 files"
+          echo "Current counts: "
+          echo "  TRAIN  : audio=$fcount_train text=$fcount_t_train"
+          echo "  DEVTEST: audio=$fcount_devtest text=$fcount_t_devtest"
+          echo "  EVLTEST: audio=$fcount_evltest text=$fcount_t_evltest"
+          exit 1;                                                                    
+  fi   
+fi 
 if [ $stage -le 1 ]; then
-	$local/callhome_make_trans.pl $tmpdir
-	mkdir -p $dir/train_all
-	mv $tmpdir/reco2file_and_channel $dir/train_all/
+  for dataset in train devtest evltest ; do
+    eval datadir=\$${dataset}_dir
+    
+    cat $datadir/txt.flist |\
+  	perl local/callhome_data_convert.pl $datadir/sph.flist $datadir
+    uconv -f utf-8 -t utf-8 -x "Arabic-Latin" $datadir/transcripts.txt > $datadir/transcripts.transliterated.txt
+  done
 fi
 
-if [ $stage -le 2 ]; then                                                        
-  sort $tmpdir/text.1 | grep -v '((' | \
-  awk '{if (NF > 1){ print; }}' | \
-  sed 's:<\s*[/]*\s*\s*for[ei][ei]g[nh]\s*\w*>::g' | \
-  sed 's:<lname>\([^<]*\)<\/lname>:\1:g' | \
-  sed 's:<lname[\/]*>::g' | \
-  sed 's:<laugh>[^<]*<\/laugh>:[laughter]:g' | \
-  sed 's:<\s*cough[\/]*>:[noise]:g' | \
-  sed 's:<sneeze[\/]*>:[noise]:g' | \
-  sed 's:<breath[\/]*>:[noise]:g' | \
-  sed 's:<lipsmack[\/]*>:[noise]:g' | \
-  sed 's:<background>[^<]*<\/background>:[noise]:g' | \
-  sed -r 's:<[/]?background[/]?>:[noise]:g' | \
-  #One more time to take care of nested stuff
-  sed 's:<laugh>[^<]*<\/laugh>:[laughter]:g' | \
-  sed -r 's:<[/]?laugh[/]?>:[laughter]:g' | \
-  #now handle the exceptions, find a cleaner way to do this?
-  sed 's:<foreign langenglish::g' | \
-  sed 's:</foreign::g' | \
-  sed -r 's:<[/]?foreing\s*\w*>::g' | \
-  sed 's:</b::g' | \
-  sed 's:<foreign langengullís>::g' | \
-  sed 's:foreign>::g' | \
-  sed 's:>::g' | \
-  #How do you handle numbers?
-  grep -v '()' | \
-  #Now go after the non-printable characters
-  sed -r 's:¿::g' > $tmpdir/text.2
-
-  cp $tmpdir/text.2 $dir/train_all/text
-
-
-  #Create segments file and utt2spk file
-  ! cat $dir/train_all/text | perl -ane 'm:([^-]+)-([AB])-(\S+): || die "Bad line $_;"; print "$1-$2-$3 $1-$2\n"; ' > $dir/train_all/utt2spk \
-  && echo "Error producing utt2spk file" && exit 1;
-
-  # Remove utterances that have the same start and end time. Corresponding text entries will be removed when use 
-  # fix_data_dir.sh and validate_data_dir.sh later
-  cat $dir/train_all/text | perl -ane 'm:((\S+-[AB])-(\d+)-(\d+))\s: || die; $utt = $1; $reco = $2;
- $s = sprintf("%.2f", 0.01*$3); $e = sprintf("%.2f", 0.01*$4); print "$utt $reco $s $e\n"; ' | \
-   awk '{if (!(NF != 4 || ($4 <= $3 && $4 != -1))) {print $0}}' >$dir/train_all/segments
-
-  $utils/utt2spk_to_spk2utt.pl <$dir/train_all/utt2spk > $dir/train_all/spk2utt
-fi
-
-if [ $stage -le 3 ]; then
-  cat $tmpdir/callhome_train_sph.flist | perl -ane 'm:/([^/]+)\.SPH$: || die "bad line $_; ";  print lc($1)," $_"; ' > $tmpdir/sph.scp
-  cat $tmpdir/sph.scp | awk -v sph2pipe=$sph2pipe '{printf("%s-A %s -f wav -p -c 1 %s |\n", $1, sph2pipe, $2); printf("%s-B %s -f wav -p -c 2 %s |\n", $1, sph2pipe, $2);}' | \
-  sort -k1,1 -u  > $dir/train_all/wav.scp || exit 1;
-fi
-
-if [ $stage -le 4 ]; then
-  # Build the speaker to gender map, the temporary file with the speaker in gender information is already created by fsp_make_trans.pl.
-  cd $cdir
-  #TODO: needs to be rewritten
-  $local/callhome_make_spk2gender > $dir/train_all/spk2gender
+#icu_transform=( -x "Arabic-Latin;Any-Upper")
+#icu_transform=( -x "Arabic-Latin")
+icu_transform=( )
+if [ $stage -le 2 ]; then
+  for dataset in train devtest evltest ; do
+    eval datadir=\$${dataset}_dir
+    
+    cat $datadir/transcripts.txt |\
+      perl -e 'use utf8; 
+               use charnames ":full";
+               binmode STDIN, "utf8";
+               binmode STDOUT, "utf8";
+               while (<>) {
+                s/\N{ARABIC QUESTION MARK}/ ? /g;
+                s/\N{ARABIC SEMICOLON}/;/g;
+                s/\N{ARABIC COMMA}/ , /g;
+                print;
+               }
+              ' | \
+      grep -v -T "//she just hanged ((the phone))//" |\
+      #grep "AR_4849-B-052026-052517" |\
+      sed  's/((\s\s*))/(())/g' |\
+      perl -pe 's/\[\[.*?\]\]//g;' |\
+      uconv -f utf-8 -t utf-8 "${icu_transform[@]}" |\
+      local/callhome_normalize.pl | \
+      perl -ane 'print if @F > 1; ' |\
+      sed 's/\s*$//g' > $datadir/text
+  done
 fi
 
 echo "CALLHOME ECA Data preparation succeeded."

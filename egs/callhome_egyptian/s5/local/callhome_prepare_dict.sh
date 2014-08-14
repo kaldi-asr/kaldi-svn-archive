@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-. path.sh
+stage=0
+. utils/parse_options.sh
+
+[ -f path.sh ]  && . ./path.sh
 
 #First get the list of unique words from our text file
 if [ $# -lt 1 ]; then
@@ -8,16 +11,18 @@ if [ $# -lt 1 ]; then
   exit 1;
 fi
 
-stage=0
-
-dir=`pwd`/data/local/dict
-datadir=`pwd`/data/local/data/train_all
-mkdir -p $dir
-local=`pwd`/local
-utils=`pwd`/utils
-tmpdir=`pwd`/data/local/tmp
 lexicon=$1
+sourcedir=data/local/train.callhome
+dictdir=data/local/dict
+mkdir -p $dictdir
 
+if [ ! -f $lexicon ] ; then
+  lexicon=`find -L $lexicon -iname "ar_lex.v07"`
+  [ ! -f $lexicon ] && "Could not locate the lexicon (file ar_lex.v07 not found)" && exit 1
+fi
+
+cut -f 2- -d ' ' $sourcedir/text | sed 's/ /\n/g' | sort -u > $dictdir/words.txt
+exit 1
 cat local/ldc_arabic_phones.txt | grep -e "^$" -v | awk '{print $1}' > $tmpdir/phones
 
 if [ ! -d "$lexicon/callhome_arabic_lexicon_991012" ]; then
