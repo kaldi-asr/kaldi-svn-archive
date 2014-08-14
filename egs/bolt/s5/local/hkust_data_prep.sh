@@ -98,11 +98,19 @@ fi
 # TODO: The text filtering should be improved
 echo -e "\n----Preparing audio training transcripts in $train_dir"
 cat $train_dir/transcripts.txt |\
+  sed -e 's/\([.,!?]\)/ \1 /g' |\
   sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-  sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+  sed -e 's/(( *))/(())/g' |\
+  sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
+  sed -e 's:<foreign language="[a-z][a-z]*"> *</foreign>:(()):gi' |\
+  sed -e 's:<foreign language="[a-z][a-z]*"> *(()) *</foreign>:(()):gi' |\
+  sed -e 's:<foreign language="English"> *\([^<][^<]*\) *</foreign>: \1 :gi' |\
+  sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ]*\) *</foreign>:<\1_\2>:gi' |\
+  perl -pe 's:<noise>(.*?)</noise>:\1:i' |\
+  tee $train_dir/transcripts_filtered.txt |\
   sed '/^\s*$/d' |\
-  uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
   local/callhome_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
@@ -110,13 +118,22 @@ cat $train_dir/transcripts.txt |\
 local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $train_dir
 utils/fix_data_dir.sh $train_dir
 
+
 for dataset in $devtest_dir ; do
   echo -e "\n----Preparing audio (reference) transcripts in $dataset"
   cat $dataset/transcripts.txt |\
+    sed -e 's/\([.,!?]\)/ \1 /g' |\
     sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
     sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-    sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-    uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+    sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
+    sed -e 's/(( *))/(())/g' |\
+    sed -e 's:<foreign language="[a-z][a-z]*"> *</foreign>:(()):gi' |\
+    sed -e 's:<foreign language="[a-z][a-z]*"> *(()) *</foreign>:(()):gi' |\
+    sed -e 's:<foreign language="English"> *\([^<][^<]*\) *</foreign>: \1 :gi' |\
+    sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ]*\) *</foreign>:<\1_\2>:gi' |\
+    perl -pe 's:<noise>(.*?)</noise>:\1:i' |\
+    tee $dataset/transcripts_filtered.txt |\
+    uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
     local/callhome_normalize.pl |\
     python local/callhome_mmseg_segment.py |\
     awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text

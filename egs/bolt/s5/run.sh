@@ -46,9 +46,12 @@ done
 utils/fix_data_dir.sh data/train || exit 1;
 utils/fix_data_dir.sh data/dev || exit 1;
 
+#Subset the train dir as the first stages do not 
+#really need some huge amount of training data
+local/subset_train_dirs.sh
 
-steps/train_mono.sh --nj $train_nj --cmd "$train_cmd"\
-  data/train data/lang exp/mono0a || exit 1;
+steps/train_mono.sh --nj 4 --cmd "$train_cmd"\
+  data/train_sub1 data/lang exp/mono0a || exit 1;
 
 
 # Monophone decoding
@@ -68,7 +71,7 @@ steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
 
 # train tri1 [first triphone pass]
 steps/train_deltas.sh --cmd "$train_cmd"\
- 2500 20000 data/train data/lang exp/mono_ali exp/tri1 || exit 1;
+ 2500 20000 data/train_sub2 data/lang exp/mono_ali exp/tri1 || exit 1;
 
 # decode tri1
 utils/mkgraph.sh data/lang_test exp/tri1 exp/tri1/graph || exit 1;
@@ -84,7 +87,7 @@ steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
 
 # train tri2 [delta+delta-deltas]
 steps/train_deltas.sh --cmd "$train_cmd"\
- 2500 20000 data/train data/lang exp/tri1_ali exp/tri2 || exit 1;
+ 2500 20000 data/train_sub3 data/lang exp/tri1_ali exp/tri2 || exit 1;
 
 # decode tri2
 utils/mkgraph.sh data/lang_test exp/tri2 exp/tri2/graph

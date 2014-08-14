@@ -85,11 +85,18 @@ fi
 # TODO: The text filtering should be improved
 echo -e "\n----Preparing audio training transcripts in $train_dir"
 cat $train_dir/transcripts.txt |\
+  sed -e 's/Englishl/English/gi' |\
+  perl -pe 's/\[distortion.\](.*?)\[.distortion\]/\1/gi' |\
+  perl -pe 's/\[background.\](.*?)\[.background\]/\1/gi' |\
+  perl -pe 's/\[noise.\](.*?)\[.noise\]/\1/gi' |\
+  perl -pe 's/\[static.\](.*?)\[.static\]/\1/gi' |\
+  sed -e 's/\([.,!?]\)/ \1 /g' |\
   sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-  sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+  sed -e 's/(( *))/(())/g' |\
+  sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
   sed '/^\s*$/d' |\
-  uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
   local/callhome_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text

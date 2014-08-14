@@ -94,10 +94,11 @@ echo -e "\n----Preparing audio training transcripts in $train_dir"
 cat $train_dir/transcripts.txt |\
   sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-  sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+  sed -e 's/((_))/(())/g' |\
+  sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
   sed '/^\s*$/d' |\
-  uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
-  local/callhome_normalize.pl |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper" | tee $train_dir/transcripts_filtered.txt |\
+  local/callhome_normalize.pl | tee $train_dir/transcripts_normalized.txt |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
 
@@ -109,7 +110,8 @@ for dataset in $devtest_dir $evltest_dir; do
   cat $dataset/transcripts.txt |\
     sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
     sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-    sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+    sed -e 's/((_)))/(())/g' |\
+    sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
     uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
     local/callhome_normalize.pl |\
     python local/callhome_mmseg_segment.py |\

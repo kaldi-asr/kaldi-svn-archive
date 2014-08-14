@@ -35,7 +35,6 @@ DESTINATION=$5
 train_dir=$DESTINATION/train.${corpus_id}
 devtest_dir=$DESTINATION/devtest.${corpus_id}
 
-
 mkdir -p $train_dir
 mkdir -p $devtest_dir
 
@@ -96,15 +95,24 @@ if [ ! -d tools/mmseg-1.3.0/lib/python${pyver}/site-packages ]; then
     exit 1
   fi
 fi
-
+#  sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ]*\) *\([^< ][^< ]*\) *</foreign>:<\1_\2_\3>:gi' |\
+#  sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ]*\) *\([^< ][^< ]*\) *\([^< ][^< ]*\) *</foreign>:<\1_\2_\3\_4>:gi' |\
+#  sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ] *\) *</foreign>:<\1_\2>:gi' |\
 # TODO: The text filtering should be improved
 echo -e "\n----Preparing audio training transcripts in $train_dir"
 cat $train_dir/transcripts.txt |\
+  sed -e 's/\([.,!?]\)/ \1 /g' |\
   sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
   sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-  sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
+  sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
+  sed -e 's:<foreign language="[a-z][a-z]*"> *</foreign>:(()):gi' |\
+  sed -e 's:<foreign language="[a-z][a-z]*"> *(()) *</foreign>:(()):gi' |\
+  sed -e 's:<foreign language="English"> *\([^<][^<]*\) *</foreign>: \1 :gi' |\
+  sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ]*\) *</foreign>:<\1_\2>:gi' |\
+  perl -pe 's:<noise>(.*?)</noise>:\1:i' |\
+  tee $train_dir/transcripts_filtered.txt |\
   sed '/^\s*$/d' |\
-  uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+  uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
   local/callhome_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $train_dir/text
@@ -115,10 +123,15 @@ utils/fix_data_dir.sh $train_dir
 for dataset in $devtest_dir ; do
   echo -e "\n----Preparing audio (reference) transcripts in $dataset"
   cat $dataset/transcripts.txt |\
+    sed -e 's/\([.,!?]\)/ \1 /g' |\
     sed -e 's/\[[a-zA-Z]*_noise/[noise/g' |\
     sed -e 's/{[a-zA-Z]*_noise/{noise/g' |\
-    sed -e 's/((\([^)]\{0,\}\)))/\1/g' |\
-    uconv -f utf-8 -t utf-8 -x "Any-Upper()" |\
+    sed -e 's/((\([^)]\{1\}\)))/\1/g' |\
+    sed -e 's:<foreign language="[a-z][a-z]*"> *</foreign>:(()):gi' |\
+    sed -e 's:<foreign language="[a-z][a-z]*"> *(()) *</foreign>:(()):gi' |\
+    sed -e 's:<foreign language="English"> *\([^<][^<]*\) *</foreign>: \1 :gi' |\
+    sed -e 's:<foreign language="\([a-z0-9][a-z0-9]*\)"> *\([^< ][^< ]*\) *</foreign>:<\1_\2>:gi' |\
+    uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
     local/callhome_normalize.pl |\
     python local/callhome_mmseg_segment.py |\
     awk '{if (NF > 1) print $0;}' | sort -u > $dataset/text

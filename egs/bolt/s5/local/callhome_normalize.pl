@@ -29,7 +29,7 @@ use Data::Dumper;
 %unint=();
 %langs=();
 
-while (<STDIN>) {
+LINE: while (<STDIN>) {
   $line=$_;
   @A = split(" ", $line);
   print "$A[0] ";
@@ -39,7 +39,7 @@ while (<STDIN>) {
     $a = $A[$n]; 
     $n+=1;
 
-    if ( grep { $_ =~ m/\Q$a/i } @vocalized_noise ) {
+    if ( grep { $_ =~ m/^\Q$a/i } @vocalized_noise ) {
       print "<V-NOISE> ";
       next;
     }
@@ -63,6 +63,13 @@ while (<STDIN>) {
       #                    examples: {laugh} {cough} {sneeze} {breath}
       $noises{$a} += 1;
       print "<V-NOISE> ";
+      next;
+    }
+
+    if ( $a =~/<NOISE>/i ) {
+      #This is for the RT04F speech corpus
+      $noises{$a} += 1;
+      print "<NOISE> ";
       next;
     }
 
@@ -147,8 +154,21 @@ while (<STDIN>) {
       next;
     }
     
+    if (  ( $a =~ /\<English/i ) && ( $a !~ /\<English_.*\>/i) ) {
+      while (($a !~ /\<English_.*\>/i) && ($n < @A )) {
+        $a = $a . "_" . $A[$n]; 
+        $n += 1;
+      }
+      if ( $a !~ /\<English_.*\>/i ) {
+        print STDERR "Could not parse line ${line}Reparsed: $a\n";
+        next LINE;
+      }
+    }
+
     if ( $a =~ /\<English_.*\>/i ) {
+      
       $a=~ s/\<English_(.*)\>/$1/i;
+      #print "<ENGLISH$a>";
       @words=split("_",uc($a));
       $i=0;
       while ($i < @words) {
@@ -202,9 +222,10 @@ while (<STDIN>) {
       next;
     }
 
-    if ( $a =~ /\<?.*\>/ ) {
+    if ( $a =~ /\<\?.*\>/ ) {
       #Unknown language, no transcription
       print "<UNK> ";
+      next;
 
     }
     if ( $a =~ /\<.*\>/ ) {
