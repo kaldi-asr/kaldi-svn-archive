@@ -246,7 +246,11 @@ def write_kaldiqset(logger, defqset, kaldiqsetfile, cexheader, lookuptables):
                         errors = []
                         for j in range(len(vals)):
                             if not lookuptables[table].has_key(vals[j]):
-                                errors.append(vals[j])
+                                # check silence phone ('0' in kaldi always) map from 'sil' and 'pau'
+                                if vals[j] == 'sil' or vals[j] == 'pau':
+                                    newvals.append('0')
+                                else:
+                                    errors.append(vals[j])
                             else:
                                 newvals.append(str(lookuptables[table][vals[j]]))
                         vals = newvals
@@ -327,7 +331,7 @@ def main():
     output_filename = os.path.join(outdir, 'output', 'cex.xml')
     cmd = "idlaktxp --pretty --tpdb=%s %s - | " % (tpdbdir, os.path.join(aligndir, "text.xml")) + \
         "idlakcex --pretty --tpdb=%s - %s" % (tpdbdir, output_filename)
-    #os.system(cmd)
+    os.system(cmd)
     # read in the cex xml output and generate kaldi files for tree building
     dom = parse(output_filename)
     cexs, output_contexts, freqtables, cexheader = output_kaldicex(build_conf.logger, dom, outdir)
@@ -341,7 +345,7 @@ def main():
         output_filename = os.path.join(outdir, 'output', 'cex_hts.xml')
         cmd = "idlaktxp --pretty --tpdb=%s %s - | " % (tpdbdir, os.path.join(aligndir, "text.xml")) + \
             "idlakcex --pretty --cex-arch=hts --tpdb=%s - %s" % (tpdbdir, output_filename)
-        #os.system(cmd)
+        os.system(cmd)
         dom = parse(output_filename)
         filecontexts, cexheader = output_htscex(build_conf.logger, dom, outdir, phon_labs)
         htsqset = os.path.join(outdir, 'output', 'questions-kaldi-%s-%s.hed' % (build_conf.lang, build_conf.acc))
