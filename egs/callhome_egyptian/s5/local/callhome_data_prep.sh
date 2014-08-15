@@ -109,6 +109,9 @@ if [ $stage -le 2 ]; then
     eval datadir=\$${dataset}_dir
     
     cat $datadir/transcripts.txt |\
+      #First, we remap the arabic punctuation marks to normal latin ones
+      #I'm removing the sentence //she just...// because I dont really know if thats comment or what is it
+      #Lastly, map (( )) to (()) to simplify parsing and remove [[.*]] comments
       perl -e 'use utf8; 
                use charnames ":full";
                binmode STDIN, "utf8";
@@ -121,6 +124,7 @@ if [ $stage -le 2 ]; then
                }
               ' | \
       grep -v -T "//she just hanged ((the phone))//" |\
+      #grep "AR_5627-B-078221-078404" |\
       #grep "AR_4849-B-052026-052517" |\
       sed  's/((\s\s*))/(())/g' |\
       perl -pe 's/\[\[.*?\]\]//g;' |\

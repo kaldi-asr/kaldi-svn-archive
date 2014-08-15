@@ -105,7 +105,10 @@ LINE: while (<STDIN>) {
       $unint{$tmp} += 1;
       next;
     }
-    if (( $a =~/^-[^-]*$/) || ( $a =~/^[^-]+-$/) || ($a =~ /\*.*\*$/ ) ) {
+    if (( $a =~/^-[^-]*$/)   || 
+        ( $a =~/^[^-]+-$/)   || 
+        ( $a =~/^[^-]+.*-$/) || 
+        ($a =~ /\*.*\*$/ ) ) {
       #text-   partial word
       #        example: absolu-
       #**text**    idiosyncratic word, not in common use, not necessarily 
@@ -200,14 +203,19 @@ LINE: while (<STDIN>) {
           while (( $word !~ /.*\)\)/ )) {
             #print "<UNK> ";
             $word =~ s/\(\(//g;
-            print "$word ";
+            #print "$word ";
+            $word =~ /^.+-$/ ? print "<UNK> " : print "$word ";
             $word=$words[$i];
             $i+=1;
           }
           #print "<UNK> ";
           $word =~ s/^\(\(//g;
           $word =~ s/\)\)$//g;
-          print "$word " if $word;
+          
+          if ( $word ) {
+            $word =~ /^.+-$/ ? print "<UNK> " : print "$word ";
+          }
+          #print "$word " if $word;
           next; # if $i < @words;
 
         }
@@ -219,6 +227,7 @@ LINE: while (<STDIN>) {
           #            included in lexicon
           #            Example: **poodle-ish**
 
+          #print STDERR "$word\n";
           print "<UNK> ";
           next;
         }
