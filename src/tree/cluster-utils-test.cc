@@ -24,16 +24,16 @@
 namespace kaldi {
 static void TestClusterUtils() {  // just some very basic tests of the GaussClusterable class.
   BaseFloat varFloor = 0.1;
-  size_t dim = 1 + rand() % 10;
-  size_t nGauss = 1 + rand() % 10;
+  size_t dim = 1 + Rand() % 10;
+  size_t nGauss = 1 + Rand() % 10;
   std::vector< GaussClusterable * > v(nGauss);
   for (size_t i = 0;i < nGauss;i++) {
     v[i] = new GaussClusterable(dim, varFloor);
   }
   for (size_t i = 0;i < nGauss;i++) {
-    size_t nPoints = 1 + rand() % 30;
+    size_t nPoints = 1 + Rand() % 30;
     for (size_t j = 0;j < nPoints;j++) {
-      BaseFloat post = 0.5 *(rand()%3);
+      BaseFloat post = 0.5 *(Rand()%3);
       Vector<BaseFloat> vec(dim);
       for (size_t k = 0;k < dim;k++) vec(k) = RandGauss();
       v[i]->AddStats(vec, post);
@@ -44,7 +44,7 @@ static void TestClusterUtils() {  // just some very basic tests of the GaussClus
     Clusterable *tmp = v[i]->Copy();
     tmp->Add( *(v[i+1]));
     BaseFloat like_after = tmp->Objf() / tmp->Normalizer();
-    KALDI_LOG << "Like_before = " << like_before <<", after = "<<like_after <<" over "<<tmp->Normalizer()<<" frames.\n";
+    KALDI_LOG << "Like_before = " << like_before <<", after = "<<like_after <<" over "<<tmp->Normalizer()<<" frames.";
     if (tmp->Normalizer() > 0.1)
       KALDI_ASSERT(like_after <= like_before);  // should get worse after combining stats.
     delete tmp;
@@ -54,8 +54,8 @@ static void TestClusterUtils() {  // just some very basic tests of the GaussClus
 }
 
 static void TestClusterUtilsVector() {  // just some very basic tests of the VectorClusterable class.
-  size_t dim = 2 + rand() % 10;
-  size_t num_vectors = 1 + rand() % 10;
+  size_t dim = 2 + Rand() % 10;
+  size_t num_vectors = 1 + Rand() % 10;
   std::vector<VectorClusterable*> v(num_vectors);
   for (size_t i = 0;i < num_vectors;i++) {
     BaseFloat weight = RandUniform();
@@ -82,7 +82,7 @@ static void TestClusterUtilsVector() {  // just some very basic tests of the Vec
     Clusterable *tmp = v[i]->Copy();
     tmp->Add( *(v[i+1]));
     BaseFloat like_after = tmp->Objf() / tmp->Normalizer();
-    KALDI_LOG << "Like_before = " << like_before <<", after = "<<like_after <<" over "<<tmp->Normalizer()<<" frames.\n";
+    KALDI_LOG << "Like_before = " << like_before <<", after = "<<like_after <<" over "<<tmp->Normalizer()<<" frames.";
     if (tmp->Normalizer() > 0.1)
       KALDI_ASSERT(like_after <= like_before);  // should get worse after combining stats.
     delete tmp;
@@ -181,20 +181,20 @@ static void TestAddToClusters() {
 
 static void TestAddToClustersOptimized() {
   for (size_t p = 0;p < 100;p++) {
-    size_t n_stats = rand() % 5;
+    size_t n_stats = Rand() % 5;
     n_stats = n_stats * n_stats;  // more interestingly distributed.
     std::vector<Clusterable*> stats(n_stats);
     for (size_t i = 0;i < n_stats;i++) {
-      if (rand() % 5 < 4) {
+      if (Rand() % 5 < 4) {
         ScalarClusterable *ptr = new ScalarClusterable(RandGauss());
-        if (rand() % 2 == 0) ptr->Add(*ptr);  // make count equal 2.  for more randomness.
+        if (Rand() % 2 == 0) ptr->Add(*ptr);  // make count equal 2.  for more randomness.
         stats[i] = ptr;
       }  else stats[i] = NULL;  // make some zero. supposed to be robust to this.
     }
-    size_t n_clust = 1 + rand() % 4;
+    size_t n_clust = 1 + Rand() % 4;
     std::vector<int32> assignments(n_stats);
     for (size_t i = 0;i < assignments.size();i++)
-      assignments[i] = rand() % n_clust;
+      assignments[i] = Rand() % n_clust;
     std::vector<Clusterable*> clusts1;
     std::vector<Clusterable*> clusts2;
     Clusterable *total = SumClusterable(stats);
@@ -230,21 +230,21 @@ static void TestAddToClustersOptimized() {
 
 static void TestClusterBottomUp() {
   for (size_t i = 0;i < 10;i++) {
-    size_t n_clust = rand() % 10;
+    size_t n_clust = Rand() % 10;
     std::vector<Clusterable*> points;
     for (size_t j = 0;j < n_clust;j++) {
-      size_t n_points = 1 + rand() % 5;
+      size_t n_points = 1 + Rand() % 5;
       BaseFloat clust_center  = (BaseFloat)j;
       for (size_t k = 0;k < n_points;k++) points.push_back(new ScalarClusterable(clust_center + RandUniform()*0.01));
     }
 
     BaseFloat max_merge_thresh = 0.1;
-    size_t min_clust = rand() % 10;  // use max_merge_thresh to control #clust.
+    size_t min_clust = Rand() % 10;  // use max_merge_thresh to control #clust.
     std::vector<Clusterable*> clusters;
     std::vector<int32> assignments;
 
     for (size_t i = 0;i < points.size();i++) {
-      size_t j = rand() % points.size();
+      size_t j = Rand() % points.size();
       if (i != j) std::swap(points[i], points[j]);  // randomize order.
     }
 
@@ -258,7 +258,7 @@ static void TestClusterBottomUp() {
 
     if (0) {  // for debug if it breaks.
       for (size_t i = 0;i < points.size();i++) {
-        KALDI_LOG << "point " << i << ": " << ((ScalarClusterable*)points[i])->Info() << " -> " << assignments[i] << "\n";
+        KALDI_LOG << "point " << i << ": " << ((ScalarClusterable*)points[i])->Info() << " -> " << assignments[i];
       }
       for (size_t i = 0;i < clusters.size();i++) {
         KALDI_LOG << "clust " << i << ": " << ((ScalarClusterable*)clusters[i])->Info();
@@ -268,7 +268,7 @@ static void TestClusterBottomUp() {
     KALDI_ASSERT(clusters.size() == std::max(n_clust, std::min(points.size(), min_clust)));
 
     for (size_t i = 0;i < points.size();i++) {
-      size_t j = rand() % points.size();
+      size_t j = Rand() % points.size();
       BaseFloat xi = ((ScalarClusterable*)points[i])->Mean(),
           xj = ((ScalarClusterable*)points[j])->Mean();
       if (fabs(xi-xj) < 0.011) {
@@ -286,10 +286,10 @@ static void TestRefineClusters() {
   for (size_t n = 0;n < 4;n++) {
     // Test it by creating a random clustering and verifying that it does not make it worse, and
     // if done with the optimal parameters, makes it optimal.
-    size_t n_clust = rand() % 10;
+    size_t n_clust = Rand() % 10;
     std::vector<Clusterable*> points;
     for (size_t j = 0;j < n_clust;j++) {
-      size_t n_points = 1 + rand() % 5;
+      size_t n_points = 1 + Rand() % 5;
       BaseFloat clust_center  = (BaseFloat)j;
       for (size_t k = 0;k < n_points;k++) points.push_back(new ScalarClusterable(clust_center + RandUniform()*0.01));
     }
@@ -298,7 +298,7 @@ static void TestRefineClusters() {
     for (size_t i = 0;i < clusters.size();i++) clusters[i] = new ScalarClusterable();
     // assign each point to a random cluster.
     for (size_t i = 0;i < points.size();i++) {
-      assignments[i] = rand() % n_clust;
+      assignments[i] = Rand() % n_clust;
       clusters[assignments[i]]->Add(*(points[i]));
     }
     BaseFloat points_objf = SumClusterableObjf(points),
@@ -308,7 +308,7 @@ static void TestRefineClusters() {
 
     RefineClustersOptions cfg;
     cfg.num_iters = 10000;  // very large.
-    cfg.top_n = 2 + (rand() % 20);
+    cfg.top_n = 2 + (Rand() % 20);
     BaseFloat impr = RefineClusters(points, &clusters, &assignments, cfg);
 
     clust_objf_after = SumClusterableObjf(clusters);
@@ -328,11 +328,11 @@ static void TestClusterKMeans() {
   for (size_t n = 0;n < 3;n++) {
     // Test it by creating a random clustering and verifying that it does not make it worse, and
     // if done with the optimal parameters, makes it optimal.
-    size_t n_clust = rand() % 10;
+    size_t n_clust = Rand() % 10;
     std::vector<Clusterable*> points;
     std::vector<int32> assignments_ref;
     for (size_t j = 0;j < n_clust;j++) {
-      size_t n_points = 1 + rand() % 5;
+      size_t n_points = 1 + Rand() % 5;
       BaseFloat clust_center  = (BaseFloat)j;
       for (size_t k = 0;k < n_points;k++) {
         points.push_back(new ScalarClusterable(clust_center + RandUniform()*0.01));
@@ -352,17 +352,17 @@ static void TestClusterKMeans() {
     KALDI_LOG << "TestClusterKmeans: objf after clustering is: "<<clust_objf<<", impr is: "<<ans<<'\n';
 
     if (clusters.size() != n_clust) {
-      KALDI_LOG << "Warning: unexpected number of clusters "<<clusters.size()<<" vs. "<<n_clust<<"\n";
+      KALDI_LOG << "Warning: unexpected number of clusters "<<clusters.size()<<" vs. "<<n_clust<<"";
     }
     KALDI_ASSERT(assignments.size() == points.size());
 
     if (clust_objf < -1.0 * points.size()) {  // a bit high...
-      KALDI_LOG << "Warning: ClusterKMeans did not work quite as well as expected\n";
+      KALDI_LOG << "Warning: ClusterKMeans did not work quite as well as expected";
     }
 
     int32 num_wrong = 0;
     for (size_t i = 0;i < points.size();i++) {
-      size_t j = rand() % points.size();
+      size_t j = Rand() % points.size();
       if (assignments_ref[i] == assignments_ref[j]) {
         if (assignments[i] != assignments[j]) num_wrong++;
       } else
@@ -377,7 +377,7 @@ static void TestClusterKMeans() {
     DeletePointers(&points);
   }
   if (n_wrong_tot*4 > n_points_tot) {
-    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.\n";
+    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.";
     KALDI_ASSERT(0);
   }
 }
@@ -386,13 +386,13 @@ static void TestClusterKMeansVector() {
   size_t n_points_tot = 0, n_wrong_tot = 0;
   for (size_t n = 0; n < 3; n++) {
     std::vector<int32> assignments_ref;
-    int32 dim = 5 + rand() % 5;
+    int32 dim = 5 + Rand() % 5;
     // Test it by creating a random clustering and verifying that it does not make it worse, and
     // if done with the optimal parameters, makes it optimal.
-    size_t n_clust = rand() % 10;
+    size_t n_clust = Rand() % 10;
     std::vector<Clusterable*> points;
     for (size_t j = 0; j < n_clust; j++) {
-      size_t n_points = 1 + rand() % 5;
+      size_t n_points = 1 + Rand() % 5;
       
       Vector<BaseFloat> clust_center(dim);
       clust_center.SetRandn();
@@ -401,7 +401,7 @@ static void TestClusterKMeansVector() {
         point.SetRandn();
         point.Scale(0.01);
         point.AddVec(1.0, clust_center);
-        BaseFloat weight = 0.5 + 0.432 * (rand() % 5);
+        BaseFloat weight = 0.5 + 0.432 * (Rand() % 5);
         points.push_back(new VectorClusterable(point, weight));
         assignments_ref.push_back(j);
       }
@@ -420,18 +420,18 @@ static void TestClusterKMeansVector() {
     KALDI_LOG << "TestClusterKmeans: objf after clustering is: "<<clust_objf<<", impr is: "<<ans<<'\n';
 
     if (clusters.size() != n_clust) {
-      KALDI_LOG << "Warning: unexpected number of clusters "<<clusters.size()<<" vs. "<<n_clust<<"\n";
+      KALDI_LOG << "Warning: unexpected number of clusters "<<clusters.size()<<" vs. "<<n_clust<<"";
     }
     KALDI_ASSERT(assignments.size() == points.size());
 
     if (clust_objf < -1.0 * points.size()) {  // a bit high...
-      KALDI_LOG << "Warning: ClusterKMeans did not work quite as well as expected\n";
+      KALDI_LOG << "Warning: ClusterKMeans did not work quite as well as expected";
     }
 
 
     int32 num_wrong = 0;
     for (size_t i = 0;i < points.size();i++) {
-      size_t j = rand() % points.size();
+      size_t j = Rand() % points.size();
       if (assignments_ref[i] == assignments_ref[j]) {
         if (assignments[i] != assignments[j]) num_wrong++;
       } else
@@ -448,7 +448,7 @@ static void TestClusterKMeansVector() {
     DeletePointers(&points);
   }
   if (n_wrong_tot*4 > n_points_tot) {
-    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.\n";
+    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.";
     KALDI_ASSERT(0);
   }
 }
@@ -459,10 +459,10 @@ static void TestTreeCluster() {
   size_t n_points_tot = 0, n_wrong_tot = 0;
   for (size_t n = 0;n < 10;n++) {
 
-    int32 n_clust = rand() % 10;
+    int32 n_clust = Rand() % 10;
     std::vector<Clusterable*> points;
     for (int32 j = 0;j < n_clust;j++) {
-      int32 n_points = 1 + rand() % 5;
+      int32 n_points = 1 + Rand() % 5;
       BaseFloat clust_center  = (BaseFloat)j;
       for (int32 k = 0;k < n_points;k++) points.push_back(new ScalarClusterable(clust_center + RandUniform()*0.01));
     }
@@ -488,7 +488,7 @@ static void TestTreeCluster() {
       KALDI_LOG << "Num nodes is "<<clusters_ext.size() <<", leaves "<<num_leaves;
     for (int32 i = 0;i<static_cast<int32>(clusters_ext.size());i++) {
       if (n < 2) // avoid generating too much output.
-        KALDI_LOG << "Cluster "<<i<<": "<<((ScalarClusterable*)clusters_ext[i])->Info()<<", parent is: "<< clust_assignments[i]<<"\n";
+        KALDI_LOG << "Cluster "<<i<<": "<<((ScalarClusterable*)clusters_ext[i])->Info()<<", parent is: "<< clust_assignments[i]<<"";
       KALDI_ASSERT(clust_assignments[i]>i || (i+1 == static_cast<int32>(clusters_ext.size()) && clust_assignments[i] == i));
       if (i == static_cast<int32>(clusters_ext.size())-1)
         KALDI_ASSERT(clust_assignments[i] == i);  // top node.
@@ -497,7 +497,7 @@ static void TestTreeCluster() {
     DeletePointers(&points);
   }
   if (n_wrong_tot*4 > n_points_tot) {
-    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.\n";
+    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.";
     KALDI_ASSERT(0);
   }
 }
@@ -507,10 +507,10 @@ static void TestClusterTopDown() {
   size_t n_points_tot = 0, n_wrong_tot = 0;
   for (size_t n = 0;n < 10;n++) {
 
-    size_t n_clust = rand() % 10;
+    size_t n_clust = Rand() % 10;
     std::vector<Clusterable*> points;
     for (size_t j = 0;j < n_clust;j++) {
-      size_t n_points = 1 + rand() % 5;
+      size_t n_points = 1 + Rand() % 5;
       BaseFloat clust_center  = (BaseFloat)j;
       for (size_t k = 0;k < n_points;k++) points.push_back(new ScalarClusterable(clust_center + RandUniform()*0.01));
     }
@@ -532,7 +532,7 @@ static void TestClusterTopDown() {
       KALDI_LOG << "Num nodes is "<<clusters.size()<<'\n';
     for (size_t i = 0;i < clusters.size();i++) {
       if (n<=2) {  // avoid generating too much output.
-        KALDI_LOG << "Cluster "<<i<<": "<<((ScalarClusterable*)clusters[i])->Info()<<", objf is: "<<clusters[i]->Objf()<<"\n";
+        KALDI_LOG << "Cluster "<<i<<": "<<((ScalarClusterable*)clusters[i])->Info()<<", objf is: "<<clusters[i]->Objf()<<"";
       }
     }
     KALDI_ASSERT(clusters.size() == n_clust);
@@ -540,7 +540,7 @@ static void TestClusterTopDown() {
     DeletePointers(&points);
   }
   if (n_wrong_tot*4 > n_points_tot) {
-    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.\n";
+    KALDI_LOG << "Got too many wrong in k-means test [may not be fatal, but check it out.";
     KALDI_ASSERT(0);
   }
 }

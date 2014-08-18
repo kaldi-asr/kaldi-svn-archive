@@ -64,6 +64,10 @@ max_change_per_sample=0.075
 precondition_rank_in=20  # relates to online preconditioning
 precondition_rank_out=80 # relates to online preconditioning
 
+# this relates to perturbed training.
+min_target_objf_change=0.1
+target_multiplier=0 #  Set this to e.g. 1.0 to enable perturbed training.
+
 mix_up=0 # Number of components to mix up to (should be > #tree leaves, if
         # specified.)
 num_threads=16
@@ -125,11 +129,8 @@ if [ $# != 4 ]; then
   echo "  --splice-width <width|4>                         # Number of frames on each side to append for feature input"
   echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
   echo "  --lda-dim <dim|250>                              # Dimension to reduce spliced features to with LDA"
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
+  echo "  --num-iters-final <#iters|20>                    # Number of final iterations to give to nnet-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
-  echo "  --num-utts-subset <#utts|300>                    # Number of utterances in subsets used for validation and diagnostics"
-  echo "                                                   # (the validation subset is held out from training)"
-  echo "  --num-frames-diagnostic <#frames|4000>           # Number of frames used in computing (train,valid) diagnostics"
   echo "  --first-component-power <power|1.0>              # Power applied to output of first p-norm layer... setting this to"
   echo "                                                   # 0.5 seems to help under some circumstances."
   echo "  --stage <stage|-9>                               # Used to run a partially-completed training process from somewhere in"
@@ -189,7 +190,6 @@ if [ -z $egs_dir ]; then
   egs_dir=$dir/egs
 fi
 
-echo $egs_dir
 iters_per_epoch=`cat $egs_dir/iters_per_epoch`  || exit 1;
 ! [ $num_jobs_nnet -eq `cat $egs_dir/num_jobs_nnet` ] && \
   echo "$0: Warning: using --num-jobs-nnet=`cat $egs_dir/num_jobs_nnet` from $egs_dir"
@@ -265,24 +265,49 @@ echo "$0: $num_iters_reduce + $num_iters_extra = $num_iters iterations, "
 echo "$0: (while reducing learning rate) + (with constant learning rate)."
 
 
+function set_target_objf_change {
+  # nothing to do if $target_multiplier not set.
+  [ "$target_multiplier" == "0" -o "$target_multiplier" == "0.0" ] && return;
+  [ $x -le $finish_add_layers_iter ] && return;
+  wait=2  # the compute_prob_{train,valid} from 2 iterations ago should
+          # most likey be done even though we backgrounded them.
+  [ $[$x-$wait] -le 0 ] && return;
+  while true; do
+    # Note: awk 'some-expression' is the same as: awk '{if(some-expression) print;}'
+    train_prob=$(awk '(NF == 1)' < $dir/log/compute_prob_train.$[$x-$wait].log)
+    valid_prob=$(awk '(NF == 1)' < $dir/log/compute_prob_valid.$[$x-$wait].log)
+    if [ -z "$train_prob" ] || [ -z "$valid_prob" ]; then
+      echo "$0: waiting until $dir/log/compute_prob_{train,valid}.$[$x-$wait].log are done"
+      sleep 60
+    else
+      target_objf_change=$(perl -e '($train,$valid,$min_change,$multiplier)=@ARGV; if (!($train < 0.0) || !($valid < 0.0)) { print "0\n"; print STDERR "Error: invalid train or valid prob: $train_prob, $valid_prob\n"; exit(0); } else { print STDERR "train,valid=$train,$valid\n"; $proposed_target = $multiplier * ($train-$valid); if ($proposed_target < $min_change) { print "0"; } else { print $proposed_target; }}' -- "$train_prob" "$valid_prob" "$min_target_objf_change" "$target_multiplier")
+      echo "On iter $x, (train,valid) probs from iter $[$x-$wait] were ($train_prob,$valid_prob), and setting target-objf-change to $target_objf_change."
+      return;
+    fi
+  done
+}
+
 finish_add_layers_iter=$[$num_hidden_layers * $add_layers_period]
 # This is when we decide to mix up from: halfway between when we've finished
 # adding the hidden layers and the end of training.
 mix_up_iter=$[($num_iters + $finish_add_layers_iter)/2]
 
 if [ $num_threads -eq 1 ]; then
-  train_suffix="-simple" # this enables us to use GPU code if
+  parallel_suffix="-simple" # this enables us to use GPU code if
                          # we have just one thread.
+  parallel_train_opts=
   if ! cuda-compiled; then
     echo "$0: WARNING: you are running with one thread but you have not compiled"
     echo "   for CUDA.  You may be running a setup optimized for GPUs.  If you have"
     echo "   GPUs and have nvcc installed, go to src/ and do ./configure; make"
   fi
 else
-  train_suffix="-parallel --num-threads=$num_threads"
+  parallel_suffix="-parallel"
+  parallel_train_opts="--num-threads=$num_threads"
 fi
 
 x=0
+target_objf_change=0 # relates to perturbed training.
 
 while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
@@ -319,11 +344,19 @@ while [ $x -lt $num_iters ]; do
       this_minibatch_size=$minibatch_size
       do_average=true
     fi
+
+    set_target_objf_change;  # only has effect if target_multiplier != 0
+    if [ "$target_objf_change" != "0" ]; then
+      [ ! -f $dir/within_covar.spmat ] && \
+        echo "$0: expected $dir/within_covar.spmat to exist." && exit 1;
+      perturb_suffix="-perturbed"
+      perturb_opts="--target-objf-change=$target_objf_change --within-covar=$dir/within_covar.spmat"
+    fi
     
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
       nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
       ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-       nnet-train$train_suffix \
+       nnet-train$parallel_suffix$perturb_suffix $parallel_train_opts $perturb_opts \
         --minibatch-size=$this_minibatch_size --srand=$x "$mdl" \
         ark:- $dir/$[$x+1].JOB.mdl \
       || exit 1;
@@ -445,7 +478,6 @@ echo Done
 if $cleanup; then
   echo Cleaning up data
   if [ $egs_dir == "$dir/egs" ]; then
-    echo Removing training examples
-    rm $dir/egs/egs*
+    steps/nnet2/remove_egs.sh $dir/egs
   fi
 fi
