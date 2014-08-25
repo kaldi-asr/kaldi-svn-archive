@@ -151,7 +151,8 @@ void ExtractWindow(const VectorBase<BaseFloat> &wave,
     window_part.Add(-window_part.Sum() / frame_length);
 
   if (log_energy_pre_window != NULL) {
-    BaseFloat energy = VecVec(window_part, window_part);
+    BaseFloat energy = std::max(VecVec(window_part, window_part),
+                                std::numeric_limits<BaseFloat>::min());
     *log_energy_pre_window = log(energy);
   }
 
@@ -393,7 +394,7 @@ void SpliceFrames(const MatrixBase<BaseFloat> &input_features,
                   Matrix<BaseFloat> *output_features) {
   int32 T = input_features.NumRows(), D = input_features.NumCols();
   if (T == 0 || D == 0)
-    KALDI_ERR << "SpliceFrames: empty input\n";
+    KALDI_ERR << "SpliceFrames: empty input";
   KALDI_ASSERT(left_context >= 0 && right_context >= 0);
   int32 N = 1 + left_context + right_context;
   output_features->Resize(T, D*N);
@@ -414,7 +415,7 @@ void ReverseFrames(const MatrixBase<BaseFloat> &input_features,
                    Matrix<BaseFloat> *output_features) {
   int32 T = input_features.NumRows(), D = input_features.NumCols();
   if (T == 0 || D == 0)
-    KALDI_ERR << "ReverseFrames: empty input\n";
+    KALDI_ERR << "ReverseFrames: empty input";
   output_features->Resize(T, D);
   for (int32 t = 0; t < T; t++) {
     SubVector<BaseFloat> dst_row(*output_features, t);
@@ -431,10 +432,10 @@ void SlidingWindowCmnOptions::Check() const {
   // else ignored so value doesn't matter.
 }
 
-
-void SlidingWindowCmn(const SlidingWindowCmnOptions &opts,
-                      const MatrixBase<double> &input,
-                      MatrixBase<double> *output) {
+// Internal version of SlidingWindowCmn with double-precision arguments.
+void SlidingWindowCmnInternal(const SlidingWindowCmnOptions &opts,
+                              const MatrixBase<double> &input,
+                              MatrixBase<double> *output) {
   opts.Check();
   int32 num_frames = input.NumRows(), dim = input.NumCols();
 
@@ -519,14 +520,13 @@ void SlidingWindowCmn(const SlidingWindowCmnOptions &opts,
 }
 
 
-
 void SlidingWindowCmn(const SlidingWindowCmnOptions &opts,
                       const MatrixBase<BaseFloat> &input,
                       MatrixBase<BaseFloat> *output) {
   KALDI_ASSERT(SameDim(input, *output) && input.NumRows() > 0);
   Matrix<double> input_dbl(input), output_dbl(input.NumRows(), input.NumCols());
   // calll double-precision version
-  SlidingWindowCmn(opts, input_dbl, &output_dbl);
+  SlidingWindowCmnInternal(opts, input_dbl, &output_dbl);
   output->CopyFromMat(output_dbl);
 }
 

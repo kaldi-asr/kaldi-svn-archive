@@ -27,6 +27,7 @@ softmax_learning_rate_factor=1.0 # In the default setting keep the same learning
 combine_regularizer=1.0e-14 # Small regularizer so that parameters won't go crazy.
 pnorm_input_dim=3000 
 pnorm_output_dim=300
+first_component_power=1.0  # could set this to 0.5, sometimes seems to improve results.
 p=2
 minibatch_size=128 # by default use a smallish minibatch size for neural net
                    # training; this controls instability which would otherwise
@@ -116,11 +117,12 @@ if [ $# != 4 ]; then
   echo "  --splice-width <width|4>                         # Number of frames on each side to append for feature input"
   echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
   echo "  --lda-dim <dim|250>                              # Dimension to reduce spliced features to with LDA"
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
+  echo "  --num-iters-final <#iters|20>                    # Number of final iterations to give to nnet-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
-  echo "  --num-utts-subset <#utts|300>                    # Number of utterances in subsets used for validation and diagnostics"
-  echo "                                                   # (the validation subset is held out from training)"
-  echo "  --num-frames-diagnostic <#frames|4000>           # Number of frames used in computing (train,valid) diagnostics"
+  echo "  --first-component-power <power|1.0>              # Power applied to output of first p-norm layer... setting this to"
+  echo "                                                   # 0.5 seems to help under some circumstances."
+  echo "  --egs-opts <opts>                                # Extra options to pass to get_egs.sh"
+  echo "  --lda-opts <opts>                                # Extra options to pass to get_lda.sh"
   echo "  --stage <stage|-9>                               # Used to run a partially-completed training process from somewhere in"
   echo "                                                   # the middle."
   
@@ -177,7 +179,6 @@ if [ -z $egs_dir ]; then
   egs_dir=$dir/egs
 fi
 
-echo $egs_dir
 iters_per_epoch=`cat $egs_dir/iters_per_epoch`  || exit 1;
 ! [ $num_jobs_nnet -eq `cat $egs_dir/num_jobs_nnet` ] && \
   echo "$0: Warning: using --num-jobs-nnet=`cat $egs_dir/num_jobs_nnet` from $egs_dir"
@@ -213,6 +214,11 @@ SpliceComponent input-dim=$ext_feat_dim left-context=$splice_width right-context
 FixedAffineComponent matrix=$lda_mat
 AffineComponentPreconditioned input-dim=$ext_lda_dim output-dim=$pnorm_input_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
 PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
+EOF
+  if [ $first_component_power != 1.0 ]; then
+    echo "PowerComponent dim=$pnorm_output_dim power=$first_component_power" >> $dir/nnet.config
+  fi
+  cat >>$dir/nnet.config <<EOF
 NormalizeComponent dim=$pnorm_output_dim
 AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$num_leaves alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
 SoftmaxComponent dim=$num_leaves
@@ -409,13 +415,12 @@ echo Done
 if $cleanup; then
   echo Cleaning up data
   if [ $egs_dir == "$dir/egs" ]; then
-    echo Removing training examples
-    rm $dir/egs/egs*
+    steps/nnet2/remove_egs.sh $dir/egs
   fi
   echo Removing most of the models
   for x in `seq 0 $num_iters`; do
     if [ $[$x%100] -ne 0 ] && [ $x -lt $[$num_iters-$num_iters_final+1] ]; then 
-       # delete all but every 10th model; don't delete the ones which combine to form the final model.
+       # delete all but every 100th model; don't delete the ones which combine to form the final model.
       rm $dir/$x.mdl
     fi
   done

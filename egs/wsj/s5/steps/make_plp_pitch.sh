@@ -47,6 +47,12 @@ name=`basename $data`
 mkdir -p $plp_pitch_dir || exit 1;
 mkdir -p $logdir || exit 1;
 
+if [ -f $data/feats.scp ]; then
+  mkdir -p $data/.backup
+  echo "$0: moving $data/feats.scp to $data/.backup"
+  mv $data/feats.scp $data/.backup
+fi
+
 scp=$data/wav.scp
 
 required="$scp $plp_config $pitch_config"
@@ -65,27 +71,33 @@ else
 	postprocess_config_opt=
 fi
 
-# note: in general, the double-parenthesis construct in bash "((" is "C-style
-# syntax" where we can get rid of the $ for variable names, and omit spaces.
-# The "for" loop in this style is a special construct.
-
 if [ -f $data/spk2warp ]; then
   echo "$0 [info]: using VTLN warp factors from $data/spk2warp"
   vtln_opts="--vtln-map=ark:$data/spk2warp --utt2spk=ark:$data/utt2spk"
+elif [ -f $data/utt2warp ]; then
+  echo "$0 [info]: using VTLN warp factors from $data/utt2warp"
+  vtln_opts="--vtln-map=ark:$data/utt2warp"
 fi
+
+for n in $(seq $nj); do
+  # the next command does nothing unless $plp_pitch_dir/storage/ exists, see
+  # utils/create_data_link.pl for more info.
+  utils/create_data_link.pl $plp_pitch_dir/raw_plp_pitch_$name.$n.ark  
+done
+
 
 if [ -f $data/segments ]; then
   echo "$0 [info]: segments file exists: using that."
   split_segments=""
-  for ((n=1; n<=nj; n++)); do
+  for n in $(seq $nj); do
     split_segments="$split_segments $logdir/segments.$n"
   done
 
   utils/split_scp.pl $data/segments $split_segments || exit 1;
   rm $logdir/.error 2>/dev/null
    
-  plp_feats="ark:extract-segments scp:$scp $logdir/segments.JOB ark:- | compute-plp-feats $vtln_opts --verbose=2 --config=$plp_config ark:- ark:- |"
-  pitch_feats="ark,s,cs:extract-segments scp:$scp $logdir/segments.JOB ark:- | compute-kaldi-pitch-feats --verbose=2 --config=$pitch_config ark:- ark:- | process-kaldi-pitch-feats $postprocess_config_opt ark:- ark:- |"
+  plp_feats="ark:extract-segments scp,p:$scp $logdir/segments.JOB ark:- | compute-plp-feats $vtln_opts --verbose=2 --config=$plp_config ark:- ark:- |"
+  pitch_feats="ark,s,cs:extract-segments scp,p:$scp $logdir/segments.JOB ark:- | compute-kaldi-pitch-feats --verbose=2 --config=$pitch_config ark:- ark:- | process-kaldi-pitch-feats $postprocess_config_opt ark:- ark:- |"
 
   $cmd JOB=1:$nj $logdir/make_plp_pitch_${name}.JOB.log \
     paste-feats --length-tolerance=$paste_length_tolerance "$plp_feats" "$pitch_feats" ark:- \| \
@@ -96,15 +108,15 @@ if [ -f $data/segments ]; then
 else
   echo "$0: [info]: no segments file exists: assuming wav.scp indexed by utterance."
   split_scps=""
-  for ((n=1; n<=nj; n++)); do
+  for n in $(seq $nj); do
     split_scps="$split_scps $logdir/wav_${name}.$n.scp"
   done
 
   utils/split_scp.pl $scp $split_scps || exit 1;
   
 
-  plp_feats="ark:compute-plp-feats $vtln_opts --verbose=2 --config=$plp_config scp:$logdir/wav_${name}.JOB.scp ark:- |"
-  pitch_feats="ark,s,cs:compute-kaldi-pitch-feats --verbose=2 --config=$pitch_config scp:$logdir/wav_${name}.JOB.scp ark:- | process-kaldi-pitch-feats $postprocess_config_opt ark:- ark:- |"
+  plp_feats="ark:compute-plp-feats $vtln_opts --verbose=2 --config=$plp_config scp,p:$logdir/wav_${name}.JOB.scp ark:- |"
+  pitch_feats="ark,s,cs:compute-kaldi-pitch-feats --verbose=2 --config=$pitch_config scp,p:$logdir/wav_${name}.JOB.scp ark:- | process-kaldi-pitch-feats $postprocess_config_opt ark:- ark:- |"
  
   $cmd JOB=1:$nj $logdir/make_plp_pitch_${name}.JOB.log \
     paste-feats --length-tolerance=$paste_length_tolerance "$plp_feats" "$pitch_feats" ark:- \| \
@@ -122,7 +134,7 @@ if [ -f $logdir/.error.$name ]; then
 fi
 
 # concatenate the .scp files together.
-for ((n=1; n<=nj; n++)); do
+for n in $(seq $nj); do
   cat $plp_pitch_dir/raw_plp_pitch_$name.$n.scp || exit 1;
 done > $data/feats.scp
 

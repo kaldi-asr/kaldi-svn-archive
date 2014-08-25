@@ -15,15 +15,7 @@ all: check_required_programs sph2pipe atlas irstlm_tgt sclite openfst
 
 
 check_required_programs:
-	which aclocal
-	which automake
-	which autoconf
-	which libtoolize || which glibtoolize
-	which svn
-	which gcc
-	which $(CXX)
-	which patch
-	which tar
+	extras/check_dependencies.sh
 
 clean: openfst_cleaned sclite_cleaned  irstlm_cleaned
 
@@ -61,10 +53,14 @@ openfst_compiled: openfst-1.3.4/Makefile
 openfst-1.3.4/lib: | openfst-1.3.4/Makefile
 	-cd openfst-1.3.4 && [ -d lib64 ] && [ ! -d lib ] && ln -s lib64 lib
 
+# Disable shared-library creation on cygwin as it leads to compilation error "file too big"
+# with openfst-1.3.4.
 openfst-1.3.4/Makefile: openfst-1.3.4/.patched
-	cd openfst-1.3.4/; \
-	./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts CXX=$(CXX) CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" LIBS="-ldl"
-
+ifeq ($(OSTYPE),cygwin)
+	cd openfst-1.3.4/; ./configure --prefix=`pwd` --enable-static --disable-shared --enable-far --enable-ngram-fsts CXX=$(CXX) CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" LIBS="-ldl"
+else
+	cd openfst-1.3.4/; ./configure --prefix=`pwd` --enable-static --enable-shared --enable-far --enable-ngram-fsts CXX=$(CXX) CXXFLAGS="$(CXXFLAGS)" LDFLAGS="$(LDFLAGS)" LIBS="-ldl"
+endif
 
 # patches for openfst. openfst_gcc41up.patch is a patch for openfst to \
 # support multi-threads when compile with g++ (gcc) version above 4.1
@@ -112,22 +108,15 @@ irstlm_compiled: irstlm/Makefile
 	cd irstlm/; \
 	make; $(MAKE) install	
 
-irstlm/Makefile: irstlm/.patched
+irstlm/Makefile: irstlm
 	cd irstlm; \
 	    automake --version | grep 1.13.1 >/dev/null && \
          sed s:AM_CONFIG_HEADER:AC_CONFIG_HEADERS: <configure.in >configure.ac; \
 	(./regenerate-makefiles.sh || ./regenerate-makefiles.sh) && \
 	./configure --prefix `pwd` 
 
-
-irstlm/.patched: | irstlm
-	-cd irstlm;\
-	patch --verbose -N -p0 < ../interpolatedwrite-5.60.02.patch; \
-	patch --verbose -N -p0 < ../irstlm.patch; \
-	touch .patched	
-
 irstlm:
-	svn -r 398 co --non-interactive --trust-server-cert https://svn.code.sf.net/p/irstlm/code/trunk irstlm
+	svn -r 618 co --non-interactive --trust-server-cert https://svn.code.sf.net/p/irstlm/code/trunk irstlm
 
 atlas: ATLAS/include/cblas.h
 
@@ -168,8 +157,8 @@ beamformit: beamformit-3.51
 .PHONY: beamformit-3.51
 
 beamformit-3.51: beamformit-3.51.tgz
-        tar -xozf BeamformIt-3.51.tgz; \
-        cd BeamformIt-3.51; cmake . ; make
+	tar -xozf BeamformIt-3.51.tgz; \
+	cd BeamformIt-3.51; cmake . ; make
 
 beamformit-3.51.tgz:
 	wget -c -T 10 http://www.xavieranguera.com/beamformit/releases/BeamformIt-3.51.tgz

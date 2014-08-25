@@ -102,6 +102,9 @@ int main(int argc, char *argv[]) {
                 << "--no-softmax or --apply-log";
     }
 
+    // disable dropout
+    nnet_transf.SetDropoutRetention(1.0);
+    nnet.SetDropoutRetention(1.0);
 
     kaldi::int64 tot_t = 0;
 
@@ -124,15 +127,11 @@ int main(int argc, char *argv[]) {
                     << ", " << mat.NumRows() << "frm";
 
       //check for NaN/inf
-      for (int32 r = 0; r<mat.NumRows(); r++) {
-        for (int32 c = 0; c<mat.NumCols(); c++) {
-          BaseFloat val = mat(r,c);
-          if (val != val) KALDI_ERR << "NaN in features of : " << feature_reader.Key();
-          if (val == std::numeric_limits<BaseFloat>::infinity())
-            KALDI_ERR << "inf in features of : " << feature_reader.Key();
-        }
+      BaseFloat sum = mat.Sum();
+      if (!KALDI_ISFINITE(sum)) {
+        KALDI_ERR << "NaN or inf found in features of " << feature_reader.Key();
       }
-
+      
       // push it to gpu
       feats = mat;
       // fwd-pass

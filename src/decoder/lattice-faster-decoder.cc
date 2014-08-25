@@ -319,7 +319,7 @@ void LatticeFasterDecoder::PruneForwardLinks(
 void LatticeFasterDecoder::PruneForwardLinksFinal(int32 frame) {
   KALDI_ASSERT(static_cast<size_t>(frame+1) == active_toks_.size());
   if (active_toks_[frame].toks == NULL ) // empty list; should not happen.
-    KALDI_WARN << "No tokens alive at end of file\n";
+    KALDI_WARN << "No tokens alive at end of file";
 
   // First go through, working out the best token (do it in parallel
   // including final-probs and not including final-probs; we'll take
@@ -424,7 +424,7 @@ void LatticeFasterDecoder::PruneTokensForFrame(int32 frame) {
   KALDI_ASSERT(frame >= 0 && frame < active_toks_.size());
   Token *&toks = active_toks_[frame].toks;
   if (toks == NULL)
-    KALDI_WARN << "No tokens alive [doing pruning]\n";
+    KALDI_WARN << "No tokens alive [doing pruning]";
   Token *tok, *next_tok, *prev_tok = NULL;
   for (tok = toks; tok != NULL; tok = next_tok) {
     next_tok = tok->next;
@@ -706,7 +706,6 @@ void LatticeFasterDecoder::ProcessNonemitting(int32 frame) {
 
 void LatticeFasterDecoder::DeleteElems(Elem *list) {
   for (Elem *e = list, *e_tail; e != NULL; e = e_tail) {
-    // Token::TokenDelete(e->val);
     e_tail = e->tail;
     toks_.Delete(e);
   }
@@ -945,7 +944,7 @@ bool DecodeUtteranceLatticeFaster(
       for (size_t i = 0; i < words.size(); i++) {
         std::string s = word_syms->Find(words[i]);
         if (s == "")
-          KALDI_ERR << "Word-id " << words[i] <<" not in symbol table.";
+          KALDI_ERR << "Word-id " << words[i] << " not in symbol table.";
         std::cerr << s << ' ';
       }
       std::cerr << '\n';
