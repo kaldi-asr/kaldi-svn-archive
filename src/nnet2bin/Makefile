@@ -6,27 +6,26 @@ include ../kaldi.mk
 LDFLAGS += $(CUDA_LDFLAGS)
 LDLIBS += $(CUDA_LDLIBS)
 
-BINFILES = nnet2-randomize-frames nnet2-info nnet2-init \
-   nnet2-train-simple nnet2-train-ensemble nnet2-train-transitions nnet2-latgen-faster nnet2-copy \
-   nnet2-am-init nnet2-am-average nnet2-am-combine nnet2-am-compute nnet2-am-copy nnet2-am-fix	\
-   nnet2-am-info nnet2-am-mixup nnet2-am-widen nnet2-compute-stats nnet2-insert nnet2-align-compiled \
-   nnet2-compute-prob nnet2-copy-egs nnet2-am-shrink nnet2-shrink nnet2-combine nnet2-combine-a \
-   nnet2-average nnet2-compute nnet2-mixup  \
-   nnet2-train-lbfgs nnet2-get-egs nnet2-train-parallel nnet2-gradient \
-   nnet2-get-preconditioner nnet2-precondition nnet2-select-egs nnet2-combine-fast \
-   nnet2-shuffle-egs nnet2-fix nnet2-logprob  nnet2-logprob2 \
-   nnet2-logprob2-parallel nnet2-logprob-parallel nnet2-am-stats nnet2-am-rescale \
-   nnet2-am-limit-rank nnet2-latgen-faster-parallel nnet2-to-raw-nnet2 \
-   raw-nnet2-concat raw-nnet2-info nnet2-am-limit-rank-final \
-   nnet2-get-feature-transform nnet2-compute-from-egs \
-   nnet2-widen nnet2-show-progress nnet2-limit-degradation \
-   nnet2-get-feature-transform-multi nnet2-copy-egs-discriminative \
-   nnet2-get-egs-discriminative nnet2-shuffle-egs-discriminative \
-   nnet2-compare-hash-discriminative nnet2-combine-egs-discriminative \
-   nnet2-train-discriminative-simple nnet2-train-discriminative-parallel \
-   nnet2-modify-learning-rates nnet2-subset-egs nnet2-normalize-stddev nnet2-perturb-egs \
-   nnet2-perturb-egs-fmllr nnet2-get-weighted-egs nnet2-adjust-priors \
-   cuda-compiled nnet2-replace-last-layers 
+BINFILES = nnet-randomize-frames nnet-am-info nnet-init \
+   nnet-train-simple nnet-train-ensemble nnet-train-transitions nnet-latgen-faster nnet-am-copy \
+   nnet-am-init nnet-am-average nnet-am-combine nnet-am-compute nnet-am-fix	\
+   nnet-am-mixup nnet-compute-stats nnet-insert nnet-align-compiled \
+   nnet-compute-prob nnet-copy-egs nnet-am-shrink nnet-shrink nnet-combine nnet-combine-a \
+   nnet-train-lbfgs nnet-get-egs nnet-train-parallel nnet-gradient \
+   nnet-get-preconditioner nnet-precondition nnet-select-egs nnet-combine-fast \
+   nnet-shuffle-egs nnet-logprob  nnet-logprob2 \
+   nnet-logprob2-parallel nnet-logprob-parallel nnet-am-stats nnet-am-rescale \
+   nnet-am-limit-rank nnet-latgen-faster-parallel nnet-to-raw-nnet \
+   raw-nnet-concat nnet-am-limit-rank-final raw-nnet-info \
+   nnet-get-feature-transform nnet-compute-from-egs \
+   nnet-am-widen nnet-show-progress nnet-limit-degradation \
+   nnet-get-feature-transform-multi nnet-copy-egs-discriminative \
+   nnet-get-egs-discriminative nnet-shuffle-egs-discriminative \
+   nnet-compare-hash-discriminative nnet-combine-egs-discriminative \
+   nnet-train-discriminative-simple nnet-train-discriminative-parallel \
+   nnet-modify-learning-rates nnet-subset-egs nnet-normalize-stddev nnet-perturb-egs \
+   nnet-perturb-egs-fmllr nnet-get-weighted-egs nnet-adjust-priors \
+   cuda-compiled nnet-replace-last-layers 
 
 OBJFILES =
 

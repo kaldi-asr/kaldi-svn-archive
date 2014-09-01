@@ -180,28 +180,28 @@ if [ $stage -le 2 ]; then
   rm $dir/.error 2>/dev/null
   all_ids=$(seq -s, $nj)  # e.g. 1,2,...39,40
   $cmd $dir/log/create_valid_subset.log \
-    nnet2-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$valid_feats" \
+    nnet-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$valid_feats" \
      "ark,s,cs:gunzip -c $alidir/ali.{$all_ids}.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
      "ark:$dir/egs/valid_all.egs" || touch $dir/.error &
   $cmd $dir/log/create_train_subset.log \
-    nnet2-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$train_subset_feats" \
+    nnet-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$train_subset_feats" \
      "ark,s,cs:gunzip -c $alidir/ali.{$all_ids}.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
      "ark:$dir/egs/train_subset_all.egs" || touch $dir/.error &
   wait;
   [ -f $dir/.error ] && exit 1;
   echo "Getting subsets of validation examples for diagnostics and combination."
   $cmd $dir/log/create_valid_subset_combine.log \
-    nnet2-subset-egs --n=$num_valid_frames_combine ark:$dir/egs/valid_all.egs \
+    nnet-subset-egs --n=$num_valid_frames_combine ark:$dir/egs/valid_all.egs \
         ark:$dir/egs/valid_combine.egs || touch $dir/.error &
   $cmd $dir/log/create_valid_subset_diagnostic.log \
-    nnet2-subset-egs --n=$num_frames_diagnostic ark:$dir/egs/valid_all.egs \
+    nnet-subset-egs --n=$num_frames_diagnostic ark:$dir/egs/valid_all.egs \
     ark:$dir/egs/valid_diagnostic.egs || touch $dir/.error &
 
   $cmd $dir/log/create_train_subset_combine.log \
-    nnet2-subset-egs --n=$num_train_frames_combine ark:$dir/egs/train_subset_all.egs \
+    nnet-subset-egs --n=$num_train_frames_combine ark:$dir/egs/train_subset_all.egs \
     ark:$dir/egs/train_combine.egs || touch $dir/.error &
   $cmd $dir/log/create_train_subset_diagnostic.log \
-    nnet2-subset-egs --n=$num_frames_diagnostic ark:$dir/egs/train_subset_all.egs \
+    nnet-subset-egs --n=$num_frames_diagnostic ark:$dir/egs/train_subset_all.egs \
     ark:$dir/egs/train_diagnostic.egs || touch $dir/.error &
   wait
   cat $dir/egs/valid_combine.egs $dir/egs/train_combine.egs > $dir/egs/combine.egs
@@ -231,9 +231,9 @@ if [ $stage -le 3 ]; then
   echo "Generating training examples on disk"
   # The examples will go round-robin to egs_list.
   $cmd $io_opts JOB=1:$nj $dir/log/get_egs.JOB.log \
-    nnet2-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$feats" \
+    nnet-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$feats" \
     "ark,s,cs:gunzip -c $alidir/ali.JOB.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" ark:- \| \
-    nnet2-copy-egs ark:- $egs_list || exit 1;
+    nnet-copy-egs ark:- $egs_list || exit 1;
 fi
 
 if [ $stage -le 4 ]; then
@@ -248,7 +248,7 @@ if [ $stage -le 4 ]; then
       cat $dir/egs/egs_orig.$n.*.ark > $dir/egs/egs_tmp.$n.0.ark || exit 1;
       remove $dir/egs/egs_orig.$n.*.ark 
     done
-  else # We'll have to split it up using nnet2-copy-egs.
+  else # We'll have to split it up using nnet-copy-egs.
     egs_list=
     for n in `seq 0 $[$iters_per_epoch-1]`; do
       egs_list="$egs_list ark:$dir/egs/egs_tmp.JOB.$n.ark"
@@ -256,7 +256,7 @@ if [ $stage -le 4 ]; then
     # note, the "|| true" below is a workaround for NFS bugs
     # we encountered running this script with Debian-7, NFS-v4.
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/split_egs.JOB.log \
-      nnet2-copy-egs --random=$random_copy --srand=JOB \
+      nnet-copy-egs --random=$random_copy --srand=JOB \
         "ark:cat $dir/egs/egs_orig.JOB.*.ark|" $egs_list || exit 1;
     remove $dir/egs/egs_orig.*.*.ark  2>/dev/null
   fi
@@ -273,7 +273,7 @@ if [ $stage -le 5 ]; then
   # we encountered running this script with Debian-7, NFS-v4.
   for n in `seq 0 $[$iters_per_epoch-1]`; do
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/shuffle.$n.JOB.log \
-      nnet2-shuffle-egs "--srand=\$[JOB+($num_jobs_nnet*$n)]" \
+      nnet-shuffle-egs "--srand=\$[JOB+($num_jobs_nnet*$n)]" \
       ark:$dir/egs/egs_tmp.JOB.$n.ark ark:$dir/egs/egs.JOB.$n.ark 
     remove $dir/egs/egs_tmp.*.$n.ark
   done

@@ -127,7 +127,7 @@ if [ $# != 4 ]; then
   echo "  --splice-width <width|4>                         # Number of frames on each side to append for feature input"
   echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
   echo "  --lda-dim <dim|250>                              # Dimension to reduce spliced features to with LDA"
-  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet2-combine-fast to "
+  echo "  --num-iters-final <#iters|10>                    # Number of final iterations to give to nnet-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
   echo "  --num-utts-subset <#utts|300>                    # Number of utterances in subsets used for validation and diagnostics"
   echo "                                                   # (the validation subset is held out from training)"
@@ -247,14 +247,14 @@ PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
 NormalizeComponent dim=$pnorm_output_dim
 EOF
   $cmd $dir/log/nnet_init.log \
-    nnet2-am-init $alidir/tree $lang/topo "nnet2-init $dir/nnet.config -|" \
+    nnet-am-init $alidir/tree $lang/topo "nnet-init $dir/nnet.config -|" \
     $dir/0.mdl || exit 1;
 fi
 
 if [ $stage -le -1 ]; then
   echo "Training transition probabilities and setting priors"
   $cmd $dir/log/train_trans.log \
-    nnet2-train-transitions $dir/0.mdl "ark:gunzip -c $alidir/ali.*.gz|" $dir/0.mdl \
+    nnet-train-transitions $dir/0.mdl "ark:gunzip -c $alidir/ali.*.gz|" $dir/0.mdl \
     || exit 1;
 fi
 
@@ -290,14 +290,14 @@ while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
     # Set off jobs doing some diagnostics, in the background.
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
+      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet2-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
     if [ $x -gt 0 ] && [ ! -f $dir/log/mix_up.$[$x-1].log ]; then
       $cmd $dir/log/progress.$x.log \
-        nnet2-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl \
+        nnet-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl \
           ark:$egs_dir/train_diagnostic.egs '&&' \
-        nnet2-am-info $dir/$x.mdl &
+        nnet-am-info $dir/$x.mdl &
     fi
     
     echo "Training neural net (pass $x)"
@@ -305,7 +305,7 @@ while [ $x -lt $num_iters ]; do
     if [ $x -gt 0 ] && \
       [ $x -le $[($num_hidden_layers-1)*$add_layers_period] ] && \
       [ $[($x-1) % $add_layers_period] -eq 0 ]; then
-      mdl="nnet2-init --srand=$x $dir/hidden.config - | nnet2-insert $dir/$x.mdl - - |"
+      mdl="nnet-init --srand=$x $dir/hidden.config - | nnet-insert $dir/$x.mdl - - |"
     else
       mdl=$dir/$x.mdl
     fi
@@ -323,9 +323,9 @@ while [ $x -lt $num_iters ]; do
     fi
     
     $cmd $parallel_opts JOB=1:$this_num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+      nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
       ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-       nnet2-train$train_suffix \
+       nnet-train$train_suffix \
         --minibatch-size=$this_minibatch_size --srand=$x "$mdl" \
         ark:- $dir/$[$x+1].JOB.mdl \
       || exit 1;
@@ -337,7 +337,7 @@ while [ $x -lt $num_iters ]; do
 
     learning_rate=`perl -e '($x,$n,$i,$f)=@ARGV; print ($x >= $n ? $f : $i*exp($x*log($f/$i)/$n));' $[$x+1] $num_iters_reduce $initial_learning_rate $final_learning_rate`;
     softmax_learning_rate=`perl -e "print $learning_rate * $softmax_learning_rate_factor;"`;
-    nnet2-am-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
+    nnet-am-info $dir/$[$x+1].1.mdl > $dir/foo  2>/dev/null || exit 1
     nu=`cat $dir/foo | grep num-updatable-components | awk '{print $2}'`
     na=`cat $dir/foo | grep -v Fixed | grep AffineComponent | wc -l` 
     # na is number of last updatable AffineComponent layer [one-based, counting only
@@ -350,14 +350,14 @@ while [ $x -lt $num_iters ]; do
     done
 
     $cmd $dir/log/average.$x.log \
-      nnet2-am-average $nnets_list - \| \
-      nnet2-am-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
+      nnet-am-average $nnets_list - \| \
+      nnet-am-copy --learning-rates=$lr_string - $dir/$[$x+1].mdl || exit 1;
 
     if [ "$mix_up" -gt 0 ] && [ $x -eq $mix_up_iter ]; then
       # mix up.
       echo Mixing up from $num_leaves to $mix_up components
       $cmd $dir/log/mix_up.$x.log \
-        nnet2-am-mixup --min-count=10 --num-mixtures=$mix_up \
+        nnet-am-mixup --min-count=10 --num-mixtures=$mix_up \
         $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
     fi
     rm $nnets_list
@@ -380,27 +380,27 @@ start=$[$num_iters-$num_iters_final+1]
 for x in `seq $start $num_iters`; do
   idx=$[$x-$start]
   if [ $x -gt $mix_up_iter ]; then
-    nnets_list[$idx]=$dir/$x.mdl # "nnet2-am-copy --remove-dropout=true $dir/$x.mdl - |"
+    nnets_list[$idx]=$dir/$x.mdl # "nnet-am-copy --remove-dropout=true $dir/$x.mdl - |"
   fi
 done
 
 if [ $stage -le $num_iters ]; then
   echo "Doing final combination to produce final.mdl"
-  # Below, use --use-gpu=no to disable nnet2-combine-fast from using a GPU, as
+  # Below, use --use-gpu=no to disable nnet-combine-fast from using a GPU, as
   # if there are many models it can give out-of-memory error; set num-threads to 8
   # to speed it up (this isn't ideal...)
-  num_egs=`nnet2-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
+  num_egs=`nnet-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
   mb=$[($num_egs+$combine_num_threads-1)/$combine_num_threads]
   [ $mb -gt 512 ] && mb=512
   # Setting --initial-model to a large value makes it initialize the combination
   # with the average of all the models.  It's important not to start with a
   # single model, or, due to the invariance to scaling that these nonlinearities
   # give us, we get zero diagonal entries in the fisher matrix that
-  # nnet2-combine-fast uses for scaling, which after flooring and inversion, has
+  # nnet-combine-fast uses for scaling, which after flooring and inversion, has
   # the effect that the initial model chosen gets much higher learning rates
   # than the others.  This prevents the optimization from working well.
   $cmd $combine_parallel_opts $dir/log/combine.log \
-    nnet2-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
+    nnet-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
       --num-threads=$combine_num_threads \
       --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$egs_dir/combine.egs \
       $dir/final.mdl || exit 1;
@@ -408,15 +408,15 @@ if [ $stage -le $num_iters ]; then
   # Normalize stddev for affine or block affine layers that are followed by a
   # pnorm layer and then a normalize layer.
   $cmd $dir/log/normalize.log \
-    nnet2-normalize-stddev $dir/final.mdl $dir/final.mdl || exit 1;
+    nnet-normalize-stddev $dir/final.mdl $dir/final.mdl || exit 1;
 
   # Compute the probability of the final, combined model with
   # the same subset we used for the previous compute_probs, as the
   # different subsets will lead to different probs.
   $cmd $dir/log/compute_prob_valid.final.log \
-    nnet2-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
+    nnet-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
   $cmd $dir/log/compute_prob_train.final.log \
-    nnet2-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
+    nnet-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
 fi
 
 if [ $stage -le $[$num_iters+1] ]; then
@@ -424,8 +424,8 @@ if [ $stage -le $[$num_iters+1] ]; then
   # Note: this just uses CPUs, using a smallish subset of data.
   rm $dir/post.*.vec 2>/dev/null
   $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.JOB.log \
-    nnet2-subset-egs --n=$prior_subset_size ark:$egs_dir/egs.JOB.0.ark ark:- \| \
-    nnet2-compute-from-egs "nnet2-to-raw-nnet2 $dir/final.mdl -|" ark:- ark:- \| \
+    nnet-subset-egs --n=$prior_subset_size ark:$egs_dir/egs.JOB.0.ark ark:- \| \
+    nnet-compute-from-egs "nnet-to-raw-nnet $dir/final.mdl -|" ark:- ark:- \| \
     matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.JOB.vec || exit 1;
 
   sleep 3;  # make sure there is time for $dir/post.*.vec to appear.
@@ -437,7 +437,7 @@ if [ $stage -le $[$num_iters+1] ]; then
 
   echo "Re-adjusting priors based on computed posteriors"
   $cmd $dir/log/adjust_priors.log \
-    nnet2-adjust-priors $dir/final.mdl $dir/post.vec $dir/final.mdl || exit 1;
+    nnet-adjust-priors $dir/final.mdl $dir/post.vec $dir/final.mdl || exit 1;
 fi
 
 

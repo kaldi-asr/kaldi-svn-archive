@@ -19,7 +19,7 @@ fi
 test_data=$1
 dir=$2
 if [ ! -f $dir/posteriors ]; then
-  copy-feats scp:$test_data/feats.scp ark:- | nnet2-compute --raw=true --pad-input=false $dir/final.nnet ark:- ark,t:$dir/posteriors
+  copy-feats scp:$test_data/feats.scp ark:- | nnet-compute --raw=true --pad-input=false $dir/final.nnet ark:- ark,t:$dir/posteriors
   sed -i 'N;s/\[\n/\[/g' $dir/posteriors
 fi
 cat $dir/posteriors |   awk '{max=$3; argmax=3; for(f=3;f<NF;f++) { if ($f>max)

@@ -111,7 +111,7 @@ fi
 
 if [ $stage -le 1 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
-    nnet2-latgen-faster$thread_string "${spk_vecs_opt[@]}" \
+    nnet-latgen-faster$thread_string "${spk_vecs_opt[@]}" \
      --minimize=$minimize --max-active=$max_active --beam=$beam \
      --lattice-beam=$lattice_beam --acoustic-scale=$acwt --allow-partial=true \
      --word-symbol-table=$graphdir/words.txt "$model" \

@@ -199,7 +199,7 @@ AffineComponentPreconditioned input-dim=$pnorm_output_dim output-dim=$num_classe
 SoftmaxComponent dim=$num_classes
 EOF
   $cmd $dir/log/nnet_init.log \
-    nnet2-init $dir/nnet.config $dir/0.nnet || exit 1;
+    nnet-init $dir/nnet.config $dir/0.nnet || exit 1;
 fi
 
 
@@ -236,37 +236,37 @@ while [ $x -lt $num_iters ]; do
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
     # Set off jobs doing some diagnostics, in the background.
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet2-compute-prob --raw=true $dir/$x.nnet ark:$egs_dir/valid_diagnostic.egs &
+      nnet-compute-prob --raw=true $dir/$x.nnet ark:$egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet2-compute-prob --raw=true $dir/$x.nnet ark:$egs_dir/train_diagnostic.egs &
+      nnet-compute-prob --raw=true $dir/$x.nnet ark:$egs_dir/train_diagnostic.egs &
     if [ $x -gt 0 ] && [ ! -f $dir/log/mix_up.$[$x-1].log ]; then
       $cmd $dir/log/progress.$x.log \
-        nnet2-show-progress --raw=true --use-gpu=no $dir/$[$x-1].nnet $dir/$x.nnet ark:$egs_dir/train_diagnostic.egs &
+        nnet-show-progress --raw=true --use-gpu=no $dir/$[$x-1].nnet $dir/$x.nnet ark:$egs_dir/train_diagnostic.egs &
     fi
     
     echo "Training neural net (pass $x)"
     if [ $x -gt 0 ] && \
       [ $x -le $[($num_hidden_layers-1)*$add_layers_period] ] && \
       [ $[($x-1) % $add_layers_period] -eq 0 ]; then
-      mdl="nnet2-init --srand=$x $dir/new_hidden_layer.config - | nnet2-replace-last-layers --raw=true $dir/$x.nnet - - |"
+      mdl="nnet-init --srand=$x $dir/new_hidden_layer.config - | nnet-replace-last-layers --raw=true $dir/$x.nnet - - |"
     else
       mdl=$dir/$x.nnet
     fi
 
     if $use_distortion; then
       $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-        nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+        nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
         ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
         nnet2v-distort-egs --config=$distortion_config ark:- ark:- \| \
-        nnet2-train$train_suffix \
+        nnet-train$train_suffix \
            --raw=true --minibatch-size=$minibatch_size --srand=$x "$mdl" \
           ark:- $dir/$[$x+1].JOB.nnet \
         || exit 1;
     else
       $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-        nnet2-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
+        nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
         ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
-        nnet2-train$train_suffix \
+        nnet-train$train_suffix \
            --raw=true --minibatch-size=$minibatch_size --srand=$x "$mdl" \
           ark:- $dir/$[$x+1].JOB.nnet \
         || exit 1;
@@ -292,12 +292,12 @@ while [ $x -lt $num_iters ]; do
     done
     
     $cmd $dir/log/average.$x.log \
-      nnet2-average --raw=true $nnets_list - \| \
+      nnet-average --raw=true $nnets_list - \| \
       nnet2-copy --raw=true --learning-rates=$lr_string - $dir/$[$x+1].nnet || exit 1;
 
     if $modify_learning_rates && [ $x -ge $first_modify_iter ]; then
       $cmd $dir/log/modify_learning_rates.$x.log \
-        nnet2-modify-learning-rates --raw=true --last-layer-factor=$last_layer_factor \
+        nnet-modify-learning-rates --raw=true --last-layer-factor=$last_layer_factor \
           --first-layer-factor=$first_layer_factor --average-learning-rate=$learning_rate \
         $dir/$x.nnet $dir/$[$x+1].nnet $dir/$[$x+1].nnet || exit 1;
     fi
@@ -306,7 +306,7 @@ while [ $x -lt $num_iters ]; do
       # mix up.
       echo Mixing up from $num_leaves to $mix_up components
       $cmd $dir/log/mix_up.$x.log \
-        nnet2-mixup --raw=true --min-count=10 --num-mixtures=$mix_up \
+        nnet-mixup --raw=true --min-count=10 --num-mixtures=$mix_up \
         $dir/$[$x+1].nnet $dir/$[$x+1].nnet || exit 1;
     fi
     rm $nnets_list
@@ -338,7 +338,7 @@ if [ $stage -le $num_iters ]; then
   mb=$[($num_egs+$this_num_threads-1)/$this_num_threads]
   [ $mb -gt 512 ] && mb=512
   $cmd $parallel_opts $dir/log/combine.log \
-    nnet2-combine-fast --raw=true --use-gpu=no --num-threads=$this_num_threads \
+    nnet-combine-fast --raw=true --use-gpu=no --num-threads=$this_num_threads \
       --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$egs_dir/combine.egs \
       $dir/final.nnet || exit 1;
 
@@ -346,9 +346,9 @@ if [ $stage -le $num_iters ]; then
   # the same subset we used for the previous compute_probs, as the
   # different subsets will lead to different probs.
   $cmd $dir/log/compute_prob_valid.final.log \
-    nnet2-compute-prob --raw=true $dir/final.nnet ark:$egs_dir/valid_diagnostic.egs &
+    nnet-compute-prob --raw=true $dir/final.nnet ark:$egs_dir/valid_diagnostic.egs &
   $cmd $dir/log/compute_prob_train.final.log \
-    nnet2-compute-prob --raw=true  $dir/final.nnet ark:$egs_dir/train_diagnostic.egs &
+    nnet-compute-prob --raw=true  $dir/final.nnet ark:$egs_dir/train_diagnostic.egs &
 fi
 
 

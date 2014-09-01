@@ -196,11 +196,11 @@ if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
   done
 
   $cmd $io_opts JOB=1:$nj $dir/log/get_egs.JOB.log \
-    nnet2-get-egs-discriminative --criterion=$criterion --drop-frames=$drop_frames \
+    nnet-get-egs-discriminative --criterion=$criterion --drop-frames=$drop_frames \
     "${spk_vecs_opt[@]}" $dir/0.mdl "$feats" \
     "ark,s,cs:gunzip -c $alidir/ali.JOB.gz |" \
     "ark,s,cs:gunzip -c $denlatdir/lat.JOB.gz|" ark:- \| \
-    nnet2-copy-egs-discriminative ark:- $egs_list || exit 1;
+    nnet-copy-egs-discriminative ark:- $egs_list || exit 1;
 fi
 
 if [ $stage -le -5 ] && [ -z "$degs_dir" ]; then
@@ -216,7 +216,7 @@ if [ $stage -le -5 ] && [ -z "$degs_dir" ]; then
       cat $dir/degs/degs_orig.$n.*.ark > $dir/degs/degs_tmp.$n.0.ark || exit 1;
       rm $dir/degs/degs_orig.$n.*.ark  # don't "|| exit 1", due to NFS bugs...
     done
-  else # We'll have to split it up using nnet2-copy-egs.
+  else # We'll have to split it up using nnet-copy-egs.
     egs_list=
     for n in `seq 0 $[$iters_per_epoch-1]`; do
       egs_list="$egs_list ark:$dir/degs/degs_tmp.JOB.$n.ark"
@@ -224,7 +224,7 @@ if [ $stage -le -5 ] && [ -z "$degs_dir" ]; then
     # note, the "|| true" below is a workaround for NFS bugs
     # we encountered running this script with Debian-7, NFS-v4.
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/split_egs.JOB.log \
-      nnet2-copy-egs-discriminative --srand=JOB \
+      nnet-copy-egs-discriminative --srand=JOB \
         "ark:cat $dir/degs/degs_orig.JOB.*.ark|" $egs_list '&&' \
         '(' rm $dir/degs/degs_orig.JOB.*.ark '||' true ')' || exit 1;
   fi
@@ -244,9 +244,9 @@ if [ $stage -le -4 ] && [ -z "$degs_dir" ]; then
   # we encountered running this script with Debian-7, NFS-v4.
   for n in `seq 0 $[$iters_per_epoch-1]`; do
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/shuffle.$n.JOB.log \
-      nnet2-shuffle-egs-discriminative "--srand=\$[JOB+($num_jobs_nnet*$n)]" \
+      nnet-shuffle-egs-discriminative "--srand=\$[JOB+($num_jobs_nnet*$n)]" \
       ark:$dir/degs/degs_tmp.JOB.$n.ark ark:- \| \
-      nnet2-combine-egs-discriminative ark:- ark:$dir/degs/degs.JOB.$n.ark '&&' \
+      nnet-combine-egs-discriminative ark:- ark:$dir/degs/degs.JOB.$n.ark '&&' \
       '(' rm $dir/degs/degs_tmp.JOB.$n.ark '||' true ')' || exit 1;
   done
 fi
@@ -274,7 +274,7 @@ while [ $x -lt $num_iters ]; do
     echo "Training neural net (pass $x)"
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
-      nnet2-train-discriminative$train_suffix --silence-phones=$silphonelist \
+      nnet-train-discriminative$train_suffix --silence-phones=$silphonelist \
        --criterion=$criterion --drop-frames=$drop_frames \
        --boost=$boost --acoustic-scale=$acoustic_scale \
        $dir/$x.mdl ark:$degs_dir/degs.JOB.$[$x%$iters_per_epoch].ark $dir/$[$x+1].JOB.mdl \
@@ -286,11 +286,11 @@ while [ $x -lt $num_iters ]; do
     done
 
     $cmd $dir/log/average.$x.log \
-      nnet2-average $nnets_list $dir/$[$x+1].mdl || exit 1;
+      nnet-average $nnets_list $dir/$[$x+1].mdl || exit 1;
 
     if $modify_learning_rates; then
       $cmd $dir/log/modify_learning_rates.$x.log \
-        nnet2-modify-learning-rates --retroactive=$retroactive \
+        nnet-modify-learning-rates --retroactive=$retroactive \
         --last-layer-factor=$last_layer_factor \
         --first-layer-factor=$first_layer_factor \
         $dir/$x.mdl $dir/$[$x+1].mdl $dir/$[$x+1].mdl || exit 1;
