@@ -42,7 +42,7 @@ BaseFloat SumClusterableObjf(const std::vector<Clusterable*> &vec) {
     if (vec[i] != NULL) {
       BaseFloat objf = vec[i]->Objf();
       if (KALDI_ISNAN(objf)) {
-        KALDI_WARN << "SumClusterableObjf, NaN objf\n";
+        KALDI_WARN << "SumClusterableObjf, NaN objf";
       } else {
         ans += objf;
       }
@@ -57,7 +57,7 @@ BaseFloat SumClusterableNormalizer(const std::vector<Clusterable*> &vec) {
     if (vec[i] != NULL) {
       BaseFloat objf = vec[i]->Normalizer();
       if (KALDI_ISNAN(objf)) {
-        KALDI_WARN << "SumClusterableObjf, NaN objf\n";
+        KALDI_WARN << "SumClusterableObjf, NaN objf";
       } else {
         ans += objf;
       }
@@ -780,7 +780,7 @@ class RefineClusterer {
       int32 cur_t = t_;
       for (int32 point = 0;point < num_points_;point++) {
         if (t_+1 == 0) {
-          KALDI_WARN << "Stopping iterating at int32 moves\n";
+          KALDI_WARN << "Stopping iterating at int32 moves";
           return;  // once we use up all time points, must return-- this
                   // should rarely happen as int32 is large.
         }
@@ -931,14 +931,14 @@ BaseFloat ClusterKMeansOnce(const std::vector<Clusterable*> &points,
   assignments_out->resize(num_points);
 
   {  // This block assigns points to clusters.
-    // This is done pseudo-randomly using rand() so that
+    // This is done pseudo-randomly using Rand() so that
     // if we call ClusterKMeans multiple times we get different answers (so we can choose
     // the best if we want).
     int32 skip;  // randomly choose a "skip" that's coprime to num_points.
     if (num_points == 1) {
       skip = 1;
     } else {
-      skip = 1 + (rand() % (num_points-1));  // a number between 1 and num_points-1.
+      skip = 1 + (Rand() % (num_points-1));  // a number between 1 and num_points-1.
       while (Gcd(skip, num_points) != 1) {  // while skip is not coprime to num_points...
         if (skip == num_points-1) skip = 0;
         skip++;  // skip is now still betweeen 1 and num_points-1.  will cycle through
@@ -964,7 +964,7 @@ BaseFloat ClusterKMeansOnce(const std::vector<Clusterable*> &points,
     ans = SumClusterableObjf(*clusters_out) - all_stats->Objf();  // improvement just from the random
     // initialization.
     if (ans < -0.01 && ans < -0.01 * fabs(all_stats->Objf())) {  // something bad happend.
-      KALDI_WARN << "ClusterKMeans: objective function after random assignment to clusters is worse than in single cluster: "<< (all_stats->Objf()) << " changed by " << ans << ".  Perhaps your stats class has the wrong properties?\n";
+      KALDI_WARN << "ClusterKMeans: objective function after random assignment to clusters is worse than in single cluster: "<< (all_stats->Objf()) << " changed by " << ans << ".  Perhaps your stats class has the wrong properties?";
     }
     delete all_stats;
   }
@@ -1195,7 +1195,7 @@ class TreeClusterer {
     // takes a leaf node that has just been set up, and does ClusterKMeans with k = cfg_branch_factor.
     KALDI_ASSERT(node->is_leaf);
     if (node->leaf.points.size() == 0) {
-      KALDI_WARN << "Warning: tree clustering: leaf with no data\n";
+      KALDI_WARN << "Warning: tree clustering: leaf with no data";
       node->leaf.best_split = 0; return;
     }
     if (node->leaf.points.size()<=1) { node->leaf.best_split = 0; return; }

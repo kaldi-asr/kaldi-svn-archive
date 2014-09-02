@@ -15,15 +15,7 @@ all: check_required_programs sph2pipe atlas irstlm_tgt sclite openfst
 
 
 check_required_programs:
-	which aclocal
-	which automake
-	which autoconf
-	which libtoolize || which glibtoolize
-	which svn
-	which gcc
-	which $(CXX)
-	which patch
-	which tar
+	extras/check_dependencies.sh
 
 clean: openfst_cleaned sclite_cleaned  irstlm_cleaned
 
@@ -91,15 +83,20 @@ openfst-1.3.4.tar.gz:
 sclite: sclite_compiled
 
 .PHONY: sclite_compiled
-sclite_compiled: sctk_configured
+sclite_compiled: sctk/.patched sctk_configured
 	cd sctk; \
 	$(MAKE) all && $(MAKE) install && $(MAKE) doc
 
-sctk_configured:sctk/.configured
+sctk_configured: sctk/.patched sctk/.configured
 
-sctk/.configured:sctk
+sctk/.configured: sctk
 	cd sctk; $(MAKE) config
 	touch sctk/.configured
+
+sctk/.patched: sctk
+	cd sctk; patch -N -p0 < ../extras/sctk-2.4.8.patch
+	touch sctk/.patched
+
 
 .PHONY: sctk
 sctk: sctk-2.4.8-20130429-2145.tar.bz2
@@ -107,11 +104,8 @@ sctk: sctk-2.4.8-20130429-2145.tar.bz2
 	rm -rf sctk && ln -s sctk-2.4.8 sctk
 
 sctk-2.4.8-20130429-2145.tar.bz2:
-	wget -T 10 -t 3 ftp://jaguar.ncsl.nist.gov/pub/sctk-2.4.8-20130429-2145.tar.bz2
-
-sctk-2.4.0-20091110-0958.tar.bz2:
-	wget -T 10 -t 3 ftp://jaguar.ncsl.nist.gov/pub/sctk-2.4.0-20091110-0958.tar.bz2 || \
-	wget --no-check-certificate -T 10 http://www.openslr.org/resources/4/sctk-2.4.0-20091110-0958.tar.bz2
+	wget -T 10 -t 3 ftp://jaguar.ncsl.nist.gov/pub/sctk-2.4.8-20130429-2145.tar.bz2 || \
+    wget --no-check-certificate -T 10 http://www.openslr.org/resources/4/sctk-2.4.8-20130429-2145.tar.bz2
 
 irstlm_tgt: irstlm_compiled
 
@@ -163,3 +157,15 @@ fortran_opt = $(shell gcc -v 2>&1 | perl -e '$$x = join(" ", <STDIN>); if($$x =~
 openblas_compiled:
 	-git clone git://github.com/xianyi/OpenBLAS
 	$(MAKE) PREFIX=`pwd`/OpenBLAS/install FC=gfortran $(fortran_opt) DEBUG=1 USE_THREAD=0 -C OpenBLAS all install
+
+beamformit: beamformit-3.51
+
+.PHONY: beamformit-3.51
+
+beamformit-3.51: beamformit-3.51.tgz
+	tar -xozf BeamformIt-3.51.tgz; \
+	cd BeamformIt-3.51; cmake . ; make
+
+beamformit-3.51.tgz:
+	wget -c -T 10 http://www.xavieranguera.com/beamformit/releases/BeamformIt-3.51.tgz
+

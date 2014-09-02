@@ -40,8 +40,7 @@ dir=$3
 model=$dir/../final.mdl # assume model one level up from decoding dir.
 
 hubscr=$KALDI_ROOT/tools/sctk/bin/hubscr.pl 
-[ ! -f $hubscr ] && echo "Cannot find scoring program at $hubscr" && \
-                    echo "You might need to go to $KALDI_ROOT/tools and call 'make sclite' " && exit 1;
+[ ! -f $hubscr ] && echo "Cannot find scoring program at $hubscr" && exit 1;
 hubdir=`dirname $hubscr`
 
 for f in $data/text $lang/words.txt $dir/lat.1.gz; do

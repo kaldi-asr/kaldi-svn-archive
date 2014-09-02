@@ -243,7 +243,7 @@ DeltaFeatures::DeltaFeatures(const DeltaFeaturesOptions &opts): opts_(opts) {
 
 void DeltaFeatures::Process(const MatrixBase<BaseFloat> &input_feats,
                             int32 frame,
-                            SubVector<BaseFloat> *output_frame) const {
+                            VectorBase<BaseFloat> *output_frame) const {
   KALDI_ASSERT(frame < input_feats.NumRows());
   int32 num_frames = input_feats.NumRows(),
       feat_dim = input_feats.NumCols();
@@ -394,7 +394,7 @@ void SpliceFrames(const MatrixBase<BaseFloat> &input_features,
                   Matrix<BaseFloat> *output_features) {
   int32 T = input_features.NumRows(), D = input_features.NumCols();
   if (T == 0 || D == 0)
-    KALDI_ERR << "SpliceFrames: empty input\n";
+    KALDI_ERR << "SpliceFrames: empty input";
   KALDI_ASSERT(left_context >= 0 && right_context >= 0);
   int32 N = 1 + left_context + right_context;
   output_features->Resize(T, D*N);
@@ -415,7 +415,7 @@ void ReverseFrames(const MatrixBase<BaseFloat> &input_features,
                    Matrix<BaseFloat> *output_features) {
   int32 T = input_features.NumRows(), D = input_features.NumCols();
   if (T == 0 || D == 0)
-    KALDI_ERR << "ReverseFrames: empty input\n";
+    KALDI_ERR << "ReverseFrames: empty input";
   output_features->Resize(T, D);
   for (int32 t = 0; t < T; t++) {
     SubVector<BaseFloat> dst_row(*output_features, t);

@@ -1084,8 +1084,8 @@ AffineComponent::AffineComponent(const AffineComponent &component):
     bias_params_(component.bias_params_),
     is_gradient_(component.is_gradient_) { }
 
-AffineComponent::AffineComponent(const CuMatrix<BaseFloat> &linear_params,
-                                 const CuVector<BaseFloat> &bias_params,
+AffineComponent::AffineComponent(const CuMatrixBase<BaseFloat> &linear_params,
+                                 const CuVectorBase<BaseFloat> &bias_params,
                                  BaseFloat learning_rate):
     UpdatableComponent(learning_rate),
     linear_params_(linear_params),
@@ -1219,16 +1219,11 @@ void AffineComponent::InitFromString(std::string args) {
 void AffineComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
                                 int32, // num_chunks
                                 CuMatrix<BaseFloat> *out) const {
-  KALDI_LOG << "First element of input is " << in(0, 0);
-  KALDI_LOG << "Input sum is " << in.Sum();
   // No need for asserts as they'll happen within the matrix operations.
   out->Resize(in.NumRows(), linear_params_.NumRows());
   out->CopyRowsFromVec(bias_params_); // copies bias_params_ to each row
   // of *out.
-  KALDI_LOG << "First element of output is " << (*out)(0, 0);
-  KALDI_LOG << "Linearity sum is " << linear_params_.Sum();
   out->AddMatMat(1.0, in, kNoTrans, linear_params_, kTrans, 1.0);
-  KALDI_LOG << "First element of output is " << (*out)(0, 0);  
 }
 
 void AffineComponent::UpdateSimple(const CuMatrixBase<BaseFloat> &in_value,
@@ -1561,7 +1556,6 @@ void PiecewiseLinearComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
   PiecewiseLinearComponent *to_update =
       dynamic_cast<PiecewiseLinearComponent*>(to_update_in);
 
-  in_deriv->Resize(out_deriv.NumRows(), InputDim());  
   KALDI_ASSERT(in_value.NumRows() == out_deriv.NumRows() &&
                in_value.NumCols() == InputDim());
   
@@ -1682,7 +1676,6 @@ void AffineComponentPreconditioned::Read(std::istream &is, bool binary) {
 
 void AffineComponentPreconditioned::InitFromString(std::string args) {
   std::string orig_args(args);
-  bool ok = true;
   std::string matrix_filename;
   BaseFloat learning_rate = learning_rate_;
   BaseFloat alpha = 0.1, max_change = 0.0;
@@ -1700,20 +1693,21 @@ void AffineComponentPreconditioned::InitFromString(std::string args) {
       KALDI_ASSERT(output_dim == OutputDim() &&
                    "output-dim mismatch vs. matrix.");
   } else {
+    bool ok = true;
     ok = ok && ParseFromString("input-dim", &args, &input_dim);
     ok = ok && ParseFromString("output-dim", &args, &output_dim);
     BaseFloat param_stddev = 1.0 / std::sqrt(input_dim),
         bias_stddev = 1.0;
     ParseFromString("param-stddev", &args, &param_stddev);
     ParseFromString("bias-stddev", &args, &bias_stddev);
+    if (!ok)
+      KALDI_ERR << "Bad initializer " << orig_args;
     Init(learning_rate, input_dim, output_dim, param_stddev,
          bias_stddev, alpha, max_change);
   }
   if (!args.empty())
     KALDI_ERR << "Could not process these elements in initializer: "
               << args;
-  if (!ok)
-    KALDI_ERR << "Bad initializer " << orig_args;
 }
 
 void AffineComponentPreconditioned::Init(BaseFloat learning_rate,
@@ -1738,6 +1732,7 @@ void AffineComponentPreconditioned::Init(
     BaseFloat param_stddev, BaseFloat bias_stddev,
     BaseFloat alpha, BaseFloat max_change) {
   UpdatableComponent::Init(learning_rate);
+  KALDI_ASSERT(input_dim > 0 && output_dim > 0);
   linear_params_.Resize(output_dim, input_dim);
   bias_params_.Resize(output_dim);
   KALDI_ASSERT(output_dim > 0 && input_dim > 0 && param_stddev >= 0.0);
@@ -2002,7 +1997,7 @@ void AffineComponentPreconditionedOnline::Init(
 }
 
 AffineComponentPreconditionedOnline::AffineComponentPreconditionedOnline(
-    const AffineComponentPreconditioned &orig,
+    const AffineComponent &orig,
     int32 rank_in, int32 rank_out, int32 update_period,
     BaseFloat num_samples_history, BaseFloat alpha):
     max_change_per_sample_(0.1) {
@@ -2930,7 +2925,7 @@ void BlockAffineComponentPreconditioned::Update(
       in_value_precon(num_frames, input_block_dim + 1, kUndefined);
   in_value_temp.Set(1.0); // so last row will have value 1.0.
   CuSubMatrix<BaseFloat> in_value_temp_part(in_value_temp, 0, num_frames,
-                                          0, input_block_dim); // all but last 1.0
+                                            0, input_block_dim); // all but last 1.0
   CuSubMatrix<BaseFloat> in_value_precon_part(in_value_precon, 0, num_frames,
                                             0, input_block_dim);
   CuVector<BaseFloat> precon_ones(num_frames);
