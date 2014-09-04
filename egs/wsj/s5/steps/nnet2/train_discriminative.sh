@@ -21,7 +21,6 @@ num_jobs_nnet=4    # Number of neural net jobs to run in parallel.  Note: this
                    # versa).
 samples_per_iter=400000 # measured in frames, not in "examples"
 
-spk_vecs_dir=
 modify_learning_rates=true
 last_layer_factor=1.0  # relates to modify-learning-rates
 first_layer_factor=1.0 # relates to modify-learning-rates
@@ -204,12 +203,6 @@ fi
 
 if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
   echo "$0: getting initial training examples by splitting lattices"
-  if [ ! -z $spk_vecs_dir ]; then
-    [ ! -f $spk_vecs_dir/vecs.1 ] && echo "No such file $spk_vecs_dir/vecs.1" && exit 1;
-    spk_vecs_opt=("--spk-vecs=ark:cat $spk_vecs_dir/vecs.*|" "--utt2spk=ark:$data/utt2spk")
-  else
-    spk_vecs_opt=()
-  fi
 
   egs_list=
   for n in `seq 1 $num_jobs_nnet`; do
@@ -218,7 +211,7 @@ if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
 
   $cmd $io_opts JOB=1:$nj $dir/log/get_egs.JOB.log \
     nnet-get-egs-discriminative --criterion=$criterion --drop-frames=$drop_frames \
-    "${spk_vecs_opt[@]}" $dir/0.mdl "$feats" \
+     $dir/0.mdl "$feats" \
     "ark,s,cs:gunzip -c $alidir/ali.JOB.gz |" \
     "ark,s,cs:gunzip -c $denlatdir/lat.JOB.gz|" ark:- \| \
     nnet-copy-egs-discriminative ark:- $egs_list || exit 1;

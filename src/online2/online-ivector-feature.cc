@@ -130,16 +130,27 @@ void OnlineIvectorFeature::UpdateStatsUntilFrame(int32 frame) {
 
   int32 feat_dim = lda_normalized_->Dim(),
       ivector_period = info_.ivector_period;
-  int32 needed_frame = ivector_period * (frame / ivector_period);
-  // needed_frame is the frame on which we'll estimate the iVector that
-  // we need to output, so we'll need this regardless of
-  // whether info_.use_most_recent_ivector == true.  This will end up
-  // in cur_ivector_.
+  int32 needed_frame = (info_.use_most_recent_ivector ? frame :
+                        ivector_period * (frame / ivector_period));
+  // needed_frame is the frame on which we'll estimate the iVector that we need
+  // to output.  Note: if info_.use_most_recent_ivector == false, we may
+  // need to cache some iVectors on intermediate frames.
   
   int32 num_cg_iters = 15;  // I don't believe this is very important, so it's
                             // not configurable from the command line for now.
+  int32 num_frames_to_process = frame - num_frames_stats_;
+  if (info_.use_most_recent_ivector && num_frames_to_process > num_cg_iters) {
+    // if info_.use_most_recent_ivector == true, we may be estimating the
+    // iVector in one go with all the data, rather than every few frames, so
+    // we'll need a larger number of CG iters.  Number of iters is set to min of
+    // (number of frames we're processing, and 1.5 times the iVector
+    // dim)... note that mathematically, CG should converge after [iVector-dim]
+    // iterations, but in practice due to roundoff it can take a little longer.
+    num_cg_iters = std::min(this->Dim() + this->Dim() / 2,
+                            num_frames_to_process);
+  }
   
-  Vector<BaseFloat> feat(feat_dim),  // features given to iVector extractor
+  Vector<BaseFloat> feat(feat_dim), // features given to iVector extractor
       log_likes(info_.diag_ubm.NumGauss());
 
   for (; num_frames_stats_ <= frame; num_frames_stats_++) {
@@ -156,7 +167,7 @@ void OnlineIvectorFeature::UpdateStatsUntilFrame(int32 frame) {
     ivector_stats_.AccStats(info_.extractor, feat, posterior);
     
     if ((!info_.use_most_recent_ivector && t % ivector_period == 0) ||
-        (info_.use_most_recent_ivector && t == needed_frame)) {
+        t == needed_frame) {
       ivector_stats_.GetIvector(num_cg_iters, &current_ivector_);
       if (!info_.use_most_recent_ivector) {  // need to cache iVectors.
         int32 ivec_index = t / ivector_period;
@@ -169,17 +180,18 @@ void OnlineIvectorFeature::UpdateStatsUntilFrame(int32 frame) {
 
 void OnlineIvectorFeature::GetFrame(int32 frame,
                                     VectorBase<BaseFloat> *feat) {
-  UpdateStatsUntilFrame(frame);
   KALDI_ASSERT(feat->Dim() == this->Dim());
 
   if (info_.use_most_recent_ivector) {
-    // use the most recent iVector we have, even if 'frame' is significantly in
-    // the past.
+    int32 most_recent_frame = lda_->NumFramesReady() - 1;
+    KALDI_ASSERT(most_recent_frame >= frame);
+    UpdateStatsUntilFrame(most_recent_frame);
     feat->CopyFromVec(current_ivector_);
     // Subtract the prior-mean from the first dimension of the output feature so
     // it's approximately zero-mean.
     (*feat)(0) -= info_.extractor.PriorOffset();
   } else {
+    UpdateStatsUntilFrame(frame);
     int32 i = frame / info_.ivector_period;  // rounds down.
     // if the following fails, UpdateStatsUntilFrame would have a bug.
     KALDI_ASSERT(static_cast<size_t>(i) <  ivectors_history_.size());

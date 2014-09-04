@@ -121,8 +121,10 @@ struct OnlineIvectorExtractionConfig {
     po->Register("posterior-scale", &posterior_scale, "Scale for posteriors in "
                  "iVector extraction (may be viewed as inverse of prior scale)");
     po->Register("use-most-recent-ivector", &use_most_recent_ivector, "If true, "
-                 "always use most recent available iVector, rather than the "
-                 "one that we 'should' use for the requested frame.");
+                 "always use all the currently available input data to estimate "
+                 "the iVecctor.  Will give the most accurate results but is not "
+                 "suitable when simulating online decoding or when training "
+                 "in a way that needs to be compatible with online decoding.");
     po->Register("max-remembered-frames", &max_remembered_frames, "The maximum "
                  "number of frames of adaptation history that we carry through "
                  "to later utterances of the same speaker (having a finite "

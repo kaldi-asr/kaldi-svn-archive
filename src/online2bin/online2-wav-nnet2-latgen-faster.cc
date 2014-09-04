@@ -103,6 +103,7 @@ int main(int argc, char *argv[]) {
 
     BaseFloat chunk_length_secs = 0.05;
     bool do_endpointing = false;
+    bool online = true;
     
     po.Register("chunk-length", &chunk_length_secs,
                 "Length of chunk size in seconds, that we process.");
@@ -110,6 +111,13 @@ int main(int argc, char *argv[]) {
                 "Symbol table for words [for debug output]");
     po.Register("do-endpointing", &do_endpointing,
                 "If true, apply endpoint detection");
+    po.Register("online", &online,
+                "You can set this to false to disable online iVector estimation "
+                "and have all the data for each utterance used, even at "
+                "utterance start.  This is useful where you just want the best "
+                "results and don't care about online operation.  Setting this to "
+                "false has the same effect as setting --use-most-recent-ivector "
+                "to true in the file given to --ivector-extraction-config.");
     
     feature_config.Register(&po);
     nnet2_decoding_config.Register(&po);
@@ -129,6 +137,10 @@ int main(int argc, char *argv[]) {
         clat_wspecifier = po.GetArg(5);
     
     OnlineNnet2FeaturePipelineInfo feature_info(feature_config);
+
+    if (!online)
+      feature_info.ivector_extractor_info.use_most_recent_ivector = true;
+    
     
     TransitionModel trans_model;
     nnet2::AmNnet nnet;

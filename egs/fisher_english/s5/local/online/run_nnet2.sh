@@ -104,7 +104,7 @@ fi
 
 if [ $stage -le 6 ]; then
   # this does offline decoding that should give about the same results as the
-  # real online decoding.
+  # real online decoding (the one with --per-utt true)
   steps/nnet2/decode.sh --nj 30 --cmd "$decode_cmd" --config conf/decode.config \
        --online-ivector-dir exp/nnet2_online/ivectors_${data} \
        exp/tri5a/graph data/dev $dir/decode_dev || exit 1;
