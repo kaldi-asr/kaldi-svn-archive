@@ -1,6 +1,8 @@
-// gmmbin/gmm-align-compiled.cc
+// bin/align-compiled-mapped.cc
 
 // Copyright 2009-2012  Microsoft Corporation, Karel Vesely
+//
+// See ../../COPYING for clarification regarding multiple authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

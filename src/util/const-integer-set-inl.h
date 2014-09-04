@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011     Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -31,11 +33,12 @@ void ConstIntegerSet<I>::InitInternal() {
   if (slow_set_.size() == 0) {
     lowest_member_=(I) 1;
     highest_member_=(I) 0;
-    contiguous_=false; quick_=false;  // won't be accessed.  suppress warnings.
+    contiguous_ = false;
+    quick_ = false;
   } else {
     lowest_member_ = slow_set_.front();
     highest_member_ = slow_set_.back();
-    size_t range = highest_member_+1 - lowest_member_;
+    size_t range = highest_member_ + 1 - lowest_member_;
     if (range == slow_set_.size()) {
       contiguous_ = true;
       quick_=false;
@@ -56,7 +59,7 @@ void ConstIntegerSet<I>::InitInternal() {
 
 template<class I>
 int ConstIntegerSet<I>::count(I i) const {
-  if (i<lowest_member_ || i>highest_member_) return 0;
+  if (i < lowest_member_ || i > highest_member_) return 0;
   else {
     if (contiguous_) return true;
     if (quick_) return (quick_set_[i-lowest_member_] ? 1 : 0);

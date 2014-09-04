@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -148,7 +150,7 @@ void FindAllKeys(const BuildTreeStatsType &stats, AllKeysType keys_type,
 /// Returns a tree with just one node.  Used @ start of tree-building process.
 /// Not really used in current recipes.
 inline EventMap *TrivialTree(int32 *num_leaves) {
-  assert(*num_leaves == 0);  // in envisaged usage.
+  KALDI_ASSERT(*num_leaves == 0);  // in envisaged usage.
   return new ConstantEventMap( (*num_leaves)++ );
 }
 

@@ -5,6 +5,8 @@
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +20,9 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 #include "util/timer.h"
 #include "online-audio-source.h"
@@ -36,10 +40,12 @@ int PaCallback(const void *input, void *output,
 }
 
 
-OnlinePaSource::OnlinePaSource(const uint32 sample_rate,
+OnlinePaSource::OnlinePaSource(const uint32 timeout,
+                               const uint32 sample_rate,
                                const uint32 rb_size,
                                const uint32 report_interval)
-    : sample_rate_(sample_rate), pa_started_(false),
+    : timeout_(timeout), timed_out_(false),
+      sample_rate_(sample_rate), pa_started_(false),
       report_interval_(report_interval), nread_calls_(0),
       noverflows_(0), samples_lost_(0) {
   using namespace std;
@@ -79,7 +85,7 @@ OnlinePaSource::~OnlinePaSource() {
 }
 
 
-int32 OnlinePaSource::Read(VectorBase<BaseFloat> *data, uint32 *timeout) {
+bool OnlinePaSource::Read(Vector<BaseFloat> *data) {
   if (!pa_started_) { // start stream the first time Read() is called
     PaError paerr = Pa_StartStream(pa_stream_);
     if (paerr != paNoError)
@@ -95,30 +101,37 @@ int32 OnlinePaSource::Read(VectorBase<BaseFloat> *data, uint32 *timeout) {
       samples_lost_ = noverflows_ = 0;
   }
   uint32 nsamples_req = data->Dim(); // samples to request
+  timed_out_ = false;
   while (true) {
     ring_buffer_size_t nsamples = PaUtil_GetRingBufferReadAvailable(&pa_ringbuf_);
     if (nsamples >= nsamples_req)
       break;
-    if (timeout != 0) {
+    if (timeout_ > 0) {
       int32 elapsed = static_cast<int32>(timer.Elapsed() * 1000);
-      if (elapsed > *timeout) {
-        *timeout = 0;
+      if (elapsed > timeout_) {
         nsamples_req = nsamples;
+        timed_out_ = true;
         KALDI_VLOG(2) << "OnlinePaSource::Read() timeout";
         break;
       }
     }
     Pa_Sleep(2);
   }
-  int16 buf[nsamples_req];
-  rbs_t nsamples_rcv = PaUtil_ReadRingBuffer(&pa_ringbuf_, buf, nsamples_req);
-  if (nsamples_rcv != nsamples_req)
+  std::vector<int16> buf(nsamples_req);
+  rbs_t nsamples_rcv = PaUtil_ReadRingBuffer(&pa_ringbuf_, buf.data(), nsamples_req);
+  if (nsamples_rcv != nsamples_req) {
     KALDI_WARN << "Requested: " << nsamples_req
                << "; Received: " << nsamples_rcv << " samples";
+    // This would be a PortAudio error.
+  }
+  data->Resize(nsamples_rcv);
   for (int i = 0; i < nsamples_rcv; ++i)
     (*data)(i) = static_cast<BaseFloat>(buf[i]);
 
-  return nsamples_rcv;
+  return (nsamples_rcv != 0);
+  // NOTE (Dan): I'm pretty sure this return value is not right, it could be
+  // this way because we're waiting.  Vassil or someone will have to figure this
+  // out.
 }
 
 
@@ -137,8 +150,8 @@ int OnlinePaSource::Callback(const void *input, void *output,
 }
 
 
-int32
-OnlineVectorSource::Read(VectorBase<BaseFloat> *data, uint32 *timeout) {
+bool OnlineVectorSource::Read(Vector<BaseFloat> *data) {
+  KALDI_ASSERT(data->Dim() > 0);
   int32 n_elem = std::min(src_.Dim() - pos_,
                           static_cast<uint32>(data->Dim()));
   if (n_elem > 0) {
@@ -150,7 +163,7 @@ OnlineVectorSource::Read(VectorBase<BaseFloat> *data, uint32 *timeout) {
         (*data)(i) = subsrc(i);
     pos_ += n_elem;
   }
-  return n_elem;
+  return (pos_ < src_.Dim());
 }
 
 } // namespace kaldi

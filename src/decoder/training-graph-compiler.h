@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -40,7 +42,7 @@ struct TrainingGraphCompilerOptions {
       rm_eps(false),
       reorder(b) { }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("transition-scale", &transition_scale, "Scale of transition "
                  "probabilities (excluding self-loops)");
     po->Register("self-loop-scale", &self_loop_scale, "Scale of self-loop vs. "

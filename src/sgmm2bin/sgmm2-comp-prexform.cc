@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Saarland University (author: Arnab Ghoshal)
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,8 +19,8 @@
 // limitations under the License.
 
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
-#include "sgmm2/fmllr-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
+#include "sgmm2/fmllr-sgmm2.h"
 #include "hmm/transition-model.h"
 
 int main(int argc, char *argv[]) {

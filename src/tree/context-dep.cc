@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,13 +29,13 @@ bool ContextDependency::Compute(const std::vector<int32> &phoneseq,
   KALDI_ASSERT(static_cast<int32>(phoneseq.size()) == N_);
   EventType  event_vec;
   event_vec.reserve(N_+1);
-  event_vec.push_back(std::make_pair<EventKeyType, EventValueType>
-                      (kPdfClass,  // -1
-                       pdf_class));
+  event_vec.push_back(std::make_pair
+                      (static_cast<EventKeyType>(kPdfClass),  // -1
+                       static_cast<EventValueType>(pdf_class)));
   KALDI_COMPILE_TIME_ASSERT(kPdfClass < 0);  // or it would not be sorted.
   for (int32 i = 0;i < N_;i++) {
-    event_vec.push_back(std::make_pair<EventKeyType, EventValueType>
-                        (i, static_cast<EventValueType>(phoneseq[i])));
+    event_vec.push_back(std::make_pair
+                        (static_cast<EventKeyType>(i), static_cast<EventValueType>(phoneseq[i])));
     KALDI_ASSERT(static_cast<EventAnswerType>(phoneseq[i]) != -1);  // >=0 ?
   }
   KALDI_ASSERT(pdf_id != NULL);
@@ -45,9 +47,9 @@ ContextDependency *GenRandContextDependency(const std::vector<int32> &phone_ids,
                                             std::vector<int32> *hmm_lengths) {
   KALDI_ASSERT(IsSortedAndUniq(phone_ids));
   int32 num_phones = phone_ids.size();
-  int32 num_stats = 1 + (rand() % 15) * (rand() % 15);  // up to 14^2 + 1 separate stats.
-  int32 N = 2 + rand() % 3;  // 2, 3 or 4.
-  int32 P = rand() % N;
+  int32 num_stats = 1 + (Rand() % 15) * (Rand() % 15);  // up to 14^2 + 1 separate stats.
+  int32 N = 2 + Rand() % 3;  // 2, 3 or 4.
+  int32 P = Rand() % N;
   float ctx_dep_prob = 0.7 + 0.3*RandUniform();
   int32 max_phone = *std::max_element(phone_ids.begin(), phone_ids.end());
   hmm_lengths->clear();
@@ -55,7 +57,7 @@ ContextDependency *GenRandContextDependency(const std::vector<int32> &phone_ids,
   std::vector<bool> is_ctx_dep(max_phone+1);
 
   for (int32 i = 0; i <= max_phone; i++) {
-    (*hmm_lengths)[i] = 1 + rand() % 3;
+    (*hmm_lengths)[i] = 1 + Rand() % 3;
     is_ctx_dep[i] = (RandUniform() < ctx_dep_prob);  // true w.p. ctx_dep_prob.
   }
   for (size_t i = 0;i < (size_t) num_phones;i++) {
@@ -63,13 +65,13 @@ ContextDependency *GenRandContextDependency(const std::vector<int32> &phone_ids,
   }
   // Generate rand stats.
   BuildTreeStatsType stats;
-  size_t dim = 3 + rand() % 20;
+  size_t dim = 3 + Rand() % 20;
   GenRandStats(dim, num_stats, N, P, phone_ids, *hmm_lengths, is_ctx_dep, ensure_all_covered, &stats);
 
   // Now build the tree.
 
   Questions qopts;
-  int32 num_quest = rand() % 10, num_iters = rand () % 5;
+  int32 num_quest = Rand() % 10, num_iters = rand () % 5;
   qopts.InitRand(stats, num_quest, num_iters, kAllKeysUnion);  // This was tested in build-tree-utils-test.cc
 
   float thresh = 100.0 * RandUniform();
@@ -103,7 +105,7 @@ ContextDependency *GenRandContextDependencyLarge(const std::vector<int32> &phone
   std::vector<bool> is_ctx_dep(max_phone+1);
 
   for (int32 i = 0; i <= max_phone; i++) {
-    (*hmm_lengths)[i] = 1 + rand() % 3;
+    (*hmm_lengths)[i] = 1 + Rand() % 3;
     is_ctx_dep[i] = (RandUniform() < ctx_dep_prob);  // true w.p. ctx_dep_prob.
   }
   for (size_t i = 0;i < (size_t) num_phones;i++) {
@@ -111,7 +113,7 @@ ContextDependency *GenRandContextDependencyLarge(const std::vector<int32> &phone
   }
   // Generate rand stats.
   BuildTreeStatsType stats;
-  size_t dim = 3 + rand() % 20;
+  size_t dim = 3 + Rand() % 20;
   GenRandStats(dim, num_stats, N, P, phone_ids, *hmm_lengths, is_ctx_dep, ensure_all_covered, &stats);
 
   // Now build the tree.
@@ -202,7 +204,7 @@ void ContextDependency::GetPdfInfo(const std::vector<int32> &phones,
       }
       for (size_t j = 0; j < pdfs.size(); j++) {
         KALDI_ASSERT(static_cast<size_t>(pdfs[j]) < pdf_info->size());
-        (*pdf_info)[pdfs[j]].push_back(std::make_pair<int32, int32>(phone, pos));
+        (*pdf_info)[pdfs[j]].push_back(std::make_pair(phone, pos));
       }
     }
   }

@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation;  Georg Stemmer;  Jan Silovsky;
 //                      Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,8 +25,8 @@
 namespace kaldi {
 
 void InitRandomGmm(DiagGmm *gmm_in) {
-  int32 num_gauss = 10 + rand() % 5;
-  int32 dim = 20 + rand() % 15;
+  int32 num_gauss = 10 + Rand() % 5;
+  int32 dim = 20 + Rand() % 15;
   DiagGmm &gmm(*gmm_in);
   gmm.Resize(num_gauss, dim);
   Matrix<BaseFloat> inv_vars(num_gauss, dim),
@@ -290,7 +292,8 @@ void UnitTestDiagGmm() {
     AssertEqual(loglike1, loglike2, 0.01);
   }
 
-
+  unlink("tmpf");
+  unlink("tmpfb");
 }
 
 }  // end namespace kaldi

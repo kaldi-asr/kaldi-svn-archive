@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011   Saarland University;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -29,8 +31,9 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Copy Gaussian indices for pruning, possibly making the\n"
         "lists shorter (e.g. the --n=10 limits to the 10 best indices\n"
+        "See also gmm-gselect, fgmm-gselect\n"
         "Usage: \n"
-        " gmm-gselect [options] <gselect-rspecifier> <gselect-wspecifier>\n";
+        " copy-gselect [options] <gselect-rspecifier> <gselect-wspecifier>\n";
     
     ParseOptions po(usage);
     int32 num_gselect = 0;

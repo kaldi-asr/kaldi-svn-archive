@@ -3,6 +3,8 @@
 // Copyright 2009-2013  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -83,7 +85,7 @@ int main(int argc, char *argv[]) {
       n_states_in += nstates;
       CompactLattice pruned_clat(clat);
       if (!PruneLattice(beam, &pruned_clat)) {
-        KALDI_WARN << "Error pruning latice for utterance " << key;
+        KALDI_WARN << "Error pruning lattice for utterance " << key;
         n_err++;
       }
       int64 pruned_narcs = NumArcs(pruned_clat),          

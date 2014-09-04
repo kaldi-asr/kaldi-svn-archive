@@ -1,7 +1,9 @@
 // nnetbin/nnet-copy.cc
 
-// Copyright 2012  Karel Vesely
+// Copyright 2012  Brno University of Technology (author: Karel Vesely)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,6 +24,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
+    using namespace kaldi::nnet1;
     typedef kaldi::int32 int32;
 
     const char *usage =
@@ -32,9 +35,13 @@ int main(int argc, char *argv[]) {
 
 
     bool binary_write = true;
+    int32 remove_first_layers = 0;
+    int32 remove_last_layers = 0;
     
     ParseOptions po(usage);
     po.Register("binary", &binary_write, "Write output in binary mode");
+    po.Register("remove-first-layers", &remove_first_layers, "Remove N first layers (Components) from the MLP");
+    po.Register("remove-last-layers", &remove_last_layers, "Remove N last layers (Components) from the MLP");
 
     po.Read(argc, argv);
 
@@ -46,6 +53,7 @@ int main(int argc, char *argv[]) {
     std::string model_in_filename = po.GetArg(1),
         model_out_filename = po.GetArg(2);
 
+    // load the network
     Nnet nnet; 
     {
       bool binary_read;
@@ -53,6 +61,21 @@ int main(int argc, char *argv[]) {
       nnet.Read(ki.Stream(), binary_read);
     }
 
+    // optionally remove N first layers
+    if(remove_first_layers > 0) {
+      for(int32 i=0; i<remove_first_layers; i++) {
+        nnet.RemoveComponent(0);
+      }
+    }
+   
+    // optionally remove N last layers
+    if(remove_last_layers > 0) {
+      for(int32 i=0; i<remove_last_layers; i++) {
+        nnet.RemoveLastComponent();
+      }
+    }
+
+    // store the network
     {
       Output ko(model_out_filename, binary_write);
       nnet.Write(ko.Stream(), binary_write);

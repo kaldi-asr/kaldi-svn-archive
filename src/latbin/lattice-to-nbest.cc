@@ -2,6 +2,8 @@
 
 // Copyright 2009-2012  Stefan Kombrink  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,19 +34,31 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Work out N-best paths in lattices and write out as FSTs\n"
+        "Note: only guarantees distinct word sequences if distinct paths in\n"
+        "input lattices had distinct word-sequences (this will not be true if\n"
+        "you produced lattices with --determinize-lattice=false, i.e. state-level\n"
+        "lattices).\n"
         "Usage: lattice-to-nbest [options] lattice-rspecifier lattice-wspecifier\n"
         " e.g.: lattice-to-nbest --acoustic-scale=0.1 --n=10 ark:1.lats ark:nbest.lats\n";
       
     ParseOptions po(usage);
     BaseFloat acoustic_scale = 1.0;
+    bool random = false;
+    int32 srand_seed = 0;
     int32 n = 1;
     
     po.Register("acoustic-scale", &acoustic_scale, "Scaling factor for acoustic likelihoods");
     po.Register("n", &n, "Number of distinct paths");
+    po.Register("random", &random,
+                "If true, generate n random paths instead of n-best paths");
+    po.Register("srand", &srand_seed, "Seed for random number generator "
+                "(only relevant if --random=true)");
+    
     
     po.Read(argc, argv);
 
     KALDI_ASSERT(n > 0);
+    srand(srand_seed);        
 
     if (po.NumArgs() != 2) {
       po.PrintUsage();
@@ -55,13 +69,12 @@ int main(int argc, char *argv[]) {
         lats_wspecifier = po.GetArg(2);
 
 
-    // Read as regular lattice-- this is the form we need it in for efficient
-    // pruning.
+    // Read as regular lattice.
     SequentialLatticeReader lattice_reader(lats_rspecifier);
     
     // Write as compact lattice.
     CompactLatticeWriter compact_nbest_writer(lats_wspecifier); 
-
+    
     int32 n_done = 0;
     int64 n_paths_out = 0;
 
@@ -74,8 +87,19 @@ int main(int argc, char *argv[]) {
       fst::ScaleLattice(fst::AcousticLatticeScale(acoustic_scale), &lat);
 
       std::vector<Lattice> nbest_lats;
-      fst::NbestAsFsts(lat, n, &nbest_lats);
-
+      {
+        Lattice nbest_lat;
+        if (!random) {
+          fst::ShortestPath(lat, &nbest_lat, n);
+        } else {
+          fst::UniformArcSelector<LatticeArc> uniform_selector;
+          fst::RandGenOptions<fst::UniformArcSelector<LatticeArc> > opts(uniform_selector);
+          opts.npath = n;
+          fst::RandGen(lat, &nbest_lat, opts);
+        }
+        fst::ConvertNbestToVector(nbest_lat, &nbest_lats);
+      }
+      
       if (nbest_lats.empty()) {
         KALDI_WARN << "Possibly empty lattice for utterance-id " << key
                    << "(no N-best entries)";

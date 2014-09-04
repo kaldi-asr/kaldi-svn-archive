@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Jan Silovsky
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -494,16 +496,18 @@ inline void ComposeContext(vector<int32> &disambig_syms_in,
                            vector<vector<int32> > *ilabels_out) {
   assert(ifst != NULL && ofst != NULL);
   assert(N > 0);
-  assert(P>=0);
+  assert(P >= 0);
   assert(P < N);
 
   vector<int32> disambig_syms(disambig_syms_in);
   std::sort(disambig_syms.begin(), disambig_syms.end());
   vector<int32> all_syms;
   GetInputSymbols(*ifst, false/*no eps*/, &all_syms);
+  std::sort(all_syms.begin(), all_syms.end());
   vector<int32> phones;
   for (size_t i = 0; i < all_syms.size(); i++)
-    if (!std::binary_search(disambig_syms.begin(), disambig_syms.end(), all_syms[i]))
+    if (!std::binary_search(disambig_syms.begin(),
+                            disambig_syms.end(), all_syms[i]))
       phones.push_back(all_syms[i]);
   
   // Get subsequential symbol that does not clash with
@@ -513,7 +517,7 @@ inline void ComposeContext(vector<int32> &disambig_syms_in,
     subseq_sym = std::max(subseq_sym, all_syms.back() + 1);
   if (!disambig_syms.empty())
     subseq_sym = std::max(subseq_sym, disambig_syms.back() + 1);
-
+  
   // if P == N-1, it's left-context, and no subsequential symbol needed.
   if (P != N-1)
     AddSubsequentialLoop(subseq_sym, ifst);

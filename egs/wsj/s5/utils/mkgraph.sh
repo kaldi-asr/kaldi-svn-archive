@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2010-2012 Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
+# Copyright 2010-2012 Microsoft Corporation
+#           2012-2013 Johns Hopkins University (Author: Daniel Povey)
 # Apache 2.0
 
 # This script creates a fully expanded decoding graph (HCLG) that represents
@@ -113,10 +114,9 @@ fi
 cp $lang/words.txt $dir/ || exit 1;
 mkdir -p $dir/phones
 cp $lang/phones/word_boundary.* $dir/phones/ 2>/dev/null # might be needed for ctm scoring,
+cp $lang/phones/align_lexicon.* $dir/phones/ 2>/dev/null # might be needed for ctm scoring,
   # but ignore the error if it's not there.
 
-# in case of position-independent phones, we need the L_align and word symbols
-cp $lang/L_align.fst $dir/ 2> /dev/null
 cp $lang/phones/disambig.{txt,int} $dir/phones/ 2> /dev/null
 cp $lang/phones/silence.csl $dir/phones/ || exit 1;
 cp $lang/phones.txt $dir/ 2> /dev/null # ignore the error if it's not there.

@@ -1,7 +1,9 @@
-// bin/build-tree.cc
+// bin/build-tree-two-level.cc
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -36,7 +38,7 @@ void GetSeenPhones(BuildTreeStatsType &stats, int P, std::vector<int32> *phones_
     const EventType &evec = stats[i].first;
     for (size_t j = 0; j < evec.size(); j++) {
       if (evec[j].first == P) {  // "key" is position P
-        assert(evec[j].second != 0);
+        KALDI_ASSERT(evec[j].second != 0);
         phones_set.insert(evec[j].second);  // insert "value" of this
         // phone.
       }

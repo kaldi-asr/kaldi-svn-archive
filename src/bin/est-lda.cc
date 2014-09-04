@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,7 +34,7 @@ int main(int argc, char *argv[]) {
     std::string full_matrix_wxfilename;
     LdaEstimateOptions opts;
     ParseOptions po(usage);
-    po.Register("binary", &binary, "Write accumulators in binary mode.");
+    po.Register("binary", &binary, "Write matrix in binary mode.");
     po.Register("write-full-matrix", &full_matrix_wxfilename,
                 "Write full LDA matrix to this location.");
     opts.Register(&po);

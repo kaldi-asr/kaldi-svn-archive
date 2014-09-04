@@ -2,6 +2,8 @@
 
 // Copyright 2011-2012  Yanmin Qian  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -63,7 +65,7 @@ void Fmpe::ComputeC() {
   DiagGmmNormal ngmm(gmm_);
   for (int32 pdf = 0; pdf < ngmm.NumGauss(); pdf++) {
     x2_stats.AddVec2(ngmm.weights_(pdf), ngmm.means_.Row(pdf));
-    x2_stats.AddVec(ngmm.weights_(pdf), ngmm.vars_.Row(pdf)); // add diagonal
+    x2_stats.AddDiagVec(ngmm.weights_(pdf), ngmm.vars_.Row(pdf)); // add diagonal
     // covar to diagonal elements of x2_stats.
     x_stats.AddVec(ngmm.weights_(pdf), ngmm.means_.Row(pdf));
     tot_count += ngmm.weights_(pdf);

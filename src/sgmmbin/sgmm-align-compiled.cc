@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,7 +25,7 @@
 #include "fstext/fstext-lib.h"
 #include "decoder/faster-decoder.h"
 #include "decoder/training-graph-compiler.h"
-#include "decoder/decodable-am-sgmm.h"
+#include "sgmm/decodable-am-sgmm.h"
 #include "lat/kaldi-lattice.h" // for {Compact}LatticeArc
 
 

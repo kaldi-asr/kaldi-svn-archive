@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Jan Silovsky;   Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -40,11 +42,13 @@ test_io(const RegressionTree &regtree,
   regtree.Write(s1, false);
   regtree2.Write(s2, false);
   KALDI_ASSERT(s1.str() == s2.str());
+  
+  unlink("tmp_regtree");
 }
 
 // void
 // join_gmm(const DiagGmm &gmm1, const DiagGmm &gmm2, DiagGmm *gmm) {
-//  assert(gmm1.Dimension() == gmm2.Dimension());
+//  KALDI_ASSERT(gmm1.Dimension() == gmm2.Dimension());
 //  size_t num_comp = gmm1.NumGauss() + gmm2.NumGauss();
 //  size_t dim = gmm1.Dimension();
 //
@@ -130,8 +134,8 @@ UnitTestRegressionTree() {
 
   RegressionTree regtree;
   std::vector<int32> sil_pdfs;
-  if (rand() % 2 == 0)
-    sil_pdfs.push_back(rand() % 2);
+  if (Rand() % 2 == 0)
+    sil_pdfs.push_back(Rand() % 2);
   regtree.BuildTree(occs, sil_pdfs, acmodel, 2);
 
   // test I/O

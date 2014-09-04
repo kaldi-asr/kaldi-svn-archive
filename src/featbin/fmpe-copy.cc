@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (Author: Daniel Povey)  Yanmin Qian
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +26,7 @@ int main(int argc, char *argv[]) {
   try {
     const char *usage =
         "Copy fMPE transform\n"
-        "Usage: fmpe-init [options...] <fmpe-in> <fmpe-out>\n"
+        "Usage: fmpe-copy [options...] <fmpe-in> <fmpe-out>\n"
         "E.g. fmpe-copy --binary=false 1.fmpe text.fmpe\n";
 
     ParseOptions po(usage);

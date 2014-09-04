@@ -3,6 +3,8 @@
 // Copyright 2009-2013  Johns Hopkins University (author: Daniel Povey)
 //                      Karel Vesely
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,11 +26,12 @@
 #include <sstream>
 
 #include "cudamatrix/cu-common.h"
+#include "cudamatrix/cu-value.h"
 #include "matrix/matrix-common.h"
 #include "matrix/kaldi-matrix.h"
 #include "matrix/packed-matrix.h"
 #include "matrix/sp-matrix.h"
-#include "cudamatrix/cu-stlvector.h"
+#include "cudamatrix/cu-array.h"
 #include "cudamatrix/cu-math.h"
 #include "cudamatrix/cu-matrix.h"
 
@@ -58,7 +61,7 @@ class CuPackedMatrix {
 
   explicit CuPackedMatrix(MatrixIndexT r,
                           MatrixResizeType resize_type = kSetZero):
-  data_(NULL), num_rows_(0) {  Resize(r, resize_type);  }
+      data_(NULL), num_rows_(0) {  Resize(r, resize_type);  }
   
   explicit CuPackedMatrix(const PackedMatrix<Real> &orig) : data_(NULL), num_rows_(0) {
     Resize(orig.num_rows_, kUndefined);
@@ -159,7 +162,7 @@ class CuPackedMatrix {
   
  private:
   // Disallow assignment.
-  PackedMatrix<Real> & operator =(const PackedMatrix<Real> &other);
+  PackedMatrix<Real> & operator=(const PackedMatrix<Real> &other);
 }; // class CuPackedMatrix
 
 

@@ -3,6 +3,8 @@
 // Copyright 2013  Ehsan Variani
 //                 Lucas Ondel
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +26,7 @@
 #include <cstdlib>
 
 #include "base/kaldi-common.h"
-#include "cu-device.h"
+#include "cudamatrix/cu-device.h"
 #include "cudamatrix/cu-sp-matrix.h"
 #include "cudamatrix/cu-vector.h"
 #include "cudamatrix/cu-math.h"
@@ -40,22 +42,7 @@ namespace kaldi {
 /*
  * ASSERTS
  */
-template<class Real>
-static void AssertEqual(VectorBase<Real> &A, VectorBase<Real> &B, float tol = 0.001) {
-  KALDI_ASSERT(A.Dim() == B.Dim());
-  for (MatrixIndexT i = 0; i < A.Dim(); i++)
-    KALDI_ASSERT(std::abs(A(i)-B(i)) < tol);
-}
-
-template<class Real>
-static bool ApproxEqual(VectorBase<Real> &A, VectorBase<Real> &B, float tol = 0.001) {
-  KALDI_ASSERT(A.Dim() == B.Dim());
-  for (MatrixIndexT i = 0; i < A.Dim(); i++)
-    if (std::abs(A(i)-B(i)) > tol) return false;
-  return true;
-}
-
-template<class Real>
+template<typename Real>
 static void AssertEqual(const CuPackedMatrix<Real> &A,
                         const CuPackedMatrix<Real> &B,
                         float tol = 0.001) {
@@ -66,7 +53,7 @@ static void AssertEqual(const CuPackedMatrix<Real> &A,
                    < tol * std::max(1.0, (double) (std::abs(A(i, j)) + std::abs(B(i, j)))));
 }
 
-template<class Real>
+template<typename Real>
 static void AssertEqual(const PackedMatrix<Real> &A,
                         const PackedMatrix<Real> &B,
                         float tol = 0.001) {
@@ -77,7 +64,7 @@ static void AssertEqual(const PackedMatrix<Real> &A,
                    < tol * std::max(1.0, (double) (std::abs(A(i, j)) + std::abs(B(i, j)))));
 }
 
-template<class Real>
+template<typename Real>
 static void AssertDiagEqual(const PackedMatrix<Real> &A,
                         const CuPackedMatrix<Real> &B,
                         float value,
@@ -87,7 +74,7 @@ static void AssertDiagEqual(const PackedMatrix<Real> &A,
                  < tol * std::max(1.0, (double) (std::abs(A(i, i)) + std::abs(B(i, i) + value))));
   }
 }
-template<class Real>
+template<typename Real>
 static void AssertDiagEqual(const PackedMatrix<Real> &A,
                         const PackedMatrix<Real> &B,
                         float value,
@@ -98,7 +85,7 @@ static void AssertDiagEqual(const PackedMatrix<Real> &A,
   }
 }
 
-template<class Real>
+template<typename Real>
 static void AssertEqual(const PackedMatrix<Real> &A,
                         const CuPackedMatrix<Real> &B,
                         float tol = 0.001) {
@@ -109,7 +96,7 @@ static void AssertEqual(const PackedMatrix<Real> &A,
                    < tol * std::max(1.0, (double) (std::abs(A(i, j)) + std::abs(B(i, j)))));
 }
 
-template<class Real>
+template<typename Real>
 static bool ApproxEqual(const PackedMatrix<Real> &A,
                         const PackedMatrix<Real> &B, Real tol = 0.001) {
   KALDI_ASSERT(A.NumRows() == B.NumRows());
@@ -123,7 +110,7 @@ static bool ApproxEqual(const PackedMatrix<Real> &A,
 /*
  * Unit Tests
  */
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixConstructor() { 
   for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 10 * i;
@@ -136,7 +123,7 @@ static void UnitTestCuPackedMatrixConstructor() {
   }
 }
 
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixCopy() { 
   for (MatrixIndexT i = 1; i < 10; i++) {
     MatrixIndexT dim = 10 * i;
@@ -157,25 +144,23 @@ static void UnitTestCuPackedMatrixCopy() {
   }
 }
 
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixTrace() {
   for (MatrixIndexT i = 1; i < 10; i++) {
-    MatrixIndexT dim = 5 * i + rand() % 10;
+    MatrixIndexT dim = 5 * i + Rand() % 10;
     
     PackedMatrix<Real> A(dim);
     A.SetRandn();
     CuPackedMatrix<Real> B(A);
     
-#ifdef KALDI_PARANOID
-    KALDI_ASSERT(A.Trace(), B.Trace());
-#endif
+    AssertEqual(A.Trace(), B.Trace());
   }
 }
 
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixScale() {
   for (MatrixIndexT i = 1; i < 10; i++) {
-    MatrixIndexT dim = 5 * i + rand() % 10;
+    MatrixIndexT dim = 5 * i + Rand() % 10;
     
     PackedMatrix<Real> A(dim);
     A.SetRandn();
@@ -188,10 +173,10 @@ static void UnitTestCuPackedMatrixScale() {
   }
 }
 
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixScaleDiag() {
   for (MatrixIndexT i = 1; i < 10; i++) {
-    MatrixIndexT dim = 5 * i + rand() % 10;
+    MatrixIndexT dim = 5 * i + Rand() % 10;
     
     PackedMatrix<Real> A(dim);
     A.SetRandn();
@@ -206,30 +191,30 @@ static void UnitTestCuPackedMatrixScaleDiag() {
 
 
 
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixAddToDiag() {
   for (MatrixIndexT i = 1; i < 10; i++) {
-    MatrixIndexT dim = 5 * i + rand() % 10;
+    MatrixIndexT dim = 5 * i + Rand() % 10;
     
     PackedMatrix<Real> A(dim);
     A.SetRandn();
     CuPackedMatrix<Real> B(A);
 
-    Real value = rand() % 50;
+    Real value = Rand() % 50;
     B.AddToDiag(value); 
     
     AssertDiagEqual(A, B, value);
   }
 }
 
-template<class Real>
+template<typename Real>
 static void UnitTestCuPackedMatrixSetUnit() {
   for (MatrixIndexT i = 1; i < 10; i++) {
-    MatrixIndexT dim = 5 * i + rand() % 10;
+    MatrixIndexT dim = 5 * i + Rand() % 10;
     
     CuPackedMatrix<Real> A(dim);
     A.SetUnit();
-
+    
     for (MatrixIndexT i = 0; i < A.NumRows(); i++) {
       for (MatrixIndexT j = 0; j < A.NumRows(); j++) {
         if (i != j) { 
@@ -243,7 +228,7 @@ static void UnitTestCuPackedMatrixSetUnit() {
 }
 
 
-template<class Real> void CudaPackedMatrixUnitTest() {
+template<typename Real> void CudaPackedMatrixUnitTest() {
   UnitTestCuPackedMatrixConstructor<Real>();
   //UnitTestCuPackedMatrixCopy<Real>();
   UnitTestCuPackedMatrixTrace<Real>();
@@ -257,10 +242,9 @@ template<class Real> void CudaPackedMatrixUnitTest() {
 
 int main() {
   using namespace kaldi;
-  // Select the GPU
-  kaldi::int32 use_gpu_id = -2;
 #if HAVE_CUDA == 1
-  CuDevice::Instantiate().SelectGpuId(use_gpu_id);
+  // Select the GPU
+  CuDevice::Instantiate().SelectGpuId("yes");
 #endif
   kaldi::CudaPackedMatrixUnitTest<float>();
 #if HAVE_CUDA == 1

@@ -52,6 +52,7 @@ dir=$4
 
 sdata=$data/split$nj
 splice_opts=`cat $alidir/splice_opts 2>/dev/null`
+cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
 if [ $num_threads -gt 1 ]; then
   # the -parallel becomes part of the binary name we decode with.
   thread_string="-parallel --num-threads=$num_threads"
@@ -80,7 +81,7 @@ cat $data/text | utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt | \
 # final.mdl from $alidir; the output HCLG.fst goes in $dir/graph.
 
 echo "Compiling decoding graph in $dir/dengraph"
-if [ -s $dir/dengraph/HCLG.fst ]; then
+if [ -s $dir/dengraph/HCLG.fst ] && [ $dir/dengraph/HCLG.fst -nt $srcdir/final.mdl ]; then
    echo "Graph $dir/dengraph/HCLG.fst already exists: skipping graph creation."
 else
   utils/mkgraph.sh $new_lang $alidir $dir/dengraph || exit 1;
@@ -90,8 +91,8 @@ if [ -f $alidir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "align_si.sh: feature type is $feat_type"
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
    ;;
   *) echo "Invalid feature type $feat_type" && exit 1;

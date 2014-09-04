@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Ondrej Glembek;  Microsoft Corporation;
 //                      Saarland University;  Karel Vesely;  Yanmin Qian
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,6 +23,12 @@
 
 #include <limits>
 #include <string>
+
+#if defined(_MSC_VER)
+# define WIN32_LEAN_AND_MEAN
+# define NOMINMAX
+# include <windows.h>
+#endif
 
 #if defined(_MSC_VER)
 #pragma warning(disable: 4244 4056 4305 4800 4267 4996 4756 4661)
@@ -112,6 +120,12 @@ template<> class KaldiCompileTimeAssert<true> {
 #define KALDI_ASSERT_IS_FLOATING_TYPE(F) \
   KaldiCompileTimeAssert<std::numeric_limits<F>::is_specialized \
                 && !std::numeric_limits<F>::is_integer>::Check()
+
+#ifdef _MSC_VER
+#define unlink _unlink
+#else
+#include <unistd.h>
+#endif
 
 
 #ifdef _MSC_VER

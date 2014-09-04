@@ -2,6 +2,8 @@
 
 // Copyright 2011-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -33,14 +35,16 @@ class LatticeWordAligner {
    public:
     
     /// Advance the computation state by adding the symbols and weights
-    /// from this arc.
-    void Advance(const CompactLatticeArc &arc) {
+    /// from this arc.  We'll put the weight on the output arc; this helps
+    /// keep the state-space smaller.
+    void Advance(const CompactLatticeArc &arc, LatticeWeight *weight) {
       const std::vector<int32> &string = arc.weight.String();
       transition_ids_.insert(transition_ids_.end(),
                              string.begin(), string.end());
       if (arc.ilabel != 0) // note: arc.ilabel==arc.olabel (acceptor)
         word_labels_.push_back(arc.ilabel);
-      weight_ = Times(weight_, arc.weight.Weight());      
+      *weight = Times(weight_, arc.weight.Weight());
+      weight_ = LatticeWeight::One();
     }
 
     /// If it can output a whole word, it will do so, will put it in arc_out,
@@ -158,7 +162,7 @@ class LatticeWordAligner {
       StateId output_state = lat_out_->AddState();
       map_[tuple] = output_state;
       if (add_to_queue)
-        queue_.push_back(std::make_pair(tuple, output_state));
+        queue_.push_front(std::make_pair(tuple, output_state));
       return output_state;
     } else {
       return iter->second;
@@ -229,7 +233,8 @@ class LatticeWordAligner {
           !aiter.Done(); aiter.Next()) {
         const CompactLatticeArc &arc = aiter.Value();
         Tuple next_tuple(tuple);
-        next_tuple.comp_state.Advance(arc);
+        LatticeWeight weight;
+        next_tuple.comp_state.Advance(arc, &weight);
         next_tuple.input_state = arc.nextstate;
         StateId next_output_state = GetStateForTuple(next_tuple, true); // true == add to queue,
         // if not already present.
@@ -238,8 +243,8 @@ class LatticeWordAligner {
         KALDI_ASSERT(next_output_state != output_state);
         lat_out_->AddArc(output_state,
                          CompactLatticeArc(0, 0,
-                                           CompactLatticeWeight::One(),
-                                           next_output_state));
+                             CompactLatticeWeight(weight, std::vector<int32>()),
+                             next_output_state));
       }
     }
   }
@@ -252,6 +257,13 @@ class LatticeWordAligner {
       lat_(lat), tmodel_(tmodel), info_in_(info), info_(info),
       max_states_(max_states), lat_out_(lat_out),
       error_(false) {
+    bool test = true;
+    uint64 props = lat_.Properties(fst::kIDeterministic|fst::kIEpsilons, test);
+    if (props != fst::kIDeterministic) {
+      KALDI_WARN << "[Lattice has input epsilons and/or is not input-deterministic "
+                 << "(in Mohri sense)]-- i.e. lattice is not deterministic.  "
+                 << "Word-alignment may be slow and-or blow up in memory.";
+    }
     fst::CreateSuperFinal(&lat_); // Creates a super-final state, so the
     // only final-probs are One().
     
@@ -303,8 +315,8 @@ class LatticeWordAligner {
       if (max_states_ > 0 && lat_out_->NumStates() > max_states_) {
         KALDI_WARN << "Number of states in lattice exceeded max-states of "
                    << max_states_ << ", original lattice had "
-                   << lat_.NumStates() << " states.  Returning empty lattice.";
-        lat_out_->DeleteStates();
+                   << lat_.NumStates() << " states.  Returning what we have.";
+        RemoveEpsilonsFromLattice();
         return false;
       }
       ProcessQueueElement();
@@ -322,7 +334,10 @@ class LatticeWordAligner {
   int32 max_states_;
   CompactLattice *lat_out_;
 
-  std::vector<std::pair<Tuple, StateId> > queue_;
+  std::deque<std::pair<Tuple, StateId> > queue_;
+  
+  
+  
   MapType map_; // map from tuples to StateId.
   bool error_;
   
@@ -652,6 +667,11 @@ WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoOpts &opts) {
   partial_word_label = opts.partial_word_label;
 }
 
+WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts) {
+  reorder = opts.reorder;
+  silence_label = opts.silence_label;
+  partial_word_label = opts.partial_word_label;
+}
 
 WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
                                    std::string word_boundary_file) {
@@ -661,11 +681,15 @@ WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
   bool binary_in;
   Input ki(word_boundary_file, &binary_in);
   KALDI_ASSERT(!binary_in && "Not expecting binary word-boundary file.");
+  Init(ki.Stream());
+}
+
+void WordBoundaryInfo::Init(std::istream &stream) {
   std::string line;
-  while (std::getline(ki.Stream(), line)) {
+  while (std::getline(stream, line)) {
     std::vector<std::string> split_line;  
     SplitStringToVector(line, " \t\r", true, &split_line);// split the line by space or tab
-    int32 p;
+    int32 p = 0;
     if (split_line.size() != 2 ||
         !ConvertStringToInteger(split_line[0], &p))
       KALDI_ERR << "Invalid line in word-boundary file: " << line;
@@ -682,9 +706,8 @@ WordBoundaryInfo::WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
       KALDI_ERR << "Invalid line in word-boundary file: " << line;
   }
   if (phone_to_type.empty())
-    KALDI_ERR << "Empty word-boundary file " << word_boundary_file;
+    KALDI_ERR << "Empty word-boundary file";
 }
-
   
 bool WordAlignLattice(const CompactLattice &lat,
                       const TransitionModel &tmodel,
@@ -863,7 +886,7 @@ class WordAlignedLatticeTester {
       Project(&aligned_lat, fst::PROJECT_INPUT);
     }
 
-    if (!RandEquivalent(lat_, aligned_lat, 5/*paths*/, 1.0e+10/*delta*/, rand()/*seed*/,
+    if (!RandEquivalent(lat_, aligned_lat, 5/*paths*/, 1.0e+10/*delta*/, Rand()/*seed*/,
                         200/*path length (max?)*/))
       KALDI_ERR << "Equivalence test failed (testing word-alignment of lattices.) "
                 << "Make sure your model and lattices match!";

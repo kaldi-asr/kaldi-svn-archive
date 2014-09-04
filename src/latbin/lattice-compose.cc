@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -84,6 +86,7 @@ int main(int argc, char *argv[]) {
           mapped_fst2(*fst2, mapper);      
       for (; !lattice_reader1.Done(); lattice_reader1.Next()) {
         std::string key = lattice_reader1.Key();
+        KALDI_VLOG(1) << "Processing lattice for key " << key;
         Lattice lat1 = lattice_reader1.Value();
         ArcSort(&lat1, fst::OLabelCompare<LatticeArc>());
         Lattice composed_lat;
@@ -109,6 +112,7 @@ int main(int argc, char *argv[]) {
       RandomAccessLatticeReader lattice_reader2(lats_rspecifier2);    
       for (; !lattice_reader1.Done(); lattice_reader1.Next()) {
         std::string key = lattice_reader1.Key();
+        KALDI_VLOG(1) << "Processing lattice for key " << key;        
         Lattice lat1 = lattice_reader1.Value();
         lattice_reader1.FreeCurrent();
         if (!lattice_reader2.HasKey(key)) {

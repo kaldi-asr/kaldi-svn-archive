@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University;
 //                      Jan Silovsky;  Yanmin Qian
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -39,6 +41,9 @@ typedef unsigned __int64 uint64;
 typedef float          float32;
 typedef double        double64;
 }
+#include <basetsd.h>
+#define ssize_t SSIZE_T
+
 #else
 // we can do this a different way if some platform
 // we find in the future lacks stdint.h

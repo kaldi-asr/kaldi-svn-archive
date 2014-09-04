@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -31,6 +33,8 @@ int main(int argc, char *argv[]) {
   typedef kaldi::int32 int32;
   try {
     const char *usage =
+        "Caution: this program relates to older scripts and is deprecated,\n"
+        "for modern scripts see egs/wsj/s5/steps/{get_ctm,get_train_ctm}.sh\n"
         "Given per-utterance pronunciation information as output by \n"
         "words-to-prons, and per-utterance phone alignment information\n"
         "as output by ali-to-phones --write-lengths, output word alignment\n"

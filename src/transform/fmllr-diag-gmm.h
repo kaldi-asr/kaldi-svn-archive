@@ -1,7 +1,10 @@
 // transform/fmllr-diag-gmm.h
 
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
+//                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -42,7 +45,7 @@ struct FmllrOptions {
   BaseFloat min_count;
   int32 num_iters;
   FmllrOptions(): update_type("full"), min_count(500.0), num_iters(40) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("fmllr-update-type", &update_type,
                  "Update type for fMLLR (\"full\"|\"diag\"|\"offset\"|\"none\")");
     po->Register("fmllr-min-count", &min_count,
@@ -57,11 +60,17 @@ struct FmllrOptions {
 
 class FmllrDiagGmmAccs: public AffineXformStats {
  public:
-  FmllrDiagGmmAccs() { }
-  FmllrDiagGmmAccs(const FmllrDiagGmmAccs &other):
-      AffineXformStats(other) { }
-  explicit FmllrDiagGmmAccs(size_t dim) { Init(dim); }
-
+  // If supplied, the "opts" will only be used to limit the
+  // stats that are accumulated, to the parts we'll need in the
+  // update.
+  FmllrDiagGmmAccs(const FmllrOptions &opts = FmllrOptions()):
+      opts_(opts) { }
+  explicit FmllrDiagGmmAccs(const FmllrDiagGmmAccs &other):
+      AffineXformStats(other), single_frame_stats_(other.single_frame_stats_),
+      opts_(other.opts_) {}
+  explicit FmllrDiagGmmAccs(int32 dim, const FmllrOptions &opts = FmllrOptions()):
+      opts_(opts) { Init(dim); }
+  
   // The following initializer gives us an efficient way to
   // compute these stats from full-cov Gaussian statistics
   // (accumulated from a *diagonal* model (e.g. use
@@ -69,30 +78,80 @@ class FmllrDiagGmmAccs: public AffineXformStats {
   // AccumulateFromDiag).
   FmllrDiagGmmAccs(const DiagGmm &gmm, const AccumFullGmm &fgmm_accs);
   
-  void Init(size_t dim) { AffineXformStats::Init(dim, dim); }
+  void Init(size_t dim) {
+    AffineXformStats::Init(dim, dim); single_frame_stats_.Init(dim);
+  }
 
   /// Accumulate stats for a single GMM in the model; returns log likelihood.
   BaseFloat AccumulateForGmm(const DiagGmm &gmm,
                              const VectorBase<BaseFloat> &data,
                              BaseFloat weight);
 
+  /// This is like AccumulateForGmm but when you have gselect
+  /// (Gaussian selection) information
+  BaseFloat AccumulateForGmmPreselect(const DiagGmm &gmm,
+                                      const std::vector<int32> &gselect,
+                                      const VectorBase<BaseFloat> &data,
+                                      BaseFloat weight);
+  
   /// Accumulate stats for a GMM, given supplied posteriors.
   void AccumulateFromPosteriors(const DiagGmm &gmm,
                                 const VectorBase<BaseFloat> &data,
                                 const VectorBase<BaseFloat> &posteriors);
 
+  /// Accumulate stats for a GMM, given supplied posteriors.  The "posteriors"
+  /// vector should be have the same size as "gselect".
+  void AccumulateFromPosteriorsPreselect(
+      const DiagGmm &gmm,
+      const std::vector<int32> &gselect,
+      const VectorBase<BaseFloat> &data,
+      const VectorBase<BaseFloat> &posteriors);
+
+  
+  /// Update
   void Update(const FmllrOptions &opts,
               MatrixBase<BaseFloat> *fmllr_mat,
               BaseFloat *objf_impr,
-              BaseFloat *count) const;
+              BaseFloat *count);
 
   // Note: we allow copy and assignment for this class.
+
+ private:
+  // The things below, added in 2013, relate to an optimization that lets us
+  // speed up accumulation if there are multiple active pdfs per frame
+  // (e.g. when accumulating from lattices), or if we don't anticipate
+  // doing a "full" update.
+  
+  struct SingleFrameStats {
+    Vector<BaseFloat> x; // dim-dimensional features.
+    Vector<BaseFloat> a; // linear term in per-frame auxf; dim is model-dim.
+    Vector<BaseFloat> b; // quadratic term in per-frame auxf; dim is model-dim.
+    double count;
+    SingleFrameStats(int32 dim = 0) { Init(dim); }
+    SingleFrameStats(const SingleFrameStats &s): x(s.x), a(s.a), b(s.b),
+                                                 count(s.count) {}
+    void Init(int32 dim);
+  };  
+
+  void CommitSingleFrameStats();
+
+  void InitSingleFrameStats(const VectorBase<BaseFloat> &data);
+  
+  bool DataHasChanged(const VectorBase<BaseFloat> &data) const; // compares it to the
+  // data in single_frame_stats_, returns true if it's different.
+
+  SingleFrameStats single_frame_stats_;
+  
+  // We only use the opts_ variable for its "update_type" data member,
+  // which limits what parts of the G matrix we accumulate.
+  FmllrOptions opts_;
+  
 };
 
 
 // Initializes the FMLLR matrix to its default values.
 inline void InitFmllr(int32 dim,
-                            Matrix<BaseFloat> *out_fmllr) {
+                      Matrix<BaseFloat> *out_fmllr) {
   out_fmllr->Resize(dim, dim+1);
   out_fmllr->SetUnit();  // sets diagonal elements to one.
 }
@@ -152,7 +211,7 @@ BaseFloat ComputeFmllrMatrixDiagGmm(const MatrixBase<BaseFloat> &in_xform,
 /// Returns the (diagonal-GMM) FMLLR auxiliary function value given the transform
 /// and the stats.
 float FmllrAuxFuncDiagGmm(const MatrixBase<float> &xform,
-                              const AffineXformStats &stats);
+                          const AffineXformStats &stats);
 double FmllrAuxFuncDiagGmm(const MatrixBase<double> &xform,
                            const AffineXformStats &stats);
 
@@ -185,6 +244,20 @@ void ApplyFeatureTransformToStats(const MatrixBase<BaseFloat> &xform,
 /// be of dimension d x d+1
 void ApplyModelTransformToStats(const MatrixBase<BaseFloat> &xform,
                                 AffineXformStats *stats);
+
+
+/// This function does one row of the inner-loop fMLLR transform update.
+/// We export it because it's needed in the RawFmllr code.
+/// Here, if inv_G is the inverse of the G matrix indexed by this row,
+/// and k is the corresponding row of the K matrix.
+void FmllrInnerUpdate(SpMatrix<double> &inv_G,
+                      VectorBase<double> &k,
+                      double beta,
+                      int32 row,
+                      MatrixBase<double> *transform);
+
+                      
+                      
 
 
 } // namespace kaldi

@@ -1,7 +1,9 @@
-// featbin/compute-fbank-feats.cc
+// featbin/compute-spectrogram-feats.cc
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -110,7 +112,8 @@ int main(int argc, char *argv[]) {
       if (spec_opts.frame_opts.samp_freq != wave_data.SampFreq())
         KALDI_ERR << "Sample frequency mismatch: you specified "
                   << spec_opts.frame_opts.samp_freq << " but data has "
-                  << wave_data.SampFreq() << " (use --sample-frequency option)";
+                  << wave_data.SampFreq() << " (use --sample-frequency "
+                  << "option).  Utterance is " << utt;
 
       SubVector<BaseFloat> waveform(wave_data.Data(), this_chan);
       Matrix<BaseFloat> features;
@@ -138,7 +141,7 @@ int main(int argc, char *argv[]) {
         HtkHeader header = {
           features.NumRows(),
           frame_shift,
-          sizeof(float)*features.NumCols(),
+          static_cast<int16>(sizeof(float)*features.NumCols()),
           007 | 020000
         };
         p.second = header;

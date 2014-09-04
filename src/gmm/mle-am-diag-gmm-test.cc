@@ -2,6 +2,8 @@
 
 // Copyright 2009-2012  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -84,6 +86,9 @@ void TestAmDiagGmmAccsIO(const AmDiagGmm &am_gmm,
   kaldi::AssertEqual(loglike1, loglike3, 1e-6);
   delete am_gmm3;
   delete accs2;
+
+  unlink("tmpf");
+  unlink("tmpfb");
 }
 
 void UnitTestMleAmDiagGmm() {

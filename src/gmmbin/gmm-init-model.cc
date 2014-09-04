@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 //                     Johns Hopkins University  (author: Guoguo Chen)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -88,7 +90,7 @@ void InitAmGmm(const BuildTreeStatsType &stats,
     x2.AddVec2(-1.0, x);  // subtract mean^2.
     x2.ApplyFloor(var_floor);
     x2.InvertElements();  // get inv-var.
-    assert(x2.Min() > 0);
+    KALDI_ASSERT(x2.Min() > 0);
 
     Matrix<BaseFloat> mean(1, x.Dim());
     mean.Row(0).CopyFromVec(x);

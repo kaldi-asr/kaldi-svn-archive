@@ -13,7 +13,9 @@ use_phi=false  # This is kind of an obscure option.  If true, we'll remove the o
   # difference (if any) to WER, it's more so we know we are doing the right thing.
 test=false # Activate a testing option.
 stage=1 # Stage of this script, for partial reruns.
+rnnlm_ver=rnnlm-0.3e
 # End configuration section.
+
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -95,7 +97,11 @@ else
     echo "$0: removing old LM scores."
     # this approach chooses the best path through the old LM FST, while
     # subtracting the old scores.  If the lattices came straight from decoding,
-    # this is what we want.
+    # this is what we want.  Note here: each FST in "nbest1.JOB.gz" is a linear FST,
+    # it has no alternatives (the N-best format works by having multiple keys
+    # for each utterance).  When we do "lattice-1best" we are selecting the best
+    # path through the LM, there are no alternatives to consider within the
+    # original lattice.
     $cmd JOB=1:$nj $dir/log/remove_old.JOB.log \
       lattice-scale --acoustic-scale=-1 --lm-scale=-1 "ark:gunzip -c $dir/nbest1.JOB.gz|" ark:- \| \
       lattice-compose ark:- "fstproject --project_output=true $oldlm |" ark:- \| \
@@ -147,7 +153,7 @@ fi
 if [ $stage -le 6 ]; then
   echo "$0: invoking rnnlm_compute_scores.sh which calls rnnlm, to get RNN LM scores."
   $cmd JOB=1:$nj $dir/log/rnnlm_compute_scores.JOB.log \
-    utils/rnnlm_compute_scores.sh $rnndir $adir.JOB/temp $adir.JOB/words_text $adir.JOB/lmwt.rnn \
+    utils/rnnlm_compute_scores.sh --rnnlm_ver $rnnlm_ver $rnndir $adir.JOB/temp $adir.JOB/words_text $adir.JOB/lmwt.rnn \
     || exit 1;
 fi
 if [ $stage -le 7 ]; then

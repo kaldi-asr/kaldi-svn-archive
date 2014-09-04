@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 //        Johns Hopkins University (author: Guoguo Chen)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -734,6 +736,12 @@ bool GetPhonesForPdfs(const TransitionModel &trans_model,
                                trans_model.TransitionStateToPdf(tstate)))
       return false;
   return true;
+}
+
+bool TransitionModel::Compatible(const TransitionModel &other) const {
+  return (topo_ == other.topo_ && triples_ == other.triples_ &&
+          state2id_ == other.state2id_ && id2state_ == other.id2state_
+          && num_pdfs_ == other.num_pdfs_);
 }
 
 } // End namespace kaldi

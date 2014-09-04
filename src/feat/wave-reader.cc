@@ -1,7 +1,11 @@
 // feat/wave-reader.cc
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek
+//                2013  Florent Masson
+//                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,52 +19,49 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdio>
+#include <sstream>
+#include <vector>
 
 #include "feat/wave-reader.h"
 #include "base/kaldi-error.h"
 #include "base/kaldi-utils.h"
 
-#include <cstdio>
-#include <sstream>
-
 namespace kaldi {
-
 
 // static
 void WaveData::Expect4ByteTag(std::istream &is, const char *expected) {
   char tmp[5];
   tmp[4] = '\0';
   is.read(tmp, 4);
-  if (is.fail()) KALDI_ERR << "WaveData: expected " << expected << ", failed to read anything";
+  if (is.fail())
+    KALDI_ERR << "WaveData: expected " << expected << ", failed to read anything";
   if (strcmp(tmp, expected))
     KALDI_ERR << "WaveData: expected " << expected << ", got " << tmp;
 }
 
-// static
-uint32 WaveData::ReadUint32(std::istream &is) {
+uint32 WaveData::ReadUint32(std::istream &is, bool swap) {
   union {
     char result[4];
     uint32 ans;
   } u;
   is.read(u.result, 4);
-#ifdef __BIG_ENDIAN__
-  KALDI_SWAP4(result);
-#endif
+  if (swap)
+    KALDI_SWAP4(u.result);
   if (is.fail())
     KALDI_ERR << "WaveData: unexpected end of file.";
   return u.ans;
 }
 
-// static
-uint16 WaveData::ReadUint16(std::istream &is) {
+
+uint16 WaveData::ReadUint16(std::istream &is, bool swap) {
   union {
     char result[2];
     int16 ans;
   } u;
   is.read(u.result, 2);
-#ifdef __BIG_ENDIAN__
-  KALDI_SWAP2(result);
-#endif
+  if (swap)
+    KALDI_SWAP2(u.result);
   if (is.fail())
     KALDI_ERR << "WaveData: unexpected end of file.";
   return u.ans;
@@ -81,7 +82,7 @@ void WaveData::WriteUint32(std::ostream &os, int32 i) {
   } u;
   u.i = i;
 #ifdef __BIG_ENDIAN__
-  KALDI_SWAP4(result);
+  KALDI_SWAP4(u.buf);
 #endif
   os.write(u.buf, 4);
   if (os.fail())
@@ -90,12 +91,12 @@ void WaveData::WriteUint32(std::ostream &os, int32 i) {
 
 void WaveData::WriteUint16(std::ostream &os, int16 i) {
   union {
-    char buf[4];
-    int i;
+    char buf[2];
+    int16 i;
   } u;
   u.i = i;
 #ifdef __BIG_ENDIAN__
-  KALDI_SWAP2(result);
+  KALDI_SWAP2(u.buf);
 #endif
   os.write(u.buf, 2);
   if (os.fail())
@@ -107,21 +108,37 @@ void WaveData::WriteUint16(std::ostream &os, int16 i) {
 void WaveData::Read(std::istream &is) {
   data_.Resize(0, 0);  // clear the data.
 
-  Expect4ByteTag(is, "RIFF");
-  uint32 riff_chunk_size = ReadUint32(is);
-  Expect4ByteTag(is, "WAVE");
+  char tmp[5];
+  tmp[4] = '\0';
+  Read4ByteTag(is, &tmp[0]);
+  bool is_rifx;
+  if (!strcmp(tmp, "RIFF"))
+    is_rifx = false;
+  else if (!strcmp(tmp, "RIFX"))
+    is_rifx = true;
+  else
+    KALDI_ERR << "WaveData: expected RIFF or RIFX, got " << tmp;
 
+#ifdef __BIG_ENDIAN__  
+  bool swap = !is_rifx;
+#else
+  bool swap = is_rifx;
+#endif
+  
+  uint32 riff_chunk_size = ReadUint32(is, swap);
+  Expect4ByteTag(is, "WAVE");
+  
   uint32 riff_chunk_read = 0;
   riff_chunk_read += 4;  // WAVE included in riff_chunk_size.
 
   Expect4ByteTag(is, "fmt ");
-  uint32 subchunk1_size = ReadUint32(is);
-  uint16 audio_format = ReadUint16(is),
-      num_channels = ReadUint16(is);
-  uint32 sample_rate = ReadUint32(is),
-      byte_rate = ReadUint32(is),
-      block_align = ReadUint16(is),
-      bits_per_sample = ReadUint16(is);
+  uint32 subchunk1_size = ReadUint32(is, swap);
+  uint16 audio_format = ReadUint16(is, swap),
+      num_channels = ReadUint16(is, swap);
+  uint32 sample_rate = ReadUint32(is, swap),
+      byte_rate = ReadUint32(is, swap),
+      block_align = ReadUint16(is, swap),
+      bits_per_sample = ReadUint16(is, swap);
 
   if (audio_format != 1)
     KALDI_ERR << "WaveData: can read only PCM data, audio_format is not 1: "
@@ -155,16 +172,18 @@ void WaveData::Read(std::istream &is) {
   Read4ByteTag(is, next_chunk_name);
   riff_chunk_read += 4;
 
-  if (!strncmp(next_chunk_name, "fact", 4)) {
-    // will just ignore the "fact" chunk.  for non-compressed data
-    // (which we don't support anyway), it doesn't contain useful information.
-    uint32 chunk_sz = ReadUint32(is);
-    if (chunk_sz != 4)
+  // Skip any subchunks between "fmt" and "data".  Usually there will
+  // be a single "fact" subchunk, but on Windows there can also be a
+  // "list" subchunk.
+  while (strncmp(next_chunk_name, "data", 4) != 0) {
+    // We will just ignore the data in these chunks.  
+    uint32 chunk_sz = ReadUint32(is, swap);
+    if (chunk_sz != 4 && strncmp(next_chunk_name, "fact", 4) == 0)
       KALDI_WARN << "Expected fact chunk to be 4 bytes long.";
     for (uint32 i = 0; i < chunk_sz; i++)
       is.get();
     riff_chunk_read += 4 + chunk_sz;  // for chunk_sz (4) + chunk contents (chunk-sz)
-
+    
     // Now read the next chunk name.
     Read4ByteTag(is, next_chunk_name);
     riff_chunk_read += 4;
@@ -174,25 +193,31 @@ void WaveData::Read(std::istream &is) {
     KALDI_ERR << "WaveData: expected data chunk, got instead "
               << next_chunk_name;
 
-  uint32 data_chunk_size = ReadUint32(is);
+  uint32 data_chunk_size = ReadUint32(is, swap);
   riff_chunk_read += 4;
+
+  if (riff_chunk_read + data_chunk_size != riff_chunk_size) {
+    KALDI_ERR << "Expected " << riff_chunk_size << " bytes in RIFF chunk, but "
+              << "after first data block there will be " << riff_chunk_read
+              << " + " << data_chunk_size << " bytes "
+              << "(we do not support reading multiple data chunks).";
+  }
+  
   std::vector<char> chunk_data_vec(data_chunk_size);
   char *data_ptr = &(chunk_data_vec[0]);
   is.read(data_ptr, data_chunk_size);
-  riff_chunk_read += data_chunk_size;
-
-  if (riff_chunk_read  != riff_chunk_size)
-    KALDI_WARN << "Expected " << riff_chunk_size << " bytes in RIFF chunk, but got "
-               << riff_chunk_read << " (do not support reading multiple data chunks).";
-  if (is.fail())
-    KALDI_ERR << "WaveData: failed to read data chunk.";
-
-  if (data_chunk_size % block_align != 0)
-    KALDI_ERR << "WaveData: data chunk size has unexpected length "
-              << data_chunk_size << "; block-align = " << block_align;
+  uint32 num_bytes_read = is.gcount();
+  if (num_bytes_read == 0 && num_bytes_read != data_chunk_size) {
+    KALDI_ERR << "WaveData: failed to read data chunk (read no bytes)";
+  } else if (num_bytes_read != data_chunk_size) {
+    KALDI_ASSERT(num_bytes_read < data_chunk_size);
+    KALDI_WARN << "Read fewer bytes than specified in the header: "
+               << num_bytes_read << " < " << data_chunk_size;    
+  }
+  
   if (data_chunk_size == 0)
     KALDI_ERR << "WaveData: empty file (no data)";
-
+  
   uint32 num_samp = data_chunk_size / block_align;
   data_.Resize(num_channels, num_samp);
   for (uint32 i = 0; i < num_samp; i++) {
@@ -205,9 +230,8 @@ void WaveData::Read(std::istream &is) {
         case 16:
           {
             int16 k = *reinterpret_cast<uint16*>(data_ptr);
-#ifdef __BIG_ENDIAN__
-            KALDI_SWAP2(k);
-#endif
+            if (swap)
+              KALDI_SWAP2(k);
             data_(j, i) =  k;
             data_ptr += 2;
             break;
@@ -215,9 +239,8 @@ void WaveData::Read(std::istream &is) {
         case 32:
           {
             int32 k = *reinterpret_cast<uint32*>(data_ptr);
-#ifdef __BIG_ENDIAN__
-            KALDI_SWAP4(k);
-#endif
+            if (swap)
+              KALDI_SWAP4(k);
             data_(j, i) =  k;
             data_ptr += 4;
             break;
@@ -241,7 +264,7 @@ void WaveData::Write(std::ostream &os) const {
   os << "RIFF";
   if (data_.NumRows() == 0)
     KALDI_ERR << "Error: attempting to write empty WAVE file";
-  
+
   int32 num_chan = data_.NumRows(),
       num_samp = data_.NumCols(),
       bytes_per_samp = 2;
@@ -264,9 +287,9 @@ void WaveData::Write(std::ostream &os) const {
 
   const BaseFloat *data_ptr = data_.Data();
   int32 stride = data_.Stride();
-      
-  for(int32 i = 0; i < num_samp; i++) {
-    for(int32 j = 0; j < num_chan; j++) {
+
+  for (int32 i = 0; i < num_samp; i++) {
+    for (int32 j = 0; j < num_chan; j++) {
       int32 elem = static_cast<int32>(data_ptr[j*stride + i]);
       int16 elem_16(elem);
       if (static_cast<int32>(elem_16) != elem)
@@ -282,4 +305,4 @@ void WaveData::Write(std::ostream &os) const {
 }
 
 
-} // end namespace
+}  // end namespace kaldi

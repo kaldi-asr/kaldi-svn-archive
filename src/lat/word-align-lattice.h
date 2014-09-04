@@ -2,6 +2,8 @@
 
 // Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,8 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef KALDI_FSTEXT_WORD_ALIGN_LATTICE_H_
-#define KALDI_FSTEXT_WORD_ALIGN_LATTICE_H_
+#ifndef KALDI_LAT_WORD_ALIGN_LATTICE_H_
+#define KALDI_LAT_WORD_ALIGN_LATTICE_H_
 #include <fst/fstlib.h>
 #include <fst/fst-decl.h>
 
@@ -57,7 +59,7 @@ struct WordBoundaryInfoOpts {
                           reorder(true), silence_may_be_word_internal(false),
                           silence_has_olabels(false) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("wbegin-phones", &wbegin_phones, "Colon-separated list of "
                  "numeric ids of phones that begin a word");
     po->Register("wend-phones", &wend_phones, "Colon-separated list of "
@@ -98,7 +100,7 @@ struct WordBoundaryInfoNewOpts {
   WordBoundaryInfoNewOpts(): silence_label(0), partial_word_label(0),
                              reorder(true) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("silence-label", &silence_label, "Numeric id of word symbol "
                  "that is to be used for silence arcs in the word-aligned "
                  "lattice (zero is OK)");
@@ -124,8 +126,11 @@ struct WordBoundaryInfo {
   // silence phones behave in this way.
 
   // This initializer is to be used in future.
+  WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts);
   WordBoundaryInfo(const WordBoundaryInfoNewOpts &opts,
                    std::string word_boundary_file);
+
+  void Init(std::istream &stream);
 
   enum PhoneType {
     kNoPhone = 0,
@@ -162,8 +167,10 @@ struct WordBoundaryInfo {
   void SetOptions(const std::string int_list, PhoneType phone_type);
 };
 
-
-/// returns true if everything was OK, false if some kind of
+/// Align lattice so that each arc has the transition-ids on it
+/// that correspond to the word that is on that arc.  [May also have
+/// epsilon arcs for optional silences.]
+/// Returns true if everything was OK, false if some kind of
 /// error was detected (e.g. the words didn't have the kinds of
 /// sequences we would expect if the WordBoundaryInfo was
 /// correct).  Note: we don't expect silence inside words,
@@ -189,10 +196,7 @@ bool WordAlignLattice(const CompactLattice &lat,
 
 
 /// This function is designed to crash if something went wrong with the
-/// word-alignment of the lattice.  If was_ok==true (was_ok is the return status
-/// of WordAlignLattice), it tests that, after removing any silence and
-/// partial-word labels that may have been inserted by WordAlignLattice,
-/// the word-aligned lattice is equivalent to the input.  It also verifies
+/// word-alignment of the lattice.  It verifies
 /// that arcs are of 4 types:
 ///   properly-aligned word arcs, with a word label.
 ///   partial-word arcs, with the partial-word label.

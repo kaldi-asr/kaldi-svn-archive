@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -29,7 +31,7 @@ int main(int argc, char *argv[]) {
         "the feature dimension of the first feature file; if second argument is\n"
         "wspecifier, writes an archive of the feature dimension, indexed by utterance\n"
         "id.\n"
-        "Usage: feat-to-dim [options] feat-rspecifier (dim-wspecifier|dim-wxfilename)\n"
+        "Usage: feat-to-dim [options] <feat-rspecifier> (<dim-wspecifier>|<dim-wxfilename>)\n"
         "e.g.: feat-to-dim scp:feats.scp -\n";
     
     ParseOptions po(usage);
@@ -53,7 +55,7 @@ int main(int argc, char *argv[]) {
         dim_writer.Write(kaldi_reader.Key(), kaldi_reader.Value().NumCols());
     } else {
       if (kaldi_reader.Done())
-        KALDI_ERR << "Could not read any features (empty archive?)\n";
+        KALDI_ERR << "Could not read any features (empty archive?)";
       Output ko(wspecifier_or_wxfilename, false); // text mode.
       ko.Stream() << kaldi_reader.Value().NumCols() << "\n";
     }

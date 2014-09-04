@@ -4,6 +4,8 @@
 //                      Johns Hopkins University (author: Daniel Povey)
 
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,7 +27,7 @@
 #include "fstext/fstext-lib.h"
 #include "decoder/faster-decoder.h"
 #include "decoder/training-graph-compiler.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "gmm/decodable-am-diag-gmm.h"
 #include "lat/kaldi-lattice.h" // for {Compact}LatticeArc
 
 int main(int argc, char *argv[]) {
@@ -38,7 +40,8 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Align features given [GMM-based] models.\n"
-        "Usage:   gmm-align-compiled [options] model-in graphs-rspecifier feature-rspecifier alignments-wspecifier\n"
+        "Usage:   gmm-align-compiled [options] model-in graphs-rspecifier "
+        "feature-rspecifier alignments-wspecifier [scores-wspecifier]\n"
         "e.g.: \n"
         " gmm-align-compiled 1.mdl ark:graphs.fsts scp:train.scp ark:1.ali\n"
         "or:\n"
@@ -46,14 +49,12 @@ int main(int argc, char *argv[]) {
         "   gmm-align-compiled 1.mdl ark:- scp:train.scp t, ark:1.ali\n";
 
     ParseOptions po(usage);
-    bool binary = true;
     BaseFloat beam = 200.0;
     BaseFloat retry_beam = 0.0;
     BaseFloat acoustic_scale = 1.0;
     BaseFloat transition_scale = 1.0;
     BaseFloat self_loop_scale = 1.0;
 
-    po.Register("binary", &binary, "Write output in binary mode");
     po.Register("beam", &beam, "Decoding beam");
     po.Register("retry-beam", &retry_beam, "Decoding beam for second try at alignment");
     po.Register("transition-scale", &transition_scale, "Transition-probability scale [relative to acoustics]");

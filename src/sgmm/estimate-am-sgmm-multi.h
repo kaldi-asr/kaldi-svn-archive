@@ -2,6 +2,8 @@
 
 // Copyright 2012       Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +26,6 @@
 #include "sgmm/am-sgmm.h"
 #include "sgmm/estimate-am-sgmm.h"
 #include "gmm/model-common.h"
-#include "util/parse-options.h"
 
 namespace kaldi {
 

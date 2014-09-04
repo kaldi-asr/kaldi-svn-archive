@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -47,7 +49,7 @@ bool ReadScriptFile(const std::string &rxfilename,
 bool ReadScriptFile(std::istream &is,
                     bool warn,
                     std::vector<std::pair<std::string, std::string> > *script_out) {
-  assert(script_out != NULL);
+  KALDI_ASSERT(script_out != NULL);
   std::string line;
   int line_number = 0;
   while (getline(is, line)) {
@@ -78,7 +80,7 @@ bool ReadScriptFile(std::istream &is,
 bool WriteScriptFile(std::ostream &os,
                      const std::vector<std::pair<std::string, std::string> > &script) {
   if (!os.good()) {
-    KALDI_WARN << "WriteScriptFile: attempting to write to invalid stream.\n";
+    KALDI_WARN << "WriteScriptFile: attempting to write to invalid stream.";
     return false;
   }
   std::vector<std::pair<std::string, std::string> >::const_iterator iter;
@@ -97,7 +99,7 @@ bool WriteScriptFile(std::ostream &os,
     os << iter->first << ' ' << iter->second << '\n';
   }
   if (!os.good()) {
-    KALDI_WARN << "WriteScriptFile: stream in error state.\n";
+    KALDI_WARN << "WriteScriptFile: stream in error state.";
     return false;
   }
   return true;
@@ -127,17 +129,17 @@ WspecifierType ClassifyWspecifier(const std::string &wspecifier,
                                   std::string *script_wxfilename,
                                   WspecifierOptions *opts) {
   //  Examples:
-  //  t, ark:wxfilename -> kArchiveWspecifier
-  //  b, ark:wxfilename -> kArchiveWspecifier
-  //  t, scp:rxfilename -> kScriptWspecifier
-  //  b, scp:rxfilename -> kScriptWspecifier
-  //  t, ark, scp:filename, wxfilename -> kBothWspecifier
-  //  b, ark, scp:filename, wxfilename ->  kBothWspecifier
+  //  ark,t:wxfilename -> kArchiveWspecifier
+  //  ark,b:wxfilename -> kArchiveWspecifier
+  //  scp,t:rxfilename -> kScriptWspecifier
+  //  scp,t:rxfilename -> kScriptWspecifier
+  //  ark,scp,t:filename, wxfilename -> kBothWspecifier
+  //  ark,scp:filename, wxfilename ->  kBothWspecifier
   //  Note we can include the flush option (f) or no-flush (nf)
   // anywhere: e.g.
-  //  f, ark, scp:filename, wxfilename ->  kBothWspecifier
+  //  ark,scp,f:filename, wxfilename ->  kBothWspecifier
   // or:
-  //  t, scp, nf:rxfilename -> kScriptWspecifier
+  //  scp,t,nf:rxfilename -> kScriptWspecifier
 
   if (archive_wxfilename) archive_wxfilename->clear();
   if (script_wxfilename) script_wxfilename->clear();
@@ -154,6 +156,10 @@ WspecifierType ClassifyWspecifier(const std::string &wspecifier,
 
   WspecifierType ws = kNoWspecifier;
 
+  if (opts != NULL)
+    *opts = WspecifierOptions(); // Make sure all the defaults are as in the
+                                 // default constructor of the options class.
+  
   for (size_t i = 0; i < split_first_part.size(); i++) {
     const std::string &str = split_first_part[i];  // e.g. "b", "t", "f", "ark", "scp".
     const char *c = str.c_str();
@@ -165,6 +171,8 @@ WspecifierType ClassifyWspecifier(const std::string &wspecifier,
       if (opts) opts->flush = false;
     } else if (!strcmp(c, "t")) {
       if (opts) opts->binary = false;
+    } else if (!strcmp(c, "p")) {
+      if (opts) opts->permissive = true;
     } else if (!strcmp(c, "ark")) {
       if (ws == kNoWspecifier) ws = kArchiveWspecifier;
       else return kNoWspecifier;  // We do not allow "scp, ark", only "ark, scp".
@@ -228,6 +236,10 @@ RspecifierType ClassifyRspecifier(const std::string &rspecifier,
 
   if (wxfilename) wxfilename->clear();
 
+  if (opts != NULL)
+    *opts = RspecifierOptions(); // Make sure all the defaults are as in the
+                                 // default constructor of the options class.
+  
   size_t pos = rspecifier.find(':');
   if (pos == std::string::npos) return kNoRspecifier;
 

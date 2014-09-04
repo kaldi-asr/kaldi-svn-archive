@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,12 +30,14 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Compose (affine or linear) feature transforms\n"
-        "Usage: compose-transforms [options] (transform-A-rspecifier|transform-A-rxfilename) (transform-B-rspecifier|transform-B-rxfilename) (transform-out-wspecifier|transform-out-wxfilename)\n"
+        "Usage: compose-transforms [options] (<transform-A-rspecifier>|<transform-A-rxfilename>) "
+        "(<transform-B-rspecifier>|<transform-B-rxfilename>) (<transform-out-wspecifier>|<transform-out-wxfilename>)\n"
         " Note: it does matrix multiplication (A B) so B is the transform that gets applied\n"
         "  to the features first.  If b-is-affine = true, then assume last column of b corresponds to offset\n"
         " e.g.: compose-transforms 1.mat 2.mat 3.mat\n"
         "   compose-transforms 1.mat ark:2.trans ark:3.trans\n"
-        "   compose-transforms ark:1.trans ark:2.trans ark:3.trans\n";
+        "   compose-transforms ark:1.trans ark:2.trans ark:3.trans\n"
+        " See also: transform-feats, transform-vec, extend-transform-dim, est-lda, est-pca\n";
 
     bool b_is_affine = false;
     bool binary = true;

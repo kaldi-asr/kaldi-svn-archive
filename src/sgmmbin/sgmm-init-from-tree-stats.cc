@@ -3,6 +3,8 @@
 // Copyright 2012   Arnab Ghoshal  Johns Hopkins University (Author: Daniel Povey)
 // Copyright 2009-2011   Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -130,7 +132,7 @@ int main(int argc, char *argv[]) {
       Input ki(tree_stats_filename, &binary_in);
       ReadBuildTreeStats(ki.Stream(), binary_in, sc, &stats);
     }
-    KALDI_LOG << "Number of separate statistics is " << stats.size() << '\n';
+    KALDI_LOG << "Number of separate statistics is " << stats.size();
     
     InitAndOutputSgmm(topo, am_sgmm, ctx_dep, H, stats,
                       sgmm_out_filename, binary);

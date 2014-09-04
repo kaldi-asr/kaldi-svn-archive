@@ -1,7 +1,10 @@
 // gmmbin/gmm-est-basis-fmllr.cc
 
 // Copyright 2012  Carnegie Mellon University (author: Yajie Miao)
+//           2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,6 +29,7 @@ using std::vector;
 #include "hmm/transition-model.h"
 #include "transform/fmllr-diag-gmm.h"
 #include "transform/basis-fmllr-diag-gmm.h"
+#include "hmm/posterior.h"
 
 namespace kaldi {
 void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
@@ -33,12 +37,14 @@ void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
                             const TransitionModel &trans_model,
                             const AmDiagGmm &am_gmm,
                             FmllrDiagGmmAccs *spk_stats) {
+  Posterior pdf_post;
+  ConvertPosteriorToPdfs(trans_model, post, &pdf_post);
   for (size_t i = 0; i < post.size(); i++) {
-    for (size_t j = 0; j < post[i].size(); j++) {
-      int32 pdf_id = trans_model.TransitionIdToPdf(post[i][j].first);
+    for (size_t j = 0; j < pdf_post[i].size(); j++) {
+      int32 pdf_id = pdf_post[i][j].first;
       spk_stats->AccumulateForGmm(am_gmm.GetPdf(pdf_id),
                                   feats.Row(i),
-                                  post[i][j].second);
+                                  pdf_post[i][j].second);
     }
   }
 }
@@ -92,13 +98,9 @@ int main(int argc, char *argv[]) {
       am_gmm.Read(ki.Stream(), binary);
     }
 
-    BasisFmllrEstimate basis_est(am_gmm.Dim());
-    {
-      bool binary;
-      Input ki(basis_rspecifier, &binary);
-      basis_est.ReadBasis(ki.Stream(), binary, false);
-    }
-
+    BasisFmllrEstimate basis_est;
+    ReadKaldiObject(basis_rspecifier, &basis_est);
+    
     RandomAccessPosteriorReader post_reader(post_rspecifier);
 
     double tot_impr = 0.0, tot_t = 0.0;
@@ -148,9 +150,9 @@ int main(int argc, char *argv[]) {
           // Compute the transform and write it out.
           Matrix<BaseFloat> transform(am_gmm.Dim(), am_gmm.Dim() + 1);
           transform.SetUnit();
-          Vector<BaseFloat> weights(am_gmm.Dim() * (am_gmm.Dim() + 1)); // size will be adjusted
+          Vector<BaseFloat> weights;  // size will be adjusted
           impr = basis_est.ComputeTransform(spk_stats, &transform,
-                                           &weights, basis_fmllr_opts);
+                                            &weights, basis_fmllr_opts);
           spk_tot_t = spk_stats.beta_;
           wgt_size = weights.Dim();
           transform_writer.Write(spk, transform);
@@ -158,7 +160,6 @@ int main(int argc, char *argv[]) {
           if (!weights_out_filename.empty() && weights.Dim() > 0)
         	  weights_writer.Write(spk, weights);
         }
-
         KALDI_LOG << "For speaker " << spk << ", auxf-impr from Basis fMLLR is "
                   << (impr / spk_tot_t) << ", over " << spk_tot_t << " frames, "
                   << "the top " << wgt_size << " basis elements have been used";

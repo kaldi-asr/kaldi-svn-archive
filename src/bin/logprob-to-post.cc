@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,6 +23,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "hmm/hmm-utils.h"
+#include "hmm/posterior.h"
 
 /* Convert a matrix of log-probabilities 
    to something of type Posterior, i.e. for each utterance, a

@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Gilles Boulianne
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -113,7 +115,7 @@ void DeleteTestFst(StdVectorFst *fst) {
 // Follow paths from an input fst representing a string
 // (poor man's composition)
 Weight WalkSinglePath(StdVectorFst *ifst, DeterministicOnDemandFst<StdArc> *dfst) {
-  StdArc *oarc =  new StdArc();
+  StdArc oarc; // =  new StdArc();
   StateId isrc=ifst->Start();
   StateId dsrc=dfst->Start();
   Weight totalCost = Weight::One();
@@ -121,8 +123,8 @@ Weight WalkSinglePath(StdVectorFst *ifst, DeterministicOnDemandFst<StdArc> *dfst
   while (ifst->Final(isrc) == Weight::Zero()) { // while not final
 	fst::ArcIterator<StdVectorFst> aiter(*ifst, isrc);
 	const StdArc &iarc = aiter.Value();
-	if (dfst->GetArc(dsrc, iarc.olabel, oarc)) {
-	  Weight cost = Times(iarc.weight, oarc->weight);
+	if (dfst->GetArc(dsrc, iarc.olabel, &oarc)) {
+	  Weight cost = Times(iarc.weight, oarc.weight);
 	  // cout << "  Matched label "<<iarc.olabel<<" at summed cost "<<cost<<endl;	  
 	  totalCost = Times(totalCost, cost);
 	} else {
@@ -130,8 +132,8 @@ Weight WalkSinglePath(StdVectorFst *ifst, DeterministicOnDemandFst<StdArc> *dfst
 	  exit(1);
 	}
 	isrc = iarc.nextstate;
-    KALDI_LOG << "Setting dsrc = " << oarc->nextstate;
-	dsrc = oarc->nextstate;
+    KALDI_LOG << "Setting dsrc = " << oarc.nextstate;
+	dsrc = oarc.nextstate;
   }
   totalCost = Times(totalCost, dfst->Final(dsrc));
                     

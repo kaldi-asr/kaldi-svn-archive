@@ -16,13 +16,19 @@
 
 
 $ignore_oov = 0;
-$ignore_first_field = 0;
+
 for($x = 0; $x < 2; $x++) {
   if ($ARGV[0] eq "--map-oov") {
-    shift @ARGV; $map_oov = shift @ARGV;
+    shift @ARGV; 
+    $map_oov = shift @ARGV;
+    if ($map_oov eq "-f" || $map_oov =~ m/words\.txt$/ || $map_oov eq "") {
+      # disallow '-f', the empty string and anything ending in words.txt as the
+      # OOV symbol because these are likely command-line errors.
+      die "the --map-oov option requires an argument";
+    }
   }
   if ($ARGV[0] eq "-f") {
-    shift @ARGV; 
+    shift @ARGV;
     $field_spec = shift @ARGV; 
     if ($field_spec =~ m/^\d+$/) {
       $field_begin = $field_spec - 1; $field_end = $field_spec - 1;
@@ -90,6 +96,9 @@ while (<>) {
   }
   print join(" ", @B);
   print "\n";
+}
+if ($num_warning > 0) {
+  print STDERR "** Replaced $num_warning instances of OOVs with $map_oov\n"; 
 }
 
 exit(0);

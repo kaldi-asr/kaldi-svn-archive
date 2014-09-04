@@ -2,7 +2,10 @@
 
 // Copyright 2009-2012   Saarland University (Author:  Arnab Ghoshal),
 //                       Johns Hopkins University (Author:  Daniel Povey)
+//                2014   Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,11 +22,10 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
 #include "hmm/transition-model.h"
-#include "sgmm2/estimate-am-sgmm.h"
-
-
+#include "sgmm2/estimate-am-sgmm2.h"
+#include "hmm/posterior.h"
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
@@ -85,7 +87,8 @@ int main(int argc, char *argv[]) {
       RandomAccessInt32VectorVectorReader gselect_reader(gselect_rspecifier);
       RandomAccessBaseFloatVectorReaderMapped spkvecs_reader(spkvecs_rspecifier,
                                                              utt2spk_rspecifier);
-    
+      RandomAccessTokenReader utt2spk_map(utt2spk_rspecifier);
+      
       AmSgmm2 am_sgmm;
       TransitionModel trans_model;
       {
@@ -103,9 +106,39 @@ int main(int argc, char *argv[]) {
       double tot_t = 0;
 
       kaldi::Sgmm2PerFrameDerivedVars per_frame_vars;
-
+      std::string cur_spk;
+      Sgmm2PerSpkDerivedVars spk_vars;
+              
       for (; !feature_reader.Done(); feature_reader.Next()) {
         std::string utt = feature_reader.Key();
+        std::string spk = utt;
+        if (!utt2spk_rspecifier.empty()) {
+          if (!utt2spk_map.HasKey(utt)) {
+            KALDI_WARN << "utt2spk map does not have value for " << utt
+                       << ", ignoring this utterance.";
+            continue;
+          } else { spk = utt2spk_map.Value(utt); }
+        }
+
+        if (spk != cur_spk && cur_spk != "")
+          sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);        
+        
+        if (spk != cur_spk || spk_vars.Empty()) {
+          spk_vars.Clear();
+          if (spkvecs_reader.IsOpen()) {
+            if (spkvecs_reader.HasKey(utt)) {
+              spk_vars.SetSpeakerVector(spkvecs_reader.Value(utt));
+              am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
+            } else {
+              KALDI_WARN << "Cannot find speaker vector for " << utt;
+              num_err++;
+              continue;
+            }
+          } // else spk_vars is "empty"
+        }
+        
+        cur_spk = spk;
+        
         const Matrix<BaseFloat> &features = feature_reader.Value();
         if (!posteriors_reader.HasKey(utt) ||
             posteriors_reader.Value(utt).size() != features.NumRows()) {
@@ -125,38 +158,32 @@ int main(int argc, char *argv[]) {
         const std::vector<std::vector<int32> > &gselect =
             gselect_reader.Value(utt);
 
-        Sgmm2PerSpkDerivedVars spk_vars;
-        if (spkvecs_reader.IsOpen()) {
-          if (spkvecs_reader.HasKey(utt)) {
-            spk_vars.SetSpeakerVector(spkvecs_reader.Value(utt));
-            am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
-          } else {
-            KALDI_WARN << "Cannot find speaker vector for " << utt;
-            num_err++;
-            continue;
-          }
-        } // else spk_vars is "empty"
         num_done++;
       
         BaseFloat tot_like_this_file = 0.0, tot_weight = 0.0;
-      
+
+        Posterior pdf_posterior;
+        ConvertPosteriorToPdfs(trans_model, posterior, &pdf_posterior);
         for (size_t i = 0; i < posterior.size(); i++) {
           am_sgmm.ComputePerFrameVars(features.Row(i), gselect[i], spk_vars,
                                       &per_frame_vars);
-
-          for (size_t j = 0; j < posterior[i].size(); j++) {
-            int32 tid = posterior[i][j].first,  // transition identifier.
-                pdf_id = trans_model.TransitionIdToPdf(tid);
-            BaseFloat weight = posterior[i][j].second;
-            trans_model.Accumulate(weight, tid, &transition_accs);
+          // Accumulates for SGMM.
+          for (size_t j = 0; j < pdf_posterior[i].size(); j++) {
+            int32 pdf_id = pdf_posterior[i][j].first;
+            BaseFloat weight = pdf_posterior[i][j].second;
             tot_like_this_file += sgmm_accs.Accumulate(am_sgmm, per_frame_vars,
                                                        pdf_id, weight, &spk_vars)
                 * weight;
             tot_weight += weight;
           }
-        }
 
-        sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars); // no harm doing it per utterance.
+          // Accumulates for transitions.
+          for (size_t j = 0; j < posterior[i].size(); j++) {
+            int32 tid = posterior[i][j].first;
+            BaseFloat weight = posterior[i][j].second;
+            trans_model.Accumulate(weight, tid, &transition_accs);
+          }
+        }
         
         KALDI_VLOG(2) << "Average like for this file is "
                       << (tot_like_this_file/tot_weight) << " over "
@@ -170,12 +197,15 @@ int main(int argc, char *argv[]) {
                     << " over " << tot_weight <<" frames.";
         }
       }
+      sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars); // commit stats for
+      // last speaker.
+      
       KALDI_LOG << "Overall like per frame (Gaussian only) = "
                 << (tot_like/tot_t) << " over " << tot_t << " frames.";
 
       KALDI_LOG << "Done " << num_done << " files, " << num_err
                 << " with errors.";
-    }    
+    } 
 
     {
       Output ko(accs_wxfilename, binary);

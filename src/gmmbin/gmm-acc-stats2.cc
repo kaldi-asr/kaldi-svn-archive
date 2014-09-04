@@ -1,7 +1,9 @@
-// gmmbin/gmm-acc-stats.cc
+// gmmbin/gmm-acc-stats2.cc
 
 // Copyright 2009-2012  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,7 +23,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "gmm/mle-am-diag-gmm.h"
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {

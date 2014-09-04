@@ -3,6 +3,8 @@
 // Copyright 2012  Johns Hopkins University (Author: Guoguo Chen)
 //                 Lucas Ondel
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,11 +18,11 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "fstext/fstext-utils.h"
 #include "lat/kaldi-kws.h"
+#include "lat/kws-functions.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -79,7 +81,8 @@ int main(int argc, char *argv[]) {
       try {
         DeterminizeStar(ifst, &global_index, kDelta, NULL, max_states);
       } catch(const std::exception &e) {
-        KALDI_WARN << e.what();
+        KALDI_WARN << e.what()
+                   << " (should affect speed of search but not results)";
         global_index = ifst;
       }
       Minimize(&global_index);

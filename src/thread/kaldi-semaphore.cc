@@ -1,7 +1,9 @@
-// util/kaldi-semaphore.cc
+// thread/kaldi-semaphore.cc
 
 // Copyright 2012  Karel Vesely (Brno University of Technology)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,10 +27,10 @@ namespace kaldi {
   
 Semaphore::Semaphore(int32 initValue) {
   counter_ = initValue;
-  if(0 != pthread_mutex_init(&mutex_, NULL)) {
+  if (pthread_mutex_init(&mutex_, NULL) != 0) {
     KALDI_ERR << "Cannot initialize pthread mutex";
   }
-  if(0 != pthread_cond_init(&cond_, NULL)) {
+  if (pthread_cond_init(&cond_, NULL) != 0) {
     KALDI_ERR << "Cannot initialize pthread conditional variable";
   }
 }
@@ -36,10 +38,10 @@ Semaphore::Semaphore(int32 initValue) {
 
 
 Semaphore::~Semaphore() {
-  if(0 != pthread_mutex_destroy(&mutex_)) {
+  if (pthread_mutex_destroy(&mutex_) != 0) {
     KALDI_ERR << "Cannot destroy pthread mutex";
   }
-  if(0 != pthread_cond_destroy(&cond_)) {
+  if (pthread_cond_destroy(&cond_) != 0) {
     KALDI_ERR << "Cannot destroy pthread conditional variable";
   }
 }
@@ -50,12 +52,12 @@ bool Semaphore::TryWait() {
   int32 ret = 0;
   bool try_wait_succeeded = false;
   ret |= pthread_mutex_lock(&mutex_);
-  if(counter_ > 0) {
+  if (counter_ > 0) {
     counter_--;
     try_wait_succeeded = true;
   }
   ret |= pthread_mutex_unlock(&mutex_);
-  if(0 != ret) {
+  if (ret != 0) {
     KALDI_ERR << "Error in pthreads";
   }
   return try_wait_succeeded;
@@ -66,12 +68,12 @@ bool Semaphore::TryWait() {
 void Semaphore::Wait() {
   int32 ret = 0;
   ret |= pthread_mutex_lock(&mutex_);
-  while(counter_ <= 0) {
+  while (counter_ <= 0) {
     ret |= pthread_cond_wait(&cond_, &mutex_);
   }
   counter_--;
   ret |= pthread_mutex_unlock(&mutex_);
-  if(0 != ret) {
+  if (ret != 0) {
     KALDI_ERR << "Error in pthreads";
   }
 }
@@ -84,7 +86,7 @@ void Semaphore::Signal() {
   counter_++;
   ret |= pthread_cond_signal(&cond_);
   ret |= pthread_mutex_unlock(&mutex_);
-  if(0 != ret) {
+  if (ret != 0) {
     KALDI_ERR << "Error in pthreads";
   }
 }

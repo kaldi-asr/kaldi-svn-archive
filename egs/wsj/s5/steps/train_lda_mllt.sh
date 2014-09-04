@@ -21,8 +21,11 @@ randprune=4.0 # This is approximately the ratio by which we will speed up the
               # LDA and MLLT calculations via randomized pruning.
 splice_opts=
 cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
+norm_vars=false # deprecated.  Prefer --cmvn-opts "--norm-vars=false"
+cmvn_opts=
 # End configuration.
 train_tree=true  # if false, don't actually train the tree.
+use_lda_mat=  # If supplied, use this LDA[+MLLT] matrix.
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -62,26 +65,40 @@ echo $nj >$dir/num_jobs
 echo "$splice_opts" >$dir/splice_opts # keep track of frame-splicing options
            # so that later stages of system building can know what they were.
 
+
+[ $(cat $alidir/cmvn_opts 2>/dev/null | wc -c) -gt 1 ] && [ -z "$cmvn_opts" ] && \
+  echo "$0: warning: ignoring CMVN options from source directory $alidir"
+$norm_vars && cmvn_opts="--norm-vars=true $cmvn_opts"
+echo $cmvn_opts > $dir/cmvn_opts # keep track of options to CMVN.
+
 sdata=$data/split$nj;
 split_data.sh $data $nj || exit 1;
 
-
-splicedfeats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- |"
+splicedfeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- |"
 # Note: $feats gets overwritten later in the script.
 feats="$splicedfeats transform-feats $dir/0.mat ark:- ark:- |"
 
 
 
 if [ $stage -le -5 ]; then
-  echo "Accumulating LDA statistics."
-  $cmd JOB=1:$nj $dir/log/lda_acc.JOB.log \
+  if [ -z "$use_lda_mat" ]; then
+    echo "Accumulating LDA statistics."
+    $cmd JOB=1:$nj $dir/log/lda_acc.JOB.log \
     ali-to-post "ark:gunzip -c $alidir/ali.JOB.gz|" ark:- \| \
       weight-silence-post 0.0 $silphonelist $alidir/final.mdl ark:- ark:- \| \
       acc-lda --rand-prune=$randprune $alidir/final.mdl "$splicedfeats" ark,s,cs:- \
-       $dir/lda.JOB.acc || exit 1;
-  est-lda --write-full-matrix=$dir/full.mat --dim=$dim $dir/0.mat $dir/lda.*.acc \
+      $dir/lda.JOB.acc || exit 1;
+    est-lda --write-full-matrix=$dir/full.mat --dim=$dim $dir/0.mat $dir/lda.*.acc \
       2>$dir/log/lda_est.log || exit 1;
-  rm $dir/lda.*.acc
+    rm $dir/lda.*.acc
+  else
+    echo "Using supplied LDA matrix $use_lda_mat"
+    cp $use_lda_mat $dir/0.mat || exit 1;
+    [ ! -z "$mllt_iters" ] && \
+      echo "Warning: using supplied LDA matrix $use_lda_mat but we will do MLLT," && \
+      echo "which you might not want; to disable MLLT, specify --mllt-iters ''" && \
+      sleep 5
+  fi
 fi
 
 cur_lda_iter=0

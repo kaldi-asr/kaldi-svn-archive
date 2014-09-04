@@ -3,6 +3,8 @@
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,14 +21,17 @@
 // (*) incorporates, with permission, FFT code from his book
 // "Signal Processing with Lapped Transforms", Artech, 1992.
 
+#include <algorithm>
+
 #include "matrix/optimization.h"
+#include "matrix/sp-matrix.h"
 
 namespace kaldi {
 
 
 // Below, N&W refers to Nocedal and Wright, "Numerical Optimization", 2nd Ed.
 
-template<class Real>
+template<typename Real>
 OptimizeLbfgs<Real>::OptimizeLbfgs(const VectorBase<Real> &x,
                                    const LbfgsOptions &opts):
     opts_(opts), k_(0), computation_state_(kBeforeStep), H_was_set_(false) {
@@ -46,7 +51,7 @@ OptimizeLbfgs<Real>::OptimizeLbfgs(const VectorBase<Real> &x,
 }
 
 
-template<class Real>
+template<typename Real>
 Real OptimizeLbfgs<Real>::RecentStepLength() const {
   size_t n = step_lengths_.size();
   if (n == 0) return std::numeric_limits<Real>::infinity();
@@ -61,7 +66,7 @@ Real OptimizeLbfgs<Real>::RecentStepLength() const {
   }
 }
 
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::ComputeHifNeeded(const VectorBase<Real> &gradient) {
   if (k_ == 0) {
     if (H_.Dim() == 0) {
@@ -105,7 +110,7 @@ void OptimizeLbfgs<Real>::ComputeHifNeeded(const VectorBase<Real> &gradient) {
 // This represents the first 2 lines of Algorithm 7.5 (N&W), which
 // in fact is mostly a call to Algorithm 7.4.
 // Note: this is valid whether we are minimizing or maximizing.
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::ComputeNewDirection(Real function_value,
                                               const VectorBase<Real> &gradient) {
   KALDI_ASSERT(computation_state_ == kBeforeStep);
@@ -164,7 +169,7 @@ void OptimizeLbfgs<Real>::ComputeNewDirection(Real function_value,
 }
 
 
-template<class Real>
+template<typename Real>
 bool OptimizeLbfgs<Real>::AcceptStep(Real function_value,
                                      const VectorBase<Real> &gradient) {
   // Save s_k = x_{k+1} - x_{k}, and y_k = \nabla f_{k+1} - \nabla f_k.
@@ -198,7 +203,7 @@ bool OptimizeLbfgs<Real>::AcceptStep(Real function_value,
   return true; // We successfully accepted the step.
 }
 
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::RecordStepLength(Real s) {
   step_lengths_.push_back(s);
   if (step_lengths_.size() > static_cast<size_t>(opts_.avg_step_length))
@@ -206,7 +211,7 @@ void OptimizeLbfgs<Real>::RecordStepLength(Real s) {
 }
 
 
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::Restart(const VectorBase<Real> &x,
                                   Real f,
                                   const VectorBase<Real> &gradient) {
@@ -229,7 +234,7 @@ void OptimizeLbfgs<Real>::Restart(const VectorBase<Real> &x,
   ComputeNewDirection(f, gradient);
 }
 
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::StepSizeIteration(Real function_value,
                                             const VectorBase<Real> &gradient) {
   KALDI_VLOG(3) << "In step size iteration, function value changed "
@@ -374,7 +379,7 @@ void OptimizeLbfgs<Real>::StepSizeIteration(Real function_value,
   }
 }
 
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::DoStep(Real function_value,
                                  const VectorBase<Real> &gradient) {
   if (opts_.minimize ? function_value < best_f_ : function_value > best_f_) {
@@ -387,7 +392,7 @@ void OptimizeLbfgs<Real>::DoStep(Real function_value,
     StepSizeIteration(function_value, gradient);
 }
 
-template<class Real>
+template<typename Real>
 void OptimizeLbfgs<Real>::DoStep(Real function_value,
                                  const VectorBase<Real> &gradient,
                                  const VectorBase<Real> &diag_approx_2nd_deriv) {
@@ -406,7 +411,7 @@ void OptimizeLbfgs<Real>::DoStep(Real function_value,
   DoStep(function_value, gradient);
 }
 
-template<class Real>
+template<typename Real>
 const VectorBase<Real>&
 OptimizeLbfgs<Real>::GetValue(Real *objf_value) const {
   if (objf_value != NULL) *objf_value = best_f_;
@@ -414,10 +419,126 @@ OptimizeLbfgs<Real>::GetValue(Real *objf_value) const {
 }
 
 
+// Notation based on Sec. 5.1 of Nocedal and Wright
+// Computation based on Alg. 5.2 of Nocedal and Wright (Pg. 112)
+// Notation (replicated for convenience):
+//  To solve Ax=b for x
+//  k : current iteration
+//  x_k : estimate of x (at iteration k)
+//  r_k : residual
+//  \alpha_k : step size
+//  p_k : A-conjugate direction
+//  \beta_k  : coefficient used in A-conjuagate direction computation for next
+//  iteration
+//  
+//  Algo.  LinearCG(A,b,x_0)
+//  ========================
+//  r_0 = Ax_0 - b
+//  p_0 = -r_0
+//  k = 0
+//
+//  while r_k != 0
+//    \alpha_k = (r_k^T  r_k) / (p_k^T  A  p_k)
+//    x_{k+1} = x_k + \alpha_k  p_k;
+//    r_{k+1} = r_k + \alpha_k  A  p_k
+//    \beta_{k+1} = \frac{r_{k+1}^T r_{k+1}}{r_k^T r_K}
+//    p_{k+1} = -r_{k+1} + \beta_{k+1} p_k
+//    k = k + 1
+//  end
+
+template<class Real>
+int32 LinearCgd(const LinearCgdOptions &opts,
+                const SpMatrix<Real> &A,
+                const VectorBase<Real> &b,
+                VectorBase<Real> *x) {
+  // Initialize the variables
+  //
+  int32 M = A.NumCols();
+
+  Matrix<Real> storage(4, M);
+  SubVector<Real> r(storage, 0), p(storage, 1), Ap(storage, 2), x_orig(storage, 3);
+  p.CopyFromVec(b);
+  p.AddSpVec(-1.0, A, *x, 1.0);  // p_0 = b - A x_0
+  r.AddVec(-1.0, p);  // r_0 = - p_0
+  x_orig.CopyFromVec(*x);  // in case of failure.
+  
+  Real r_cur_norm_sq = VecVec(r, r),
+      r_initial_norm_sq = r_cur_norm_sq,
+      r_recompute_norm_sq = r_cur_norm_sq;
+
+  Real max_error_sq = std::max<Real>(opts.max_error * opts.max_error,
+                                     std::numeric_limits<Real>::min()),
+      residual_factor = opts.recompute_residual_factor *
+                        opts.recompute_residual_factor;
+  
+  // Note: although from a mathematical point of view the method should converge
+  // after M iterations, in practice (due to roundoff) it does not always
+  // converge to good precision after that many iterations so we let the maximum
+  // be 1.5 * M + 5 instead.
+  int32 k = 0;
+  for (; k < M + M / 2 + 5 && k != opts.max_iters; k++) {
+    // Note: we'll break from this loop if we converge sooner due to
+    // max_error.
+    Ap.AddSpVec(1.0, A, p, 0.0);  // Ap = A p
+    // next line: \alpha_k = (r_k^T r_k) / (p_k^T A p_k)
+    Real alpha = r_cur_norm_sq / VecVec(p, Ap);
+    // next line: x_{k+1} = x_k + \alpha_k p_k;
+    x->AddVec(alpha, p);
+    // next line: r_{k+1} = r_k + \alpha_k A p_k
+    r.AddVec(alpha, Ap);
+    Real r_next_norm_sq = VecVec(r, r);
+    
+    if (r_next_norm_sq < residual_factor * r_recompute_norm_sq) {
+      // Recompute the residual from scratch if the residual norm has decreased
+      // a lot; this costs an extra matrix-vector multiply, but helps keep the
+      // residual accurate.
+      
+      // r_{k+1} = A x_{k+1} - b
+      r.AddSpVec(1.0, A, *x, 0.0);
+      r.AddVec(-1.0, b);
+      r_next_norm_sq = VecVec(r, r);
+      r_recompute_norm_sq = r_next_norm_sq;
+    }
+    KALDI_VLOG(5) << "In linear CG: r_next_norm_sq = " << r_next_norm_sq;
+    // Check if converged.
+    if (r_next_norm_sq <= max_error_sq)
+      break;
+    
+    // next line: \beta_{k+1} = \frac{r_{k+1}^T r_{k+1}}{r_k^T r_K}
+    Real beta_next = r_next_norm_sq / r_cur_norm_sq;
+    // next lines: p_{k+1} = -r_{k+1} + \beta_{k+1} p_k
+    Vector<Real> p_old(p);
+    p.Scale(beta_next);
+    p.AddVec(-1.0, r);
+    r_cur_norm_sq = r_next_norm_sq;
+  }
+  if (r_cur_norm_sq > r_initial_norm_sq) {
+    KALDI_WARN << "Doing linear CGD in dimension " << A.NumRows() << ", after " << k
+              << " iterations the squared residual has got worse, "
+               << r_cur_norm_sq << " > " << r_initial_norm_sq
+               << ".  Will do an exact optimization.";
+    SolverOptions opts("called-from-linearCGD");
+    x->CopyFromVec(x_orig);
+    SolveQuadraticProblem(A, b, opts, x);
+  }
+  return k;
+} 
+    
 // Instantiate the class for float and double.
 template
 class OptimizeLbfgs<float>;
 template
 class OptimizeLbfgs<double>;
+
+
+template
+int32 LinearCgd<float>(const LinearCgdOptions &opts,
+                      const SpMatrix<float> &A, const VectorBase<float> &b,
+                      VectorBase<float> *x);
+
+template
+int32 LinearCgd<double>(const LinearCgdOptions &opts,
+                        const SpMatrix<double> &A, const VectorBase<double> &b,
+                        VectorBase<double> *x);
 
 } // end namespace kaldi

@@ -5,6 +5,8 @@
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,7 +34,7 @@ int main(int argc, char *argv[]) {
     using namespace fst;
 
     typedef kaldi::int32 int32;
-    typedef OnlineFeInput<OnlineVectorSource, Mfcc> FeInput;
+    typedef OnlineFeInput<Mfcc> FeInput;
 
     // up to delta-delta derivative features are calculated (unless LDA is used)
     const int32 kDeltaOrder = 2;
@@ -47,7 +49,7 @@ int main(int argc, char *argv[]) {
         "Caution: the last few frames of the wav file may not be decoded properly.\n"
         "Hence, don't use one wav file per utterance, but "
         "rather use one wav file per show.\n\n"
-        "Usage: ./online-wav-gmm-decode-faster [options] wav-rspecifier model-in"
+        "Usage: online-wav-gmm-decode-faster [options] wav-rspecifier model-in"
         "fst-in word-symbol-table silence-phones transcript-wspecifier "
         "alignments-wspecifier [lda-matrix-in]\n\n"
         "Example: ./online-wav-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
@@ -55,18 +57,25 @@ int main(int argc, char *argv[]) {
         "scp:wav.scp model HCLG.fst words.txt '1:2:3:4:5' ark,t:trans.txt ark,t:ali.txt";
     ParseOptions po(usage);
     BaseFloat acoustic_scale = 0.1;
-    int32 cmn_window = 600;
+    int32 cmn_window = 600,
+      min_cmn_window = 100; // adds 1 second latency, only at utterance start.
     int32 channel = -1;
     int32 right_context = 4, left_context = 4;
 
     OnlineFasterDecoderOpts decoder_opts;
     decoder_opts.Register(&po, true);
+    OnlineFeatureMatrixOptions feature_reading_opts;
+    feature_reading_opts.Register(&po);
+    
     po.Register("left-context", &left_context, "Number of frames of left context");
     po.Register("right-context", &right_context, "Number of frames of right context");
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoods");
     po.Register("cmn-window", &cmn_window,
         "Number of feat. vectors used in the running average CMN calculation");
+    po.Register("min-cmn-window", &min_cmn_window,
+                "Minumum CMN window used at start of decoding (adds "
+                "latency only at start)");
     po.Register("channel", &channel,
         "Channel to extract (-1 -> expect mono, 0 -> left, 1 -> right)");
     po.Read(argc, argv);
@@ -74,10 +83,7 @@ int main(int argc, char *argv[]) {
       po.PrintUsage();
       return 1;
     }
-    if (po.NumArgs() == 7)
-      if (left_context % kDeltaOrder != 0 || left_context != right_context)
-        KALDI_ERR << "Invalid left/right context parameters!";
-
+    
     std::string wav_rspecifier = po.GetArg(1),
         model_rspecifier = po.GetArg(2),
         fst_rspecifier = po.GetArg(3),
@@ -127,7 +133,6 @@ int main(int argc, char *argv[]) {
     int32 frame_length = mfcc_opts.frame_opts.frame_length_ms = 25;
     int32 frame_shift = mfcc_opts.frame_opts.frame_shift_ms = 10;
 
-    int32 feat_dim;
     int32 window_size = right_context + left_context + 1;
     decoder_opts.batch_size = std::max(decoder_opts.batch_size, window_size);
 
@@ -164,21 +169,24 @@ int main(int argc, char *argv[]) {
       FeInput fe_input(&au_src, &mfcc,
                        frame_length*(wav_data.SampFreq()/1000),
                        frame_shift*(wav_data.SampFreq()/1000));
-      OnlineCmvnInput cmvn_input(&fe_input, mfcc_opts.num_ceps, cmn_window);
+      OnlineCmnInput cmn_input(&fe_input, cmn_window, min_cmn_window);
       OnlineFeatInputItf *feat_transform = 0;
       if (lda_mat_rspecifier != "") {
         feat_transform = new OnlineLdaInput(
-                                 &cmvn_input, mfcc_opts.num_ceps, lda_transform,
-                                 left_context, right_context);
-        feat_dim = lda_transform.NumRows();
+            &cmn_input, lda_transform,
+            left_context, right_context);
       } else {
-        feat_transform = new OnlineDeltaInput(&cmvn_input, mfcc_opts.num_ceps,
-                                              kDeltaOrder, left_context / 2);
-        feat_dim = (kDeltaOrder + 1) * mfcc_opts.num_ceps;
+        DeltaFeaturesOptions opts;
+        opts.order = kDeltaOrder;
+        feat_transform = new OnlineDeltaInput(opts, &cmn_input);
       }
-      OnlineDecodableDiagGmmScaled decodable(feat_transform, am_gmm, trans_model,
-                                             acoustic_scale, decoder_opts.batch_size,
-                                             feat_dim, -1);
+
+      // feature_reading_opts contains number of retries, batch size.
+      OnlineFeatureMatrix feature_matrix(feature_reading_opts,
+                                         feat_transform);
+
+      OnlineDecodableDiagGmmScaled decodable(am_gmm, trans_model, acoustic_scale,
+                                             &feature_matrix);
       int32 start_frame = 0;
       bool partial_res = false;
       while (1) {

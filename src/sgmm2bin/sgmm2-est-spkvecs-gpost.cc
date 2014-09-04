@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011   Saarland University;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,8 +24,8 @@ using std::vector;
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
-#include "sgmm2/estimate-am-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
+#include "sgmm2/estimate-am-sgmm2.h"
 #include "hmm/transition-model.h"
 
 namespace kaldi {

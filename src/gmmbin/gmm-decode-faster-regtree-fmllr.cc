@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation;  Saarland University;
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,7 +30,7 @@
 #include "transform/fmllr-diag-gmm.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/faster-decoder.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "transform/decodable-am-diag-gmm-regtree.h"
 #include "util/timer.h"
 #include "lat/kaldi-lattice.h" // for {Compact}LatticeArc
 

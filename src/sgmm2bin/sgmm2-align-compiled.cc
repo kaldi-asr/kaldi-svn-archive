@@ -3,6 +3,8 @@
 // Copyright 2009-2012 Microsoft Corporation;  Saarland University
 //                     Johns Hopkins University (Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,13 +20,13 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
 #include "hmm/transition-model.h"
 #include "hmm/hmm-utils.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/faster-decoder.h"
 #include "decoder/training-graph-compiler.h"
-#include "decoder/decodable-am-sgmm2.h"
+#include "sgmm2/decodable-am-sgmm2.h"
 #include "lat/kaldi-lattice.h" // for {Compact}LatticeArc
 
 

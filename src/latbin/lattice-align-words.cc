@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,6 +22,7 @@
 #include "util/common-utils.h"
 #include "lat/kaldi-lattice.h"
 #include "lat/word-align-lattice.h"
+#include "lat/lattice-functions.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -92,11 +95,16 @@ int main(int argc, char *argv[]) {
       if (!ok) {
         num_err++;
         if (!output_if_error)
-          KALDI_WARN << "Lattice for " << key << " did align correctly";
+          KALDI_WARN << "Lattice for " << key
+                     << " did not align correctly, producing no output.";
         else {
           if (aligned_clat.Start() != fst::kNoStateId) {
-            KALDI_LOG << "Outputting partial lattice for " << key;
+            KALDI_WARN << "Outputting partial lattice for " << key;
+            TopSortCompactLatticeIfNeeded(&aligned_clat);
             clat_writer.Write(key, aligned_clat);
+          } else {
+            KALDI_WARN << "Empty aligned lattice for " << key
+                       << ", producing no output.";
           }
         }
       } else {
@@ -106,6 +114,7 @@ int main(int argc, char *argv[]) {
         } else {
           num_done++;
           KALDI_VLOG(2) << "Aligned lattice for " << key;
+          TopSortCompactLatticeIfNeeded(&aligned_clat);
           clat_writer.Write(key, aligned_clat);
         }
       }

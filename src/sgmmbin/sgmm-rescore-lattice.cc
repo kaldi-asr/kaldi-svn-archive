@@ -1,8 +1,10 @@
 // sgmmbin/sgmm-rescore-lattice.cc
 
-// Copyright 2009-2011   Saarland University
-// Author: Arnab Ghoshal
+// Copyright 2009-2011   Saarland University (Author: Arnab Ghoshal)
+//                       Cisco Systems (Author: Neha Agrawal)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,70 +26,7 @@
 #include "fstext/fstext-lib.h"
 #include "lat/kaldi-lattice.h"
 #include "lat/lattice-functions.h"
-
-namespace kaldi {
-
-void LatticeAcousticRescore(const AmSgmm &am,
-                            const TransitionModel &trans_model,
-                            const MatrixBase<BaseFloat> &data,
-                            const SgmmPerSpkDerivedVars &spk_vars,
-                            const std::vector<std::vector<int32> > &gselect,
-                            const SgmmGselectConfig &sgmm_config,
-                            double log_prune,
-                            const std::vector<int32> state_times,
-                            Lattice *lat) {
-  kaldi::uint64 props = lat->Properties(fst::kFstProperties, false);
-  if (!(props & fst::kTopSorted))
-    KALDI_ERR << "Input lattice must be topologically sorted.";
-
-  KALDI_ASSERT(!state_times.empty());
-  std::vector<std::vector<int32> > time_to_state(data.NumRows());
-  for (size_t i = 0; i < state_times.size(); i++) {
-    KALDI_ASSERT(state_times[i] >= 0);
-    if (state_times[i] < data.NumRows()) // end state may be past this..
-      time_to_state[state_times[i]].push_back(i);
-    else
-      KALDI_ASSERT(state_times[i] == data.NumRows()
-                   && "There appears to be lattice/feature mismatch.");
-  }
-  
-  for (int32 t = 0; t < data.NumRows(); t++) {
-    SgmmPerFrameDerivedVars per_frame_vars;
-    std::vector<int32> this_gselect;
-    if (!gselect.empty()) {
-      KALDI_ASSERT(t < gselect.size());
-      this_gselect = gselect[t];
-    } else  {
-      am.GaussianSelection(sgmm_config, data.Row(t), &this_gselect);
-    }
-    am.ComputePerFrameVars(data.Row(t), this_gselect, spk_vars,
-                           0.0 /*fMLLR logdet*/, &per_frame_vars);
-                           
-    unordered_map<int32, BaseFloat> pdf_id_to_like;
-    for (size_t i = 0; i < time_to_state[t].size(); i++) {
-      int32 state = time_to_state[t][i];
-      for (fst::MutableArcIterator<Lattice> aiter(lat, state); !aiter.Done();
-           aiter.Next()) {
-        LatticeArc arc = aiter.Value();
-        int32 trans_id = arc.ilabel;
-        if (trans_id != 0) {  // Non-epsilon input label on arc
-          int32 pdf_id = trans_model.TransitionIdToPdf(trans_id);
-          BaseFloat ll;
-          if (pdf_id_to_like.count(pdf_id) == 0) {
-            ll = am.LogLikelihood(per_frame_vars, pdf_id, log_prune);
-            pdf_id_to_like[pdf_id] = ll;
-          } else {
-            ll = pdf_id_to_like[pdf_id];
-          }
-          arc.weight.SetValue2(-ll + arc.weight.Value2());
-          aiter.SetValue(arc);
-        }
-      }
-    }
-  }
-}
-
-}  // namespace kaldi
+#include "sgmm/decodable-am-sgmm.h"
 
 int main(int argc, char *argv[]) {
   try {
@@ -105,17 +44,26 @@ int main(int argc, char *argv[]) {
         " e.g.: sgmm-rescore-lattice 1.mdl ark:1.lats scp:trn.scp ark:2.lats\n";
 
     kaldi::BaseFloat old_acoustic_scale = 0.0;
+    bool speedup = false;    
     BaseFloat log_prune = 5.0;
     std::string gselect_rspecifier, spkvecs_rspecifier, utt2spk_rspecifier;
-    SgmmGselectConfig sgmm_opts;    
+    SgmmGselectConfig sgmm_opts;
     kaldi::ParseOptions po(usage);
     po.Register("old-acoustic-scale", &old_acoustic_scale,
                 "Add the current acoustic scores with some scale.");
-    po.Register("log-prune", &log_prune, "Pruning beam used to reduce number of exp() evaluations.");
+    po.Register("log-prune", &log_prune,
+                "Pruning beam used to reduce number of exp() evaluations.");
     po.Register("spk-vecs", &spkvecs_rspecifier, "Speaker vectors (rspecifier)");
     po.Register("utt2spk", &utt2spk_rspecifier,
                 "rspecifier for utterance to speaker map");
-    po.Register("gselect", &gselect_rspecifier, "Precomputed Gaussian indices (rspecifier)");
+    po.Register("gselect", &gselect_rspecifier,
+                "Precomputed Gaussian indices (rspecifier)");
+    po.Register("speedup", &speedup,
+                "If true, enable a faster version of the computation that "
+                "saves times when there is only one pdf-id on a single frame "
+                "by only sometimes (randomly) computing the probabilities, and "
+                "then scaling them up to preserve corpus-level diagnostics.");
+    
     sgmm_opts.Register(&po);
 
     po.Read(argc, argv);
@@ -144,42 +92,27 @@ int main(int argc, char *argv[]) {
                                                            utt2spk_rspecifier);
     RandomAccessBaseFloatMatrixReader feature_reader(feature_rspecifier);
     // Read as regular lattice
-    SequentialLatticeReader lattice_reader(lats_rspecifier);
+    SequentialCompactLatticeReader compact_lattice_reader(lats_rspecifier);
     // Write as compact lattice.
-    CompactLatticeWriter compact_lattice_writer(lats_wspecifier); 
+    CompactLatticeWriter compact_lattice_writer(lats_wspecifier);
 
-    int32 n_done = 0, num_no_feats = 0, num_other_error = 0;
-    for (; !lattice_reader.Done(); lattice_reader.Next()) {
-      std::string utt = lattice_reader.Key();
+    int32 num_done = 0, num_err = 0;
+    for (; !compact_lattice_reader.Done(); compact_lattice_reader.Next()) {
+      std::string utt = compact_lattice_reader.Key();
       if (!feature_reader.HasKey(utt)) {
         KALDI_WARN << "No feature found for utterance " << utt << ". Skipping";
-        num_no_feats++;
+        num_err++;
         continue;
       }
 
-      Lattice lat = lattice_reader.Value();
-      lattice_reader.FreeCurrent();
+      CompactLattice clat = compact_lattice_reader.Value();
+      compact_lattice_reader.FreeCurrent();
       if (old_acoustic_scale != 1.0)
-        fst::ScaleLattice(fst::AcousticLatticeScale(old_acoustic_scale), &lat);
+        fst::ScaleLattice(fst::AcousticLatticeScale(old_acoustic_scale), &clat);
 
-      kaldi::uint64 props = lat.Properties(fst::kFstProperties, false);
-      if (!(props & fst::kTopSorted)) {
-        if (fst::TopSort(&lat) == false)
-          KALDI_ERR << "Cycles detected in lattice.";
-      } 
-
-      vector<int32> state_times;
-      int32 max_time = kaldi::LatticeStateTimes(lat, &state_times);
       const Matrix<BaseFloat> &feats = feature_reader.Value(utt);
-      if (feats.NumRows() != max_time) {
-        KALDI_WARN << "Skipping utterance " << utt << " since number of time "
-                   << "frames in lattice ("<< max_time << ") differ from "
-                   << "number of feature frames (" << feats.NumRows() << ").";
-        num_other_error++;
-        continue;
-      }
 
-      // Get speaker vectors      
+      // Get speaker vectors
       SgmmPerSpkDerivedVars spk_vars;
       if (spkvecs_reader.IsOpen()) {
         if (spkvecs_reader.HasKey(utt)) {
@@ -187,7 +120,7 @@ int main(int argc, char *argv[]) {
           am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
         } else {
           KALDI_WARN << "Cannot find speaker vector for " << utt;
-          num_other_error++;
+          num_err++;
           continue;
         }
       }  // else spk_vars is "empty"
@@ -201,18 +134,30 @@ int main(int argc, char *argv[]) {
       std::vector<std::vector<int32> > empty_gselect;
       const std::vector<std::vector<int32> > *gselect =
           (have_gselect ? &gselect_reader.Value(utt) : &empty_gselect);
-        
-      kaldi::LatticeAcousticRescore(am_sgmm, trans_model, feats,
-                                    spk_vars, *gselect, sgmm_opts,
-                                    log_prune, state_times, &lat);
-      CompactLattice clat_out;
-      ConvertLattice(lat, &clat_out);
-      compact_lattice_writer.Write(utt, clat_out);
-      n_done++;
+
+      DecodableAmSgmm sgmm_decodable(sgmm_opts, am_sgmm, spk_vars,
+                                     trans_model, feats, *gselect,
+                                     log_prune);
+
+      if (!speedup) {
+        if (kaldi::RescoreCompactLattice(&sgmm_decodable, &clat)) {
+          compact_lattice_writer.Write(utt, clat);
+          num_done++;
+        } else num_err++;
+      } else {
+        BaseFloat speedup_factor = 100.0; 
+        if (kaldi::RescoreCompactLatticeSpeedup(trans_model, speedup_factor,
+                                                &sgmm_decodable,
+                                                &clat)) {
+          compact_lattice_writer.Write(utt, clat);
+          num_done++;
+        } else num_err++;
+      }        
     }
 
-    KALDI_LOG << "Done " << n_done << " lattices.";
-    return (n_done != 0 ? 0 : 1);
+    KALDI_LOG << "Done " << num_done << " lattices, errors on "
+              << num_err;
+    return (num_done != 0 ? 0 : 1);
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

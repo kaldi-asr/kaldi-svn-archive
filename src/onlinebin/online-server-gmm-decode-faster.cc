@@ -1,10 +1,11 @@
 // onlinebin/online-server-gmm-decode-faster.cc
 
 // Copyright 2012 Cisco Systems (author: Matthias Paulik)
+//           2012 Vassil Panayotov
+//           2013 Johns Hopkins University (author: Daniel Povey)
 
-//   Modifications to the original contribution by Cisco Systems made by:
-//   Vassil Panayotov
-
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -68,34 +69,39 @@ int main(int argc, char *argv[]) {
         "Feature splicing/LDA transform is used, if the optional(last) argument "
         "is given.\n"
         "Otherwise delta/delta-delta(2-nd order) features are produced.\n\n"
-        "Usage: ./online-wav-gmm-decode-faster [options] model-in"
+        "Usage: online-server-gmm-decode-faster [options] model-in"
         "fst-in word-symbol-table silence-phones udp-port [lda-matrix-in]\n\n"
-        "Example: ./online-wav-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
+        "Example: online-server-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
         "--max-active=4000 --beam=12.0 --acoustic-scale=0.0769 "
         "model HCLG.fst words.txt '1:2:3:4:5' 1234 lda-matrix";
     ParseOptions po(usage);
     BaseFloat acoustic_scale = 0.1;
-    int32 cmn_window = 600;
+    int32 cmn_window = 600,
+      min_cmn_window = 100; // adds 1 second latency, only at utterance start.
     int32 right_context = 4, left_context = 4;
 
     kaldi::DeltaFeaturesOptions delta_opts;
     delta_opts.Register(&po);
     OnlineFasterDecoderOpts decoder_opts;
+    OnlineFeatureMatrixOptions feature_reading_opts;
     decoder_opts.Register(&po, true);
+    feature_reading_opts.Register(&po);
+
     po.Register("left-context", &left_context, "Number of frames of left context");
     po.Register("right-context", &right_context, "Number of frames of right context");
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoods");
     po.Register("cmn-window", &cmn_window,
         "Number of feat. vectors used in the running average CMN calculation");
+    po.Register("min-cmn-window", &min_cmn_window,
+                "Minumum CMN window used at start of decoding (adds "
+                "latency only at start)");
+
     po.Read(argc, argv);
     if (po.NumArgs() != 5 && po.NumArgs() != 6) {
       po.PrintUsage();
       return 1;
     }
-    if (po.NumArgs() == 5)
-      if (left_context % kDeltaOrder != 0 || left_context != right_context)
-        KALDI_ERR << "Invalid left/right context parameters!";
 
     std::string model_rxfilename = po.GetArg(1),
         fst_rxfilename = po.GetArg(2),
@@ -139,28 +145,31 @@ int main(int argc, char *argv[]) {
     MfccOptions mfcc_opts;
     mfcc_opts.use_energy = false;
 
-    int32 feat_dim;
-    int32 window_size = right_context + left_context + 1;
-    decoder_opts.batch_size = std::max(decoder_opts.batch_size, window_size);
     OnlineFasterDecoder decoder(*decode_fst, decoder_opts,
                                 silence_phones, trans_model);
     VectorFst<LatticeArc> out_fst;
-    OnlineUdpInput udp_input(udp_port);
-    OnlineCmvnInput cmvn_input(&udp_input, mfcc_opts.num_ceps, cmn_window);
+    int32 feature_dim = mfcc_opts.num_ceps; // default to 13 right now.
+    OnlineUdpInput udp_input(udp_port, feature_dim);
+    OnlineCmnInput cmn_input(&udp_input, cmn_window, min_cmn_window);
     OnlineFeatInputItf *feat_transform = 0;
+
     if (lda_mat_rspecifier != "") {
       feat_transform = new OnlineLdaInput(
-                               &cmvn_input, mfcc_opts.num_ceps, lda_transform,
+                               &cmn_input, lda_transform,
                                left_context, right_context);
-      feat_dim = lda_transform.NumRows();
     } else {
-      feat_transform = new OnlineDeltaInput(&cmvn_input, mfcc_opts.num_ceps,
-                                            kDeltaOrder, left_context / 2);
-      feat_dim = (kDeltaOrder + 1) * mfcc_opts.num_ceps;
+      DeltaFeaturesOptions opts;
+      opts.order = kDeltaOrder;
+      feat_transform = new OnlineDeltaInput(opts, &cmn_input);
     }
-    OnlineDecodableDiagGmmScaled decodable(feat_transform, am_gmm, trans_model,
-                                           acoustic_scale, decoder_opts.batch_size,
-                                           feat_dim, -1);
+
+    // feature_reading_opts contains number of retries, batch size.
+    OnlineFeatureMatrix feature_matrix(feature_reading_opts,
+                                       feat_transform);
+
+    OnlineDecodableDiagGmmScaled decodable(am_gmm, trans_model, acoustic_scale,
+                                           &feature_matrix);
+
     std::cerr << std::endl << "Listening on UDP port "
               << udp_port << " ... " << std::endl;
     bool partial_res = false;

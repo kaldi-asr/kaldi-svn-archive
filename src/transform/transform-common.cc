@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -131,7 +133,7 @@ bool ComposeTransforms(const Matrix<BaseFloat> &a, const Matrix<BaseFloat> &b,
                        bool b_is_affine,
                        Matrix<BaseFloat> *c) {
   if (b.NumRows() == 0 || a.NumCols() == 0) {
-    KALDI_WARN  << "Empty matrix in ComposeTransforms\n";
+    KALDI_WARN  << "Empty matrix in ComposeTransforms";
     return false;
   }
   if (a.NumCols() == b.NumRows()) {

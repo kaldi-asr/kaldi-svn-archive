@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation
 //                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -38,8 +40,8 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Decode, reading log-likelihoods as matrices\n"
         " (model is needed only for the integer mappings in its transition-model)\n"
-        "Usage:   decode-faster-mapped [options] model-in fst-in "
-        "loglikes-rspecifier words-wspecifier [alignments-wspecifier]\n";
+        "Usage:   decode-faster-mapped [options] <model-in> <fst-in> "
+        "<loglikes-rspecifier> <words-wspecifier> [<alignments-wspecifier>]\n";
     ParseOptions po(usage);
     bool binary = true;
     BaseFloat acoustic_scale = 0.1;

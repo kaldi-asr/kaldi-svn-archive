@@ -2,6 +2,8 @@
 
 // Copyright 2010-2012   Liang Lu,  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -401,7 +403,7 @@ double GpsrBB(const GpsrConfig &opts, const SpMatrix<double> &H,
     double lambda = -(VecVec(delta_u, grad_u) + VecVec(delta_v, grad_v))
                 / (dx_H_dx + DBL_EPSILON);  // step length
     if (lambda < 0)
-      KALDI_WARN << "lambda is less than zero\n";
+      KALDI_WARN << "lambda is less than zero";
     if (lambda > 1.0) lambda = 1.0;
 
     //update alpha

@@ -3,8 +3,11 @@
 // Copyright 2009-2011  Microsoft Corporation;
 //                      Saarland University (Author: Arnab Ghoshal);
 //                      Georg Stemmer;  Jan Silovsky
-// Copyright 2012       Arnab Ghoshal
+//           2012       Arnab Ghoshal
+//           2013       Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,6 +22,7 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 #include <string>
 #include <vector>
@@ -525,9 +529,9 @@ void DiagGmm::LogLikelihoods(const VectorBase<BaseFloat> &data,
                              Vector<BaseFloat> *loglikes) const {
   loglikes->Resize(gconsts_.Dim(), kUndefined);
   loglikes->CopyFromVec(gconsts_);
-  if (static_cast<int32>(data.Dim()) != Dim()) {
+  if (data.Dim() != Dim()) {
     KALDI_ERR << "DiagGmm::ComponentLogLikelihood, dimension "
-        << "mismatch " << (data.Dim()) << " vs. "<< (Dim());
+              << "mismatch " << data.Dim() << " vs. "<< Dim();
   }
   Vector<BaseFloat> data_sq(data);
   data_sq.ApplyPow(2.0);
@@ -537,6 +541,26 @@ void DiagGmm::LogLikelihoods(const VectorBase<BaseFloat> &data,
   // loglikes += -0.5 * inv(vars) * data_sq.
   loglikes->AddMatVec(-0.5, inv_vars_, kNoTrans, data_sq, 1.0);
 }
+
+
+void DiagGmm::LogLikelihoods(const MatrixBase<BaseFloat> &data,
+                             Matrix<BaseFloat> *loglikes) const {
+  KALDI_ASSERT(data.NumRows() != 0);
+  loglikes->Resize(data.NumRows(), gconsts_.Dim(), kUndefined);
+  loglikes->CopyRowsFromVec(gconsts_);
+  if (data.NumCols() != Dim()) {
+    KALDI_ERR << "DiagGmm::ComponentLogLikelihood, dimension "
+              << "mismatch " << data.NumCols() << " vs. "<< Dim();
+  }
+  Matrix<BaseFloat> data_sq(data);
+  data_sq.ApplyPow(2.0);
+
+  // loglikes +=  means * inv(vars) * data.
+  loglikes->AddMatMat(1.0, data, kNoTrans, means_invvars_, kTrans, 1.0);
+  // loglikes += -0.5 * inv(vars) * data_sq.
+  loglikes->AddMatMat(-0.5, data_sq, kNoTrans, inv_vars_, kTrans, 1.0);
+}
+
 
 
 void DiagGmm::LogLikelihoodsPreselect(const VectorBase<BaseFloat> &data,
@@ -734,6 +758,165 @@ void DiagGmm::Read(std::istream &is, bool binary) {
 std::istream & operator >>(std::istream &is, kaldi::DiagGmm &gmm) {
   gmm.Read(is, false);  // false == non-binary.
   return is;
+}
+
+
+/// Get gaussian selection information for one frame.
+BaseFloat DiagGmm::GaussianSelection(const VectorBase<BaseFloat> &data,
+                                     int32 num_gselect,
+                                     std::vector<int32> *output) const {
+  int32 num_gauss = NumGauss();
+  Vector<BaseFloat> loglikes(num_gauss, kUndefined);
+  output->clear();
+  this->LogLikelihoods(data, &loglikes);
+
+  BaseFloat thresh;
+  if (num_gselect < num_gauss) {
+    Vector<BaseFloat> loglikes_copy(loglikes);
+    BaseFloat *ptr = loglikes_copy.Data();
+    std::nth_element(ptr, ptr+num_gauss-num_gselect, ptr+num_gauss);
+    thresh = ptr[num_gauss-num_gselect];
+  } else {
+    thresh = -std::numeric_limits<BaseFloat>::infinity();
+  }
+  BaseFloat tot_loglike = -std::numeric_limits<BaseFloat>::infinity();
+  std::vector<std::pair<BaseFloat, int32> > pairs;
+  for (int32 p = 0; p < num_gauss; p++) {
+    if (loglikes(p) >= thresh) {
+      pairs.push_back(std::make_pair(loglikes(p), p));
+    }
+  }
+  std::sort(pairs.begin(), pairs.end(),
+            std::greater<std::pair<BaseFloat, int32> >());
+  for (int32 j = 0;
+       j < num_gselect && j < static_cast<int32>(pairs.size());
+       j++) {
+    output->push_back(pairs[j].second);
+    tot_loglike = LogAdd(tot_loglike, pairs[j].first);
+  }
+  KALDI_ASSERT(!output->empty());
+  return tot_loglike;
+}
+
+BaseFloat DiagGmm::GaussianSelection(const MatrixBase<BaseFloat> &data,
+                                     int32 num_gselect,
+                                     std::vector<std::vector<int32> > *output) const {
+  double ans = 0.0;
+  int32 num_frames = data.NumRows(), num_gauss = NumGauss();
+
+  int32 max_mem = 10000000; // Don't devote more than 10Mb to loglikes_mat;
+                            // break up the utterance if needed.
+  int32 mem_needed = num_frames * num_gauss * sizeof(BaseFloat);
+  if (mem_needed > max_mem) {
+    // Break into parts and recurse, we don't want to consume too
+    // much memory.
+    int32 num_parts = (mem_needed + max_mem - 1) / max_mem;
+    int32 part_frames = (data.NumRows() + num_parts - 1) / num_parts;
+    double tot_ans = 0.0;
+    std::vector<std::vector<int32> > part_output;
+    output->clear();
+    output->resize(num_frames);
+    for (int32 p = 0; p < num_parts; p++) {
+      int32 start_frame = p * part_frames,
+          this_num_frames = std::min(num_frames - start_frame, part_frames);
+      SubMatrix<BaseFloat> data_part(data, start_frame, this_num_frames,
+                                     0, data.NumCols());
+      tot_ans += GaussianSelection(data_part, num_gselect, &part_output);
+      for (int32 t = 0; t < this_num_frames; t++)
+        (*output)[start_frame + t].swap(part_output[t]);
+    }
+    KALDI_ASSERT(!output->back().empty());
+    return tot_ans;
+  }
+  
+  KALDI_ASSERT(num_frames != 0);
+  Matrix<BaseFloat> loglikes_mat(num_frames, num_gauss, kUndefined);
+  this->LogLikelihoods(data, &loglikes_mat);
+  
+  output->clear();
+  output->resize(num_frames);
+
+  for (int32 i = 0; i < num_frames; i++) {
+    SubVector<BaseFloat> loglikes(loglikes_mat, i);
+
+    BaseFloat thresh;
+    if (num_gselect < num_gauss) {
+      Vector<BaseFloat> loglikes_copy(loglikes);
+      BaseFloat *ptr = loglikes_copy.Data();
+      std::nth_element(ptr, ptr+num_gauss-num_gselect, ptr+num_gauss);
+      thresh = ptr[num_gauss-num_gselect];
+    } else {
+      thresh = -std::numeric_limits<BaseFloat>::infinity();
+    }
+    BaseFloat tot_loglike = -std::numeric_limits<BaseFloat>::infinity();
+    std::vector<std::pair<BaseFloat, int32> > pairs;
+    for (int32 p = 0; p < num_gauss; p++) {
+      if (loglikes(p) >= thresh) {
+        pairs.push_back(std::make_pair(loglikes(p), p));
+      }
+    }
+    std::sort(pairs.begin(), pairs.end(),
+              std::greater<std::pair<BaseFloat, int32> >());
+    std::vector<int32> &this_output = (*output)[i];
+    for (int32 j = 0;
+         j < num_gselect && j < static_cast<int32>(pairs.size());
+         j++) {
+      this_output.push_back(pairs[j].second);
+      tot_loglike = LogAdd(tot_loglike, pairs[j].first);
+    }
+    KALDI_ASSERT(!this_output.empty());
+    ans += tot_loglike;
+  }
+  return ans;
+}
+
+
+
+BaseFloat DiagGmm::GaussianSelectionPreselect(
+    const VectorBase<BaseFloat> &data,
+    const std::vector<int32> &preselect,
+    int32 num_gselect,
+    std::vector<int32> *output) const {
+  static bool warned_size = false;
+  int32 preselect_sz = preselect.size();
+  int32 this_num_gselect = std::min(num_gselect, preselect_sz);
+  if (preselect_sz <= num_gselect && !warned_size) {
+    warned_size = true;
+    KALDI_WARN << "Preselect size is less or equal to than final size, "
+               << "doing nothing: " << preselect_sz << " < " <<  num_gselect
+               << " [won't warn again]";
+  }
+  Vector<BaseFloat> loglikes(preselect_sz);
+  LogLikelihoodsPreselect(data, preselect, &loglikes);
+  
+  Vector<BaseFloat> loglikes_copy(loglikes);
+  BaseFloat *ptr = loglikes_copy.Data();
+  std::nth_element(ptr, ptr+preselect_sz-this_num_gselect,
+                   ptr+preselect_sz);
+  BaseFloat thresh = ptr[preselect_sz-this_num_gselect];
+
+  BaseFloat tot_loglike = -std::numeric_limits<BaseFloat>::infinity();
+  // we want the output sorted from best likelihood to worse
+  // (so we can prune further without the model)...
+  std::vector<std::pair<BaseFloat, int32> > pairs;
+  for (int32 p = 0; p < preselect_sz; p++)
+    if (loglikes(p) >= thresh)
+      pairs.push_back(std::make_pair(loglikes(p), preselect[p]));
+  std::sort(pairs.begin(), pairs.end(),
+            std::greater<std::pair<BaseFloat, int32> >());
+  output->clear();
+  for (int32 j = 0;
+       j < this_num_gselect && j < static_cast<int32>(pairs.size());
+       j++) {
+    output->push_back(pairs[j].second);
+    tot_loglike = LogAdd(tot_loglike, pairs[j].first);
+  }
+  KALDI_ASSERT(!output->empty());
+  return tot_loglike;
+}
+
+void DiagGmm::CopyFromNormal(const DiagGmmNormal &diag_gmm_normal) {
+  diag_gmm_normal.CopyToDiagGmm(this);
 }
 
 void DiagGmm::Generate(VectorBase<BaseFloat> *output) {

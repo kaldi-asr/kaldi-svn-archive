@@ -1,7 +1,9 @@
-// gmmbin/gmm-decode-faster.cc
+// gmmbin/gmm-decode-biglm-faster.cc
 
 // Copyright 2009-2011  Gilles Boulianne  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,7 +24,7 @@
 #include "hmm/transition-model.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/biglm-faster-decoder.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "gmm/decodable-am-diag-gmm.h"
 #include "util/timer.h"
 
 namespace kaldi {
@@ -38,7 +40,7 @@ fst::Fst<fst::StdArc> *ReadNetwork(std::string filename) {
     KALDI_ERR << "Reading FST: error reading FST header.";
   }
   if (hdr.ArcType() != fst::StdArc::Type()) {
-    KALDI_ERR << "FST with arc type " << hdr.ArcType() << " not supported.\n";
+    KALDI_ERR << "FST with arc type " << hdr.ArcType() << " not supported.";
   }
   fst::FstReadOptions ropts("<unspecified>", &hdr);
 

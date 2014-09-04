@@ -3,6 +3,8 @@
 // Copyright 2009-2012   Saarland University (Author:  Arnab Ghoshal),
 //                       Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,8 +24,7 @@
 #include "sgmm/am-sgmm.h"
 #include "hmm/transition-model.h"
 #include "sgmm/estimate-am-sgmm.h"
-
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {

@@ -1,10 +1,12 @@
-// onlinebin/onlinebin-util.cc
+// online/onlinebin-util.cc
 
 // Copyright 2012 Cisco Systems (author: Matthias Paulik)
 
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +20,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "online/onlinebin-util.h"
+#include "onlinebin-util.h"
 
 namespace kaldi {
 
@@ -33,7 +35,7 @@ fst::Fst<fst::StdArc> *ReadDecodeGraph(std::string filename) {
     KALDI_ERR << "Reading FST: error reading FST header.";
   }
   if (hdr.ArcType() != fst::StdArc::Type()) {
-    KALDI_ERR << "FST with arc type " << hdr.ArcType() << " not supported.\n";
+    KALDI_ERR << "FST with arc type " << hdr.ArcType() << " not supported.";
   }
   fst::FstReadOptions ropts("<unspecified>", &hdr);
 

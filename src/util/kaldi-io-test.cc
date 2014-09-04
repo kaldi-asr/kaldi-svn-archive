@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,36 +28,36 @@ namespace kaldi {
 
 
 void UnitTestClassifyRxfilename() {
-  assert(ClassifyRxfilename("") == kStandardInput);
-  assert(ClassifyRxfilename(" ") == kNoInput);
-  assert(ClassifyRxfilename(" a ") == kNoInput);
-  assert(ClassifyRxfilename("a ") == kNoInput);
-  assert(ClassifyRxfilename("a") == kFileInput);
-  assert(ClassifyRxfilename("-") == kStandardInput);
-  assert(ClassifyRxfilename("b|") == kPipeInput);
-  assert(ClassifyRxfilename("|b") == kNoInput);
-  assert(ClassifyRxfilename("b c|") == kPipeInput);
-  assert(ClassifyRxfilename("a b c:123") == kOffsetFileInput);
-  assert(ClassifyRxfilename("a b c:3") == kOffsetFileInput);
-  assert(ClassifyRxfilename("a b c:") == kFileInput);
-  assert(ClassifyRxfilename("a b c/3") == kFileInput);
+  KALDI_ASSERT(ClassifyRxfilename("") == kStandardInput);
+  KALDI_ASSERT(ClassifyRxfilename(" ") == kNoInput);
+  KALDI_ASSERT(ClassifyRxfilename(" a ") == kNoInput);
+  KALDI_ASSERT(ClassifyRxfilename("a ") == kNoInput);
+  KALDI_ASSERT(ClassifyRxfilename("a") == kFileInput);
+  KALDI_ASSERT(ClassifyRxfilename("-") == kStandardInput);
+  KALDI_ASSERT(ClassifyRxfilename("b|") == kPipeInput);
+  KALDI_ASSERT(ClassifyRxfilename("|b") == kNoInput);
+  KALDI_ASSERT(ClassifyRxfilename("b c|") == kPipeInput);
+  KALDI_ASSERT(ClassifyRxfilename("a b c:123") == kOffsetFileInput);
+  KALDI_ASSERT(ClassifyRxfilename("a b c:3") == kOffsetFileInput);
+  KALDI_ASSERT(ClassifyRxfilename("a b c:") == kFileInput);
+  KALDI_ASSERT(ClassifyRxfilename("a b c/3") == kFileInput);
 }
 
 
 void UnitTestClassifyWxfilename() {
-  assert(ClassifyWxfilename("") == kStandardOutput);
-  assert(ClassifyWxfilename(" ") == kNoOutput);
-  assert(ClassifyWxfilename(" a ") == kNoOutput);
-  assert(ClassifyWxfilename("a ") == kNoOutput);
-  assert(ClassifyWxfilename("a") == kFileOutput);
-  assert(ClassifyWxfilename("-") == kStandardOutput);
-  assert(ClassifyWxfilename("b|") == kNoOutput);
-  assert(ClassifyWxfilename("|b") == kPipeOutput);
-  assert(ClassifyWxfilename("b c|") == kNoOutput);
-  assert(ClassifyWxfilename("a b c:123") == kNoOutput);
-  assert(ClassifyWxfilename("a b c:3") == kNoOutput);
-  assert(ClassifyWxfilename("a b c:") == kFileOutput);
-  assert(ClassifyWxfilename("a b c/3") == kFileOutput);
+  KALDI_ASSERT(ClassifyWxfilename("") == kStandardOutput);
+  KALDI_ASSERT(ClassifyWxfilename(" ") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename(" a ") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename("a ") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename("a") == kFileOutput);
+  KALDI_ASSERT(ClassifyWxfilename("-") == kStandardOutput);
+  KALDI_ASSERT(ClassifyWxfilename("b|") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename("|b") == kPipeOutput);
+  KALDI_ASSERT(ClassifyWxfilename("b c|") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename("a b c:123") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename("a b c:3") == kNoOutput);
+  KALDI_ASSERT(ClassifyWxfilename("a b c:") == kFileOutput);
+  KALDI_ASSERT(ClassifyWxfilename("a b c/3") == kFileOutput);
 }
 
 void UnitTestIoNew(bool binary) {
@@ -65,45 +67,45 @@ void UnitTestIoNew(bool binary) {
     Output ko(filename, binary);
     std::ostream &outfile = ko.Stream();
     if (!binary) outfile << "\t";
-    int64 i1 = rand() % 10000;
+    int64 i1 = Rand() % 10000;
     WriteBasicType(outfile, binary, i1);
-    uint16 i2 = rand() % 10000;
+    uint16 i2 = Rand() % 10000;
     WriteBasicType(outfile, binary, i2);
     if (!binary) outfile << "\t";
-    char c = rand();
+    char c = Rand();
     WriteBasicType(outfile, binary, c);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     std::vector<int32> vec1;
     WriteIntegerVector(outfile, binary, vec1);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     std::vector<uint16> vec2;
-    for (size_t i = 0; i < 10; i++) vec2.push_back(rand()%100 - 10);
+    for (size_t i = 0; i < 10; i++) vec2.push_back(Rand()%100 - 10);
     WriteIntegerVector(outfile, binary, vec2);
     if (!binary) outfile << " \n";
     std::vector<char> vec3;
-    for (size_t i = 0; i < 10; i++) vec3.push_back(rand()%100);
+    for (size_t i = 0; i < 10; i++) vec3.push_back(Rand()%100);
     WriteIntegerVector(outfile, binary, vec3);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     const char *token1 = "Hi";
     WriteToken(outfile, binary, token1);
     if (!binary) outfile << " \n";
     std::string token2 = "There.";
     WriteToken(outfile, binary, token2);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     std::string token3 = "You.";
     WriteToken(outfile, binary, token3);
-    if (!binary && rand()%2 == 0) outfile << " ";
+    if (!binary && Rand()%2 == 0) outfile << " ";
     float f1 = RandUniform();
     WriteBasicType(outfile, binary, f1);
-    if (!binary && rand()%2 == 0) outfile << "\t";
+    if (!binary && Rand()%2 == 0) outfile << "\t";
     float f2 = RandUniform();
     WriteBasicType(outfile, binary, f2);
     double d1 = RandUniform();
     WriteBasicType(outfile, binary, d1);
-    if (!binary && rand()%2 == 0) outfile << "\t";
+    if (!binary && Rand()%2 == 0) outfile << "\t";
     double d2 = RandUniform();
     WriteBasicType(outfile, binary, d2);
-    if (!binary && rand()%2 == 0) outfile << "\t";
+    if (!binary && Rand()%2 == 0) outfile << "\t";
     ko.Close();
 
     {
@@ -112,29 +114,29 @@ void UnitTestIoNew(bool binary) {
       std::istream &infile = ki.Stream();
       int64 i1_in;
       ReadBasicType(infile, binary_in, &i1_in);
-      assert(i1_in == i1);
+      KALDI_ASSERT(i1_in == i1);
       uint16 i2_in;
       ReadBasicType(infile, binary_in, &i2_in);
-      assert(i2_in == i2);
+      KALDI_ASSERT(i2_in == i2);
       char c_in;
       ReadBasicType(infile, binary_in, &c_in);
-      assert(c_in == c);
+      KALDI_ASSERT(c_in == c);
       std::vector<int32> vec1_in;
       ReadIntegerVector(infile, binary_in, &vec1_in);
-      assert(vec1_in == vec1);
+      KALDI_ASSERT(vec1_in == vec1);
       std::vector<uint16> vec2_in;
       ReadIntegerVector(infile, binary_in, &vec2_in);
-      assert(vec2_in == vec2);
+      KALDI_ASSERT(vec2_in == vec2);
       std::vector<char> vec3_in;
       ReadIntegerVector(infile, binary_in, &vec3_in);
-      assert(vec3_in == vec3);
+      KALDI_ASSERT(vec3_in == vec3);
       std::string  token1_in, token2_in;
-      assert(Peek(infile, binary_in) == (int)*token1);
+      KALDI_ASSERT(Peek(infile, binary_in) == (int)*token1);
       ReadToken(infile, binary_in, &token1_in);
-      assert(token1_in == (std::string)token1);
+      KALDI_ASSERT(token1_in == (std::string)token1);
       ReadToken(infile, binary_in, &token2_in);
-      assert(token2_in == token2);
-      if (rand() % 2 == 0)
+      KALDI_ASSERT(token2_in == token2);
+      if (Rand() % 2 == 0)
         ExpectToken(infile, binary_in, token3.c_str());
       else
         ExpectToken(infile, binary_in, token3);
@@ -150,8 +152,9 @@ void UnitTestIoNew(bool binary) {
       float d2_in;  // wrong type.
       ReadBasicType(infile, binary_in, &d2_in);
       AssertEqual(d2_in, d2);
-      assert(Peek(infile, binary_in) == -1);
+      KALDI_ASSERT(Peek(infile, binary_in) == -1);
     }
+    unlink(filename);
   }
 }
 
@@ -169,48 +172,48 @@ void UnitTestIoPipe(bool binary) {
     Output ko(filename_out, binary);
     std::ostream &outfile = ko.Stream();
     if (!binary) outfile << "\t";
-    int64 i1 = rand() % 10000;
+    int64 i1 = Rand() % 10000;
     WriteBasicType(outfile, binary, i1);
-    uint16 i2 = rand() % 10000;
+    uint16 i2 = Rand() % 10000;
     WriteBasicType(outfile, binary, i2);
     if (!binary) outfile << "\t";
-    char c = rand();
+    char c = Rand();
     WriteBasicType(outfile, binary, c);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     std::vector<int32> vec1;
     WriteIntegerVector(outfile, binary, vec1);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     std::vector<uint16> vec2;
-    for (size_t i = 0; i < 10; i++) vec2.push_back(rand()%100 - 10);
+    for (size_t i = 0; i < 10; i++) vec2.push_back(Rand()%100 - 10);
     WriteIntegerVector(outfile, binary, vec2);
     if (!binary) outfile << " \n";
     WriteToken(outfile, binary, "<foo>");
     std::vector<char> vec3;
-    for (size_t i = 0; i < 10; i++) vec3.push_back(rand()%100);
+    for (size_t i = 0; i < 10; i++) vec3.push_back(Rand()%100);
     WriteIntegerVector(outfile, binary, vec3);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     const char *token1 = "Hi";
     WriteToken(outfile, binary, token1);
     if (!binary) outfile << " \n";
     std::string token2 = "There.";
     WriteToken(outfile, binary, token2);
-    if (!binary && rand()%2 == 0) outfile << " \n";
+    if (!binary && Rand()%2 == 0) outfile << " \n";
     std::string token3 = "You.";
     WriteToken(outfile, binary, token3);
-    if (!binary && rand()%2 == 0) outfile << " ";
+    if (!binary && Rand()%2 == 0) outfile << " ";
     float f1 = RandUniform();
     WriteBasicType(outfile, binary, f1);
-    if (!binary && rand()%2 == 0) outfile << "\t";
+    if (!binary && Rand()%2 == 0) outfile << "\t";
     float f2 = RandUniform();
     WriteBasicType(outfile, binary, f2);
     double d1 = RandUniform();
     WriteBasicType(outfile, binary, d1);
-    if (!binary && rand()%2 == 0) outfile << "\t";
+    if (!binary && Rand()%2 == 0) outfile << "\t";
     double d2 = RandUniform();
     WriteBasicType(outfile, binary, d2);
-    if (!binary && rand()%2 == 0) outfile << "\t";
+    if (!binary && Rand()%2 == 0) outfile << "\t";
     bool ans = ko.Close();
-    assert(ans);
+    KALDI_ASSERT(ans);
 #ifndef _MSC_VER
     sleep(1);  // This test does not work without this sleep:
     // seems to be some kind of file-system latency.
@@ -221,31 +224,31 @@ void UnitTestIoPipe(bool binary) {
       std::istream &infile = ki.Stream();
       int64 i1_in;
       ReadBasicType(infile, binary_in, &i1_in);
-      assert(i1_in == i1);
+      KALDI_ASSERT(i1_in == i1);
       uint16 i2_in;
       ReadBasicType(infile, binary_in, &i2_in);
-      assert(i2_in == i2);
+      KALDI_ASSERT(i2_in == i2);
       char c_in;
       ReadBasicType(infile, binary_in, &c_in);
-      assert(c_in == c);
+      KALDI_ASSERT(c_in == c);
       std::vector<int32> vec1_in;
       ReadIntegerVector(infile, binary_in, &vec1_in);
-      assert(vec1_in == vec1);
+      KALDI_ASSERT(vec1_in == vec1);
       std::vector<uint16> vec2_in;
       ReadIntegerVector(infile, binary_in, &vec2_in);
-      assert(vec2_in == vec2);
+      KALDI_ASSERT(vec2_in == vec2);
       std::vector<char> vec3_in;
       KALDI_ASSERT(PeekToken(infile, binary_in) == static_cast<int>('f'));
       ExpectToken(infile, binary_in, "<foo>");
       ReadIntegerVector(infile, binary_in, &vec3_in);
-      assert(vec3_in == vec3);
+      KALDI_ASSERT(vec3_in == vec3);
       std::string  token1_in, token2_in;
-      assert(Peek(infile, binary_in) == (int)*token1);
+      KALDI_ASSERT(Peek(infile, binary_in) == (int)*token1);
       ReadToken(infile, binary_in, &token1_in);
-      assert(token1_in == (std::string)token1);
+      KALDI_ASSERT(token1_in == (std::string)token1);
       ReadToken(infile, binary_in, &token2_in);
-      assert(token2_in == token2);
-      if (rand() % 2 == 0)
+      KALDI_ASSERT(token2_in == token2);
+      if (Rand() % 2 == 0)
         ExpectToken(infile, binary_in, token3.c_str());
       else
         ExpectToken(infile, binary_in, token3);
@@ -261,9 +264,11 @@ void UnitTestIoPipe(bool binary) {
       float d2_in;  // wrong type.
       ReadBasicType(infile, binary_in, &d2_in);
       AssertEqual(d2_in, d2);
-      assert(Peek(infile, binary_in) == -1);
+      KALDI_ASSERT(Peek(infile, binary_in) == -1);
     }
   }
+  unlink("tmpf.txt");
+  unlink("tmpf.gz");
 }
 
 void UnitTestIoStandard() {
@@ -272,11 +277,11 @@ void UnitTestIoStandard() {
     to pipe from an empty file, for it to not hang.
   {
     Input inp("", NULL);  // standard input.
-    assert(inp.Stream().get() == -1);
+    KALDI_ASSERT(inp.Stream().get() == -1);
   }
   {
     Input inp("-", NULL);  // standard input.
-    assert(inp.Stream().get() == -1);
+    KALDI_ASSERT(inp.Stream().get() == -1);
     }*/
 
   {

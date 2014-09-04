@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,7 +25,7 @@
 #include "fstext/fstext-lib.h"
 #include "decoder/faster-decoder.h"
 #include "decoder/training-graph-compiler.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "gmm/decodable-am-diag-gmm.h"
 #include "decoder/decodable-sum.h"
 #include "decoder/decodable-mapped.h"
 #include "lat/kaldi-lattice.h" // for {Compact}LatticeArc
@@ -240,8 +242,9 @@ int main(int argc, char *argv[]) {
         // makes it a bit faster: 37 sec -> 26 sec on 1000 RM utterances @ beam 200.
 
         DecodableAmDiagGmm gmm_decodable(am_gmm, trans_model, features);
-        
-        DecodableAmDiagGmmUnmapped phone_decodable(phone_am, features);
+
+        BaseFloat log_sum_exp_prune = 0.0;
+        DecodableAmDiagGmmUnmapped phone_decodable(phone_am, features, log_sum_exp_prune);
 
         DecodableMapped phone_decodable_mapped(tid_to_phone_map,
                                                &phone_decodable);

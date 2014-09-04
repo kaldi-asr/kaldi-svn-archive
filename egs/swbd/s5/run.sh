@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Warning-- this recipe is deprecated.  See ../s5b/ for the latest recipe.
+
 . cmd.sh
 
 exit 1;
@@ -7,7 +9,6 @@ exit 1;
 # one by copying and pasting into the shell.
 # Caution: some of the graph creation steps use quite a bit of memory, so you
 # should run this on a machine that has sufficient memory.
-
 
 # Data prep
 
@@ -33,7 +34,7 @@ local/eval2000_data_prep.sh  /data/corpora0/LDC2002S09/hub5e_00 /data/corpora0/L
 . cmd.sh
 # mfccdir should be some place with a largish disk where you
 # want to store MFCC features. 
-mfccdir=mfcc
+mfccdir=`pwd`/mfcc
 
 steps/make_mfcc.sh --nj 20 --cmd "$train_cmd" data/train exp/make_mfcc/train $mfccdir || exit 1;
 # Don't do "|| exit 1" because actually some speakers don't have data, 
@@ -159,9 +160,6 @@ steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
   data/train_100k_nodup data/lang exp/tri4a exp/tri4a_ali_100k_nodup
 
 
-# Some experiments with neural nets:
-#local/run_nnet_cpu.sh &
-
 
 #local/run_sgmm.sh
 local/run_sgmm2.sh
@@ -218,10 +216,20 @@ steps/train_mmi_fmmi_indirect.sh \
  done
 
 
-# Recipe with DNN system on top of fMLLR features
-local/run_hybrid.sh
 
-
+### At this point used to be "Karel's DNN recipe", which was removed.
+#
+# For the most recent DNN recipe, please have a look at:
+#  egs/swbd/s5b/local/run_dnn.sh
+#
+# It features:
+# - RBM pre-trainig
+# - Frame-based Cross-entropy training
+# - Sequence-discriminative training (sMBR)
+#
+# It is the setup that was used for the Interspeech 2013 paper:
+# "Sequence-discriminative training of deep neural networks"
+#
 
 
 # Note: we haven't yet run with all the data.

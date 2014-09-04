@@ -9,6 +9,7 @@
 nj=4
 cmd=run.pl
 fbank_config=conf/fbank.conf
+compress=true
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -39,6 +40,12 @@ name=`basename $data`
 mkdir -p $fbankdir || exit 1;
 mkdir -p $logdir || exit 1;
 
+if [ -f $data/feats.scp ]; then
+  mkdir -p $data/.backup
+  echo "$0: moving $data/feats.scp to $data/.backup"
+  mv $data/feats.scp $data/.backup
+fi
+
 scp=$data/wav.scp
 
 required="$scp $fbank_config"
@@ -50,53 +57,66 @@ for f in $required; do
   fi
 done
 
-# note: in general, the double-parenthesis construct in bash "((" is "C-style
-# syntax" where we can get rid of the $ for variable names, and omit spaces.
-# The "for" loop in this style is a special construct.
+utils/validate_data_dir.sh --no-text --no-feats $data || exit 1;
 
+if [ -f $data/spk2warp ]; then
+  echo "$0 [info]: using VTLN warp factors from $data/spk2warp"
+  vtln_opts="--vtln-map=ark:$data/spk2warp --utt2spk=ark:$data/utt2spk"
+elif [ -f $data/utt2warp ]; then
+  echo "$0 [info]: using VTLN warp factors from $data/utt2warp"
+  vtln_opts="--vtln-map=ark:$data/utt2warp"
+fi
+
+for n in $(seq $nj); do
+  # the next command does nothing unless $fbankdir/storage/ exists, see
+  # utils/create_data_link.pl for more info.
+  utils/create_data_link.pl $fbankdir/raw_fbank_$name.$n.ark  
+done
 
 if [ -f $data/segments ]; then
   echo "$0 [info]: segments file exists: using that."
   split_segments=""
-  for ((n=1; n<=nj; n++)); do
+  for n in $(seq $nj); do
     split_segments="$split_segments $logdir/segments.$n"
   done
 
   utils/split_scp.pl $data/segments $split_segments || exit 1;
   rm $logdir/.error 2>/dev/null
 
-  $cmd JOB=1:$nj $logdir/make_fbank.JOB.log \
-    extract-segments scp:$scp $logdir/segments.JOB ark:- \| \
-    compute-fbank-feats --verbose=2 --config=$fbank_config ark:- \
-    ark,scp:$fbankdir/raw_fbank_$name.JOB.ark,$fbankdir/raw_fbank_$name.JOB.scp \
+  $cmd JOB=1:$nj $logdir/make_fbank_${name}.JOB.log \
+    extract-segments scp,p:$scp $logdir/segments.JOB ark:- \| \
+    compute-fbank-feats $vtln_opts --verbose=2 --config=$fbank_config ark:- ark:- \| \
+    copy-feats --compress=$compress ark:- \
+     ark,scp:$fbankdir/raw_fbank_$name.JOB.ark,$fbankdir/raw_fbank_$name.JOB.scp \
      || exit 1;
 
 else
   echo "$0: [info]: no segments file exists: assuming wav.scp indexed by utterance."
   split_scps=""
-  for ((n=1; n<=nj; n++)); do
+  for n in $(seq $nj); do
     split_scps="$split_scps $logdir/wav.$n.scp"
   done
 
   utils/split_scp.pl $scp $split_scps || exit 1;
  
-  $cmd JOB=1:$nj $logdir/make_fbank.JOB.log \
-    compute-fbank-feats  --verbose=2 --config=$fbank_config scp:$logdir/wav.JOB.scp \
-      ark,scp:$fbankdir/raw_fbank_$name.JOB.ark,$fbankdir/raw_fbank_$name.JOB.scp \
-      || exit 1;
+  $cmd JOB=1:$nj $logdir/make_fbank_${name}.JOB.log \
+    compute-fbank-feats $vtln_opts --verbose=2 --config=$fbank_config scp,p:$logdir/wav.JOB.scp ark:- \| \
+    copy-feats --compress=$compress ark:- \
+     ark,scp:$fbankdir/raw_fbank_$name.JOB.ark,$fbankdir/raw_fbank_$name.JOB.scp \
+     || exit 1;
 
 fi
 
 
 if [ -f $logdir/.error.$name ]; then
   echo "Error producing fbank features for $name:"
-  tail $logdir/make_fbank.*.log
+  tail $logdir/make_fbank_${name}.1.log
   exit 1;
 fi
 
 # concatenate the .scp files together.
-for ((n=1; n<=nj; n++)); do
-  cat $fbankdir/raw_fbank_$name.$n.scp >> $data/feats.scp || exit 1;
+for n in $(seq $nj); do
+  cat $fbankdir/raw_fbank_$name.$n.scp || exit 1;
 done > $data/feats.scp
 
 rm $logdir/wav.*.scp  $logdir/segments.* 2>/dev/null

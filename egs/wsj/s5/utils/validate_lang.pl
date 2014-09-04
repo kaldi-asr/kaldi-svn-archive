@@ -1,25 +1,30 @@
 #!/usr/bin/perl
 
-# Guoguo Chen (guoguo@jhu.edu)
+# Apache 2.0.
+# Copyright  2012   Guoguo Chen
+#            2014   Neil Nelson
 #
 # Validation script for data/lang
 
-if(@ARGV != 1) {
-  die "Usage: validate_lang.pl lang_directory\n";
+if (@ARGV != 1) {
+  print "Usage: $0 <lang_directory>\n";
+  print "e.g.:  $0 data/lang\n";
+  exit(1);
 }
 
 $lang = shift @ARGV;
 $exit = 0;
+$warning = 0;
 # Checking phones.txt -------------------------------
 print "Checking $lang/phones.txt ...\n";
-if(-z "$lang/phones.txt") {print "--> ERROR: $lang/phones.txt is empty or not exists\n"; exit 1;}
-if(!open(P, "<$lang/phones.txt")) {print "--> ERROR: fail to open $lang/phones.txt\n"; exit 1;}
+if (-z "$lang/phones.txt") {print "--> ERROR: $lang/phones.txt is empty or does not exist\n"; exit 1;}
+if (!open(P, "<$lang/phones.txt")) {print "--> ERROR: fail to open $lang/phones.txt\n"; exit 1;}
 $idx = 1;
 %psymtab = ();
 while(<P>) {
   chomp;
   my @col = split(" ", $_);
-  if(@col != 2) {print "--> ERROR: expect 2 columns in $lang/phones.txt (break at line $idx)\n"; exit 1;}
+  if (@col != 2) {print "--> ERROR: expect 2 columns in $lang/phones.txt (break at line $idx)\n"; exit 1;}
   my $phone = shift @col;
   my $id = shift @col;
   $psymtab{$phone} = $id;
@@ -28,7 +33,7 @@ while(<P>) {
 close(P);
 %pint2sym = (); 
 foreach(keys %psymtab) {
-  if($pint2sym{$psymtab{$_}}) {print "--> ERROR: ID \"$psymtab{$_}\" duplicates\n"; exit 1;} 
+  if ($pint2sym{$psymtab{$_}}) {print "--> ERROR: ID \"$psymtab{$_}\" duplicates\n"; exit 1;} 
   else {$pint2sym{$psymtab{$_}} = $_;}
 }
 print "--> $lang/phones.txt is OK\n";
@@ -36,14 +41,14 @@ print "\n";
 
 # Check word.txt -------------------------------
 print "Checking words.txt: #0 ...\n";
-if(-z "$lang/words.txt") {print "--> ERROR: $lang/words.txt is empty or not exists\n"; exit 1;}
-if(!open(W, "<$lang/words.txt")) {print "--> ERROR: fail to open $lang/words.txt\n"; exit 1;}
+if (-z "$lang/words.txt") {print "--> ERROR: $lang/words.txt is empty or does not exist\n"; exit 1;}
+if (!open(W, "<$lang/words.txt")) {print "--> ERROR: fail to open $lang/words.txt\n"; exit 1;}
 $idx = 1;
 %wsymtab = ();
 while(<W>) {
   chomp;
   my @col = split(" ", $_);
-  if(@col != 2) {print "--> ERROR: expect 2 columns in $lang/words.txt (line $idx)\n"; exit 1;}
+  if (@col != 2) {print "--> ERROR: expect 2 columns in $lang/words.txt (line $idx)\n"; exit 1;}
   $word = shift @col;
   $id = shift @col;
   $wsymtab{$word} = $id;
@@ -52,31 +57,37 @@ while(<W>) {
 close(W);
 %wint2sym = (); 
 foreach(keys %wsymtab) {
-  if($wint2sym{$wsymtab{$_}}) {print "--> ERROR: ID \"$wsymtab{$_}\" duplicates\n"; exit 1;} 
+  if ($wint2sym{$wsymtab{$_}}) {print "--> ERROR: ID \"$wsymtab{$_}\" duplicates\n"; exit 1;} 
   else {$wint2sym{$wsymtab{$_}} = $_;}
 }
-if(exists $wsymtab{"#0"}) {
+if (exists $wsymtab{"#0"}) {
   print "--> $lang/words.txt has \"#0\"\n";
   print "--> $lang/words.txt is OK\n";
-} else {print "--> ERROR: $lang/words.txt doesn't have \"#0\"\n"; $exit = 1;}
+} else {
+  $warning = 1;
+  print "--> WARNING: $lang/words.txt doesn't have \"#0\"\n";
+  print "-->          (if you are using ARPA-type language models, you will normally\n";
+  print "-->           need the disambiguation symbol \"#0\" to ensure determinizability)\n";
+}
 print "\n";
 
 # Checking phones/* -------------------------------
 sub check_txt_int_csl {
   my ($cat, $symtab) = @_;
   print "Checking $cat.\{txt, int, csl\} ...\n";
-  if(-z "$cat.txt") {$exit = 1; return print "--> ERROR: $cat.txt is empty or not exists\n";}
-  if(-z "$cat.int") {$exit = 1; return print "--> ERROR: $cat.int is empty or not exists\n";}
-  if(-z "$cat.csl") {$exit = 1; return print "--> ERROR: $cat.csl is empty or not exists\n";}
-  if(!open(TXT, "<$cat.txt")) {$exit = 1; return print "--> ERROR: fail to open $cat.txt\n";}
-  if(!open(INT, "<$cat.int")) {$exit = 1; return print "--> ERROR: fail to open $cat.int\n";}
-  if(!open(CSL, "<$cat.csl")) {$exit = 1; return print "--> ERROR: fail to open $cat.csl\n";}
+  if (!open(TXT, "<$cat.txt")) {$exit = 1; return print "--> ERROR: fail to open $cat.txt\n";}
+  if (!open(INT, "<$cat.int")) {$exit = 1; return print "--> ERROR: fail to open $cat.int\n";}
+  if (!open(CSL, "<$cat.csl")) {$exit = 1; return print "--> ERROR: fail to open $cat.csl\n";}
+
+  if (-z "$cat.txt") {$warning = 1; print "--> WARNING: $cat.txt is empty\n";}
+  if (-z "$cat.int") {$warning = 1; print "--> WARNING: $cat.int is empty\n";}
+  if (-z "$cat.csl") {$warning = 1; print "--> WARNING: $cat.csl is empty\n";}
 
   $idx1 = 1;
   while(<TXT>) {
     chomp;
     my @col = split(" ", $_);
-    if(@col != 1) {$exit = 1; return print "--> ERROR: expect 1 column in $cat.txt (break at line $idx1)\n";}
+    if (@col != 1) {$exit = 1; return print "--> ERROR: expect 1 column in $cat.txt (break at line $idx1)\n";}
     $entry[$idx1] = shift @col;
     $idx1 ++;
   }
@@ -87,38 +98,48 @@ sub check_txt_int_csl {
   while(<INT>) {
     chomp;
     my @col = split(" ", $_);
-    if(@col != 1) {$exit = 1; return print "--> ERROR: expect 1 column in $cat.int (break at line $idx2)\n";}
-    if($symtab->{$entry[$idx2]} ne shift @col) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line $idx2)\n";}
+    if (@col != 1) {$exit = 1; return print "--> ERROR: expect 1 column in $cat.int (break at line $idx2)\n";}
+    if ($symtab->{$entry[$idx2]} ne shift @col) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line $idx2)\n";}
     $idx2 ++;
   }
   close(INT); $idx2 --;
-  if($idx1 != $idx2) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line ", $idx2+1, ")\n";}
+  if ($idx1 != $idx2) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line ", $idx2+1, ")\n";}
   print "--> $cat.int corresponds to $cat.txt\n";
 
-  $idx3 = 1;
+  $num_lines = 0;
   while(<CSL>) {
     chomp;
     my @col = split(":", $_);
-    if(@col != $idx1) {$exit = 1; return print "--> ERROR: expect $idx1 block/blocks in $cat.csl (break at line $idx3)\n";}
+    $num_lines++;
+    if (@col != $idx1) {$exit = 1; return print "--> ERROR: expect $idx1 block/blocks in $cat.csl (break at line $idx3)\n";}
     foreach(1 .. $idx1) {
-      if($symtab->{$entry[$_]} ne @col[$_-1]) {$exit = 1; return print "--> ERROR: $cat.csl doesn't correspond to $cat.txt (break at line $idx3, block $_)\n";}
+      if ($symtab->{$entry[$_]} ne @col[$_-1]) {$exit = 1; return print "--> ERROR: $cat.csl doesn't correspond to $cat.txt (break at line $idx3, block $_)\n";}
     }
-    $idx3 ++;
   }
-  close(CSL); $idx3 --;
-  if($idx3 != 1) {$exit = 1; return print "--> ERROR: expect 1 row in $cat.csl (break at line ", $idx3+1, ")\n";}
+  close(CSL);
+  if ($idx1 != 0) { # nonempty .txt,.int files
+    if ($num_lines != 1) {
+      $exit = 1; 
+      return print "--> ERROR: expect 1 line in $cat.csl\n";
+    }
+  } else {
+    if ($num_lines != 1 && $num_lines != 0) {
+      $exit = 1;
+      return print "--> ERROR: expect 0 or 1 line in $cat.csl, since empty .txt,int\n";
+    }
+  }
   print "--> $cat.csl corresponds to $cat.txt\n";
 
   return print "--> $cat.\{txt, int, csl\} are OK\n";
 }
 
 sub check_txt_int {
-  my ($cat, $symtab) = @_;
+  my ($cat, $symtab, $sym_check) = @_;
   print "Checking $cat.\{txt, int\} ...\n";
-  if(-z "$cat.txt") {$exit = 1; return print "--> ERROR: $cat.txt is empty or not exists\n";}
-  if(-z "$cat.int") {$exit = 1; return print "--> ERROR: $cat.int is empty or not exists\n";}
-  if(!open(TXT, "<$cat.txt")) {$exit = 1; return print "--> ERROR: fail to open $cat.txt\n";}
-  if(!open(INT, "<$cat.int")) {$exit = 1; return print "--> ERROR: fail to open $cat.int\n";}
+  if (-z "$cat.txt") {$exit = 1; return print "--> ERROR: $cat.txt is empty or does not exist\n";}
+  if (-z "$cat.int") {$exit = 1; return print "--> ERROR: $cat.int is empty or does not exist\n";}
+  if (!open(TXT, "<$cat.txt")) {$exit = 1; return print "--> ERROR: fail to open $cat.txt\n";}
+  if (!open(INT, "<$cat.int")) {$exit = 1; return print "--> ERROR: fail to open $cat.int\n";}
 
   $idx1 = 1;
   while(<TXT>) {
@@ -135,6 +156,7 @@ sub check_txt_int {
   close(TXT); $idx1 --;
   print "--> $idx1 entry/entries in $cat.txt\n";
 
+	my %used_syms = ();
   $idx2 = 1;
   while(<INT>) {
     chomp;
@@ -146,29 +168,28 @@ sub check_txt_int {
     s/ singleton$//g;
     my @col = split(" ", $_);
     @set = split(" ", $entry[$idx2]);
-    if(@set != @col) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line $idx2)\n";}
+    if (@set != @col) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line $idx2)\n";}
     foreach(0 .. @set-1) {
-      if($symtab->{@set[$_]} ne @col[$_]) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line $idx2, block " ,$_+1, ")\n";}
+      if ($symtab->{@set[$_]} ne @col[$_]) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line $idx2, block " ,$_+1, ")\n";}
+			if ($sym_check && defined $used_syms{@set[$_]}) {$exit = 1; return print "--> ERROR: $cat.txt and $cat.int contain duplicate symbols (break at line $idx2, block " ,$_+1, ")\n";}
+			$used_syms{@set[$_]} = 1;
     }
     $idx2 ++;
   }
   close(INT); $idx2 --;
-  if($idx1 != $idx2) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line ", $idx2+1, ")\n";}
+  if ($idx1 != $idx2) {$exit = 1; return print "--> ERROR: $cat.int doesn't correspond to $cat.txt (break at line ", $idx2+1, ")\n";}
   print "--> $cat.int corresponds to $cat.txt\n";
 
-  return print "--> $cat.\{txt, int\} are OK\n";
-}
+	if ($sym_check) {
+		while ( my ($key, $value) = each(%silence) ) {
+			if (!defined $used_syms{$key}) {$exit = 1; return print "--> ERROR: $cat.txt and $cat.int do not contain all silence phones\n";}
+		}
+		while ( my ($key, $value) = each(%nonsilence) ) {
+			if (!defined $used_syms{$key}) {$exit = 1; return print "--> ERROR: $cat.txt and $cat.int do not contain all non-silence phones\n";}
+		}
+	}
 
-@list1 = ("context_indep", "disambig", "nonsilence", "silence", "optional_silence");
-@list2 = ("extra_questions", "roots", "sets");
-foreach(@list1) {
-  check_txt_int_csl("$lang/phones/$_", \%psymtab); print "\n";
-}
-foreach(@list2) {
-  check_txt_int("$lang/phones/$_", \%psymtab); print "\n";
-}
-if(-e "$lang/phones/word_boundary.txt") {
-  check_txt_int("$lang/phones/word_boundary", \%psymtab); print "\n";
+  return print "--> $cat.\{txt, int\} are OK\n";
 }
 
 # Check disjoint and summation -------------------------------
@@ -177,7 +198,7 @@ sub intersect {
   @itset = ();
   %itset = ();
   foreach(keys %$a) {
-    if(exists $b->{$_} and !$itset{$_}) {
+    if (exists $b->{$_} and !$itset{$_}) {
       push(@itset, $_);
       $itset{$_} = 1;
     }
@@ -186,17 +207,17 @@ sub intersect {
 }
 
 sub check_disjoint {
-  print "Checking disjoint: silence.txt, nosilenct.txt, disambig.txt ...\n";
-  if(!open(S, "<$lang/phones/silence.txt"))    {$exit = 1; return print "--> ERROR: fail to open $lang/phones/silence.txt\n";}
-  if(!open(N, "<$lang/phones/nonsilence.txt")) {$exit = 1; return print "--> ERROR: fail to open $lang/phones/nonsilence.txt\n";}
-  if(!open(D, "<$lang/phones/disambig.txt"))   {$exit = 1; return print "--> ERROR: fail to open $lang/phones/disambig.txt\n";}
+  print "Checking disjoint: silence.txt, nonsilence.txt, disambig.txt ...\n";
+  if (!open(S, "<$lang/phones/silence.txt"))    {$exit = 1; return print "--> ERROR: fail to open $lang/phones/silence.txt\n";}
+  if (!open(N, "<$lang/phones/nonsilence.txt")) {$exit = 1; return print "--> ERROR: fail to open $lang/phones/nonsilence.txt\n";}
+  if (!open(D, "<$lang/phones/disambig.txt"))   {$exit = 1; return print "--> ERROR: fail to open $lang/phones/disambig.txt\n";}
 
   $idx = 1;
   while(<S>) {
     chomp;
     my @col = split(" ", $_);
     $phone = shift @col;
-    if($silence{$phone}) {$exit = 1; print "--> ERROR: phone \"$phone\" duplicates in $lang/phones/silence.txt (line $idx)\n";}
+    if ($silence{$phone}) {$exit = 1; print "--> ERROR: phone \"$phone\" duplicates in $lang/phones/silence.txt (line $idx)\n";}
     $silence{$phone} = 1;
     push(@silence, $phone);
     $idx ++;
@@ -208,7 +229,7 @@ sub check_disjoint {
     chomp;
     my @col = split(" ", $_);
     $phone = shift @col;
-    if($nonsilence{$phone}) {$exit = 1; print "--> ERROR: phone \"$phone\" duplicates in $lang/phones/nonsilence.txt (line $idx)\n";}
+    if ($nonsilence{$phone}) {$exit = 1; print "--> ERROR: phone \"$phone\" duplicates in $lang/phones/nonsilence.txt (line $idx)\n";}
     $nonsilence{$phone} = 1;
     push(@nonsilence, $phone);
     $idx ++;
@@ -220,7 +241,7 @@ sub check_disjoint {
     chomp;
     my @col = split(" ", $_);
     $phone = shift @col;
-    if($disambig{$phone}) {$exit = 1; print "--> ERROR: phone \"$phone\" duplicates in $lang/phones/disambig.txt (line $idx)\n";}
+    if ($disambig{$phone}) {$exit = 1; print "--> ERROR: phone \"$phone\" duplicates in $lang/phones/disambig.txt (line $idx)\n";}
     $disambig{$phone} = 1;
     $idx ++;
   }
@@ -231,7 +252,7 @@ sub check_disjoint {
   my @itsect3 = intersect(\%disambig, \%nonsilence);
 
   $success = 1;
-  if(@itsect1 != 0) {
+  if (@itsect1 != 0) {
     $success = 0;
     $exit = 1; print "--> ERROR: silence.txt and nonsilence.txt have intersection -- ";
     foreach(@itsect1) {
@@ -240,7 +261,7 @@ sub check_disjoint {
     print "\n";
   } else {print "--> silence.txt and nonsilence.txt are disjoint\n";}
 
-  if(@itsect2 != 0) {
+  if (@itsect2 != 0) {
     $success = 0;
     $exit = 1; print "--> ERROR: silence.txt and disambig.txt have intersection -- ";
     foreach(@itsect2) {
@@ -249,7 +270,7 @@ sub check_disjoint {
     print "\n";
   } else {print "--> silence.txt and disambig.txt are disjoint\n";}
 
-  if(@itsect3 != 0) {
+  if (@itsect3 != 0) {
     $success = 0;
     $exit = 1; print "--> ERROR: disambig.txt and nonsilence.txt have intersection -- ";
     foreach(@itsect1) {
@@ -264,9 +285,9 @@ sub check_disjoint {
 
 sub check_summation {
   print "Checking sumation: silence.txt, nonsilence.txt, disambig.txt ...\n";
-  if(scalar(keys %silence) == 0)      {$exit = 1; return print "--> ERROR: $lang/phones/silence.txt is empty or not exists\n";}
-  if(scalar(keys %nonsilence) == 0)   {$exit = 1; return print "--> ERROR: $lang/phones/nonsilence.txt is empty or not exists\n";}
-  if(scalar(keys %disambig) == 0)     {$exit = 1; return print "--> ERROR: $lang/phones/disambig.txt is empty or not exists\n";}
+  if (scalar(keys %silence) == 0)    {$exit = 1; return print "--> ERROR: $lang/phones/silence.txt is empty or does not exist\n";}
+  if (scalar(keys %nonsilence) == 0) {$exit = 1; return print "--> ERROR: $lang/phones/nonsilence.txt is empty or does not exist\n";}
+  if (scalar(keys %disambig) == 0)   {$warning = 1; print "--> WARNING: $lang/phones/disambig.txt is empty or does not exist\n";}
 
   %sum = (%silence, %nonsilence, %disambig);
   $sum{"<eps>"} = 1;
@@ -275,23 +296,23 @@ sub check_summation {
   my @key1 = keys %sum;
   my @key2 = keys %psymtab;
   my %itset = (); foreach(@itset) {$itset{$_} = 1;}
-  if(@itset < @key1) {
+  if (@itset < @key1) {
     $exit = 1; print "--> ERROR: phones in silence.txt, nonsilence.txt, disambig.txt but not in phones.txt -- ";
     foreach(@key1) {
-      if(!$itset{$_}) {print "$_ ";}
+      if (!$itset{$_}) {print "$_ ";}
     }
     print "\n";
   }
 
-  if(@itset < @key2) {
+  if (@itset < @key2) {
     $exit = 1; print "--> ERROR: phones in phones.txt but not in silence.txt, nonsilence.txt, disambig.txt -- ";
     foreach(@key2) {
-      if(!$itset{$_}) {print "$_ ";}
+      if (!$itset{$_}) {print "$_ ";}
     }
     print "\n";
   }
 
-  if(@itset == @key1 and @itset == @key2) {
+  if (@itset == @key1 and @itset == @key2) {
     print "--> summation property is OK\n";
   }
   return;
@@ -305,12 +326,36 @@ sub check_summation {
 check_disjoint; print "\n";
 check_summation; print "\n";
 
+@list1 = ("context_indep", "disambig", "nonsilence", "silence", "optional_silence");
+@list2 = ("roots", "sets");
+foreach(@list1) {
+  check_txt_int_csl("$lang/phones/$_", \%psymtab); print "\n";
+}
+foreach(@list2) {
+  check_txt_int("$lang/phones/$_", \%psymtab, 1); print "\n";
+}
+if ((-s "$lang/phones/extra_questions.txt") || (-s "$lang/phones/extra_questions.int")) {
+  check_txt_int("$lang/phones/extra_questions", \%psymtab, 0); print "\n";
+} else {
+  print "Checking $lang/phones/extra_questions.\{txt, int\} ...\n";
+  if ((-f "$lang/phones/extra_questions.txt") && (-f "$lang/phones/extra_questions.int")) {
+    print "--> WARNING: the optional $lang/phones/extra_questions.\{txt, int\} are empty!\n\n";
+    $warning = 1;
+  } else {
+    print "--> ERROR: $lang/phones/extra_questions.\{txt, int\} do not exist (they may be empty, but should be present)\n\n";
+    $exit = 1;
+  }
+} 
+if (-e "$lang/phones/word_boundary.txt") {
+  check_txt_int("$lang/phones/word_boundary", \%psymtab, 0); print "\n";
+}
+
 # Checking optional_silence.txt -------------------------------
 print "Checking optional_silence.txt ...\n";
 $idx = 1;
 $success = 1;
-if(-z "$lang/phones/optional_silence.txt") {$exit = 1; $success = 0; print "--> ERROR: $lang/phones/optional_silence.txt is empty or not exists\n";}
-if(!open(OS, "<$lang/phones/optional_silence.txt")) {$exit = 1; $success = 0; print "--> ERROR: fail to open $lang/phones/optional_silence.txt\n";}
+if (-z "$lang/phones/optional_silence.txt") {$exit = 1; $success = 0; print "--> ERROR: $lang/phones/optional_silence.txt is empty or does not exist\n";}
+if (!open(OS, "<$lang/phones/optional_silence.txt")) {$exit = 1; $success = 0; print "--> ERROR: fail to open $lang/phones/optional_silence.txt\n";}
 print "--> reading $lang/phones/optional_silence.txt\n";
 while(<OS>) {
   chomp;
@@ -328,35 +373,38 @@ print "\n";
 
 # Check disambiguation symbols -------------------------------
 print "Checking disambiguation symbols: #0 and #1\n";
-if(scalar(keys %disambig) == 0) {$exit = 1; print "--> ERROR: $lang/phones/disambig.txt is empty or not exists\n";}
-if(exists $disambig{"#0"} and exists $disambig{"#1"}) {
+if (scalar(keys %disambig) == 0) {$warning = 1; print "--> WARNING: $lang/phones/disambig.txt is empty or does not exist\n";}
+if (exists $disambig{"#0"} and exists $disambig{"#1"}) {
   print "--> $lang/phones/disambig.txt has \"#0\" and \"#1\"\n";
   print "--> $lang/phones/disambig.txt is OK\n\n";
 } else {
-  $exit = 1; print "--> ERROR: $lang/phones/disambig.txt doesn't have \"#0\" or \"#1\"\n";
+  print "--> WARNING: $lang/phones/disambig.txt doesn't have \"#0\" or \"#1\";\n";
+  print "-->          this would not be OK with a conventional ARPA-type language\n";
+  print "-->          model or a conventional lexicon (L.fst)\n";
+  $warning = 1;
 }
 
 
 # Check topo -------------------------------
 print "Checking topo ...\n";
-if(-z "$lang/topo") {$exit = 1; print "--> ERROR: $lang/topo is empty or not exists\n";}
-if(!open(T, "<$lang/topo")) {$exit = 1; print "--> ERROR: fail to open $lang/topo\n";}
+if (-z "$lang/topo") {$exit = 1; print "--> ERROR: $lang/topo is empty or does not exist\n";}
+if (!open(T, "<$lang/topo")) {$exit = 1; print "--> ERROR: fail to open $lang/topo\n";}
 $idx = 1;
 while(<T>) {
   chomp;
-  next if(m/^<.*>[ ]*$/);
-  if($idx == 1) {$nonsilence_seq = $_; $idx ++;}
-  if($idx == 2) {$silence_seq = $_;}
+  next if (m/^<.*>[ ]*$/);
+  if ($idx == 1) {$nonsilence_seq = $_; $idx ++;}
+  if ($idx == 2) {$silence_seq = $_;}
 }
 close(T);
-if($silence_seq == 0 || $nonsilence_seq == 0) {$exit = 1; print "--> ERROR: $lang/topo doesn't have nonsilence section or silence section\n";}
+if ($silence_seq == 0 || $nonsilence_seq == 0) {$exit = 1; print "--> ERROR: $lang/topo doesn't have nonsilence section or silence section\n";}
 @silence_seq = split(" ", $silence_seq);
 @nonsilence_seq = split(" ", $nonsilence_seq);
 $success1 = 1;
-if(@nonsilence_seq != @nonsilence) {$exit = 1; print "--> ERROR: $lang/topo's nonsilence section doesn't correspond to nonsilence.txt\n";}
+if (@nonsilence_seq != @nonsilence) {$exit = 1; print "--> ERROR: $lang/topo's nonsilence section doesn't correspond to nonsilence.txt\n";}
 else {
   foreach(0 .. scalar(@nonsilence)-1) {
-    if($psymtab{@nonsilence[$_]} ne @nonsilence_seq[$_]) {
+    if ($psymtab{@nonsilence[$_]} ne @nonsilence_seq[$_]) {
       $exit = 1; print "--> ERROR: $lang/topo's nonsilence section doesn't correspond to nonsilence.txt\n";
       $success = 0;
     }
@@ -364,10 +412,10 @@ else {
 }
 $success1 != 1 || print "--> $lang/topo's nonsilence section is OK\n";
 $success2 = 1;
-if(@silence_seq != @silence) {$exit = 1; print "--> ERROR: $lang/topo's silence section doesn't correspond to silence.txt\n";}
+if (@silence_seq != @silence) {$exit = 1; print "--> ERROR: $lang/topo's silence section doesn't correspond to silence.txt\n";}
 else {
   foreach(0 .. scalar(@silence)-1) {
-    if($psymtab{@silence[$_]} ne @silence_seq[$_]) {
+    if ($psymtab{@silence[$_]} ne @silence_seq[$_]) {
       $exit = 1; print "--> ERROR: $lang/topo's silence section doesn't correspond to silence.txt\n";
       $success = 0;
     }
@@ -383,9 +431,9 @@ $begin     = "";
 $end       = "";
 $internal  = "";
 $singleton = "";
-if(-s "$lang/phones/word_boundary.txt") {
+if (-s "$lang/phones/word_boundary.txt") {
   print "Checking word_boundary.txt: silence.txt, nonsilence.txt, disambig.txt ...\n";
-  if(!open (W, "<$lang/phones/word_boundary.txt")) {$exit = 1; print "--> ERROR: fail to open $lang/phones/word_boundary.txt\n";}
+  if (!open (W, "<$lang/phones/word_boundary.txt")) {$exit = 1; print "--> ERROR: fail to open $lang/phones/word_boundary.txt\n";}
   $idx = 1;
   %wb = ();
   while(<W>) {
@@ -396,7 +444,7 @@ if(-s "$lang/phones/word_boundary.txt") {
     if (m/^.*end$/      ) {s/ end$//g;       @col = split(" ", $_); if (@col == 1) {$end       .= "$col[0] ";}}
     if (m/^.*internal$/ ) {s/ internal$//g;  @col = split(" ", $_); if (@col == 1) {$internal  .= "$col[0] ";}}
     if (m/^.*singleton$/) {s/ singleton$//g; @col = split(" ", $_); if (@col == 1) {$singleton .= "$col[0] ";}}
-    if(@col != 1) {$exit = 1; print "--> ERROR: expect 1 column in $lang/phones/word_boundary.txt (line $idx)\n";}
+    if (@col != 1) {$exit = 1; print "--> ERROR: expect 1 column in $lang/phones/word_boundary.txt (line $idx)\n";}
     $wb{shift @col} = 1;
     $idx ++;
   }
@@ -404,7 +452,7 @@ if(-s "$lang/phones/word_boundary.txt") {
 
   @itset = intersect(\%disambig, \%wb);
   $success1 = 1;
-  if(@itset != 0) {
+  if (@itset != 0) {
     $success1 = 0;
     $exit = 1; print "--> ERROR: $lang/phones/word_boundary.txt has disambiguation symbols -- ";
     foreach(@itset) {print "$_ ";}
@@ -416,19 +464,19 @@ if(-s "$lang/phones/word_boundary.txt") {
   @itset = intersect(\%sum, \%wb);
   %itset = (); foreach(@itset) {$itset{$_} = 1;}
   $success2 = 1;
-  if(@itset < scalar(keys %sum)) {
+  if (@itset < scalar(keys %sum)) {
     $success2 = 0;
     $exit = 1; print "--> ERROR: phones in nonsilence.txt and silence.txt but not in word_boundary.txt -- ";
     foreach(keys %sum) {
-      if(!$itset{$_}) {print "$_ ";}            
+      if (!$itset{$_}) {print "$_ ";}            
     }
     print "\n";
   }
-  if(@itset < scalar(keys %wb)) {
+  if (@itset < scalar(keys %wb)) {
     $success2 = 0;
     $exit = 1; print "--> ERROR: phones in word_boundary.txt but not in nonsilence.txt or silence.txt -- ";
     foreach(keys %wb) {
-      if(!$itset{$_}) {print "$_ ";}
+      if (!$itset{$_}) {print "$_ ";}
     }
     print "\n";
   }
@@ -437,16 +485,16 @@ if(-s "$lang/phones/word_boundary.txt") {
   print "\n";
 }
 
-if(-s "$lang/phones/word_boundary.int") {
+if (-s "$lang/phones/word_boundary.int") {
   print "Checking word_boundary.int and disambig.int\n";
-  if(!open (W, "<$lang/phones/word_boundary.int")) {$exit = 1; print "--> ERROR: fail to open $lang/phones/word_boundary.int\n";}
+  if (!open (W, "<$lang/phones/word_boundary.int")) {$exit = 1; print "--> ERROR: fail to open $lang/phones/word_boundary.int\n";}
   while (<W>) {
     @A = split;
     if (@A != 2) { $exit = 1; print "--> ERROR: bad line $_ in $lang/phones/word_boundary.int\n"; }
     $wbtype{$A[0]} = $A[1];
   }
   close(W);
-  if(!open (D, "<$lang/phones/disambig.int")) {$exit = 1; print "--> ERROR: fail to open $lang/phones/disambig.int\n";}
+  if (!open (D, "<$lang/phones/disambig.int")) {$exit = 1; print "--> ERROR: fail to open $lang/phones/disambig.int\n";}
   while (<D>) { 
     @A = split;
     if (@A != 1) { $exit = 1; print "--> ERROR: bad line $_ in $lang/phones/disambig.int\n"; }
@@ -467,7 +515,7 @@ if(-s "$lang/phones/word_boundary.int") {
       $sid ++;
     }
     $wordseq = $wordseq . "$sid 0";
-    $phoneseq = `echo \"$wordseq" | fstcompile | fstcompose $lang/$fst - | fstproject | fstrandgen | fstrmepsilon | fsttopsort | fstprint | awk '{if(NF > 2) {print \$3}}';`;
+    $phoneseq = `echo \"$wordseq" | fstcompile | fstcompose $lang/$fst - | fstproject | fstrandgen | fstrmepsilon | fsttopsort | fstprint | awk '{if (NF > 2) {print \$3}}';`;
     @phoneseq = split(" ", $phoneseq);
     $transition = { }; # empty assoc. array of allowed transitions between phone types.  1 means we count a word,
     # 0 means transition is allowed.  bos and eos are added as extra symbols here.
@@ -516,9 +564,36 @@ if(-s "$lang/phones/word_boundary.int") {
 }
 
 # Check oov -------------------------------
-check_txt_int("$lang/oov", \%wsymtab); print "\n";
+check_txt_int("$lang/oov", \%wsymtab, 0); print "\n";
 
 
-if ($exit == 1) { print "--> ERROR\n"; exit 1;}
-else { print "--> SUCCESS\n"; exit 0; }
+# Check determinizability of G.fst
+if (-e "$lang/G.fst") {
+  $cmd = "fstdeterminize $lang/G.fst /dev/null";
+  $ret = system(". ./path.sh; $cmd");
+  if ($ret == 0) {
+    print "--> command $cmd succeeded\n";
+  } else {
+    print "--> ERROR: command $cmd failed\n";
+    $exit = 1;
+  }
+}
+
+if (-e "$lang/G.fst" && -e "$lang/L_disambig.fst") {
+  $cmd = "fstcompose $lang/L_disambig.fst $lang/G.fst | fstdeterminize > /dev/null";
+  $ret = system(". ./path.sh; $cmd");
+  if ($ret == 0) {
+    print "--> command $cmd succeeded\n";
+  } else {
+    print "--> ERROR: command $cmd failed\n";
+    $exit = 1;
+  }
+}
+
+
+if ($exit == 1) { print "--> ERROR (see error messages above)\n"; exit 1;}
+else {
+  if ($warning == 1) { print "--> WARNING (check output above for warnings)\n"; exit 0; }
+  else { print "--> SUCCESS [validating lang directory $lang]\n"; exit 0; }
+}
 

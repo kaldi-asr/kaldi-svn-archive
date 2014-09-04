@@ -6,6 +6,8 @@
 // Copyright 2012-2013  Johns Hopkins University (Author: Daniel Povey)
 //                      Liang Lu;  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +29,7 @@
 
 #include "sgmm/am-sgmm.h"
 #include "gmm/model-common.h"
-#include "util/parse-options.h"
+#include "itf/options-itf.h"
 #include "sgmm/sgmm-clusterable.h"
 #include "thread/kaldi-thread.h"  // for MultiThreadable
 
@@ -98,7 +100,7 @@ struct MleAmSgmmOptions {
     full_col_cov = false;
   }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     std::string module = "MleAmSgmmOptions: ";
     po->Register("tau-vec", &tau_vec, module+
                  "Smoothing for phone vector estimation.");
@@ -107,7 +109,7 @@ struct MleAmSgmmOptions {
     po->Register("cov-floor", &cov_floor, module+
                  "Covariance floor (fraction of average covariance).");
     po->Register("cov-diag-ratio", &cov_diag_ratio, module+
-                 "Minumum occ/dim ratio below which use diagonal covariances.");
+                 "Minimum occ/dim ratio below which use diagonal covariances.");
     po->Register("max-cond", &max_cond, module+"Maximum condition number beyond"
                  " which matrices are not updated.");
     po->Register("weight-projections-iters", &weight_projections_iters, module+

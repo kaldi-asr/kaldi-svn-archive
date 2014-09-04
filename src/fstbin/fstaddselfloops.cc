@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -72,7 +74,7 @@ int main(int argc, char *argv[]) {
                 << kaldi::PrintableRxfilename(disambig_out_rxfilename);
 
     if (disambig_in.size() != disambig_out.size())
-      KALDI_ERR << "fstaddselfloops: mismatch in size of disambiguation symbols\n";
+      KALDI_ERR << "fstaddselfloops: mismatch in size of disambiguation symbols";
 
     AddSelfLoops(fst, disambig_in, disambig_out);
 

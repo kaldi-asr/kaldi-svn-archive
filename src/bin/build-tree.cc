@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -56,7 +58,9 @@ int main(int argc, char *argv[]) {
     po.Register("thresh", &thresh, "Log-likelihood change threshold for "
                 "tree-building");
     po.Register("cluster-thresh", &cluster_thresh, "Log-likelihood change "
-                "threshold for clustering after tree-building");
+                "threshold for clustering after tree-building.  0 means "
+                "no clustering; -1 means use as a clustering threshold the "
+                "likelihood change of the final split.");
 
     po.Read(argc, argv);
 
@@ -93,7 +97,7 @@ int main(int argc, char *argv[]) {
       Input ki(stats_filename, &binary_in);
       ReadBuildTreeStats(ki.Stream(), binary_in, gc, &stats);
     }
-    KALDI_LOG << "Number of separate statistics is " << stats.size() << '\n';
+    KALDI_LOG << "Number of separate statistics is " << stats.size();
     
     Questions qo;
     {
@@ -177,7 +181,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    KALDI_LOG << "Wrote tree\n";
+    KALDI_LOG << "Wrote tree";
 
     DeleteBuildTreeStats(&stats);
   } catch(const std::exception &e) {

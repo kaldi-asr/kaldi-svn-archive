@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Georg Stemmer;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -137,7 +139,7 @@ generate_features(cova_type covariance_type,
 
 void UnitTestRegtreeFmllrDiagGmm(cova_type feature_type, size_t max_bclass) {
   // dimension of the feature space
-  size_t dim = 5 + rand() % 3;
+  size_t dim = 5 + Rand() % 3;
 
   // number of components in the data
   size_t n_gaussians = 8;
@@ -225,7 +227,7 @@ void UnitTestRegtreeFmllrDiagGmm(cova_type feature_type, size_t max_bclass) {
   RegressionTree regtree;
 
   RegtreeFmllrOptions xform_opts;
-  xform_opts.min_count = 100 * (1 + rand() % 10);
+  xform_opts.min_count = 100 * (1 + Rand() % 10);
   xform_opts.use_regtree = (RandUniform() < 0.5)? false : true;
 
   size_t num_pdfs = 1;
@@ -279,6 +281,8 @@ void UnitTestRegtreeFmllrDiagGmm(cova_type feature_type, size_t max_bclass) {
     iteration++;
     delete new_fmllr;
     delete fmllr_read;
+    
+    unlink("tmpf");
   }
 
 //  // transform features with empty transform

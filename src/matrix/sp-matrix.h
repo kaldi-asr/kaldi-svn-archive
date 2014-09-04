@@ -4,6 +4,8 @@
 //                       Saarland University;  Ariya Rastrow;  Yanmin Qian;
 //                       Jan Silovsky
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -26,14 +28,6 @@
 
 namespace kaldi {
 
-/// \weakgroup matrix_funcs_misc
-typedef enum {
-  kTakeLower,
-  kTakeUpper,
-  kTakeMean,
-  kTakeMeanAndCheck
-} SpCopyType;
-
 
 /// \addtogroup matrix_group
 /// @{
@@ -52,13 +46,18 @@ class SpMatrix : public PackedMatrix<Real> {
 
   SpMatrix(): PackedMatrix<Real>() {}
 
+  /// Copy constructor from CUDA version of SpMatrix
+  /// This is defined in ../cudamatrix/cu-sp-matrix.h
+  
+  explicit SpMatrix(const CuSpMatrix<Real> &cu);
+ 
   explicit SpMatrix(MatrixIndexT r, MatrixResizeType resize_type = kSetZero)
       : PackedMatrix<Real>(r, resize_type) {}
 
   SpMatrix(const SpMatrix<Real> &orig)
       : PackedMatrix<Real>(orig) {}
 
-  template<class OtherReal>
+  template<typename OtherReal>
   explicit SpMatrix(const SpMatrix<OtherReal> &orig)
       : PackedMatrix<Real>(orig) {}
 
@@ -87,7 +86,7 @@ class SpMatrix : public PackedMatrix<Real> {
     PackedMatrix<Real>::CopyFromPacked(other);
   }
 
-  template<class OtherReal>
+  template<typename OtherReal>
   void CopyFromSp(const SpMatrix<OtherReal> &other) {
     PackedMatrix<Real>::CopyFromPacked(other);
   }
@@ -160,7 +159,9 @@ class SpMatrix : public PackedMatrix<Real> {
   /// Solves the symmetric eigenvalue problem: at end we should have (*this) = P
   /// * diag(s) * P^T.  We solve the problem using the symmetric QR method.
   /// P may be NULL.
-  /// Implemented in qr.cc. 
+  /// Implemented in qr.cc.
+  /// If you need the eigenvalues sorted, the function SortSvd declared in
+  /// kaldi-matrix is suitable.
   void Eig(VectorBase<Real> *s, MatrixBase<Real> *P = NULL) const;
   
   /// This function gives you, approximately, the largest eigenvalues of the
@@ -171,15 +172,15 @@ class SpMatrix : public PackedMatrix<Real> {
   /// by SVD within a smaller dimension ("lanczos_dim").
   ///
   /// If *this is m by m, s should be of dimension n and P should be of
-  /// dimension m by n, with n <= m.  The columns of P are the approximate
-  /// eigenvalues; P * diag(s) * P^T would be a low-rank reconstruction of
+  /// dimension m by n, with n <= m.  The *columns* of P are the approximate
+  /// eigenvectors; P * diag(s) * P^T would be a low-rank reconstruction of
   /// *this.  The columns of P will be orthogonal, and the elements of s will be
   /// the eigenvalues of *this projected into that subspace, but beyond that
   /// there are no exact guarantees.  (This is because the convergence of this
   /// method is statistical).  Note: it only makes sense to use this
   /// method if you are in very high dimension and n is substantially smaller
   /// than m: for example, if you want the 100 top eigenvalues of a 10k by 10k
-  /// matrix.  This function calls rand() to initialize the lanczos
+  /// matrix.  This function calls Rand() to initialize the lanczos
   /// iterations and also for restarting.
   /// If lanczos_dim is zero, it will default to the greater of:
   /// s->Dim() + 50 or s->Dim() + s->Dim()/2, but not more than this->Dim().
@@ -198,9 +199,7 @@ class SpMatrix : public PackedMatrix<Real> {
 
 
   // Takes exponential of the matrix (equivalent to doing eigenvalue
-  // decomposition then taking exp of eigenvalues and reconstructing;
-  // actually not done that way as we don't have symmetric eigenvalue
-  // code).
+  // decomposition then taking exp of eigenvalues and reconstructing).
   void Exp();
 
   /// Returns the maximum of the absolute values of any of the
@@ -228,24 +227,29 @@ class SpMatrix : public PackedMatrix<Real> {
   Real LogDet(Real *det_sign = NULL) const;
 
   /// rank-one update, this <-- this + alpha v v'
-  template<class OtherReal>
+  template<typename OtherReal>
   void AddVec2(const Real alpha, const VectorBase<OtherReal> &v);
 
   /// rank-two update, this <-- this + alpha (v w' + w v').
   void AddVecVec(const Real alpha, const VectorBase<Real> &v,
                  const VectorBase<Real> &w);
+
+  /// Does *this = beta * *thi + alpha * diag(v) * S * diag(v)
+  void AddVec2Sp(const Real alpha, const VectorBase<Real> &v,
+                 const SpMatrix<Real> &S, const Real beta);
   
   /// diagonal update, this <-- this + diag(v)
-  template<class OtherReal>
-  void AddVec(const Real alpha, const VectorBase<OtherReal> &v);
+  template<typename OtherReal>
+  void AddDiagVec(const Real alpha, const VectorBase<OtherReal> &v);
 
   /// rank-N update:
   /// if (transM == kNoTrans)
   /// (*this) = beta*(*this) + alpha * M * M^T,
   /// or  (if transM == kTrans)
   ///  (*this) = beta*(*this) + alpha * M^T * M
+  /// Note: beta used to default to 0.0.
   void AddMat2(const Real alpha, const MatrixBase<Real> &M,
-               MatrixTransposeType transM, const Real beta = 0.0);
+               MatrixTransposeType transM, const Real beta);
 
   /// Extension of rank-N update:
   /// this <-- beta*this  +  alpha * M * A * M^T.
@@ -279,8 +283,7 @@ class SpMatrix : public PackedMatrix<Real> {
   /// can implement it more efficiently.
   void AddTp2(const Real alpha, const TpMatrix<Real> &T,
               MatrixTransposeType transM, const Real beta = 0.0);
-  
-  
+
   /// Extension of rank-N update:
   /// this <-- beta*this + alpha * M * diag(v) * M^T.
   /// if transM == kTrans, then
@@ -327,9 +330,9 @@ class SpMatrix : public PackedMatrix<Real> {
   // of the largest one (or zero if there are no positive eigenvalues).
   // Takes the condition number we are willing to accept, and floors
   // eigenvalues to the largest eigenvalue divided by this.
-  //  Returns #eigs floored or already equal to the floor.  This will equal
-  // the dimension if the input is negative semidefinite.
-  // Throws exception if input is now positive definite.// returns #floored.
+  //  Returns #eigs floored or already equal to the floor. 
+  // Throws exception if input is not positive definite.
+  // returns #floored.
   MatrixIndexT LimitCond(Real maxCond = 1.0e+5, bool invert = false);
 
   // as LimitCond but all done in double precision. // returns #floored.
@@ -374,6 +377,20 @@ float TraceSpSp(const SpMatrix<float> &A, const SpMatrix<float> &B);
 double TraceSpSp(const SpMatrix<double> &A, const SpMatrix<double> &B);
 
 
+template<typename Real>
+inline bool ApproxEqual(const SpMatrix<Real> &A,
+                        const SpMatrix<Real> &B, Real tol = 0.01) {
+  return  A.ApproxEqual(B, tol);
+}
+
+template<typename Real>
+inline void AssertEqual(const SpMatrix<Real> &A,
+                        const SpMatrix<Real> &B, Real tol = 0.01) {
+  KALDI_ASSERT(ApproxEqual(A, B, tol));
+}
+
+
+
 /// Returns tr(A B).
 template<typename Real, typename OtherReal>
 Real TraceSpSp(const SpMatrix<Real> &A, const SpMatrix<OtherReal> &B);
@@ -412,7 +429,7 @@ Real TraceMatSpMatSp(const MatrixBase<Real> &A, MatrixTransposeType transA,
 
 /// Returns \f$ v_1^T M v_2 \f$
 /// Not as efficient as it could be where v1 == v2.
-template<class Real>
+template<typename Real>
 Real VecSpVec(const VectorBase<Real> &v1, const SpMatrix<Real> &M,
                const VectorBase<Real> &v2);
 
@@ -422,47 +439,76 @@ Real VecSpVec(const VectorBase<Real> &v1, const SpMatrix<Real> &M,
 /// \addtogroup matrix_funcs_misc
 /// @{
 
+
+/// This class describes the options for maximizing various quadratic objective
+/// functions.  It's mostly as described in the SGMM paper "the subspace
+/// Gaussian mixture model -- a structured model for speech recognition", but
+/// the diagonal_precondition option is newly added, to handle problems where
+/// different dimensions have very different scaling (we recommend to use the
+/// option but it's set false for back compatibility).
+struct SolverOptions {
+  BaseFloat K; // maximum condition number
+  BaseFloat eps; 
+  std::string name;
+  bool optimize_delta;
+  bool diagonal_precondition;
+  bool print_debug_output;
+  explicit SolverOptions(const std::string &name):
+      K(1.0e+4), eps(1.0e-40), name(name),
+      optimize_delta(true), diagonal_precondition(false),
+      print_debug_output(true) { }
+  SolverOptions(): K(1.0e+4), eps(1.0e-40), name("[unknown]"),
+                   optimize_delta(true), diagonal_precondition(false),
+                   print_debug_output(true) { }
+  void Check() const;
+};
+
+
 /// Maximizes the auxiliary function
 /// \f[    Q(x) = x.g - 0.5 x^T H x     \f]
 /// using a numerically stable method. Like a numerically stable version of
 /// \f$  x := Q^{-1} g.    \f$
 /// Assumes H positive semidefinite.
 /// Returns the objective-function change.
-template<class Real>
+
+template<typename Real>
 Real SolveQuadraticProblem(const SpMatrix<Real> &H,
                            const VectorBase<Real> &g,
-                           VectorBase<Real> *x, Real K = 1.0E4,
-                           Real eps = 1.0E-40,
-                           const char *debug_str = "[unknown]",
-                           bool optimizeDelta = true);
+                           const SolverOptions &opts,
+                           VectorBase<Real> *x);
+                           
+
 
 /// Maximizes the auxiliary function :
 /// \f[   Q(x) = tr(M^T P Y) - 0.5 tr(P M Q M^T)        \f]
 /// Like a numerically stable version of  \f$  M := Y Q^{-1}   \f$.
 /// Assumes Q and P positive semidefinite, and matrix dimensions match
 /// enough to make expressions meaningful.
-template<class Real>
+/// This is mostly as described in the SGMM paper "the subspace Gaussian mixture
+/// model -- a structured model for speech recognition", but the
+/// diagonal_precondition option is newly added, to handle problems
+/// where different dimensions have very different scaling (we recommend to use
+/// the option but it's set false for back compatibility).
+template<typename Real>
 Real SolveQuadraticMatrixProblem(const SpMatrix<Real> &Q,
                                  const MatrixBase<Real> &Y,
                                  const SpMatrix<Real> &P,
-                                 MatrixBase<Real> *M, Real K = 1.0E4,
-                                 Real eps = 1.0E-40,
-                                 const char *debug_str = "[unknown]",
-                                 bool optimizeDelta = true);
+                                 const SolverOptions &opts,
+                                 MatrixBase<Real> *M);
 
 /// Maximizes the auxiliary function :
 /// \f[   Q(M) =  tr(M^T G) -0.5 tr(P_1 M Q_1 M^T) -0.5 tr(P_2 M Q_2 M^T).   \f]
 /// Encountered in matrix update with a prior. We also apply a limit on the
 /// condition but it should be less frequently necessary, and can be set larger.
-template<class Real>
+template<typename Real>
 Real SolveDoubleQuadraticMatrixProblem(const MatrixBase<Real> &G,
                                        const SpMatrix<Real> &P1,
                                        const SpMatrix<Real> &P2,
                                        const SpMatrix<Real> &Q1,
                                        const SpMatrix<Real> &Q2,
-                                       MatrixBase<Real> *M, Real K = 1.0E4,
-                                       Real eps = 1.0E-40,
-                                       const char *debug_str = "[unknown]");
+                                       const SolverOptions &opts,
+                                       MatrixBase<Real> *M);
+
 
 /// @} End of "addtogroup matrix_funcs_misc"
 

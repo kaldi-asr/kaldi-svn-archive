@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2013  (Author: Bagher BabaAli)
+# Copyright 2013   (Authors: Daniel Povey, Bagher BabaAli)
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ dir=data/local/dict
 lmdir=data/local/nist_lm
 tmpdir=data/local/lm_tmp
 
-mkdir -p $dir $tmpdir
+mkdir -p $dir $lmdir $tmpdir
 
 [ -f path.sh ] && . ./path.sh
 
@@ -49,7 +49,7 @@ echo sil > $dir/optional_silence.txt
 # really to the same base phone.
 
 # Create the lexicon, which is just an identity mapping
-cut -d' ' -f2- $srcdir/train.txt | tr ' ' '\n' | sort -u > $dir/phones.txt
+cut -d' ' -f2- $srcdir/train.text | tr ' ' '\n' | sort -u > $dir/phones.txt
 paste $dir/phones.txt $dir/phones.txt > $dir/lexicon.txt || exit 1;
 grep -v -F -f $dir/silence_phones.txt $dir/phones.txt > $dir/nonsilence_phones.txt 
 
@@ -60,20 +60,18 @@ cat $dir/nonsilence_phones.txt | perl -e 'while(<>){ foreach $p (split(" ", $_))
   $p =~ m:^([^\d]+)(\d*)$: || die "Bad phone $_"; $q{$2} .= "$p "; } } foreach $l (values %q) {print "$l\n";}' \
  >> $dir/extra_questions.txt || exit 1;
 
-
 # (2) Create the phone bigram LM
-#(
   [ -z "$IRSTLM" ] && \
-    echo "LM building wo'nt work without setting the IRSTLM env variable" && exit 1;
-  cut -d' ' -f2- $srcdir/train.txt | sed -e 's:^:<s> :' -e 's:$: </s>:' \
-    > $srcdir/lm_train.txt
-  build-lm.sh -i $srcdir/lm_train.txt -n 2 -o $tmpdir/lm_phone_bg.ilm.gz
+    echo "LM building won't work without setting the IRSTLM env variable" && exit 1;
+  ! which build-lm.sh 2>/dev/null  && \
+    echo "IRSTLM does not seem to be installed (build-lm.sh not on your path): " && \
+    echo "go to <kaldi-root>/tools and try 'make irstlm_tgt'" && exit 1;
 
-  compile-lm $tmpdir/lm_phone_bg.ilm.gz --text yes /dev/stdout | \
+  cut -d' ' -f2- $srcdir/train.text | sed -e 's:^:<s> :' -e 's:$: </s>:' \
+    > $srcdir/lm_train.text
+  build-lm.sh -i $srcdir/lm_train.text -n 2 -o $tmpdir/lm_phone_bg.ilm.gz
+
+  compile-lm $tmpdir/lm_phone_bg.ilm.gz -t=yes /dev/stdout | \
   grep -v unk | gzip -c > $lmdir/lm_phone_bg.arpa.gz 
 
-#) >& data/prepare_lm.log
-
-
-echo "Dictionary preparation succeeded"
-
+echo "Dictionary & language model preparation succeeded"

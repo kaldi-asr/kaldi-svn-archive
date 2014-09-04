@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation, Mirko Hannemann,
 //              Gilles Boulianne
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -63,8 +65,10 @@ class LatticeBiglmFasterDecoder {
                  lm_diff_fst->Start() != fst::kNoStateId);
     toks_.SetSize(1000);  // just so on the first frame we do something reasonable.
   }
- void SetOptions(const LatticeBiglmFasterDecoderConfig &config) { config_ = config; }  
+  void SetOptions(const LatticeBiglmFasterDecoderConfig &config) { config_ = config; } 
+  LatticeBiglmFasterDecoderConfig GetOptions() { return config_; } 
   ~LatticeBiglmFasterDecoder() {
+    DeleteElems(toks_.Clear());    
     ClearActiveTokens();
   }
 
@@ -72,7 +76,7 @@ class LatticeBiglmFasterDecoder {
   // a final state).
   bool Decode(DecodableInterface *decodable) {
     // clean up from last time:
-    ClearToks(toks_.Clear());
+    DeleteElems(toks_.Clear());
     ClearActiveTokens();
     warned_ = false;
     final_active_ = false;
@@ -113,9 +117,10 @@ class LatticeBiglmFasterDecoder {
 
   // Outputs an FST corresponding to the single best path
   // through the lattice.
-  bool GetBestPath(fst::MutableFst<LatticeArc> *ofst) const {
+  bool GetBestPath(fst::MutableFst<LatticeArc> *ofst, 
+                   bool use_final_probs = true) const {
     fst::VectorFst<LatticeArc> fst;
-    if (!GetRawLattice(&fst)) return false;
+    if (!GetRawLattice(&fst, use_final_probs)) return false;
     // std::cout << "Raw lattice is:\n";
     // fst::FstPrinter<LatticeArc> fstprinter(fst, NULL, NULL, NULL, false, true);
     // fstprinter.Print(&std::cout, "standard output");
@@ -125,7 +130,8 @@ class LatticeBiglmFasterDecoder {
 
   // Outputs an FST corresponding to the raw, state-level
   // tracebacks.
-  bool GetRawLattice(fst::MutableFst<LatticeArc> *ofst) const {
+  bool GetRawLattice(fst::MutableFst<LatticeArc> *ofst,
+                     bool use_final_probs = true) const {
     typedef LatticeArc Arc;
     typedef Arc::StateId StateId;
     // A PairId will be constructed as: (StateId in fst) + (StateId in lm_diff_fst) << 32;
@@ -154,7 +160,9 @@ class LatticeBiglmFasterDecoder {
       if (f == 0 && ofst->NumStates() > 0)
         ofst->SetStart(ofst->NumStates()-1);
     }
-    KALDI_VLOG(3) << "init:" << num_toks_/2 + 3 << " buckets:" << tok_map.bucket_count() << " load:" << tok_map.load_factor() << " max:" << tok_map.max_load_factor();
+    KALDI_VLOG(3) << "init:" << num_toks_/2 + 3 << " buckets:" 
+                  << tok_map.bucket_count() << " load:" << tok_map.load_factor() 
+                  << " max:" << tok_map.max_load_factor();
     // Now create all arcs.
     StateId cur_state = 0; // we rely on the fact that we numbered these
     // consecutively (AddState() returns the numbers in order..)
@@ -174,10 +182,14 @@ class LatticeBiglmFasterDecoder {
           ofst->AddArc(cur_state, arc);
         }
         if (f == num_frames) {
-          std::map<Token*, BaseFloat>::const_iterator iter =
-              final_costs_.find(tok);
-          if (iter != final_costs_.end())
-            ofst->SetFinal(cur_state, LatticeWeight(iter->second, 0));
+          if (use_final_probs && !final_costs_.empty()) {
+            std::map<Token*, BaseFloat>::const_iterator iter =
+                final_costs_.find(tok);
+            if (iter != final_costs_.end())
+              ofst->SetFinal(cur_state, LatticeWeight(iter->second, 0));
+          } else {
+            ofst->SetFinal(cur_state, LatticeWeight::One());
+          }
         }
       }
     }
@@ -185,11 +197,14 @@ class LatticeBiglmFasterDecoder {
     return (cur_state != 0);
   }
 
+  // This function is now deprecated, since now we do determinization from
+  // outside the LatticeBiglmFasterDecoder class.
   // Outputs an FST corresponding to the lattice-determinized
   // lattice (one path per word sequence).
-  bool GetLattice(fst::MutableFst<CompactLatticeArc> *ofst) const {
+  bool GetLattice(fst::MutableFst<CompactLatticeArc> *ofst,
+                  bool use_final_probs = true) const {
     Lattice raw_fst;
-    if (!GetRawLattice(&raw_fst)) return false;
+    if (!GetRawLattice(&raw_fst, use_final_probs)) return false;
     Invert(&raw_fst); // make it so word labels are on the input.
     if (!TopSort(&raw_fst)) // topological sort makes lattice-determinization more efficient
       KALDI_WARN << "Topological sorting of state-level lattice failed "
@@ -201,9 +216,7 @@ class LatticeBiglmFasterDecoder {
     // lattice-determinization more efficient.
     
     fst::DeterminizeLatticePrunedOptions lat_opts;
-    lat_opts.max_mem = config_.max_mem;
-    lat_opts.max_loop = config_.max_loop;
-    lat_opts.max_arcs = config_.max_arcs;
+    lat_opts.max_mem = config_.det_opts.max_mem;
     
     DeterminizeLatticePruned(raw_fst, config_.lattice_beam, ofst, lat_opts);
     raw_fst.DeleteStates(); // Free memory-- raw_fst no longer needed.
@@ -428,7 +441,7 @@ class LatticeBiglmFasterDecoder {
         best_cost_nofinal = infinity;
     unordered_map<Token*, BaseFloat> tok_to_final_cost;
     Elem *cur_toks = toks_.Clear(); // swapping prev_toks_ / cur_toks_
-    for (Elem *e = cur_toks; e != NULL;  e = e->tail) {
+    for (Elem *e = cur_toks, *e_tail; e != NULL;  e = e_tail) {
       PairId state_pair = e->key;
       StateId state = PairToState(state_pair),
           lm_state = PairToLmState(state_pair);
@@ -438,6 +451,8 @@ class LatticeBiglmFasterDecoder {
       tok_to_final_cost[tok] = final_cost;
       best_cost_final = std::min(best_cost_final, tok->tot_cost + final_cost);
       best_cost_nofinal = std::min(best_cost_nofinal, tok->tot_cost);
+      e_tail = e->tail;
+      toks_.Delete(e);
     }
     final_active_ = (best_cost_final != infinity);
     
@@ -754,7 +769,7 @@ class LatticeBiglmFasterDecoder {
 
     KALDI_ASSERT(queue_.empty());
     BaseFloat best_cost = std::numeric_limits<BaseFloat>::infinity();
-    for (Elem *e = toks_.GetList(); e != NULL;  e = e->tail) {
+    for (const Elem *e = toks_.GetList(); e != NULL;  e = e->tail) {
       queue_.push_back(e->key);
       // for pruning with current best token
       best_cost = std::min(best_cost, static_cast<BaseFloat>(e->val->tot_cost));
@@ -834,15 +849,14 @@ class LatticeBiglmFasterDecoder {
   std::map<Token*, BaseFloat> final_costs_; // A cache of final-costs
   // of tokens on the last frame-- it's just convenient to store it this way.
   
-  // It might seem unclear why we call ClearToks(toks_.Clear()).
+  // It might seem unclear why we call DeleteElems(toks_.Clear()).
   // There are two separate cleanup tasks we need to do at when we start a new file.
   // one is to delete the Token objects in the list; the other is to delete
   // the Elem objects.  toks_.Clear() just clears them from the hash and gives ownership
   // to the caller, who then has to call toks_.Delete(e) for each one.  It was designed
   // this way for convenience in propagating tokens from one frame to the next.
-  void ClearToks(Elem *list) {
+  void DeleteElems(Elem *list) {
     for (Elem *e = list, *e_tail; e != NULL; e = e_tail) {
-      // Token::TokenDelete(e->val);
       e_tail = e->tail;
       toks_.Delete(e);
     }

@@ -1,7 +1,10 @@
 // bin/compile-train-graphs.cc
 
-// Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
+// Copyright 2009-2012  Microsoft Corporation
+//           2012-2013  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -34,7 +37,7 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Creates training graphs (without transition-probabilities, by default)\n"
         "\n"
-        "Usage:   compile-train-graphs [options] tree-in model-in lexicon-fst-in transcriptions-rspecifier graphs-wspecifier\n"
+        "Usage:   compile-train-graphs [options] <tree-in> <model-in> <lexicon-fst-in> <transcriptions-rspecifier> <graphs-wspecifier>\n"
         "e.g.: \n"
         " compile-train-graphs tree 1.mdl lex.fst ark:train.tra ark:graphs.fsts\n";
     ParseOptions po(usage);
@@ -104,13 +107,16 @@ int main(int argc, char *argv[]) {
         VectorFst<StdArc> decode_fst;
 
         if (!gc.CompileGraphFromText(transcript, &decode_fst)) {
-          KALDI_WARN << "Problem creating decoding graph for utterance "
-                     << key << " [serious error]";
           decode_fst.DeleteStates();  // Just make it empty.
         }
-        if (decode_fst.Start() != fst::kNoStateId) num_succeed++;
-        else num_fail++;
-        fst_writer.Write(key, decode_fst);
+        if (decode_fst.Start() != fst::kNoStateId) {
+          num_succeed++;
+          fst_writer.Write(key, decode_fst);
+        } else {
+          KALDI_WARN << "Empty decoding graph for utterance "
+                     << key;
+          num_fail++;
+        }
       }
     } else {
       std::vector<std::string> keys;
@@ -128,10 +134,17 @@ int main(int argc, char *argv[]) {
         if (!gc.CompileGraphsFromText(transcripts, &fsts)) {
           KALDI_ERR << "Not expecting CompileGraphs to fail.";
         }
-        assert(fsts.size() == keys.size());
-        for (size_t i = 0; i < fsts.size(); i++)
-          fst_writer.Write(keys[i], *(fsts[i]));
-        num_succeed += fsts.size();
+        KALDI_ASSERT(fsts.size() == keys.size());
+        for (size_t i = 0; i < fsts.size(); i++) {
+          if (fsts[i]->Start() != fst::kNoStateId) {
+            num_succeed++;
+            fst_writer.Write(keys[i], *(fsts[i]));
+          } else {
+            KALDI_WARN << "Empty decoding graph for utterance "
+                       << keys[i];
+            num_fail++;
+          }
+        }
         DeletePointers(&fsts);
       }
     }

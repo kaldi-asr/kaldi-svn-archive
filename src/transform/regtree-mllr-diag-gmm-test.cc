@@ -3,6 +3,8 @@
 // Copyright 2009-2011   Saarland University
 // Author:  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -93,6 +95,9 @@ void TestMllrAccsIO(const kaldi::AmDiagGmm &am_gmm,
   BaseFloat loglike3 = am3.LogLikelihood(0, data);
 //  KALDI_LOG << "LL1 = " << loglike1 << "; LL3 = " << loglike3;
   kaldi::AssertEqual(loglike1, loglike3, 1e-6);
+  
+  unlink("tmpf");
+  unlink("tmpfb");
 }
 
 void TestXformMean(const kaldi::AmDiagGmm &am_gmm,

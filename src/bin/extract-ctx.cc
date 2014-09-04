@@ -1,7 +1,9 @@
-// tiedbin/smooth-stats-full.cc
+// bin/extract-ctx.cc
 
 // Copyright 2011 Univ. Erlangen-Nuremberg, Korbinian Riedhammer
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -185,7 +187,7 @@ int main(int argc, char *argv[]) {
         Input ki(po.GetArg(1), &binary_in);
         ReadBuildTreeStats(ki.Stream(), binary_in, gc, &stats);
       }
-      KALDI_LOG << "Number of separate statistics is " << stats.size() << '\n';
+      KALDI_LOG << "Number of separate statistics is " << stats.size();
       
       // typedef std::vector<std::pair<EventKeyType,EventValueType> > EventType
       

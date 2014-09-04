@@ -4,6 +4,8 @@
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation;
 //                      Georg Stemmer
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -243,7 +245,7 @@ void ClusterGaussiansToUbm(const AmDiagGmm &am,
   // gives a partial clustering of states in the 'state_clusters' vector.
   vector<int32> state_clusters;
   KALDI_VLOG(1) << "Creating " << num_clust_states << " clusters of states.";
-  ClusterBottomUp(states, kBaseFloatMax, num_clust_states,
+  ClusterBottomUp(states, std::numeric_limits<BaseFloat>::max(), num_clust_states,
                   NULL /*actual clusters not needed*/,
                   &state_clusters /*get the cluster assignments*/);
   DeletePointers(&states);
@@ -291,7 +293,7 @@ void ClusterGaussiansToUbm(const AmDiagGmm &am,
                 << "acoustic model, down to " << opts.intermediate_num_gauss
                 << " Gaussians.";
   vector< vector<Clusterable*> > gauss_clusters_out;
-  ClusterBottomUpCompartmentalized(state_clust_gauss, kBaseFloatMax,
+  ClusterBottomUpCompartmentalized(state_clust_gauss, std::numeric_limits<BaseFloat>::max(),
                                    opts.intermediate_num_gauss,
                                    &gauss_clusters_out, NULL);
   for (int32 clust_index = 0; clust_index < num_clust_states; clust_index++)

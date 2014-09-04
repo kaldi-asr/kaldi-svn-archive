@@ -2,6 +2,8 @@
 
 // Copyright 2012 Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,8 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef TREERENDERER_H
-#define TREERENDERER_H
+#ifndef KALDI_TREE_TREE_RENDERER_H_
+#define KALDI_TREE_TREE_RENDERER_H_
 
 #include "base/kaldi-common.h"
 #include "tree/event-map.h"
@@ -79,4 +81,4 @@ class TreeRenderer {
 
 } // namespace kaldi
 
-#endif // TREERENDERER_H
+#endif //  KALDI_TREE_TREE_RENDERER_H_

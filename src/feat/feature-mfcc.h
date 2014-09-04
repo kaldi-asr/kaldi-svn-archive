@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +20,7 @@
 #ifndef KALDI_FEAT_FEATURE_MFCC_H_
 #define KALDI_FEAT_FEATURE_MFCC_H_
 
-
+#include <map>
 #include <string>
 
 #include "feat/feature-functions.h"
@@ -38,32 +40,41 @@ struct MfccOptions {
   int32 num_ceps;  // e.g. 13: num cepstral coeffs, counting zero.
   bool use_energy;  // use energy; else C0
   BaseFloat energy_floor;
-  bool raw_energy;  // compute energy before preemphasis and hamming window (else after)
-  BaseFloat cepstral_lifter;  // Just a scaling factor on the cepstra-- for HTK compatibility.
-  // if 0.0, no liftering is done.
-  bool htk_compat;  // if true, put energy/C0 last and introduce a factor of sqrt(2)
-  // on C0 to be the same as HTK.
+  bool raw_energy;  // If true, compute energy before preemphasis and windowing
+  BaseFloat cepstral_lifter;  // Scaling factor on cepstra for HTK compatibility.
+                              // if 0.0, no liftering is done.
+  bool htk_compat;  // if true, put energy/C0 last and introduce a factor of
+                    // sqrt(2) on C0 to be the same as HTK.
 
-  MfccOptions(): mel_opts(23),  // defaults the #mel-banks to 23 for the MFCC computations.
-                 // this seems to be common for 16khz-sampled data, but for 8khz-sampled
-                 // data, 15 may be better.
-                 num_ceps(13),
-                 use_energy(true),
-                 energy_floor(0.0),  // not in log scale: a small value e.g. 1.0e-10
-                 raw_energy(true),
-                 cepstral_lifter(22.0),
-                 htk_compat(false) { }
-  void Register(ParseOptions *po) {
+  MfccOptions() : mel_opts(23),
+                  // defaults the #mel-banks to 23 for the MFCC computations.
+                  // this seems to be common for 16khz-sampled data,
+                  // but for 8khz-sampled data, 15 may be better.
+                  num_ceps(13),
+                  use_energy(true),
+                  energy_floor(0.0),  // not in log scale: a small value e.g. 1.0e-10
+                  raw_energy(true),
+                  cepstral_lifter(22.0),
+                  htk_compat(false) {}
+
+  void Register(OptionsItf *po) {
     frame_opts.Register(po);
     mel_opts.Register(po);
-    po->Register("num-ceps", &num_ceps, "Number of cepstra in MFCC computation (including C0)");
-    po->Register("use-energy", &use_energy, "Use energy (not C0) in MFCC computation");
-    po->Register("energy-floor", &energy_floor, "Floor on energy (absolute, not relative) in MFCC computation");
-    po->Register("raw-energy", &raw_energy, "If true, compute energy (if using energy) before Hamming window and preemphasis");
-    po->Register("cepstral-lifter", &cepstral_lifter, "Constant that controls scaling of MFCCs");
-    po->Register("htk-compat", &htk_compat, "If true, put energy or C0 last and put factor of sqrt(2) on C0.  Warning: not sufficient to get HTK compatible features (need to change other parameters).");
+    po->Register("num-ceps", &num_ceps,
+                 "Number of cepstra in MFCC computation (including C0)");
+    po->Register("use-energy", &use_energy,
+                 "Use energy (not C0) in MFCC computation");
+    po->Register("energy-floor", &energy_floor,
+                 "Floor on energy (absolute, not relative) in MFCC computation");
+    po->Register("raw-energy", &raw_energy,
+                 "If true, compute energy before preemphasis and windowing");
+    po->Register("cepstral-lifter", &cepstral_lifter,
+                 "Constant that controls scaling of MFCCs");
+    po->Register("htk-compat", &htk_compat,
+                 "If true, put energy or C0 last and use a factor of sqrt(2) on "
+                 "C0.  Warning: not sufficient to get HTK compatible features "
+                 "(need to change other parameters).");
   }
-
 };
 
 class MelBanks;
@@ -72,18 +83,40 @@ class MelBanks;
 /// Class for computing MFCC features; see \ref feat_mfcc for more information.
 class Mfcc {
  public:
-  Mfcc(const MfccOptions &opts);
+  explicit Mfcc(const MfccOptions &opts);
   ~Mfcc();
 
-  /// Will throw exception on failure (e.g. if file too short for
-  /// even one frame).
+  int32 Dim() const { return opts_.num_ceps; }
+
+  /// Will throw exception on failure (e.g. if file too short for even one
+  /// frame).  The output "wave_remainder" is the last frame or two of the
+  /// waveform that it would be necessary to include in the next call to Compute
+  /// for the same utterance.  It is not exactly the un-processed part (it may
+  /// have been partly processed), it's the start of the next window that we
+  /// have not already processed.
   void Compute(const VectorBase<BaseFloat> &wave,
                BaseFloat vtln_warp,
                Matrix<BaseFloat> *output,
                Vector<BaseFloat> *wave_remainder = NULL);
 
+  /// Const version of Compute()
+  void Compute(const VectorBase<BaseFloat> &wave,
+               BaseFloat vtln_warp,
+               Matrix<BaseFloat> *output,
+               Vector<BaseFloat> *wave_remainder = NULL) const;
+  
+  typedef MfccOptions Options;
  private:
+  void ComputeInternal(const VectorBase<BaseFloat> &wave,
+                       const MelBanks &mel_banks,
+                       Matrix<BaseFloat> *output,
+                       Vector<BaseFloat> *wave_remainder = NULL) const;
+  
   const MelBanks *GetMelBanks(BaseFloat vtln_warp);
+
+  const MelBanks *GetMelBanks(BaseFloat vtln_warp,
+                              bool *must_delete) const;
+  
   MfccOptions opts_;
   Vector<BaseFloat> lifter_coeffs_;
   Matrix<BaseFloat> dct_matrix_;  // matrix we left-multiply by to perform DCT.
@@ -96,7 +129,7 @@ class Mfcc {
 
 
 /// @} End of "addtogroup feat"
-}// namespace kaldi
+}  // namespace kaldi
 
 
-#endif
+#endif  // KALDI_FEAT_FEATURE_MFCC_H_

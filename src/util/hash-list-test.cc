@@ -1,7 +1,10 @@
 // util/hash-list-test.cc
 
 // Copyright 2009-2011     Microsoft Corporation
+//                2013     Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,7 +21,6 @@
 
 #include "hash-list.h"
 #include <map> // for baseline.
-#include <cassert>
 #include <cstdlib>
 #include <iostream>
 
@@ -31,8 +33,8 @@ template<class Int, class T> void TestHashList() {
   hash.SetSize(200);  // must be called before use.
   std::map<Int, T> m1;
   for (size_t j = 0; j < 50; j++) {
-    Int key = rand() % 200;
-    T val = rand() % 50;
+    Int key = Rand() % 200;
+    T val = Rand() % 50;
     m1[key] = val;
     Elem *e = hash.Find(key);
     if (e) e->val = val;
@@ -54,7 +56,7 @@ template<class Int, class T> void TestHashList() {
 
     Elem *h = hash.Clear(), *tmp;
 
-    hash.SetSize(100 + rand() % 100);  // note, SetSize is relatively cheap operation as long
+    hash.SetSize(100 + Rand() % 100);  // note, SetSize is relatively cheap operation as long
     // as we are not increasing the size more than it's ever previously been increased to.
 
     for (; h != NULL; h = tmp) {
@@ -64,24 +66,23 @@ template<class Int, class T> void TestHashList() {
     }
 
     // Now make sure h and m2 are the same.
-    Elem *list = hash.GetList();
+    const Elem *list = hash.GetList();
     size_t count = 0;
     for (; list != NULL; list = list->tail, count++) {
-      assert(m1[list->key] == list->val);
+      KALDI_ASSERT(m1[list->key] == list->val);
     }
 
     for (size_t j = 0; j < 10; j++) {
-      Int key = rand() % 200;
+      Int key = Rand() % 200;
       bool found_m1 = (m1.find(key) != m1.end());
-      T val_m1;
-      if (found_m1) val_m1 = m1[key];
+      if (found_m1) m1[key];
       Elem *e = hash.Find(key);
-      assert( (e != NULL) == found_m1 );
+      KALDI_ASSERT( (e != NULL) == found_m1 );
       if (found_m1)
-        assert(m1[key] == e->val);
+        KALDI_ASSERT(m1[key] == e->val);
     }
 
-    assert(m1.size() == count);
+    KALDI_ASSERT(m1.size() == count);
   }
 }
 

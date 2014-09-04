@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation;
 //                      Lukas Burget, Pawel Swietojanski
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -73,9 +75,9 @@ class DecodableSum: public DecodableInterface {
     return sum;
   }
 
-  virtual int32 NumIndices() { return decodables_[0].first->NumIndices(); }
+  virtual int32 NumIndices() const { return decodables_[0].first->NumIndices(); }
 
-  virtual bool IsLastFrame(int32 frame) {
+  virtual bool IsLastFrame(int32 frame) const {
     // We require all the decodables have the same #frames.  We don't check this though.
     return decodables_[0].first->IsLastFrame(frame);
   }

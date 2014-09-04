@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -31,9 +33,9 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Copies a transition model (this can be used to separate transition \n"
         " models from the acoustic models they are written with.\n"
-        "Usage:  show-transitions [options] <transition-model or model file> <transition-model-out>\n"
+        "Usage:  copy-transition-model [options] <transition-model or model file> <transition-model-out>\n"
         "e.g.: \n"
-        " show-transitions phones.txt 1.mdl 1.acc\n";
+        " copy-transition-model --binarhy=false 1.mdl 1.txt\n";
 
     bool binary;
     

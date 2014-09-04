@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation;
 //                      Lukas Burget
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -45,9 +47,9 @@ class DecodableMapped: public DecodableInterface {
   
   // note: indices are assumed to be numbered from one, so
   // NumIndices() will be the same as the largest index.
-  virtual int32 NumIndices() { return static_cast<int32>(index_map_.size()) - 1; }
+  virtual int32 NumIndices() const { return static_cast<int32>(index_map_.size()) - 1; }
   
-  virtual bool IsLastFrame(int32 frame) {
+  virtual bool IsLastFrame(int32 frame) const {
     // We require all the decodables have the same #frames.  We don't check this though.
     return decodable_->IsLastFrame(frame);
   }    

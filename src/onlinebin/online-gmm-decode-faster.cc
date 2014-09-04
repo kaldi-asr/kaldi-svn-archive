@@ -5,6 +5,8 @@
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,10 +34,12 @@ int main(int argc, char *argv[]) {
     using namespace fst;
 
     typedef kaldi::int32 int32;
-    typedef OnlineFeInput<OnlinePaSource, Mfcc> FeInput;
+    typedef OnlineFeInput<Mfcc> FeInput;
 
     // Up to delta-delta derivative features are calculated (unless LDA is used)
     const int32 kDeltaOrder = 2;
+    // Time out interval for the PortAudio source
+    const int32 kTimeout = 500; // half second
     // Input sampling frequency is fixed to 16KHz
     const int32 kSampleFreq = 16000;
     // PortAudio's internal ring buffer size in bytes
@@ -49,35 +53,39 @@ int main(int argc, char *argv[]) {
         "Feature splicing/LDA transform is used, if the optional(last) argument "
         "is given.\n"
         "Otherwise delta/delta-delta(2-nd order) features are produced.\n\n"
-        "Usage: ./online-wav-gmm-decode-faster [options] model-in"
-        "fst-in word-symbol-table silence-phones [lda-matrix-in]\n\n"
-        "Example: ./online-wav-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
+        "Usage: online-gmm-decode-faster [options] <model-in>"
+        "<fst-in> <word-symbol-table> <silence-phones> [<lda-matrix-in>]\n\n"
+        "Example: online-gmm-decode-faster --rt-min=0.3 --rt-max=0.5 "
         "--max-active=4000 --beam=12.0 --acoustic-scale=0.0769 "
         "model HCLG.fst words.txt '1:2:3:4:5' lda-matrix";
     ParseOptions po(usage);
     BaseFloat acoustic_scale = 0.1;
-    int32 cmn_window = 600;
+    int32 cmn_window = 600, min_cmn_window = 100;
     int32 right_context = 4, left_context = 4;
 
     kaldi::DeltaFeaturesOptions delta_opts;
     delta_opts.Register(&po);
     OnlineFasterDecoderOpts decoder_opts;
+    OnlineFeatureMatrixOptions feature_reading_opts;
     decoder_opts.Register(&po, true);
+    feature_reading_opts.Register(&po);
+    
     po.Register("left-context", &left_context, "Number of frames of left context");
     po.Register("right-context", &right_context, "Number of frames of right context");
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoods");
     po.Register("cmn-window", &cmn_window,
         "Number of feat. vectors used in the running average CMN calculation");
+    po.Register("min-cmn-window", &min_cmn_window,
+                "Minumum CMN window used at start of decoding (adds "
+                "latency only at start)");
+
     po.Read(argc, argv);
     if (po.NumArgs() != 4 && po.NumArgs() != 5) {
       po.PrintUsage();
       return 1;
     }
-    if (po.NumArgs() == 4)
-      if (left_context % kDeltaOrder != 0 || left_context != right_context)
-        KALDI_ERR << "Invalid left/right context parameters!";
-
+    
     std::string model_rxfilename = po.GetArg(1),
         fst_rxfilename = po.GetArg(2),
         word_syms_filename = po.GetArg(3),
@@ -121,32 +129,34 @@ int main(int argc, char *argv[]) {
     int32 frame_length = mfcc_opts.frame_opts.frame_length_ms = 25;
     int32 frame_shift = mfcc_opts.frame_opts.frame_shift_ms = 10;
 
-    int32 feat_dim;
     int32 window_size = right_context + left_context + 1;
     decoder_opts.batch_size = std::max(decoder_opts.batch_size, window_size);
     OnlineFasterDecoder decoder(*decode_fst, decoder_opts,
                                 silence_phones, trans_model);
     VectorFst<LatticeArc> out_fst;
-    OnlinePaSource au_src(kSampleFreq, kPaRingSize, kPaReportInt);
+    OnlinePaSource au_src(kTimeout, kSampleFreq, kPaRingSize, kPaReportInt);
     Mfcc mfcc(mfcc_opts);
     FeInput fe_input(&au_src, &mfcc,
                      frame_length * (kSampleFreq / 1000),
                      frame_shift * (kSampleFreq / 1000));
-    OnlineCmvnInput cmvn_input(&fe_input, mfcc_opts.num_ceps, cmn_window);
+    OnlineCmnInput cmn_input(&fe_input, cmn_window, min_cmn_window);
     OnlineFeatInputItf *feat_transform = 0;
     if (lda_mat_rspecifier != "") {
       feat_transform = new OnlineLdaInput(
-                               &cmvn_input, mfcc_opts.num_ceps, lda_transform,
+                               &cmn_input, lda_transform,
                                left_context, right_context);
-      feat_dim = lda_transform.NumRows();
     } else {
-      feat_transform = new OnlineDeltaInput(&cmvn_input, mfcc_opts.num_ceps,
-                                            kDeltaOrder, left_context / 2);
-      feat_dim = (kDeltaOrder + 1) * mfcc_opts.num_ceps;
+      DeltaFeaturesOptions opts;
+      opts.order = kDeltaOrder;
+      feat_transform = new OnlineDeltaInput(opts, &cmn_input);
     }
-    OnlineDecodableDiagGmmScaled decodable(feat_transform, am_gmm, trans_model,
-                                           acoustic_scale, decoder_opts.batch_size,
-                                           feat_dim, -1);
+    
+    // feature_reading_opts contains number of retries, batch size.
+    OnlineFeatureMatrix feature_matrix(feature_reading_opts,
+                                       feat_transform);
+
+    OnlineDecodableDiagGmmScaled decodable(am_gmm, trans_model, acoustic_scale,
+                                           &feature_matrix);
     bool partial_res = false;
     while (1) {
       OnlineFasterDecoder::DecodeState dstate = decoder.Decode(&decodable);
@@ -159,6 +169,12 @@ int main(int argc, char *argv[]) {
                                      static_cast<LatticeArc::Weight*>(0));
         PrintPartialResult(word_ids, word_syms, partial_res || word_ids.size());
         partial_res = false;
+        if (dstate == decoder.kEndFeats) {
+          if (au_src.TimedOut())
+            KALDI_WARN << "PortAudio time out detected!";
+          KALDI_LOG << "No more features available from PortAudio!";
+          break;
+        }
       } else {
         std::vector<int32> word_ids;
         if (decoder.PartialTraceback(&out_fst)) {

@@ -2,7 +2,10 @@
 
 // Copyright 2009-2012   Saarland University  Microsoft Corporation
 //                       Johns Hopkins University (Author: Daniel Povey)
+//                2014   Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,11 +22,10 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
 #include "hmm/transition-model.h"
-#include "sgmm2/estimate-am-sgmm.h"
-
-
+#include "sgmm2/estimate-am-sgmm2.h"
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
@@ -93,7 +95,7 @@ int main(int argc, char *argv[]) {
         num_err++;
         continue;
       }
-      const Posterior &posterior = posteriors_reader.Value(utt);
+      Posterior posterior = posteriors_reader.Value(utt);
 
       if (!gselect_reader.HasKey(utt) ||
           gselect_reader.Value(utt).size() != mat.NumRows()) {
@@ -122,6 +124,10 @@ int main(int argc, char *argv[]) {
 
       Sgmm2GauPost gpost(posterior.size());  // posterior.size() == T.
 
+      SortPosteriorByPdfs(trans_model, &posterior);
+      int32 prev_pdf_id = -1;
+      BaseFloat prev_like = 0;
+      Matrix<BaseFloat> prev_posterior;
       for (size_t i = 0; i < posterior.size(); i++) {
         am_sgmm.ComputePerFrameVars(mat.Row(i), gselect[i],
                                     spk_vars, &per_frame_vars);
@@ -129,18 +135,25 @@ int main(int argc, char *argv[]) {
         gpost[i].gselect = gselect[i];
         gpost[i].tids.resize(posterior[i].size());
         gpost[i].posteriors.resize(posterior[i].size());
-        
+
+        prev_pdf_id = -1;       // Only cache for the same frame.
         for (size_t j = 0; j < posterior[i].size(); j++) {
           int32 tid = posterior[i][j].first,  // transition identifier.
               pdf_id = trans_model.TransitionIdToPdf(tid);
           BaseFloat weight = posterior[i][j].second;
           gpost[i].tids[j] = tid;
 
-          tot_like_this_file +=
-              am_sgmm.ComponentPosteriors(per_frame_vars, pdf_id,
-                                          &spk_vars,
-                                          &(gpost[i].posteriors[j]))
-              * weight;
+          if (pdf_id != prev_pdf_id) {
+            // First time see this pdf-id for this frame, update the cached
+            // variables.
+            prev_pdf_id = pdf_id;
+            prev_like = am_sgmm.ComponentPosteriors(per_frame_vars, pdf_id,
+                                                    &spk_vars,
+                                                    &prev_posterior);
+          }
+
+          gpost[i].posteriors[j] = prev_posterior;
+          tot_like_this_file += prev_like * weight;
           tot_weight += weight;
           gpost[i].posteriors[j].Scale(weight);
         }

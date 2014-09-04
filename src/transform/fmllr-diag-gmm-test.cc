@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +26,7 @@ namespace kaldi {
 
 void InitRandomGmm (DiagGmm *gmm_in) {
   int32 num_gauss = 5 + rand () % 4;
-  int32 dim = 10 + rand() % 10;
+  int32 dim = 10 + Rand() % 10;
   DiagGmm &gmm(*gmm_in);
   gmm.Resize(num_gauss, dim);
   Matrix<BaseFloat> inv_vars(num_gauss, dim),
@@ -63,7 +65,7 @@ void UnitTestFmllrDiagGmm() {
   BaseFloat objf_change_tot = 0.0, objf_change, count;
   for (int32 j = 0; j < niters; j++) {
     FmllrOptions opts;
-    FmllrDiagGmmAccs stats(dim);
+    FmllrDiagGmmAccs stats(dim, j % 2 == 0 ? opts : FmllrOptions());
     for (int32 i = 0; i < npoints; i++) {
       SubVector<BaseFloat> row(rand_points, i);
       if (j == 0) {  // split this case off to exercise more of the code.
@@ -122,7 +124,7 @@ void UnitTestFmllrDiagGmmDiagonal() {
   opts.update_type = "diag";
 
   for (int32 j = 0; j < niters; j++) {
-    FmllrDiagGmmAccs stats(dim);
+    FmllrDiagGmmAccs stats(dim, j % 2 == 0 ? opts : FmllrOptions());
     for (int32 i = 0; i < npoints; i++) {
       SubVector<BaseFloat> row(rand_points, i);
       if (j == 0) {  // split this case off to exercise more of the code.
@@ -182,7 +184,7 @@ void UnitTestFmllrDiagGmmOffset() {
   opts.update_type = "offset";
 
   for (int32 j = 0; j < niters; j++) {
-    FmllrDiagGmmAccs stats(dim);
+    FmllrDiagGmmAccs stats(dim, j % 2 == 0 ? opts : FmllrOptions());
     for (int32 i = 0; i < npoints; i++) {
       SubVector<BaseFloat> row(rand_points, i);
       if (j == 0) {  // split this case off to exercise more of the code.
@@ -223,7 +225,7 @@ void UnitTestFmllrDiagGmmOffset() {
 }  // namespace kaldi ends here
 
 int main() {
-  for (int i = 0; i < 1; i++) {  // did more iterations when first testing...
+  for (int i = 0; i < 2; i++) {  // did more iterations when first testing...
     kaldi::UnitTestFmllrDiagGmmOffset();
     kaldi::UnitTestFmllrDiagGmmDiagonal();
     kaldi::UnitTestFmllrDiagGmm();

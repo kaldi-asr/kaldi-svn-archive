@@ -4,6 +4,8 @@
 //                      Saarland University;  Yanmin Qian;
 //                      Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -50,7 +52,7 @@ template<typename Real> class PackedMatrix {
     CopyFromPacked(orig);
   }
 
-  template<class OtherReal>
+  template<typename OtherReal>
   explicit PackedMatrix(const PackedMatrix<OtherReal> &orig) : data_(NULL) {
     Resize(orig.NumRows(), kUndefined);
     CopyFromPacked(orig);
@@ -88,13 +90,13 @@ template<typename Real> class PackedMatrix {
 
   void SetDiag(const Real alpha);  // Sets diagonal to this value.
 
-  template<class OtherReal>
+  template<typename OtherReal>
   void CopyFromPacked(const PackedMatrix<OtherReal> &orig);
   
   /// CopyFromVec just interprets the vector as having the same layout
   /// as the packed matrix.  Must have the same dimension, i.e.
   /// orig.Dim() == (NumRows()*(NumRows()+1)) / 2;
-  template<class OtherReal>
+  template<typename OtherReal>
   void CopyFromVec(const SubVector<OtherReal> &orig);
   
   Real* Data() { return data_; }

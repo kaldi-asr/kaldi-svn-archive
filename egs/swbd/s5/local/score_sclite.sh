@@ -31,7 +31,7 @@ dir=$3
 
 model=$dir/../final.mdl # assume model one level up from decoding dir.
 
-hubscr=$KALDI_ROOT/tools/sctk-2.4.0/bin/hubscr.pl 
+hubscr=$KALDI_ROOT/tools/sctk/bin/hubscr.pl 
 [ ! -f $hubscr ] && echo "Cannot find scoring program at $hubscr" && exit 1;
 hubdir=`dirname $hubscr`
 
@@ -84,6 +84,7 @@ if [ $stage -le 2 ]; then
     $hubscr -p $hubdir -V -l english -h hub5 -g $data/glm -r $dir/score_LMWT/stm $dir/score_LMWT/${name}.ctm || exit 1;
 fi
 
+### Scoring of subsets...
 # For eval2000 score the subsets
 if [ "$name" == "eval2000" ]; then
   # Score only the, swbd part...
@@ -103,7 +104,6 @@ if [ "$name" == "eval2000" ]; then
 fi
 
 # For eval2001 score the subsets
-# TODO finish this!!!
 if [ "$name" == "eval2001" ]; then
   # Score only the, swbd part1...
   if [ $stage -le 3 ]; then  

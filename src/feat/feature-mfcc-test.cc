@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -49,14 +51,14 @@ static void UnitTestReadWave() {
   std::ifstream input(
     "test_data/test_matlab.ascii"
   );
-  assert(input.good());
+  KALDI_ASSERT(input.good());
   v2.Read(input, false);
   input.close();
 
   std::cout << "<<<=== Comparing freshly read waveform to 'libsndfile' waveform\n";
-  assert(v.Dim() == v2.Dim());
+  KALDI_ASSERT(v.Dim() == v2.Dim());
   for (int32 i = 0; i < v.Dim(); i++) {
-    assert(v(i) == v2(i));
+    KALDI_ASSERT(v(i) == v2(i));
   }
   std::cout << "<<<=== Comparing done\n";
 
@@ -92,6 +94,7 @@ static void UnitTestSimple() {
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
+  op.mel_opts.htk_mode = true;
   op.htk_compat = true;
 
   Mfcc mfcc(op);
@@ -121,7 +124,7 @@ static void UnitTestHTKCompare1() {
     std::ifstream is("test_data/test.wav.fea_htk.1",
                      std::ios::in | std::ios_base::binary);
     bool ans = ReadHtk(is, &htk_features, 0);
-    assert(ans);
+    KALDI_ASSERT(ans);
   }
 
   // use mfcc with default configuration...
@@ -132,6 +135,7 @@ static void UnitTestHTKCompare1() {
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
+  op.mel_opts.htk_mode = true;
   op.htk_compat = true;
   op.use_energy = false;  // C0 not energy.
 
@@ -150,8 +154,8 @@ static void UnitTestHTKCompare1() {
   // compare the results
   bool passed = true;
   int32 i_old = -1;
-  assert(kaldi_features.NumRows() == htk_features.NumRows());
-  assert(kaldi_features.NumCols() == htk_features.NumCols());
+  KALDI_ASSERT(kaldi_features.NumRows() == htk_features.NumRows());
+  KALDI_ASSERT(kaldi_features.NumCols() == htk_features.NumCols());
   // Ignore ends-- we make slightly different choices than
   // HTK about how to treat the deltas at the ends.
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
@@ -168,13 +172,13 @@ static void UnitTestHTKCompare1() {
         std::cout << "[" << i << ", " << j << "]";
         passed = false;
   }}}
-  if (!passed) KALDI_WARN << "Test failed";
+  if (!passed) KALDI_ERR << "Test failed";
 
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
     100000,  // 10ms
-    sizeof(float)*kaldi_features.NumCols(),
+    static_cast<int16>(sizeof(float)*kaldi_features.NumCols()),
     021406  // MFCC_D_A_0
   };
   {
@@ -184,6 +188,8 @@ static void UnitTestHTKCompare1() {
   }
 
   std::cout << "Test passed :)\n\n";
+  
+  unlink("tmp.test.wav.fea_kaldi.1");
 }
 
 
@@ -202,7 +208,7 @@ static void UnitTestHTKCompare2() {
     std::ifstream is("test_data/test.wav.fea_htk.2",
                      std::ios::in | std::ios_base::binary);
     bool ans = ReadHtk(is, &htk_features, 0);
-    assert(ans);
+    KALDI_ASSERT(ans);
   }
 
   // use mfcc with default configuration...
@@ -213,6 +219,7 @@ static void UnitTestHTKCompare2() {
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
   op.mel_opts.low_freq = 0.0;
+  op.mel_opts.htk_mode = true;
   op.htk_compat = true;
   op.use_energy = true;  // Use energy.
 
@@ -231,8 +238,8 @@ static void UnitTestHTKCompare2() {
   // compare the results
   bool passed = true;
   int32 i_old = -1;
-  assert(kaldi_features.NumRows() == htk_features.NumRows());
-  assert(kaldi_features.NumCols() == htk_features.NumCols());
+  KALDI_ASSERT(kaldi_features.NumRows() == htk_features.NumRows());
+  KALDI_ASSERT(kaldi_features.NumCols() == htk_features.NumCols());
   // Ignore ends-- we make slightly different choices than
   // HTK about how to treat the deltas at the ends.
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
@@ -249,13 +256,13 @@ static void UnitTestHTKCompare2() {
         std::cout << "[" << i << ", " << j << "]";
         passed = false;
   }}}
-  if (!passed) KALDI_WARN << "Test failed";
+  if (!passed) KALDI_ERR << "Test failed";
 
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
     100000,  // 10ms
-    sizeof(float)*kaldi_features.NumCols(),
+    static_cast<int16>(sizeof(float)*kaldi_features.NumCols()),
     021406  // MFCC_D_A_0
   };
   {
@@ -265,6 +272,8 @@ static void UnitTestHTKCompare2() {
   }
 
   std::cout << "Test passed :)\n\n";
+  
+  unlink("tmp.test.wav.fea_kaldi.2");
 }
 
 
@@ -283,7 +292,7 @@ static void UnitTestHTKCompare3() {
     std::ifstream is("test_data/test.wav.fea_htk.3",
                      std::ios::in | std::ios_base::binary);
     bool ans = ReadHtk(is, &htk_features, 0);
-    assert(ans);
+    KALDI_ASSERT(ans);
   }
 
   // use mfcc with default configuration...
@@ -295,7 +304,9 @@ static void UnitTestHTKCompare3() {
   op.frame_opts.round_to_power_of_two = true;
   op.htk_compat = true;
   op.use_energy = true;  // Use energy.
-  op.mel_opts.debug_mel = true;
+  op.mel_opts.low_freq = 20.0;
+  //op.mel_opts.debug_mel = true;
+  op.mel_opts.htk_mode = true;
 
   Mfcc mfcc(op);
 
@@ -312,8 +323,8 @@ static void UnitTestHTKCompare3() {
   // compare the results
   bool passed = true;
   int32 i_old = -1;
-  assert(kaldi_features.NumRows() == htk_features.NumRows());
-  assert(kaldi_features.NumCols() == htk_features.NumCols());
+  KALDI_ASSERT(kaldi_features.NumRows() == htk_features.NumRows());
+  KALDI_ASSERT(kaldi_features.NumCols() == htk_features.NumCols());
   // Ignore ends-- we make slightly different choices than
   // HTK about how to treat the deltas at the ends.
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
@@ -330,13 +341,13 @@ static void UnitTestHTKCompare3() {
         std::cout << "[" << i << ", " << j << "]";
         passed = false;
   }}}
-  if (!passed) KALDI_WARN << "Test failed";
+  if (!passed) KALDI_ERR << "Test failed";
 
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
     100000,  // 10ms
-    sizeof(float)*kaldi_features.NumCols(),
+    static_cast<int16>(sizeof(float)*kaldi_features.NumCols()),
     021406  // MFCC_D_A_0
   };
   {
@@ -346,6 +357,8 @@ static void UnitTestHTKCompare3() {
   }
 
   std::cout << "Test passed :)\n\n";
+  
+  unlink("tmp.test.wav.fea_kaldi.3");
 }
 
 
@@ -364,7 +377,7 @@ static void UnitTestHTKCompare4() {
     std::ifstream is("test_data/test.wav.fea_htk.4",
                      std::ios::in | std::ios_base::binary);
     bool ans = ReadHtk(is, &htk_features, 0);
-    assert(ans);
+    KALDI_ASSERT(ans);
   }
 
   // use mfcc with default configuration...
@@ -373,8 +386,10 @@ static void UnitTestHTKCompare4() {
   op.frame_opts.window_type = "hamming";
   op.frame_opts.remove_dc_offset = false;
   op.frame_opts.round_to_power_of_two = true;
+  op.mel_opts.low_freq = 0.0;
   op.htk_compat = true;
   op.use_energy = true;  // Use energy.
+  op.mel_opts.htk_mode = true;
 
   Mfcc mfcc(op);
 
@@ -391,8 +406,8 @@ static void UnitTestHTKCompare4() {
   // compare the results
   bool passed = true;
   int32 i_old = -1;
-  assert(kaldi_features.NumRows() == htk_features.NumRows());
-  assert(kaldi_features.NumCols() == htk_features.NumCols());
+  KALDI_ASSERT(kaldi_features.NumRows() == htk_features.NumRows());
+  KALDI_ASSERT(kaldi_features.NumCols() == htk_features.NumCols());
   // Ignore ends-- we make slightly different choices than
   // HTK about how to treat the deltas at the ends.
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
@@ -409,13 +424,13 @@ static void UnitTestHTKCompare4() {
         std::cout << "[" << i << ", " << j << "]";
         passed = false;
   }}}
-  if (!passed) KALDI_WARN << "Test failed";
+  if (!passed) KALDI_ERR << "Test failed";
 
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
     100000,  // 10ms
-    sizeof(float)*kaldi_features.NumCols(),
+    static_cast<int16>(sizeof(float)*kaldi_features.NumCols()),
     021406  // MFCC_D_A_0
   };
   {
@@ -425,6 +440,8 @@ static void UnitTestHTKCompare4() {
   }
 
   std::cout << "Test passed :)\n\n";
+  
+  unlink("tmp.test.wav.fea_kaldi.4");
 }
 
 
@@ -443,7 +460,7 @@ static void UnitTestHTKCompare5() {
     std::ifstream is("test_data/test.wav.fea_htk.5",
                      std::ios::in | std::ios_base::binary);
     bool ans = ReadHtk(is, &htk_features, 0);
-    assert(ans);
+    KALDI_ASSERT(ans);
   }
 
   // use mfcc with default configuration...
@@ -454,10 +471,13 @@ static void UnitTestHTKCompare5() {
   op.frame_opts.round_to_power_of_two = true;
   op.htk_compat = true;
   op.use_energy = true;  // Use energy.
+  op.mel_opts.low_freq = 0.0;
   op.mel_opts.vtln_low = 100.0;
-  // op.mel_opts.vtln_high = 7500.0;
   op.mel_opts.vtln_high = 7500.0;
-  BaseFloat vtln_warp = 0.9;
+  op.mel_opts.htk_mode = true;
+
+  BaseFloat vtln_warp = 1.1; // our approach identical to htk for warp factor >1,
+  // differs slightly for higher mel bins if warp_factor <0.9
 
   Mfcc mfcc(op);
 
@@ -474,8 +494,8 @@ static void UnitTestHTKCompare5() {
   // compare the results
   bool passed = true;
   int32 i_old = -1;
-  assert(kaldi_features.NumRows() == htk_features.NumRows());
-  assert(kaldi_features.NumCols() == htk_features.NumCols());
+  KALDI_ASSERT(kaldi_features.NumRows() == htk_features.NumRows());
+  KALDI_ASSERT(kaldi_features.NumCols() == htk_features.NumCols());
   // Ignore ends-- we make slightly different choices than
   // HTK about how to treat the deltas at the ends.
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
@@ -492,13 +512,13 @@ static void UnitTestHTKCompare5() {
         std::cout << "[" << i << ", " << j << "]";
         passed = false;
   }}}
-  if (!passed) KALDI_WARN << "Test failed";
+  if (!passed) KALDI_ERR << "Test failed";
 
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
     100000,  // 10ms
-    sizeof(float)*kaldi_features.NumCols(),
+    static_cast<int16>(sizeof(float)*kaldi_features.NumCols()),
     021406  // MFCC_D_A_0
   };
   {
@@ -508,6 +528,8 @@ static void UnitTestHTKCompare5() {
   }
 
   std::cout << "Test passed :)\n\n";
+  
+  unlink("tmp.test.wav.fea_kaldi.5");
 }
 
 static void UnitTestHTKCompare6() {
@@ -526,7 +548,7 @@ static void UnitTestHTKCompare6() {
     std::ifstream is("test_data/test.wav.fea_htk.6",
                      std::ios::in | std::ios_base::binary);
     bool ans = ReadHtk(is, &htk_features, 0);
-    assert(ans);
+    KALDI_ASSERT(ans);
   }
 
   // use mfcc with default configuration...
@@ -557,8 +579,8 @@ static void UnitTestHTKCompare6() {
   // compare the results
   bool passed = true;
   int32 i_old = -1;
-  assert(kaldi_features.NumRows() == htk_features.NumRows());
-  assert(kaldi_features.NumCols() == htk_features.NumCols());
+  KALDI_ASSERT(kaldi_features.NumRows() == htk_features.NumRows());
+  KALDI_ASSERT(kaldi_features.NumCols() == htk_features.NumCols());
   // Ignore ends-- we make slightly different choices than
   // HTK about how to treat the deltas at the ends.
   for (int32 i = 10; i+10 < kaldi_features.NumRows(); i++) {
@@ -575,13 +597,13 @@ static void UnitTestHTKCompare6() {
         std::cout << "[" << i << ", " << j << "]";
         passed = false;
   }}}
-  if (!passed) KALDI_WARN << "Test failed";
+  if (!passed) KALDI_ERR << "Test failed";
 
   // write the htk features for later inspection
   HtkHeader header = {
     kaldi_features.NumRows(),
     100000,  // 10ms
-    sizeof(float)*kaldi_features.NumCols(),
+    static_cast<int16>(sizeof(float)*kaldi_features.NumCols()),
     021406  // MFCC_D_A_0
   };
   {
@@ -591,6 +613,8 @@ static void UnitTestHTKCompare6() {
   }
 
   std::cout << "Test passed :)\n\n";
+  
+  unlink("tmp.test.wav.fea_kaldi.6");
 }
 
 void UnitTestVtln() {
@@ -630,30 +654,33 @@ void UnitTestVtln() {
 }
 
 static void UnitTestFeat() {
-  try {
-    UnitTestVtln();
-    UnitTestReadWave();
-    UnitTestSimple();
-    UnitTestHTKCompare1();
-    UnitTestHTKCompare2();
-    // commenting out this one as it doesn't compare right now I normalized
-    // the way the FFT bins are treated (removed offset of 0.5)... this seems
-    // to relate to the way frequency zero behaves.
-    UnitTestHTKCompare3();
-    UnitTestHTKCompare4();
-    UnitTestHTKCompare5();
-    UnitTestHTKCompare6();
-    std::cout << "Tests succeeded.\n";
-  } catch (const std::exception &e) {
-    std::cerr << e.what();
-  }
+  UnitTestVtln();
+  UnitTestReadWave();
+  UnitTestSimple();
+  UnitTestHTKCompare1();
+  UnitTestHTKCompare2();
+  // commenting out this one as it doesn't compare right now I normalized
+  // the way the FFT bins are treated (removed offset of 0.5)... this seems
+  // to relate to the way frequency zero behaves.
+  UnitTestHTKCompare3();
+  UnitTestHTKCompare4();
+  UnitTestHTKCompare5();
+  UnitTestHTKCompare6();
+  std::cout << "Tests succeeded.\n";
 }
 
 
 
-
 int main() {
-  UnitTestFeat();
+  try {
+    for (int i = 0; i < 5; i++)
+      UnitTestFeat();
+    std::cout << "Tests succeeded.\n";
+    return 0;
+  } catch (const std::exception &e) {
+    std::cerr << e.what();
+    return 1;
+  }
 }
 
 

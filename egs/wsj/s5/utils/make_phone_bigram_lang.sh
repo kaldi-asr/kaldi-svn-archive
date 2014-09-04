@@ -36,16 +36,26 @@ done
 mkdir -p $lang_out || exit 1;
 
 grep -v '#' $lang/phones.txt >  $lang_out/phones.txt # no disambig symbols
-   # needed; G and L . G will be deterministic.
+      # needed; G and L . G will be deterministic.
 cp $lang/topo $lang_out
 rm -r $lang_out/phones 2>/dev/null
 cp -r $lang/phones/ $lang_out/
 rm $lang_out/phones/word_boundary.* 2>/dev/null # these would
   # no longer be valid.
-# List of disambig symbols will be empty.
+# List of disambig symbols will be empty: not needed, since G.fst and L.fst * G.fst
+# are determinizable without any.
 echo -n > $lang_out/phones/disambig.txt
 echo -n > $lang_out/phones/disambig.int
 echo -n > $lang_out/phones/disambig.csl
+
+# Let OOV symbol be the first phone.  This is arbitrary, it's just
+# so that validate_lang.pl succeeds.  We should never actually use
+# this.
+oov_sym=$(tail -n +2 $lang_out/phones.txt | head -n 1 | awk '{print $1}')
+oov_int=$(tail -n +2 $lang_out/phones.txt | head -n 1 | awk '{print $2}')
+echo $oov_sym > $lang_out/oov.txt
+echo $oov_int > $lang_out/oov.int
+
 
 # Get phone-level transcripts of training data and create a
 # language model.
@@ -96,3 +106,7 @@ grep -v '<eps>' $lang_out/phones.txt | awk '{printf("0 0 %s %s\n", $2, $2);} END
 
 # L and L_disambig are the same.
 cp $lang_out/L.fst $lang_out/L_disambig.fst
+
+utils/validate_lang.pl $lang_out || exit 1;
+echo "$0: ignore warnings above from validate_lang.pl (these are expected)"
+

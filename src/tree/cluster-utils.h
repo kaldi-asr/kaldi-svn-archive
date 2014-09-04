@@ -3,6 +3,8 @@
 // Copyright 2012   Arnab Ghoshal
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -171,8 +173,8 @@ struct ClusterKMeansOptions {
  *  multiple iterations and picks the result with the best objective function.
  *
  *
- *  ClusterKMeans implicitly uses rand(). It will not necessarily return
- *  the same value on different calls.  Use srand() if you want consistent
+ *  ClusterKMeans implicitly uses Rand(). It will not necessarily return
+ *  the same value on different calls.  Use sRand() if you want consistent
  *  results.
  *  The algorithm used in ClusterKMeans is a "k-means-like" algorithm that tries
  *  to be as efficient as possible.  Firstly, since the algorithm it uses

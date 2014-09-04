@@ -2,7 +2,10 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 //                2013  Johns Hopkins University (author: Daniel Povey)
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +27,7 @@
 #include "hmm/transition-model.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/lattice-biglm-faster-decoder.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "gmm/decodable-am-diag-gmm.h"
 #include "util/timer.h"
 
 
@@ -32,6 +35,7 @@ namespace kaldi {
 // Takes care of output.  Returns true on success.
 bool DecodeUtterance(LatticeBiglmFasterDecoder &decoder, // not const but is really an input.
                      DecodableInterface &decodable, // not const but is really an input.
+                     const TransitionModel &trans_model,
                      const fst::SymbolTable *word_syms,
                      std::string utt,
                      double acoustic_scale,
@@ -41,7 +45,7 @@ bool DecodeUtterance(LatticeBiglmFasterDecoder &decoder, // not const but is rea
                      Int32VectorWriter *words_writer,
                      CompactLatticeWriter *compact_lattice_writer,
                      LatticeWriter *lattice_writer,
-                     double *like_ptr) { // puts utterance's like in like_ptr on success.
+                     double *like_ptr) {  // puts utterance's like in like_ptr on success.
   using fst::VectorFst;
 
   if (!decoder.Decode(&decodable)) {
@@ -65,7 +69,8 @@ bool DecodeUtterance(LatticeBiglmFasterDecoder &decoder, // not const but is rea
   int32 num_frames;
   { // First do some stuff with word-level traceback...
     VectorFst<LatticeArc> decoded;
-    if (!decoder.GetBestPath(&decoded)) 
+    decoder.GetBestPath(&decoded);
+    if (decoded.NumStates() == 0)
       // Shouldn't really reach this point as already checked success.
       KALDI_ERR << "Failed to get traceback for utterance " << utt;
 
@@ -90,17 +95,30 @@ bool DecodeUtterance(LatticeBiglmFasterDecoder &decoder, // not const but is rea
     likelihood = -(weight.Value1() + weight.Value2());
   }
 
+  // Get lattice, and do determinization if requested.
+  Lattice lat;
+  decoder.GetRawLattice(&lat);
+  if (lat.NumStates() == 0)
+    KALDI_ERR << "Unexpected problem getting lattice for utterance " << utt;
+  fst::Connect(&lat);
   if (determinize) {
-    CompactLattice fst;
-    if (!decoder.GetLattice(&fst))
-      KALDI_ERR << "Unexpected problem getting lattice for utterance "
-                << utt;
-    if (acoustic_scale != 0.0) // We'll write the lattice without acoustic scaling
-      fst::ScaleLattice(fst::AcousticLatticeScale(1.0 / acoustic_scale), &fst); 
-    compact_lattice_writer->Write(utt, fst);
+    CompactLattice clat;
+    if (!DeterminizeLatticePhonePrunedWrapper(
+            trans_model,
+            &lat,
+            decoder.GetOptions().lattice_beam,
+            &clat,
+            decoder.GetOptions().det_opts))
+      KALDI_WARN << "Determinization finished earlier than the beam for "
+                 << "utterance " << utt;
+    // We'll write the lattice without acoustic scaling.
+    if (acoustic_scale != 0.0)
+      fst::ScaleLattice(fst::AcousticLatticeScale(1.0 / acoustic_scale), &clat);
+    compact_lattice_writer->Write(utt, clat);
   } else {
     Lattice fst;
-    if (!decoder.GetRawLattice(&fst)) 
+    decoder.GetRawLattice(&fst);
+    if (!fst.NumStates() == 0)
       KALDI_ERR << "Unexpected problem getting lattice for utterance "
                 << utt;
     fst::Connect(&fst); // Will get rid of this later... shouldn't have any
@@ -233,9 +251,11 @@ int main(int argc, char *argv[]) {
 
 
           double like;
-          if (DecodeUtterance(decoder, gmm_decodable, word_syms, utt, acoustic_scale,
-                              determinize, allow_partial, &alignment_writer, &words_writer,
-                              &compact_lattice_writer, &lattice_writer, &like)) {
+          if (DecodeUtterance(decoder, gmm_decodable, trans_model, word_syms,
+                              utt, acoustic_scale, determinize, allow_partial,
+                              &alignment_writer, &words_writer,
+                              &compact_lattice_writer, &lattice_writer,
+                              &like)) {
             tot_like += like;
             frame_count += features.NumRows();
             num_success++;
@@ -265,9 +285,11 @@ int main(int argc, char *argv[]) {
         DecodableAmDiagGmmScaled gmm_decodable(am_gmm, trans_model, features,
                                                acoustic_scale);
         double like;
-        if (DecodeUtterance(decoder, gmm_decodable, word_syms, utt, acoustic_scale,
-                            determinize, allow_partial, &alignment_writer, &words_writer,
-                            &compact_lattice_writer, &lattice_writer, &like)) {
+        if (DecodeUtterance(decoder, gmm_decodable, trans_model, word_syms, utt,
+                            acoustic_scale, determinize, allow_partial,
+                            &alignment_writer, &words_writer,
+                            &compact_lattice_writer, &lattice_writer,
+                            &like)) {
           tot_like += like;
           frame_count += features.NumRows();
           num_success++;

@@ -1,7 +1,9 @@
-// util/kaldi-barrier.h
+// thread/kaldi-barrier.h
 
 // Copyright 2012  Karel Vesely (Brno University of Technology)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -46,6 +48,7 @@ class Barrier {
   int32                 counter_;   ///< number of threads we wait for
   int32                 cycle_;     ///< cycle flag to keep synchronized
 
+  KALDI_DISALLOW_COPY_AND_ASSIGN(Barrier);
 };
 
 } // namespace kaldi

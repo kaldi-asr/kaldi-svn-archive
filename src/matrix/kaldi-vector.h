@@ -4,7 +4,10 @@
 //                       Saarland University (Author: Arnab Ghoshal);
 //                       Ariya Rastrow;  Petr Schwarz;  Yanmin Qian;
 //                       Karel Vesely;  Go Vivace Inc.;  Arnab Ghoshal
+//                       Wei Shi;
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -46,6 +49,11 @@ class VectorBase {
   /// Set vector to random normally-distributed noise.
   void SetRandn();
 
+  /// This function returns a random index into this vector,
+  /// chosen with probability proportional to the corresponding
+  /// element.  Requires that this->Min() >= 0 and this->Sum() > 0.
+  MatrixIndexT RandCategorical() const;
+  
   /// Returns the  dimension of the vector.
   inline MatrixIndexT Dim() const { return dim_; }
 
@@ -102,6 +110,11 @@ class VectorBase {
   template<typename OtherReal>
   void CopyFromVec(const VectorBase<OtherReal> &v);
 
+  /// Copy from CuVector.  This is defined in ../cudamatrix/cu-vector.h
+  template<typename OtherReal>
+  void CopyFromVec(const CuVectorBase<OtherReal> &v);
+
+  
   /// Apply natural log to all elements.  Throw if any element of
   /// the vector is negative (but doesn't complain about zero; the
   /// log will be -infinity
@@ -114,7 +127,7 @@ class VectorBase {
   void ApplyExp();
 
   /// Take absolute value of each of the elements
-  void Abs();
+  void ApplyAbs();
 
   /// Applies floor to all elements. Returns number of elements floored.
   MatrixIndexT ApplyFloor(Real floor_val);
@@ -139,18 +152,23 @@ class VectorBase {
   /// Take all  elements of vector to a power.
   void ApplyPow(Real power);
 
+  /// Take the absolute value of all elements of a vector to a power.
+  /// Include the sign of the input element if include_sign == true.
+  /// If power is negative and the input value is zero, the output is set zero.
+  void ApplyPowAbs(Real power, bool include_sign=false);
+  
   /// Compute the p-th norm of the vector.
   Real Norm(Real p) const;
-
+  
   /// Returns true if ((*this)-other).Norm(2.0) <= tol * (*this).Norm(2.0).
   bool ApproxEqual(const VectorBase<Real> &other, float tol = 0.01) const;
-
+  
   /// Invert all elements.
   void InvertElements();
 
   /// Add vector : *this = *this + alpha * rv (with casting between floats and
   /// doubles)
-  template<class OtherReal>
+  template<typename OtherReal>
   void AddVec(const Real alpha, const VectorBase<OtherReal> &v);
 
   /// Add vector : *this = *this + alpha * rv^2  [element-wise squaring].
@@ -158,7 +176,7 @@ class VectorBase {
 
   /// Add vector : *this = *this + alpha * rv^2  [element-wise squaring],
   /// with casting between floats and doubles.
-  template<class OtherReal>
+  template<typename OtherReal>
   void AddVec2(const Real alpha, const VectorBase<OtherReal> &v);
 
   /// Add matrix times vector : this <-- beta*this + alpha*M*v.
@@ -184,6 +202,9 @@ class VectorBase {
   void AddTpVec(const Real alpha, const TpMatrix<Real> &M,
                 const MatrixTransposeType trans, const VectorBase<Real> &v,
                 const Real beta);  // **beta previously defaulted to 0.0**
+
+  /// Set each element to y = (x == orig ? changed : x).
+  void ReplaceValue(Real orig, Real changed);
 
   /// Multipy element-by-element by another vector.
   void MulElements(const VectorBase<Real> &v);
@@ -216,11 +237,20 @@ class VectorBase {
   /// Multiplies this vector by lower-triangular marix:  *this <-- *this *M
   void MulTp(const TpMatrix<Real> &M, const MatrixTransposeType trans);
 
+  /// If trans == kNoTrans, solves M x = b, where b is the value of *this at input
+  /// and x is the value of *this at output.
+  /// If trans == kTrans, solves M' x = b.
+  /// Does not test for M being singular or near-singular, so test it before
+  /// calling this routine.
+  void Solve(const TpMatrix<Real> &M, const MatrixTransposeType trans);
+
   /// Performs a row stack of the matrix M
   void CopyRowsFromMat(const MatrixBase<Real> &M);
   template<typename OtherReal>
   void CopyRowsFromMat(const MatrixBase<OtherReal> &M);
 
+  /// The following is implemented in ../cudamatrix/cu-matrix.cc
+  void CopyRowsFromMat(const CuMatrixBase<Real> &M);
 
   /// Performs a column stack of the matrix M
   void CopyColsFromMat(const MatrixBase<Real> &M);
@@ -273,10 +303,10 @@ class VectorBase {
   /// negative.
   Real SumLog() const;
 
-  /// Adds sum of the rows of M to existing contents, times alpha.
+  /// Does *this = alpha * (sum of rows of M) + beta * *this.
   void AddRowSumMat(Real alpha, const MatrixBase<Real> &M, Real beta = 1.0);
   
-  /// Adds sum of the columns of M to existing contents.
+  /// Does *this = alpha * (sum of columns of M) + beta * *this.
   void AddColSumMat(Real alpha, const MatrixBase<Real> &M, Real beta = 1.0);
 
   /// Add the diagonal of a matrix times itself:
@@ -284,6 +314,13 @@ class VectorBase {
   /// *this = diag(M^T M) +  beta * *this (if trans == kTrans).
   void AddDiagMat2(Real alpha, const MatrixBase<Real> &M,
                    MatrixTransposeType trans = kNoTrans, Real beta = 1.0);
+
+  /// Add the diagonal of a matrix product: *this = diag(M N), assuming the
+  /// "trans" arguments are both kNoTrans; for transpose arguments, it behaves
+  /// as you would expect.
+  void AddDiagMatMat(Real alpha, const MatrixBase<Real> &M, MatrixTransposeType transM,
+                     const MatrixBase<Real> &N, MatrixTransposeType transN,
+                     Real beta = 1.0);  
 
   /// Returns log(sum(exp())) without exp overflow
   /// If prune > 0.0, ignores terms less than the max - prune.
@@ -346,6 +383,11 @@ class Vector: public VectorBase<Real> {
   explicit Vector(const MatrixIndexT s,
                   MatrixResizeType resize_type = kSetZero)
       : VectorBase<Real>() {  Resize(s, resize_type);  }
+
+  /// Copy constructor from CUDA vector
+  /// This is defined in ../cudamatrix/cu-vector.h
+  template<typename OtherReal>
+  explicit Vector(const CuVectorBase<OtherReal> &cu);
 
   /// Copy constructor.  The need for this is controversial.
   Vector(const Vector<Real> &v) : VectorBase<Real>()  { //  (cannot be explicit)
@@ -425,7 +467,7 @@ class Vector: public VectorBase<Real> {
 
 /// Represents a non-allocating general vector which can be defined
 /// as a sub-vector of higher-level vector [or as the row of a matrix].
-template<class Real>
+template<typename Real>
 class SubVector : public VectorBase<Real> {
  public:
   /// Constructor from a Vector or SubVector.
@@ -499,6 +541,20 @@ std::istream & operator >> (std::istream & in, Vector<Real> & v);
 /// \addtogroup matrix_funcs_scalar
 /// @{
 
+
+template<typename Real>
+bool ApproxEqual(const VectorBase<Real> &a,
+                 const VectorBase<Real> &b, Real tol = 0.01) {
+  return a.ApproxEqual(b, tol);
+}
+
+template<typename Real>
+inline void AssertEqual(VectorBase<Real> &a, VectorBase<Real> &b,
+                        float tol = 0.01) {
+  KALDI_ASSERT(a.ApproxEqual(b, tol));
+}
+
+
 /// Returns dot product between v1 and v2.
 template<typename Real>
 Real VecVec(const VectorBase<Real> &v1, const VectorBase<Real> &v2);
@@ -509,7 +565,7 @@ Real VecVec(const VectorBase<Real> &v1, const VectorBase<OtherReal> &v2);
 
 /// Returns \f$ v_1^T M v_2  \f$ .
 /// Not as efficient as it could be where v1 == v2.
-template<class Real>
+template<typename Real>
 Real VecMatVec(const VectorBase<Real> &v1, const MatrixBase<Real> &M,
                const VectorBase<Real> &v2);
 

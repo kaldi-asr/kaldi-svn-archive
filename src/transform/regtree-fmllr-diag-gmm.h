@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Saarland University;  Georg Stemmer;
 //                      Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -43,7 +45,7 @@ struct RegtreeFmllrOptions {
   RegtreeFmllrOptions(): update_type("full"), min_count(1000.0),
                          num_iters(10), use_regtree(true) { }
   
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("fmllr-update-type", &update_type,
                  "Update type for fMLLR (\"full\"|\"diag\"|\"offset\"|\"none\")");
     po->Register("fmllr-min-count", &min_count,

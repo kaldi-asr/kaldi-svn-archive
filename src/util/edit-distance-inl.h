@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Haihua Xu;  Yanmin Qian
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,6 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef KALDI_UTIL_EDIT_DISTANCE_INL_H_
+#define KALDI_UTIL_EDIT_DISTANCE_INL_H_
 #include "util/stl-utils.h"
 
 
@@ -127,9 +131,9 @@ int32 LevenshteinAlignment(const std::vector<T> &a,
                            std::vector<std::pair<T, T> > *output) {
   // Check inputs:
   {
-    assert(output != NULL);
-    for (size_t i = 0; i < a.size(); i++) assert(a[i] != eps_symbol);
-    for (size_t i = 0; i < b.size(); i++) assert(b[i] != eps_symbol);
+    KALDI_ASSERT(output != NULL);
+    for (size_t i = 0; i < a.size(); i++) KALDI_ASSERT(a[i] != eps_symbol);
+    for (size_t i = 0; i < b.size(); i++) KALDI_ASSERT(b[i] != eps_symbol);
   }
   output->clear();
   // This is very memory-inefficiently implemented using a vector of vectors.
@@ -181,3 +185,5 @@ int32 LevenshteinAlignment(const std::vector<T> &a,
 
 
 }  // end namespace kaldi
+
+#endif // KALDI_UTIL_EDIT_DISTANCE_INL_H_

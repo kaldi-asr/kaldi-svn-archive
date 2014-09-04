@@ -3,6 +3,8 @@
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //                 Frantisek Skala
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -44,19 +46,24 @@ class CompressedMatrix {
 
   ~CompressedMatrix() { Destroy(); }
   
-  template<class Real>
+  template<typename Real>
   CompressedMatrix(const MatrixBase<Real> &mat): data_(NULL) { CopyFromMat(mat); }
 
-  template<class Real>
+
+  /// This will resize *this and copy the contents of mat to *this.
+  template<typename Real>
   void CopyFromMat(const MatrixBase<Real> &mat);
   
   CompressedMatrix(const CompressedMatrix &mat);
   
   CompressedMatrix &operator = (const CompressedMatrix &mat); // assignment operator.
+
+  template<typename Real>
+  CompressedMatrix &operator = (const MatrixBase<Real> &mat); // assignment operator.
   
   // Note: mat must have the correct size, CopyToMat no longer attempts
   // to resize the matrix
-  template<class Real>
+  template<typename Real>
   void CopyToMat(MatrixBase<Real> *mat) const;
 
   void Write(std::ostream &os, bool binary) const;
@@ -119,13 +126,12 @@ class CompressedMatrix {
     uint16 percentile_100;
   };
 
-  // The following function is called in CopyToMatrix.
-  template<class Real>
+  template<typename Real>
   static void CompressColumn(const GlobalHeader &global_header,
                              const Real *data, MatrixIndexT stride,
                              int32 num_rows, PerColHeader *header,
                              unsigned char *byte_data);
-  template<class Real>
+  template<typename Real>
   static void ComputeColHeader(const GlobalHeader &global_header,
                                const Real *data, MatrixIndexT stride,
                                int32 num_rows, PerColHeader *header);

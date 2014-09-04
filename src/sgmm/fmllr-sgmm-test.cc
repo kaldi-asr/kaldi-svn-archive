@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Saarland University
 // Author:  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -130,6 +132,9 @@ void TestSgmmFmllrAccsIO(const AmSgmm &sgmm,
   kaldi::AssertEqual(loglike1, loglike3, 1e-4);
   delete accs2;
   KALDI_LOG << "Test IO end.";
+
+  unlink("tmpf");
+  unlink("tmpfb");
 }
 
 void TestSgmmFmllrSubspace(const AmSgmm &sgmm,
@@ -216,6 +221,7 @@ void TestSgmmFmllr() {
 }
 
 int main() {
+  std::srand(1000);
   kaldi::g_kaldi_verbose_level = 5;
   for (int i = 0; i < 10; i++)
     TestSgmmFmllr();

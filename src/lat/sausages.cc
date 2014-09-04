@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -236,8 +238,7 @@ void MinimumBayesRisk::AccStats() {
   for (int32 q = 1; q <= Q; q++) {
     for (map<int32, double>::iterator iter = gamma[q].begin();
          iter != gamma[q].end(); ++iter)
-      gamma_[q-1].push_back(std::make_pair<int32, BaseFloat>(iter->first,
-                                                             iter->second));
+      gamma_[q-1].push_back(std::make_pair(iter->first, static_cast<BaseFloat>(iter->second)));
     // sort gamma_[q-1] from largest to smallest posterior.
     GammaCompare comp;
     std::sort(gamma_[q-1].begin(), gamma_[q-1].end(), comp);
@@ -263,7 +264,8 @@ void MinimumBayesRisk::AccStats() {
   }  
 }
 
-MinimumBayesRisk::MinimumBayesRisk(const CompactLattice &clat_in, bool do_mbr) {
+MinimumBayesRisk::MinimumBayesRisk(const CompactLattice &clat_in, bool do_mbr):
+    do_mbr_(do_mbr) {
   CompactLattice clat(clat_in); // copy.
 
   CreateSuperFinal(&clat); // Add super-final state to clat... this is

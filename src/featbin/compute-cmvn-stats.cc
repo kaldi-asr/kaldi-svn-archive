@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -158,14 +160,14 @@ int main(int argc, char *argv[]) {
           num_done++;
         }
       }
-      Matrix<float> fstats(stats);
-      Output ko(wxfilename, binary);
-      fstats.Write(ko.Stream(), binary);
-      num_done++;
+      Matrix<float> stats_float(stats);
+      WriteKaldiObject(stats_float, wxfilename, binary);
+      KALDI_LOG << "Wrote global CMVN stats to "
+                << PrintableWxfilename(wxfilename);
     }
     KALDI_LOG << "Done accumulating CMVN stats for " << num_done
               << " utterances; " << num_err << " had errors.";
-    return 0;
+    return (num_done != 0 ? 0 : 1);    
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

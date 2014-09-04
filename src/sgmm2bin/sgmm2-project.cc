@@ -2,6 +2,8 @@
 
 // Copyright 2012    Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,7 +22,7 @@
 #include "util/common-utils.h"
 #include "thread/kaldi-thread.h"
 #include "hmm/transition-model.h"
-#include "sgmm2/am-sgmm-project.h"
+#include "sgmm2/am-sgmm2-project.h"
 
 int main(int argc, char *argv[]) {
   try {

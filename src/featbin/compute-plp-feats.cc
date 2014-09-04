@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -42,23 +44,25 @@ int main(int argc, char *argv[]) {
     std::string output_format = "kaldi";
 
     // Register the options
-    po.Register("output-format", &output_format, "Format of the output files [kaldi, htk]");
-    po.Register("subtract-mean", &subtract_mean, "Subtract mean of each feature file [CMS]. ");
-    po.Register("vtln-warp", &vtln_warp, "Vtln warp factor (only applicable if vtln-map not specified)");
-    po.Register("vtln-map", &vtln_map_rspecifier, "Map from utterance or speaker-id to vtln warp factor (rspecifier)");
-    po.Register("utt2spk", &utt2spk_rspecifier, "Utterance to speaker-id map (if doing VTLN and you have warps per speaker)");
-    po.Register("channel", &channel, "Channel to extract (-1 -> expect mono, 0 -> left, 1 -> right)");
-    po.Register("min-duration", &min_duration, "Minimum duration of segments to process (in seconds).");
+    po.Register("output-format", &output_format, "Format of the output "
+                "files [kaldi, htk]");
+    po.Register("subtract-mean", &subtract_mean, "Subtract mean of each "
+                "feature file [CMS]. ");
+    po.Register("vtln-warp", &vtln_warp, "Vtln warp factor (only applicable "
+                "if vtln-map not specified)");
+    po.Register("vtln-map", &vtln_map_rspecifier, "Map from utterance or "
+                "speaker-id to vtln warp factor (rspecifier)");
+    po.Register("utt2spk", &utt2spk_rspecifier, "Utterance to speaker-id "
+                "map (if doing VTLN and you have warps per speaker)");
+    po.Register("channel", &channel, "Channel to extract (-1 -> expect mono, "
+                "0 -> left, 1 -> right)");
+    po.Register("min-duration", &min_duration, "Minimum duration of segments "
+                "to process (in seconds).");
 
-    // Register the option struct
     plp_opts.Register(&po);
 
-    // OPTION PARSING ..........................................................
-    //
-
-    // parse options (+filling the registered variables)
     po.Read(argc, argv);
-
+    
     if (po.NumArgs() != 2) {
       po.PrintUsage();
       exit(1);
@@ -134,7 +138,8 @@ int main(int argc, char *argv[]) {
       if (plp_opts.frame_opts.samp_freq != wave_data.SampFreq())
         KALDI_ERR << "Sample frequency mismatch: you specified "
                   << plp_opts.frame_opts.samp_freq << " but data has "
-                  << wave_data.SampFreq() << " (use --sample-frequency option)";
+                  << wave_data.SampFreq() << " (use --sample-frequency "
+                  << "option).  Utterance is " << utt;
 
       SubVector<BaseFloat> waveform(wave_data.Data(), this_chan);
       Matrix<BaseFloat> features;
@@ -161,7 +166,7 @@ int main(int argc, char *argv[]) {
         HtkHeader header = {
           features.NumRows(),
           100000,  // 10ms shift
-          sizeof(float)*features.NumCols(),
+          static_cast<int16>(sizeof(float)*features.NumCols()),
           013 | // PLP
           020000 // C0 [no option currently to use energy in PLP.
         };

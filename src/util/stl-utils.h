@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -92,6 +94,19 @@ void CopySetToVector(const std::set<T> &s, std::vector<T> *v) {
   KALDI_ASSERT(v != NULL);
   v->resize(s.size());
   typename std::set<T>::const_iterator siter = s.begin(), send = s.end();
+  typename std::vector<T>::iterator viter = v->begin();
+  for (; siter != send; ++siter, ++viter) {
+    *viter = *siter;
+  }
+}
+
+template<class T>
+void CopySetToVector(const unordered_set<T> &s, std::vector<T> *v) {
+  // adds members of s to v, in sorted order from lowest to highest
+  // (because the set was in sorted order).
+  KALDI_ASSERT(v != NULL);
+  v->resize(s.size());
+  typename unordered_set<T>::const_iterator siter = s.begin(), send = s.end();
   typename std::vector<T>::iterator viter = v->begin();
   for (; siter != send; ++siter, ++viter) {
     *viter = *siter;
@@ -239,9 +254,9 @@ struct PairHasher { // hashing function for pair<int>
 /// A hashing function object for strings.
 struct StringHasher {  // hashing function for std::string
   size_t operator()(const std::string &str) const {
-    size_t ans = 0;
-    const char *c = str.c_str();
-    for (; *c != '\0'; c++) {
+    size_t ans = 0, len = str.length();
+    const char *c = str.c_str(), *end = c + len;
+    for (; c != end; c++) {
       ans *= kPrime;
       ans += *c;
     }

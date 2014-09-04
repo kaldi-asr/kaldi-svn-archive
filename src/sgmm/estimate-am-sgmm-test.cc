@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Saarland University
 // Author:  Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -52,7 +54,7 @@ void TestUpdateAndAccsIO(const AmSgmm &sgmm,
   accs.CommitStatsForSpk(sgmm, empty_spk);
 
   kaldi::MleAmSgmmOptions update_opts;
-  update_opts.check_v = (rand()%2 == 0);
+  update_opts.check_v = (Rand()%2 == 0);
   AmSgmm *sgmm1 = new AmSgmm();
   sgmm1->CopyFromSgmm(sgmm, false);
   kaldi::MleAmSgmmUpdater updater(update_opts);
@@ -108,6 +110,9 @@ void TestUpdateAndAccsIO(const AmSgmm &sgmm,
   delete accs2;
   delete sgmm2;
   delete sgmm3;
+
+  unlink("tmpf");
+  unlink("tmpfb");
 }
 
 void UnitTestEstimateSgmm() {

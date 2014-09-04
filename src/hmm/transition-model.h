@@ -3,6 +3,8 @@
 // Copyright 2009-2012  Microsoft Corporation
 //                      Johns Hopkins University (author: Guoguo Chen)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,12 +22,11 @@
 #define KALDI_HMM_TRANSITION_MODEL_H_
 
 #include "base/kaldi-common.h"
-#include "util/parse-options.h"
 #include "tree/context-dep.h"
 #include "util/const-integer-set.h"
 #include "fst/fst-decl.h" // forward declarations.
 #include "hmm/hmm-topology.h"
-
+#include "itf/options-itf.h"
 
 namespace kaldi {
 
@@ -92,7 +93,7 @@ struct MleTransitionUpdateConfig {
                             bool share_for_pdfs = false):
       floor(floor), mincount(mincount), share_for_pdfs(share_for_pdfs) {}
   
-  void Register (ParseOptions *po) {
+  void Register (OptionsItf *po) {
     po->Register("transition-floor", &floor,
                  "Floor for transition probabilities");
     po->Register("transition-min-count", &mincount,
@@ -108,7 +109,7 @@ struct MapTransitionUpdateConfig {
   bool share_for_pdfs; // If true, share all transition parameters that have the same pdf.
   MapTransitionUpdateConfig(): tau(5.0), share_for_pdfs(false) { }
 
-  void Register (ParseOptions *po) {
+  void Register (OptionsItf *po) {
     po->Register("transition-tau", &tau, "Tau value for MAP estimation of transition "
                  "probabilities.");
     po->Register("share-for-pdfs", &share_for_pdfs,
@@ -204,7 +205,7 @@ class TransitionModel {
 
   /// Returns the log-prob of the non-self-loop probability
   /// mass for this transition state. (you can get the self-loop prob, if a self-loop
-  /// exists, by/ calling GetTransitionLogProb(SelfLoopOf(trans_state)).
+  /// exists, by calling GetTransitionLogProb(SelfLoopOf(trans_state)).
   BaseFloat GetNonSelfLoopLogProb(int32 trans_state) const;
 
   /// Does Maximum Likelihood estimation.  The stats are counts/weights, indexed
@@ -236,6 +237,10 @@ class TransitionModel {
     // to design changes than doing it manually.
   }
 
+  /// returns true if all the integer class members are identical (but does not
+  /// compare the transition probabilities.
+  bool Compatible(const TransitionModel &other) const;
+  
  private:
   void MleUpdateShared(const Vector<double> &stats,
                        const MleTransitionUpdateConfig &cfg,
@@ -276,7 +281,7 @@ class TransitionModel {
   /// the triples are in sorted order which allows us to do the reverse mapping from
   /// triple to transition state
   std::vector<Triple> triples_;
-
+  
   /// Gives the first transition_id of each transition-state; indexed by
   /// the transition-state.  Array indexed 1..num-transition-states+1 (the last one
   /// is needed so we can know the num-transitions of the last transition-state.
@@ -330,6 +335,7 @@ bool GetPhonesForPdfs(const TransitionModel &trans_model,
                       const std::vector<int32> &pdfs,
                       std::vector<int32> *phones);
 /// @}
+
 
 } // end namespace kaldi
 

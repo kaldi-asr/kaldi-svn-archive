@@ -1,8 +1,10 @@
 // matrix/cblas-wrappers.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey);
-//                 Haihua Xu
+//                 Haihua Xu; Wei Shi
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -15,6 +17,9 @@
 // MERCHANTABLITY OR NON-INFRINGEMENT.
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
+#ifndef KALDI_MATRIX_CBLAS_WRAPPERS_H_
+#define KALDI_MATRIX_CBLAS_WRAPPERS_H_ 1
+
 
 #include <limits>
 #include "matrix/sp-matrix.h"
@@ -99,6 +104,18 @@ inline void cblas_Xtpmv(MatrixTransposeType trans, const float *Mdata,
 inline void cblas_Xtpmv(MatrixTransposeType trans, const double *Mdata,
                         const int num_rows, double *y, const int y_inc) {
   cblas_dtpmv(CblasRowMajor, CblasLower, static_cast<CBLAS_TRANSPOSE>(trans),
+              CblasNonUnit, num_rows, Mdata, y, y_inc);
+}
+
+
+inline void cblas_Xtpsv(MatrixTransposeType trans, const float *Mdata,
+                        const int num_rows, float *y, const int y_inc) {
+  cblas_stpsv(CblasRowMajor, CblasLower, static_cast<CBLAS_TRANSPOSE>(trans),
+              CblasNonUnit, num_rows, Mdata, y, y_inc);
+}
+inline void cblas_Xtpsv(MatrixTransposeType trans, const double *Mdata,
+                        const int num_rows, double *y, const int y_inc) {
+  cblas_dtpsv(CblasRowMajor, CblasLower, static_cast<CBLAS_TRANSPOSE>(trans),
               CblasNonUnit, num_rows, Mdata, y, y_inc);
 }
 
@@ -233,6 +250,8 @@ inline void cblas_Xgemm(const double alpha,
               alpha, Adata, a_stride, Bdata, b_stride,
               beta, Mdata, stride); 
 }
+
+
 inline void cblas_Xsymm(const float alpha,
                         MatrixIndexT sz,
                         const float *Adata,MatrixIndexT a_stride,
@@ -468,3 +487,5 @@ inline void clapack_Xgetri(MatrixIndexT num_rows, double *Mdata, MatrixIndexT st
 
 }
 // namespace kaldi
+
+#endif

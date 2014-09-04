@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,10 +34,11 @@ namespace fst {
    determinize* algorithm.  By compactly determinizable we mean that 
    no original FST state is represented in more than one determinized state).
 
+   Caution: this code is now only used in testing.
+   
    The new symbols start from the value "first_new_symbol", which should be
    higher than the largest-numbered symbol currently in the FST.  The new
    symbols added are put in the array syms_out, which should be empty at start.
-
 */
 
 template<class Arc, class Int>

@@ -12,6 +12,7 @@ use Cwd;
 
 $qsub_opts = "";
 $sync = 0;
+$nof_threads=1;
 
 for ($x = 1; $x <= 3; $x++) { # This for-loop is to 
   # allow the JOB=1:n option to be interleaved with the
@@ -29,6 +30,7 @@ for ($x = 1; $x <= 3; $x++) { # This for-loop is to
       if ($switch eq "-pe") { # e.g. -pe smp 5
         $option2 = shift @ARGV;
         $qsub_opts .= "$option2 ";
+        $nof_threads = $option2;
       }
     }
   }
@@ -92,7 +94,7 @@ $cmd = "";
 foreach $x (@ARGV) { 
   if ($x =~ m/^\S+$/) { $cmd .= $x . " "; } # If string contains no spaces, take
                                             # as-is.
-  elsif ($x =~ m:\":) { $cmd .= "'\''$x'\'' "; } # else if no dbl-quotes, use single
+  elsif ($x =~ m:\":) { $cmd .= "'$x' "; } # else if no dbl-quotes, use single
   else { $cmd .= "\"$x\" "; }  # else use double.
 }
 
@@ -105,7 +107,7 @@ $qdir = "$dir/q";
 $qdir =~ s:/(log|LOG)/*q:/q:; # If qdir ends in .../log/q, make it just .../q.
 $queue_logfile = "$qdir/$base";
 
-if (!-d $dir) { system "mkdir $dir 2>/dev/null"; } # another job may be doing this...
+if (!-d $dir) { system "mkdir -p $dir 2>/dev/null"; } # another job may be doing this...
 if (!-d $dir) { die "Cannot make the directory $dir\n"; }
 # make a directory called "q",
 # where we will put the log created by qsub... normally this doesn't contain
@@ -159,10 +161,13 @@ print Q "  echo -n '# '; cat <<EOF\n";
 print Q "$cmd\n"; # this is a way of echoing the command into a comment in the log file,
 print Q "EOF\n"; # without having to escape things like "|" and quote characters.
 print Q ") >$logfile\n";
+print Q "time1=\`date +\"%s\"\`\n";
 print Q " ( $cmd ) 2>>$logfile >>$logfile\n";
 print Q "ret=\$?\n";
+print Q "time2=\`date +\"%s\"\`\n";
+print Q "echo '#' Accounting: time=\$((\$time2-\$time1)) threads=$nof_threads >>$logfile\n";
 print Q "echo '#' Finished at \`date\` with status \$ret >>$logfile\n";
-print Q "[ \$ret -eq 137 ] && exit 100;\n"; # If process was killed (e.g. oom) it will exit with status 137; 
+print Q "[ \$ret -eq 137 ] && exit 100;\n"; # If process was killed (e.g. oom) it will exit with status 137;
   # let the script return with status 100 which will put it to E state; more easily rerunnable.
 if (!defined $jobname) { # not an array job
   print Q "touch $syncfile\n"; # so we know it's done.
@@ -171,18 +176,20 @@ if (!defined $jobname) { # not an array job
 }
 print Q "exit \$[\$ret ? 1 : 0]\n"; # avoid status 100 which grid-engine
 print Q "## submitted with:\n";       # treats specially.
+$qsub_cmd = "qsub -S /bin/bash -v PATH -cwd -j y -o $queue_logfile $qsub_opts $queue_array_opt $queue_scriptfile >>$queue_logfile 2>&1";
 print Q "# $qsub_cmd\n";
 if (!close(Q)) { # close was not successful... || die "Could not close script file $shfile";
   die "Failed to close the script file (full disk?)";
 }
 
-$ret = system ("qsub -S /bin/bash -v PATH -cwd -j y -o $queue_logfile $qsub_opts $queue_array_opt $queue_scriptfile >>$queue_logfile 2>&1");
+$ret = system ($qsub_cmd);
 if ($ret != 0) {
   if ($sync && $ret == 256) { # this is the exit status when a job failed (bad exit status)
     if (defined $jobname) { $logfile =~ s/\$SGE_TASK_ID/*/g; }
     print STDERR "queue.pl: job writing to $logfile failed\n";
   } else {
     print STDERR "queue.pl: error submitting jobs to queue (return status was $ret)\n";
+    print STDERR "queue log file is $queue_logfile, command was $qsub_cmd\n";
     print STDERR `tail $queue_logfile`;
   }
   exit(1);
@@ -200,8 +207,23 @@ if (! $sync) { # We're not submitting with -sync y, so we
     }
   }
   # We will need the sge_job_id, to check that job still exists
-  $sge_job_id=`grep "Your job" $queue_logfile | awk '{ print \$3 }' | sed 's|\\\..*||'`;
-  chomp($sge_job_id);
+  { # Get the SGE job-id from the log file in q/
+    open(L, "<$queue_logfile") || die "Error opening log file $queue_logfile";
+    undef $sge_job_id;
+    while (<L>) {
+      if (m/Your job\S* (\d+)[. ].+ has been submitted/) {
+        if (defined $sge_job_id) {
+          die "Error: your job was submitted more than once (see $queue_logfile)";
+        } else {
+          $sge_job_id = $1;
+        }
+      }
+    }
+    close(L);
+    if (!defined $sge_job_id) {
+      die "Error: log file $queue_logfile does not specify the SGE job-id.";
+    }
+  }
   $check_sge_job_ctr=1;
   #
   $wait = 0.1;
@@ -225,23 +247,58 @@ if (! $sync) { # We're not submitting with -sync y, so we
 
       # Check that the job exists in SGE. Job can be killed if duration 
       # exceeds some hard limit, or in case of a machine shutdown. 
-      if(($check_sge_job_ctr++ % 10) == 0) { # Don't run qstat too often, avoid stress on SGE.
-        if ( -f $f ) { next; }; #syncfile appeared, ok
+      if (($check_sge_job_ctr++ % 10) == 0) { # Don't run qstat too often, avoid stress on SGE.
+        if ( -f $f ) { next; }; #syncfile appeared: OK.
         $ret = system("qstat -j $sge_job_id >/dev/null 2>/dev/null");
-        if($ret != 0) {
+        # system(...) : To get the actual exit value, shift $ret right by eight bits.
+        if ($ret>>8 == 1) {     # Job does not seem to exist
           # Don't consider immediately missing job as error, first wait some  
           # time to make sure it is not just delayed creation of the syncfile.
+
           sleep(3);
-          if ( -f $f ) { next; }; #syncfile appeared, ok
+          # Sometimes NFS gets confused and thinks it's transmitted the directory
+          # but it hasn't, due to timestamp issues.  Changing something in the
+          # directory will usually fix that.
+          system("touch $qdir/.kick");
+          system("rm $qdir/.kick 2>/dev/null");
+          if ( -f $f ) { next; }   #syncfile appeared, ok
           sleep(7);
-          if ( -f $f ) { next; }; #syncfile appeared, ok
-          sleep(20);
-          if ( -f $f ) { next; }; #syncfile appeared, ok
-          #Otherwise it is an error
-          if (defined $jobname) { $logfile =~ s/\$SGE_TASK_ID/*/g; }
-          print STDERR "queue.pl: Error, unfinished job no longer exists, log is in $logfile\n";
-          print STDERR "          Possible reasons: a) Exceeded time limit? -> Use more jobs! b) Shutdown/Frozen machine? -> Run again!\n";
-          exit(1);
+          system("touch $qdir/.kick");
+          sleep(1);
+          system("rm $qdir/.kick 2>/dev/null");
+          if ( -f $f ) {  next; }   #syncfile appeared, ok
+          sleep(60);
+          system("touch $qdir/.kick");
+          sleep(1);
+          system("rm $qdir/.kick 2>/dev/null");
+          if ( -f $f ) { next; }  #syncfile appeared, ok
+          $f =~ m/\.(\d+)$/ || die "Bad sync-file name $f";
+          $job_id = $1;
+          if (defined $jobname) {
+            $logfile =~ s/\$SGE_TASK_ID/$job_id/g;
+          }
+          $last_line = `tail -n 1 $logfile`;
+          if ($last_line =~ m/status 0$/ && (-M $logfile) < 0) {
+            # if the last line of $logfile ended with "status 0" and
+            # $logfile is newer than this program [(-M $logfile) gives the
+            # time elapsed between file modification and the start of this
+            # program], then we assume the program really finished OK,
+            # and maybe something is up with the file system.
+            print STDERR "**queue.pl: syncfile $f was not created but job seems\n" .
+              "**to have finished OK.  Probably your file-system has problems.\n" .
+              "**This is just a warning.\n";
+            last;
+          } else {
+            chop $last_line;
+            print STDERR "queue.pl: Error, unfinished job no " .
+              "longer exists, log is in $logfile, last line is '$last_line'" .
+              "syncfile is $f, return status of qstat was $ret\n" .
+              "Possible reasons: a) Exceeded time limit? -> Use more jobs!" .
+              " b) Shutdown/Frozen machine? -> Run again!\n";
+            exit(1);
+          }
+        } elsif ($ret != 0) {
+          print STDERR "queue.pl: Warning: qstat command returned status $ret (qstat -j $sge_job_id,$!)\n";
         }
       }
     }

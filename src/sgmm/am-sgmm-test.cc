@@ -3,6 +3,8 @@
 // Copyright 2012   Arnab Ghoshal
 // Copyright 2009-2011  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -143,6 +145,9 @@ void TestSgmmIO(const AmSgmm &sgmm) {
   BaseFloat loglike2 = sgmm2->LogLikelihood(per_frame, 0);
   kaldi::AssertEqual(loglike, loglike2, 1e-4);
   delete sgmm2;
+
+  unlink("tmpf");
+  unlink("tmpfb");
 }
 
 void TestSgmmSubstates(const AmSgmm &sgmm) {

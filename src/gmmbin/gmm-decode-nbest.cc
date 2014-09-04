@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation, Mirko Hannemann
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,7 +25,7 @@
 #include "fst/fstlib.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/nbest-decoder.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "gmm/decodable-am-diag-gmm.h"
 #include "util/timer.h"
 #include "lat/kaldi-lattice.h" // for CompactLatticeArc
 #include "fstext/lattice-utils.h" // for ConvertLattice
@@ -41,7 +43,7 @@ fst::Fst<fst::StdArc> *ReadNetwork(std::string filename) {
     KALDI_ERR << "Reading FST: error reading FST header.";
   }
   if (hdr.ArcType() != fst::StdArc::Type()) {
-    KALDI_ERR << "FST with arc type " << hdr.ArcType() << " not supported.\n";
+    KALDI_ERR << "FST with arc type " << hdr.ArcType() << " not supported.";
   }
   fst::FstReadOptions ropts("<unspecified>", &hdr);
 
@@ -73,7 +75,8 @@ int main(int argc, char *argv[]) {
       "algorithm and is not very useful; in general, processing the\n"
       "lattices into n-best lists will be more efficient.\n"
       "Usage:\n"
-      " gmm-decode-faster [options] model-in fst-in features-rspecifier nbestlattice-wspecifier words-wspecifier [alignments-wspecifier]\n";
+      " gmm-decode-nbest [options] <model-in> <fst-in> <features-rspecifier> "
+        "<nbest-lattice-wspecifier> <words-wspecifier> [<alignments-wspecifier>]\n";
     ParseOptions po(usage);
     bool allow_partial = true;
     BaseFloat acoustic_scale = 0.1;

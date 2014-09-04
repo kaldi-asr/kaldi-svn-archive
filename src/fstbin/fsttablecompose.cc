@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation
 //                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -79,7 +81,7 @@ int main(int argc, char *argv[]) {
     } else if (match_side == "right") {
       opts.table_match_type = MATCH_INPUT;
     } else {
-      KALDI_ERR << "Invalid match-side option: " << match_side << '\n';
+      KALDI_ERR << "Invalid match-side option: " << match_side;
     }
 
     if (compose_filter == "alt_sequence") {
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
     } else  if (compose_filter == "sequence") {
       opts.filter_type = SEQUENCE_FILTER;
     } else {
-      KALDI_ERR << "Invalid compose-filter option: " << compose_filter << '\n';
+      KALDI_ERR << "Invalid compose-filter option: " << compose_filter;
     }
 
     if (po.NumArgs() < 2 || po.NumArgs() > 3) {

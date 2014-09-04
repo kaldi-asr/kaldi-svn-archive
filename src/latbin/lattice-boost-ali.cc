@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -104,12 +106,7 @@ int main(int argc, char *argv[]) {
           continue;
         }
         const std::vector<int32> &alignment = alignment_reader.Value(key);
-        std::vector<std::set<int32> > phones_seen(alignment.size());
-        for (size_t i = 0; i < alignment.size(); i++) {
-          // next line may crash if alignments mismatched w/ model:
-          phones_seen[i].insert(trans.TransitionIdToPhone(alignment[i]));
-        }
-        if (!LatticeBoost(trans, phones_seen, silence_phones, b,
+        if (!LatticeBoost(trans, alignment, silence_phones, b,
                           max_silence_error, &lat)) {
           n_err++; // will already have printed warning.
           continue;

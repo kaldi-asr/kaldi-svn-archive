@@ -1,7 +1,10 @@
 // gmmbin/gmm-est-regtree-fmllr.cc
 
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,6 +27,7 @@ using std::vector;
 #include "util/common-utils.h"
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
+#include "hmm/posterior.h"
 #include "transform/regtree-fmllr-diag-gmm.h"
 
 int main(int argc, char *argv[]) {
@@ -114,10 +118,12 @@ int main(int argc, char *argv[]) {
           }
 
           BaseFloat file_like = 0.0, file_t = 0.0;
+          Posterior pdf_posterior;
+          ConvertPosteriorToPdfs(trans_model, posterior, &pdf_posterior);
           for (size_t i = 0; i < posterior.size(); i++) {
-            for (size_t j = 0; j < posterior[i].size(); j++) {
-              int32 pdf_id = trans_model.TransitionIdToPdf(posterior[i][j].first);
-              BaseFloat prob = posterior[i][j].second;
+            for (size_t j = 0; j < pdf_posterior[i].size(); j++) {
+              int32 pdf_id = pdf_posterior[i][j].first;
+              BaseFloat prob = pdf_posterior[i][j].second;
               file_like += fmllr_accs.AccumulateForGmm(regtree, am_gmm,
                                                        feats.Row(i), pdf_id,
                                                        prob);
@@ -165,10 +171,12 @@ int main(int argc, char *argv[]) {
         num_done++;
         BaseFloat file_like = 0.0, file_t = 0.0;
         fmllr_accs.SetZero();
+        Posterior pdf_posterior;
+        ConvertPosteriorToPdfs(trans_model, posterior, &pdf_posterior);
         for (size_t i = 0; i < posterior.size(); i++) {
-          for (size_t j = 0; j < posterior[i].size(); j++) {
-            int32 pdf_id = trans_model.TransitionIdToPdf(posterior[i][j].first);
-            BaseFloat prob = posterior[i][j].second;
+          for (size_t j = 0; j < pdf_posterior[i].size(); j++) {
+            int32 pdf_id = pdf_posterior[i][j].first;
+            BaseFloat prob = pdf_posterior[i][j].second;
             file_like += fmllr_accs.AccumulateForGmm(regtree, am_gmm,
                                                      feats.Row(i), pdf_id,
                                                      prob);

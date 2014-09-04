@@ -3,6 +3,8 @@
 // Copyright 2012   Arnab Ghoshal
 // Copyright 2009-2011  Microsoft Corporation;  Saarland University
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -16,6 +18,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <functional>
 #include <queue>
 #include <vector>
 using std::vector;
@@ -39,7 +42,7 @@ BaseFloat SumClusterableObjf(const std::vector<Clusterable*> &vec) {
     if (vec[i] != NULL) {
       BaseFloat objf = vec[i]->Objf();
       if (KALDI_ISNAN(objf)) {
-        KALDI_WARN << "SumClusterableObjf, NaN objf\n";
+        KALDI_WARN << "SumClusterableObjf, NaN objf";
       } else {
         ans += objf;
       }
@@ -54,7 +57,7 @@ BaseFloat SumClusterableNormalizer(const std::vector<Clusterable*> &vec) {
     if (vec[i] != NULL) {
       BaseFloat objf = vec[i]->Normalizer();
       if (KALDI_ISNAN(objf)) {
-        KALDI_WARN << "SumClusterableObjf, NaN objf\n";
+        KALDI_WARN << "SumClusterableObjf, NaN objf";
       } else {
         ans += objf;
       }
@@ -219,7 +222,7 @@ class BottomUpClusterer {
 
   void SetDistance(int32 i, int32 j);
   BaseFloat& Distance(int32 i, int32 j) {
-    assert(i < npoints_ && j < i);
+    KALDI_ASSERT(i < npoints_ && j < i);
     return dist_vec_[(i * (i - 1)) / 2 + j];
   }
 
@@ -288,13 +291,13 @@ void BottomUpClusterer::Renumber() {
   int32 clust = 0;
   for (int32 i = 0; i < npoints_; i++) {
     if ((*clusters_)[i] != NULL) {
-      assert(clust < nclusters_);
+      KALDI_ASSERT(clust < nclusters_);
       new_clusters[clust] = (*clusters_)[i];
       mapping[i] = clust;
       clust++;
     }
   }
-  assert(clust == nclusters_);
+  KALDI_ASSERT(clust == nclusters_);
 
   KALDI_VLOG(2) << "Creating new copy of assignments.";
   std::vector<int32> new_assignments(npoints_);
@@ -302,8 +305,8 @@ void BottomUpClusterer::Renumber() {
     int32 ii = i;
     while ((*assignments_)[ii] != ii)
       ii = (*assignments_)[ii];  // follow the chain.
-    assert((*clusters_)[ii] != NULL);  // cannot have assignment to nonexistent cluster.
-    assert(mapping[ii] != static_cast<uint_smaller>(-1));
+    KALDI_ASSERT((*clusters_)[ii] != NULL);  // cannot have assignment to nonexistent cluster.
+    KALDI_ASSERT(mapping[ii] != static_cast<uint_smaller>(-1));
     new_assignments[i] = mapping[ii];
   }
   clusters_->swap(new_clusters);
@@ -332,7 +335,7 @@ void BottomUpClusterer::SetInitialDistances() {
 }
 
 bool BottomUpClusterer::CanMerge(int32 i, int32 j, BaseFloat dist) {
-  assert(i != j && i < npoints_ && j < npoints_);
+  KALDI_ASSERT(i != j && i < npoints_ && j < npoints_);
   if ((*clusters_)[i] == NULL || (*clusters_)[j] == NULL)
     return false;
   BaseFloat cached_dist = dist_vec_[(i * (i - 1)) / 2 + j];
@@ -340,7 +343,7 @@ bool BottomUpClusterer::CanMerge(int32 i, int32 j, BaseFloat dist) {
 }
 
 void BottomUpClusterer::MergeClusters(int32 i, int32 j) {
-  assert(i != j && i < npoints_ && j < npoints_);
+  KALDI_ASSERT(i != j && i < npoints_ && j < npoints_);
   (*clusters_)[i]->Add(*((*clusters_)[j]));
   delete (*clusters_)[j];
   (*clusters_)[j] = NULL;
@@ -384,7 +387,7 @@ void BottomUpClusterer::ReconstructQueue() {
 }
 
 void BottomUpClusterer::SetDistance(int32 i, int32 j) {
-  assert(i < npoints_ && j < i && (*clusters_)[i] != NULL
+  KALDI_ASSERT(i < npoints_ && j < i && (*clusters_)[i] != NULL
          && (*clusters_)[j] != NULL);
   BaseFloat dist = (*clusters_)[i]->Distance(*((*clusters_)[j]));
   dist_vec_[(i * (i - 1)) / 2 + j] = dist;  // set the distance in the array.
@@ -416,7 +419,7 @@ BaseFloat ClusterBottomUp(const std::vector<Clusterable*> &points,
   KALDI_VLOG(2) << "Initializing clustering object.";
   BottomUpClusterer bc(points, max_merge_thresh, min_clust, clusters_out, assignments_out);
   BaseFloat ans = bc.Cluster();
-  if (clusters_out) assert(!ContainsNullPointers(*clusters_out));
+  if (clusters_out) KALDI_ASSERT(!ContainsNullPointers(*clusters_out));
   return ans;
 }
 
@@ -694,14 +697,14 @@ class RefineClusterer {
                   RefineClustersOptions cfg)
       : points_(points), clusters_(clusters), assignments_(assignments),
         cfg_(cfg) {
-    assert(cfg_.top_n >= 2);
+    KALDI_ASSERT(cfg_.top_n >= 2);
     num_points_ = points_.size();
     num_clust_ = static_cast<int32> (clusters->size());
 
     // so can fit clust-id in LocalInt
     if (cfg_.top_n > (int32) num_clust_) cfg_.top_n
         = static_cast<int32> (num_clust_);
-    assert(cfg_.top_n == static_cast<int32>(static_cast<ClustIndexInt>(cfg_.top_n)));
+    KALDI_ASSERT(cfg_.top_n == static_cast<int32>(static_cast<ClustIndexInt>(cfg_.top_n)));
     t_ = 0;
     my_clust_index_.resize(num_points_);
     // will set all PointInfo's to 0 too (they will be up-to-date).
@@ -777,7 +780,7 @@ class RefineClusterer {
       int32 cur_t = t_;
       for (int32 point = 0;point < num_points_;point++) {
         if (t_+1 == 0) {
-          KALDI_WARN << "Stopping iterating at int32 moves\n";
+          KALDI_WARN << "Stopping iterating at int32 moves";
           return;  // once we use up all time points, must return-- this
                   // should rarely happen as int32 is large.
         }
@@ -791,13 +794,13 @@ class RefineClusterer {
     t_++;
     int32 old_index = my_clust_index_[point];  // index into info
     // array corresponding to current cluster.
-    assert(new_index < cfg_.top_n  && new_index != old_index);
+    KALDI_ASSERT(new_index < cfg_.top_n  && new_index != old_index);
     point_info &old_info = GetInfo(point, old_index),
         &new_info = GetInfo(point, new_index);
     my_clust_index_[point] = new_index;  // update to new index.
 
     int32 old_clust = old_info.clust, new_clust = new_info.clust;
-    assert( (*assignments_)[point] == old_clust);
+    KALDI_ASSERT( (*assignments_)[point] == old_clust);
     (*assignments_)[point] = new_clust;
     (*clusters_)[old_clust]->Sub( *(points_[point]) );
     (*clusters_)[new_clust]->Add( *(points_[point]) );
@@ -805,19 +808,19 @@ class RefineClusterer {
     UpdateClust(new_clust);
   }
   void UpdateClust(int32 clust) {
-    assert(clust < num_clust_);
+    KALDI_ASSERT(clust < num_clust_);
     clust_objf_[clust] = (*clusters_)[clust]->Objf();
     clust_time_[clust] = t_;
   }
   void ProcessPoint(int32 point) {
     // note: calling code uses the fact
     // that it only ever increases t_ by one.
-    assert(point < num_points_);
+    KALDI_ASSERT(point < num_points_);
     // (1) Make sure own-cluster like is updated.
     int32 self_index = my_clust_index_[point];  // index <cfg_.top_n of own cluster.
     point_info &self_info = GetInfo(point, self_index);
     int32 self_clust = self_info.clust;  // cluster index of own cluster.
-    assert(self_index < cfg_.top_n);
+    KALDI_ASSERT(self_index < cfg_.top_n);
     UpdateInfo(point, self_index);
 
     float own_clust_objf = clust_objf_[self_clust];
@@ -863,7 +866,7 @@ class RefineClusterer {
   } point_info;
 
   point_info &GetInfo(int32 point, int32 idx) {
-    assert(point < num_points_ && idx < cfg_.top_n);
+    KALDI_ASSERT(point < num_points_ && idx < cfg_.top_n);
     int32 i = point*cfg_.top_n + idx;
     KALDI_PARANOID_ASSERT(i < static_cast<int32>(info_.size()));
     return info_[i];
@@ -896,11 +899,11 @@ BaseFloat RefineClusters(const std::vector<Clusterable*> &points,
 #ifndef KALDI_PARANOID // don't do this check in "paranoid" mode as we want to expose bugs.
   if (cfg.num_iters <= 0) { return 0.0; } // nothing to do.
 #endif
-  assert(clusters != NULL && assignments != NULL);
-  assert(!ContainsNullPointers(points) && !ContainsNullPointers(*clusters));
+  KALDI_ASSERT(clusters != NULL && assignments != NULL);
+  KALDI_ASSERT(!ContainsNullPointers(points) && !ContainsNullPointers(*clusters));
   RefineClusterer rc(points, clusters, assignments, cfg);
   BaseFloat ans = rc.Refine();
-  assert(!ContainsNullPointers(*clusters));
+  KALDI_ASSERT(!ContainsNullPointers(*clusters));
   return ans;
 }
 
@@ -919,23 +922,23 @@ BaseFloat ClusterKMeansOnce(const std::vector<Clusterable*> &points,
                             ClusterKMeansOptions &cfg) {
   std::vector<int32> my_assignments;
   int32 num_points = points.size();
-  assert(clusters_out != NULL);
-  assert(num_points != 0);
-  assert(num_clust <= num_points);
+  KALDI_ASSERT(clusters_out != NULL);
+  KALDI_ASSERT(num_points != 0);
+  KALDI_ASSERT(num_clust <= num_points);
 
-  assert(clusters_out->empty());  // or we wouldn't know what to do with pointers in there.
+  KALDI_ASSERT(clusters_out->empty());  // or we wouldn't know what to do with pointers in there.
   clusters_out->resize(num_clust, (Clusterable*)NULL);
   assignments_out->resize(num_points);
 
   {  // This block assigns points to clusters.
-    // This is done pseudo-randomly using rand() so that
+    // This is done pseudo-randomly using Rand() so that
     // if we call ClusterKMeans multiple times we get different answers (so we can choose
     // the best if we want).
     int32 skip;  // randomly choose a "skip" that's coprime to num_points.
     if (num_points == 1) {
       skip = 1;
     } else {
-      skip = 1 + (rand() % (num_points-1));  // a number between 1 and num_points-1.
+      skip = 1 + (Rand() % (num_points-1));  // a number between 1 and num_points-1.
       while (Gcd(skip, num_points) != 1) {  // while skip is not coprime to num_points...
         if (skip == num_points-1) skip = 0;
         skip++;  // skip is now still betweeen 1 and num_points-1.  will cycle through
@@ -961,7 +964,7 @@ BaseFloat ClusterKMeansOnce(const std::vector<Clusterable*> &points,
     ans = SumClusterableObjf(*clusters_out) - all_stats->Objf();  // improvement just from the random
     // initialization.
     if (ans < -0.01 && ans < -0.01 * fabs(all_stats->Objf())) {  // something bad happend.
-      KALDI_WARN << "ClusterKMeans: objective function after random assignment to clusters is worse than in single cluster: "<< (all_stats->Objf()) << " changed by " << ans << ".  Perhaps your stats class has the wrong properties?\n";
+      KALDI_WARN << "ClusterKMeans: objective function after random assignment to clusters is worse than in single cluster: "<< (all_stats->Objf()) << " changed by " << ans << ".  Perhaps your stats class has the wrong properties?";
     }
     delete all_stats;
   }
@@ -986,25 +989,25 @@ BaseFloat ClusterKMeans(const std::vector<Clusterable*> &points,
                         std::vector<int32> *assignments_out,
                         ClusterKMeansOptions cfg) {
   if (points.size() == 0) {
-    if (clusters_out) assert(clusters_out->empty());  // or we wouldn't know whether to free the pointers.
+    if (clusters_out) KALDI_ASSERT(clusters_out->empty());  // or we wouldn't know whether to free the pointers.
     if (assignments_out) assignments_out->clear();
     return 0.0;
   }
-  assert(cfg.num_tries>=1 && cfg.num_iters>=1);
-  if (clusters_out) assert(clusters_out->empty());  // or we wouldn't know whether to deallocate.
+  KALDI_ASSERT(cfg.num_tries>=1 && cfg.num_iters>=1);
+  if (clusters_out) KALDI_ASSERT(clusters_out->empty());  // or we wouldn't know whether to deallocate.
   if (cfg.num_tries == 1) {
     std::vector<int32> assignments;
     return ClusterKMeansOnce(points, num_clust, clusters_out, (assignments_out != NULL?assignments_out:&assignments), cfg);
   } else {  // multiple tries.
     if (clusters_out) {
-      assert(clusters_out->empty());  // we don't know the ownership of any pointers in there, otherwise.
+      KALDI_ASSERT(clusters_out->empty());  // we don't know the ownership of any pointers in there, otherwise.
     }
     BaseFloat best_ans = 0.0;
     for (int32 i = 0;i < cfg.num_tries;i++) {
       std::vector<Clusterable*> clusters_tmp;
       std::vector<int32> assignments_tmp;
       BaseFloat ans = ClusterKMeansOnce(points, num_clust, &clusters_tmp, &assignments_tmp, cfg);
-      assert(!ContainsNullPointers(clusters_tmp));
+      KALDI_ASSERT(!ContainsNullPointers(clusters_tmp));
       if (i == 0 || ans > best_ans) {
         best_ans = ans;
         if (clusters_out) {
@@ -1033,7 +1036,7 @@ class TreeClusterer {
                 TreeClusterOptions cfg):
       points_(points), max_clust_(max_clust), ans_(0.0), cfg_(cfg)
   {
-    assert(cfg_.branch_factor > 1);
+    KALDI_ASSERT(cfg_.branch_factor > 1);
     Init();
   }
   BaseFloat Cluster(std::vector<Clusterable*> *clusters_out,
@@ -1106,13 +1109,13 @@ class TreeClusterer {
     for (int32 leaf = 0; leaf < static_cast<int32>(leaf_nodes_.size()); leaf++) {
       std::vector<int32> &indices = leaf_nodes_[leaf]->leaf.point_indices;
       for (int32 i = 0; i < static_cast<int32>(indices.size()); i++) {
-        assert(static_cast<size_t>(indices[i]) < points_.size());
-        assert((*assignments_out)[indices[i]] == (int32)(-1));  // check we're not assigning twice.
+        KALDI_ASSERT(static_cast<size_t>(indices[i]) < points_.size());
+        KALDI_ASSERT((*assignments_out)[indices[i]] == (int32)(-1));  // check we're not assigning twice.
         (*assignments_out)[indices[i]] = leaf;
       }
     }
 #ifdef KALDI_PARANOID
-    for (size_t i = 0;i<assignments_out->size();i++) assert((*assignments_out)[i] != (int32)(-1));
+    for (size_t i = 0;i<assignments_out->size();i++) KALDI_ASSERT((*assignments_out)[i] != (int32)(-1));
 #endif
   }
   void CreateClustAssignmentsOutput(std::vector<int32> *clust_assignments_out) {
@@ -1120,7 +1123,7 @@ class TreeClusterer {
     for (int32 leaf = 0; leaf < static_cast<int32>(leaf_nodes_.size()); leaf++) {
       int32 parent_index;
       if (leaf_nodes_[leaf]->parent == NULL) {  // tree with only one node.
-        assert(leaf_nodes_.size() == 1&&nonleaf_nodes_.size() == 0 && leaf == 0);
+        KALDI_ASSERT(leaf_nodes_.size() == 1&&nonleaf_nodes_.size() == 0 && leaf == 0);
         parent_index = 0;
       } else {
         if (leaf_nodes_[leaf]->parent->is_leaf) parent_index = leaf_nodes_[leaf]->parent->index;
@@ -1133,7 +1136,7 @@ class TreeClusterer {
       int32 parent_index;
       if (nonleaf_nodes_[nonleaf]->parent == NULL) parent_index = index;  // top node.  make it own parent.
       else {
-        assert(! nonleaf_nodes_[nonleaf]->parent->is_leaf);  // parent is nonleaf since child is nonleaf.
+        KALDI_ASSERT(! nonleaf_nodes_[nonleaf]->parent->is_leaf);  // parent is nonleaf since child is nonleaf.
         parent_index = NonleafOutputIndex(nonleaf_nodes_[nonleaf]->parent->index);
       }
       (*clust_assignments_out)[index] = parent_index;
@@ -1152,8 +1155,8 @@ class TreeClusterer {
     }
   }
   void DoSplit(Node *node) {
-    assert(node->is_leaf && node->leaf.best_split > cfg_.thresh*0.999);  // 0.999 is to avoid potential floating-point weirdness under compiler optimizations.
-    assert(node->children.size() == 0);
+    KALDI_ASSERT(node->is_leaf && node->leaf.best_split > cfg_.thresh*0.999);  // 0.999 is to avoid potential floating-point weirdness under compiler optimizations.
+    KALDI_ASSERT(node->children.size() == 0);
     node->children.resize(cfg_.branch_factor);
     for (int32 i = 0;i < cfg_.branch_factor;i++) {
       Node *child = new Node;
@@ -1170,11 +1173,11 @@ class TreeClusterer {
       }
     }
 
-    assert(node->leaf.assignments.size() == node->leaf.points.size());
-    assert(node->leaf.point_indices.size() == node->leaf.points.size());
+    KALDI_ASSERT(node->leaf.assignments.size() == node->leaf.points.size());
+    KALDI_ASSERT(node->leaf.point_indices.size() == node->leaf.points.size());
     for (int32 i = 0; i < static_cast<int32>(node->leaf.points.size()); i++) {
       int32 child_index = node->leaf.assignments[i];
-      assert(child_index < static_cast<int32>(cfg_.branch_factor));
+      KALDI_ASSERT(child_index < static_cast<int32>(cfg_.branch_factor));
       node->children[child_index]->leaf.points.push_back(node->leaf.points[i]);
       node->children[child_index]->leaf.point_indices.push_back(node->leaf.point_indices[i]);
     }
@@ -1190,9 +1193,9 @@ class TreeClusterer {
   }
   void FindBestSplit(Node *node) {
     // takes a leaf node that has just been set up, and does ClusterKMeans with k = cfg_branch_factor.
-    assert(node->is_leaf);
+    KALDI_ASSERT(node->is_leaf);
     if (node->leaf.points.size() == 0) {
-      KALDI_WARN << "Warning: tree clustering: leaf with no data\n";
+      KALDI_WARN << "Warning: tree clustering: leaf with no data";
       node->leaf.best_split = 0; return;
     }
     if (node->leaf.points.size()<=1) { node->leaf.best_split = 0; return; }
@@ -1250,7 +1253,7 @@ BaseFloat TreeCluster(const std::vector<Clusterable*> &points,
   }
   TreeClusterer tc(points, max_clust, cfg);
   BaseFloat ans = tc.Cluster(clusters_out, assignments_out, clust_assignments_out, num_leaves_out);
-  if (clusters_out) assert(!ContainsNullPointers(*clusters_out));
+  if (clusters_out) KALDI_ASSERT(!ContainsNullPointers(*clusters_out));
   return ans;
 }
 

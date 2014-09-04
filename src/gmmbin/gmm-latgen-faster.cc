@@ -1,8 +1,12 @@
 // gmmbin/gmm-latgen-faster.cc
 
 // Copyright 2009-2012  Microsoft Corporation
-//                      Johns Hopkins University (author: Daniel Povey)
+//           2013-2014  Johns Hopkins University (author: Daniel Povey)
+//                2014  Guoguo Chen
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -24,7 +28,7 @@
 #include "hmm/transition-model.h"
 #include "fstext/fstext-lib.h"
 #include "decoder/lattice-faster-decoder.h"
-#include "decoder/decodable-am-diag-gmm.h"
+#include "gmm/decodable-am-diag-gmm.h"
 #include "util/timer.h"
 #include "feat/feature-functions.h"  // feature reversal
 
@@ -123,9 +127,10 @@ int main(int argc, char *argv[]) {
 
           double like;
           if (DecodeUtteranceLatticeFaster(
-                  decoder, gmm_decodable, word_syms, utt, acoustic_scale,
-                  determinize, allow_partial, &alignment_writer, &words_writer,
-                  &compact_lattice_writer, &lattice_writer, &like)) {
+                  decoder, gmm_decodable, trans_model, word_syms, utt,
+                  acoustic_scale, determinize, allow_partial, &alignment_writer,
+                  &words_writer, &compact_lattice_writer, &lattice_writer,
+                  &like)) {
             tot_like += like;
             frame_count += features.NumRows();
             num_done++;
@@ -156,9 +161,10 @@ int main(int argc, char *argv[]) {
                                                acoustic_scale);
         double like;
         if (DecodeUtteranceLatticeFaster(
-                decoder, gmm_decodable, word_syms, utt, acoustic_scale,
-                determinize, allow_partial, &alignment_writer, &words_writer,
-                &compact_lattice_writer, &lattice_writer, &like)) {
+                decoder, gmm_decodable, trans_model, word_syms, utt,
+                acoustic_scale, determinize, allow_partial, &alignment_writer,
+                &words_writer, &compact_lattice_writer, &lattice_writer,
+                &like)) {
           tot_like += like;
           frame_count += features.NumRows();
           num_done++;

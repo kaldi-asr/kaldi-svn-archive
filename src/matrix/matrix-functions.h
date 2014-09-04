@@ -3,6 +3,8 @@
 // Copyright 2009-2011  Microsoft Corporation;  Go Vivace Inc.;  Jan Silovsky;
 //                      Yanmin Qian;   1991 Henrique (Rico) Malvar (*)
 //
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -56,13 +58,16 @@ namespace kaldi {
    back to where you started from.  We don't do this because
    in some contexts, the transform is made symmetric by multiplying
    by sqrt(N) in both passes.   The user can do this by themselves.
+
+   See also SplitRadixComplexFft, declared in srfft.h, which is more efficient
+   but only works if the length of the input is a power of 2.
  */
-template<class Real> void ComplexFft (VectorBase<Real> *v, bool forward, Vector<Real> *tmp_work = NULL);
+template<typename Real> void ComplexFft (VectorBase<Real> *v, bool forward, Vector<Real> *tmp_work = NULL);
 
 /// ComplexFt is the same as ComplexFft but it implements the Fourier
 /// transform in an inefficient way.  It is mainly included for testing purposes.
 /// See comment for ComplexFft to describe the input and outputs and what it does.
-template<class Real> void ComplexFt (const VectorBase<Real> &in,
+template<typename Real> void ComplexFt (const VectorBase<Real> &in,
                                      VectorBase<Real> *out, bool forward);
 
 /// RealFft is a fourier transform of real inputs.  Internally it uses
@@ -74,12 +79,15 @@ template<class Real> void ComplexFt (const VectorBase<Real> &in,
 /// The interpretation of the complex-FFT data is as follows: the array
 /// is a sequence of complex numbers C_n of length N/2 with (real, im) format,
 /// i.e. [real0, real_{N/2}, real1, im1, real2, im2, real3, im3, ...].
-template<class Real> void RealFft (VectorBase<Real> *v, bool forward);
+/// See also SplitRadixRealFft, declared in srfft.h, which is more efficient
+/// but only works if the length of the input is a power of 2.
+
+template<typename Real> void RealFft (VectorBase<Real> *v, bool forward);
 
 
 /// RealFt has the same input and output format as RealFft above, but it is
 /// an inefficient implementation included for testing purposes.
-template<class Real> void RealFftInefficient (VectorBase<Real> *v, bool forward);
+template<typename Real> void RealFftInefficient (VectorBase<Real> *v, bool forward);
 
 /// ComputeDctMatrix computes a matrix corresponding to the DCT, such that
 /// M * v equals the DCT of vector v.  M must be square at input.
@@ -95,21 +103,21 @@ template<class Real> void RealFftInefficient (VectorBase<Real> *v, bool forward)
 /// because it was this way from the start and changing it would affect the
 /// feature generation.
 
-template<class Real> void ComputeDctMatrix(Matrix<Real> *M);
+template<typename Real> void ComputeDctMatrix(Matrix<Real> *M);
 
 
 /// ComplexMul implements, inline, the complex multiplication b *= a.
-template<class Real> inline void ComplexMul(const Real &a_re, const Real &a_im,
+template<typename Real> inline void ComplexMul(const Real &a_re, const Real &a_im,
                                             Real *b_re, Real *b_im);
 
 /// ComplexMul implements, inline, the complex operation c += (a * b).
-template<class Real> inline void ComplexAddProduct(const Real &a_re, const Real &a_im,
+template<typename Real> inline void ComplexAddProduct(const Real &a_re, const Real &a_im,
                                                    const Real &b_re, const Real &b_im,
                                                    Real *c_re, Real *c_im);
 
 
 /// ComplexImExp implements a <-- exp(i x), inline.
-template<class Real> inline void ComplexImExp(Real x, Real *a_re, Real *a_im);
+template<typename Real> inline void ComplexImExp(Real x, Real *a_re, Real *a_im);
 
 
 // This class allows you to compute the matrix exponential function
@@ -120,7 +128,7 @@ template<class Real> inline void ComplexImExp(Real x, Real *a_re, Real *a_im);
 // It also provides a function that allows you do back-propagate the
 // derivative of a scalar function through this calculation.
 // The
-template<class Real>
+template<typename Real>
 class MatrixExponential {
  public:
   MatrixExponential() { }
@@ -192,7 +200,7 @@ class MatrixExponential {
          method.
 */
 
-template<class Real>
+template<typename Real>
 void ComputePca(const MatrixBase<Real> &X,
                 MatrixBase<Real> *U,
                 MatrixBase<Real> *A,
@@ -203,14 +211,14 @@ void ComputePca(const MatrixBase<Real> &X,
 
 // This function does: *plus += max(0, a b^T),
 // *minus += max(0, -(a b^T)).
-template<class Real>
+template<typename Real>
 void AddOuterProductPlusMinus(Real alpha,
                               const VectorBase<Real> &a,
                               const VectorBase<Real> &b,
                               MatrixBase<Real> *plus, 
                               MatrixBase<Real> *minus);
 
-template<class Real1, class Real2>
+template<typename Real1, typename Real2>
 inline void AssertSameDim(const MatrixBase<Real1> &mat1, const MatrixBase<Real2> &mat2) {
   KALDI_ASSERT(mat1.NumRows() == mat2.NumRows()
                && mat1.NumCols() == mat2.NumCols());

@@ -3,6 +3,8 @@
 // Copyright 2009-2012   Saarland University (Author:  Arnab Ghoshal),
 //                       Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,10 +21,10 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
 #include "hmm/transition-model.h"
-#include "sgmm2/estimate-am-sgmm.h"
-
+#include "sgmm2/estimate-am-sgmm2.h"
+#include "hmm/posterior.h"
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
@@ -77,6 +79,7 @@ int main(int argc, char *argv[]) {
     RandomAccessInt32VectorVectorReader gselect_reader(gselect_rspecifier);
     RandomAccessBaseFloatVectorReaderMapped spkvecs_reader(spkvecs_rspecifier,
                                                            utt2spk_rspecifier);
+    RandomAccessTokenReader utt2spk_map(utt2spk_rspecifier);    
     
     AmSgmm2 am_sgmm;
     TransitionModel trans_model;
@@ -114,8 +117,38 @@ int main(int argc, char *argv[]) {
     kaldi::Sgmm2PerFrameDerivedVars per_frame_vars;
 
     int32 num_done = 0, num_err = 0;
+    std::string cur_spk;
+    Sgmm2PerSpkDerivedVars spk_vars;
+    
     for (; !feature_reader.Done(); feature_reader.Next()) {
       std::string utt = feature_reader.Key();
+      std::string spk = utt;
+      if (!utt2spk_rspecifier.empty()) {
+        if (!utt2spk_map.HasKey(utt)) {
+          KALDI_WARN << "utt2spk map does not have value for " << utt
+                     << ", ignoring this utterance.";
+          continue;
+        } else { spk = utt2spk_map.Value(utt); }
+      }
+      if (spk != cur_spk && cur_spk != "") {
+        num_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);
+        den_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);
+      }
+      if (spk != cur_spk || spk_vars.Empty()) {
+        spk_vars.Clear();
+        if (spkvecs_reader.IsOpen()) {
+          if (spkvecs_reader.HasKey(utt)) {
+            spk_vars.SetSpeakerVector(spkvecs_reader.Value(utt));
+            am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
+          } else {
+            KALDI_WARN << "Cannot find speaker vector for " << utt;
+            num_err++;
+            continue;
+          }
+        } // else spk_vars is "empty"
+      }
+      cur_spk = spk;
+      
       const Matrix<BaseFloat> &features = feature_reader.Value();
       if (!posteriors_reader.HasKey(utt) ||
           posteriors_reader.Value(utt).size() != features.NumRows()) {
@@ -124,6 +157,7 @@ int main(int argc, char *argv[]) {
         num_err++;
         continue;
       }
+      
       const Posterior &posterior = posteriors_reader.Value(utt);
       if (!gselect_reader.HasKey(utt)
           && gselect_reader.Value(utt).size() != features.NumRows()) {
@@ -134,23 +168,13 @@ int main(int argc, char *argv[]) {
       const std::vector<std::vector<int32> > &gselect =
           gselect_reader.Value(utt);
 
-      Sgmm2PerSpkDerivedVars spk_vars;
-      if (spkvecs_reader.IsOpen()) {
-        if (spkvecs_reader.HasKey(utt)) {
-          spk_vars.SetSpeakerVector(spkvecs_reader.Value(utt));
-          am_sgmm.ComputePerSpkDerivedVars(&spk_vars);
-        } else {
-          KALDI_WARN << "Cannot find speaker vector for " << utt;
-          num_err++;
-          continue;
-        }
-      } // else spk_vars is "empty"
-
       num_done++;
       BaseFloat tot_like_this_file = 0.0, tot_weight_this_file = 0.0,
           tot_abs_weight_this_file = 0.0;
         
       for (size_t i = 0; i < posterior.size(); i++) {
+        if (posterior[i].empty())
+          continue;
         am_sgmm.ComputePerFrameVars(features.Row(i), gselect[i], spk_vars,
                                     &per_frame_vars);
         
@@ -172,8 +196,10 @@ int main(int argc, char *argv[]) {
           tot_abs_weight_this_file += abs_weight;
         }
       }
-      num_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);  // no harm doing it per utterance.
+      // Commit stats for the last speaker.
+      num_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);
       den_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);
+      
         
       tot_like += tot_like_this_file;
       tot_weight += tot_weight_this_file;
@@ -182,6 +208,10 @@ int main(int argc, char *argv[]) {
       if (num_done % 50 == 0)
         KALDI_LOG << "Processed " << num_done << " utterances.";
     }
+    // Commit stats for last speaker.
+    num_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);
+    den_sgmm_accs.CommitStatsForSpk(am_sgmm, spk_vars);
+    
     KALDI_LOG << "Overall weighted acoustic likelihood per frame was "
               << (tot_like/tot_frames) << " over " << tot_frames << " frames; "
               << "average weight per frame is " << (tot_weight/tot_frames)
@@ -208,5 +238,3 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 }
-
-

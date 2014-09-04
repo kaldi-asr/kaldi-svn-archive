@@ -5,6 +5,8 @@
 //   Modifications to the original contribution by Cisco Systems made by:
 //   Vassil Panayotov
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -46,14 +48,13 @@ OnlineFasterDecoder::MakeLattice(const Token *start,
   out_fst->DeleteStates();
   if (start == NULL) return;
   bool is_final = false;
-  Weight this_weight = Times(start->weight_,
-                             fst_.Final(start->arc_.nextstate));
-  if (this_weight != Weight::Zero())
+  double this_cost = start->cost_ + fst_.Final(start->arc_.nextstate).Value();
+  if (this_cost != std::numeric_limits<double>::infinity())
     is_final = true;
   std::vector<LatticeArc> arcs_reverse;  // arcs in reverse order.
   for (const Token *tok = start; tok != end; tok = tok->prev_) {
-    BaseFloat tot_cost = tok->weight_.Value() -
-        (tok->prev_ ? tok->prev_->weight_.Value() : 0.0),
+    BaseFloat tot_cost = tok->cost_ -
+        (tok->prev_ ? tok->prev_->cost_ : 0.0),
         graph_cost = tok->arc_.weight.Value(),
         ac_cost = tot_cost - graph_cost;
     LatticeArc l_arc(tok->arc_.ilabel,
@@ -84,8 +85,8 @@ OnlineFasterDecoder::MakeLattice(const Token *start,
 
 
 void OnlineFasterDecoder::UpdateImmortalToken() {
-  unordered_set<Token*> emitting;
-  for (Elem *e = toks_.GetList(); e != NULL; e = e->tail) {
+  std::tr1::unordered_set<Token*> emitting;
+  for (const Elem *e = toks_.GetList(); e != NULL; e = e->tail) {
     Token* tok = e->val;
     while (tok->arc_.ilabel == 0) //deal with non-emitting ones ...
       tok = tok->prev_;
@@ -100,8 +101,8 @@ void OnlineFasterDecoder::UpdateImmortalToken() {
     }
     if (emitting.size() == 0)
       break;
-    unordered_set<Token*> prev_emitting;
-    unordered_set<Token*>::iterator it;
+    std::tr1::unordered_set<Token*> prev_emitting;
+    std::tr1::unordered_set<Token*>::iterator it;
     for (it = emitting.begin(); it != emitting.end(); ++it) {
       Token* tok = *it;
       Token* prev_token = tok->prev_;
@@ -136,16 +137,16 @@ OnlineFasterDecoder::FinishTraceBack(fst::MutableFst<LatticeArc> *out_fst) {
   Token *best_tok = NULL;
   bool is_final = ReachedFinal();
   if (!is_final) {
-    for (Elem *e = toks_.GetList(); e != NULL; e = e->tail)
+    for (const Elem *e = toks_.GetList(); e != NULL; e = e->tail)
       if (best_tok == NULL || *best_tok < *(e->val) )
         best_tok = e->val;
   } else {
-    Weight best_weight = Weight::Zero();
-    for (Elem *e = toks_.GetList(); e != NULL; e = e->tail) {
-      Weight this_weight = Times(e->val->weight_, fst_.Final(e->key));
-      if (this_weight != Weight::Zero() &&
-          this_weight.Value() < best_weight.Value()) {
-        best_weight = this_weight;
+    double best_cost = std::numeric_limits<double>::infinity();
+    for (const Elem *e = toks_.GetList(); e != NULL; e = e->tail) {
+      double this_cost = e->val->cost_ + fst_.Final(e->key).Value();
+      if (this_cost != std::numeric_limits<double>::infinity() &&
+          this_cost < best_cost) {
+        best_cost = this_cost;
         best_tok = e->val;
       }
     }
@@ -158,7 +159,7 @@ void
 OnlineFasterDecoder::TracebackNFrames(int32 nframes,
                                       fst::MutableFst<LatticeArc> *out_fst) {
   Token *best_tok = NULL;
-  for (Elem *e = toks_.GetList(); e != NULL; e = e->tail)
+  for (const Elem *e = toks_.GetList(); e != NULL; e = e->tail)
     if (best_tok == NULL || *best_tok < *(e->val) )
       best_tok = e->val;
   if (best_tok == NULL) {
@@ -167,16 +168,17 @@ OnlineFasterDecoder::TracebackNFrames(int32 nframes,
   }
 
   bool is_final = false;
-  Weight this_weight = Times(best_tok->weight_,
-                             fst_.Final(best_tok->arc_.nextstate));
-  if (this_weight != Weight::Zero())
+  double this_cost = best_tok->cost_ +
+      fst_.Final(best_tok->arc_.nextstate).Value();
+                             
+  if (this_cost != std::numeric_limits<double>::infinity())
     is_final = true;
   std::vector<LatticeArc> arcs_reverse;  // arcs in reverse order.
   for (Token *tok = best_tok; (tok != NULL) && (nframes > 0); tok = tok->prev_) {
     if (tok->arc_.ilabel != 0) // count only the non-epsilon arcs
       --nframes;
-    BaseFloat tot_cost = tok->weight_.Value() -
-                             (tok->prev_ ? tok->prev_->weight_.Value() : 0.0);
+    BaseFloat tot_cost = tok->cost_ -
+        (tok->prev_ ? tok->prev_->cost_ : 0.0);
     BaseFloat graph_cost = tok->arc_.weight.Value();
     BaseFloat ac_cost = tot_cost - graph_cost;
     LatticeArc larc(tok->arc_.ilabel,
@@ -258,7 +260,7 @@ OnlineFasterDecoder::Decode(DecodableInterface *decodable) {
           << "; Speed: "
           << ((timer.Elapsed() - tstart_batch) * 1000) / (batch_frame*10)
           << " xRT";
-    BaseFloat weight_cutoff = ProcessEmitting(decodable, frame_);
+    BaseFloat weight_cutoff = ProcessEmitting(decodable);
     ProcessNonemitting(weight_cutoff);
   }
   if (batch_frame == opts_.batch_size && !decodable->IsLastFrame(frame_ - 1)) {

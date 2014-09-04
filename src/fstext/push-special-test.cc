@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,6 +21,7 @@
 #include "fstext/push-special.h"
 #include "fstext/rand-fst.h"
 #include "fstext/fstext-utils.h"
+#include "base/kaldi-math.h"
 
 namespace fst
 {
@@ -62,7 +65,7 @@ static void TestPushSpecial() {
   KALDI_ASSERT(std::abs(min.Value() - max.Value()) <=  1.2 * delta);
   
   KALDI_ASSERT(RandEquivalent(*fst, fst_copy,
-                              5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+                              5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
   delete fst;
 }
 

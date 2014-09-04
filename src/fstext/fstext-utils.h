@@ -1,8 +1,11 @@
 // fstext/fstext-utils.h
 
 // Copyright 2009-2011  Microsoft Corporation
-// Copyright 2012-2013  Johns Hopkins University (Author: Guoguo Chen)
+// Copyright 2012-2013  Johns Hopkins University (Authors: Guoguo Chen, Daniel Povey)
+//                2014  Telepoint Global Hosting Service, LLC. (Author: David Snyder)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -25,6 +28,7 @@
 #include <fst/fstlib.h>
 #include <fst/fst-decl.h>
 #include "fstext/determinize-star.h"
+#include "fstext/deterministic-fst.h"
 #include "fstext/remove-eps-local.h"
 #include "../base/kaldi-common.h" // for error reporting macros.
 #include "../util/text-utils.h" // for SplitStringToVector
@@ -47,7 +51,8 @@ template<class Arc>
 typename Arc::StateId NumArcs(const ExpandedFst<Arc> &fst);
 
 /// GetInputSymbols gets the list of symbols on the input of fst
-/// (including epsilon, if include_eps == true)
+/// (including epsilon, if include_eps == true), as a sorted, unique
+/// list.
 template<class Arc, class I>
 void GetInputSymbols(const Fst<Arc> &fst,
                      bool include_eps,
@@ -153,6 +158,16 @@ bool GetLinearSymbolSequences(const Fst<Arc> &fst,
                               vector<typename Arc::Weight> *tot_weight_out);
 
 
+/// This function converts an FST with a special structure, which is
+/// output by the OpenFst functions ShortestPath and RandGen, and converts
+/// them into a vector of separate FSTs.  This special structure is that
+/// the only state that has more than one (arcs-out or final-prob) is the
+/// start state.  fsts_out is resized to the appropriate size.
+template<class Arc>
+void ConvertNbestToVector(const Fst<Arc> &fst,
+                          vector<VectorFst<Arc> > *fsts_out);
+  
+
 /// Takes the n-shortest-paths (using ShortestPath), but outputs
 /// the result as a vector of up to n fsts.  This function will
 /// size the "fsts_out" vector to however many paths it got
@@ -161,6 +176,8 @@ template<class Arc>
 void NbestAsFsts(const Fst<Arc> &fst,
                  size_t n,
                  vector<VectorFst<Arc> > *fsts_out);
+
+
 
 
 /// Creates unweighted linear acceptor from symbol sequence.
@@ -561,6 +578,14 @@ void PhiCompose(const Fst<Arc> &fst1,
                 typename Arc::Label phi_label,
                 MutableFst<Arc> *fst);
 
+// Compose a left hand FST or lattice with a right hand
+// DeterministicOnDemandFst and store the result in fst_composed.
+// This is mainly used for expanding lattice n-gram histories, where
+// fst1 is a lattice and fst2 is an UnweightedNgramFst.
+template<class Arc>
+void ComposeDeterministicOnDemand(const Fst<Arc> &fst1,
+                                  DeterministicOnDemandFst<Arc> *fst2,
+                                  MutableFst<Arc> *fst_composed);
 
 // PropagateFinal propagates final-probs through
 // "phi" transitions (note that here, phi_label may

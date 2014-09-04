@@ -2,7 +2,10 @@
 
 
 // Copyright 2009-2011 Microsoft Corporation
+//                2013 Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -20,7 +23,9 @@
 namespace kaldi {
 /** \page io Kaldi I/O mechanisms
 
-  This page gives an overview of input-output mechanisms in Kaldi.
+ This page gives an overview of input-output mechanisms in Kaldi.
+ This section of the documentation is oriented towards the code-level mechanisms
+ for I/O; for documentation more oriented towards the command-line, see \ref io_tut.
 
  \section io_sec_style The input/output style of Kaldi classes
 
@@ -227,15 +232,16 @@ namespace kaldi {
        by speaker id.
 
   We will deal with these types of tables in more detail on the page
-  \ref table_examples; here we just explain the general principles and the
+  \subpage table_examples; here we just explain the general principles and the
   internal mechanisms.  
   A Table can exist on disk (or indeed, in a pipe) in two possible formats: a script
   file, or an archive (see below, \ref io_sec_scp and \ref io_sec_archive).
   For a list of classes and types that relate to Tables, see \ref table_group.
 
   A Table can be accessed in three ways: using a TableWriter, a
-   SequentialTableReader, and a RandomAccessTableReader.  The names are
-  self-explanatory.  These are all templates; they are templated not on the
+   SequentialTableReader, and a RandomAccessTableReader (there is also
+  RandomAccessTableReaderMapped, which is a special case we will introduce later).  
+  These are all templates; they are templated not on the
   object in the table, but on a Holder type (see below, \ref io_sec_holders) that
   tells the Table code how to read and write that type of object.  To open
   a Table type, you must provide a string called a wspecifier or rspecifier (see below, \ref
@@ -383,6 +389,9 @@ namespace kaldi {
      - "f" (flush) means flush the stream after each write operation.
      - "nf" (no-flush) means don't flush the stream after each write operation (would currently
         be pointless, but calling code can change the default).
+     - "p" means permissive mode, which affects "scp:" wspecifiers where the scp
+        file is missing some entries: the "p" option will cause it to silently
+        not write anything for these files, and report no error.
 
     Examples of wspecifiers using a lot of options are
     \verbatim
@@ -563,6 +572,23 @@ namespace kaldi {
     objects because it knows that no key before 081 will be asked for again (thanks to the "cs" option).  
     If there is a gap in the second archive, it can use the fact that the second archive is sorted
     to avoid searching till the end of the file (this is the job of the "s" option).
+
+ \subsection io_sec_mapped
+
+  In order to condense a particular code pattern that was recurring in many programs, we have introduced the template type 
+ RandomAccessTableReaderMapped.  Unlike RandomAccessTableReader, this takes two initializer arguments, for instance:
+\verbatim
+   std::string rspecifier, utt2spk_map_rspecifier; // get these from somewhere.
+   RandomAccessTableReaderMapped<BaseFloatMatrixHolder> transform_reader(rspecifier,
+                                                                         utt2spk_map_rspecifier);
+\endverbatim
+  If utt2spk_map_rspecifier is the empty string, this will behave just like a
+  regular RandomAccessTableReader.  If it is nonempty, e.g. ark:data/train/utt2spk,
+  it will read an utterance-to-speaker map from that location and whenever a particular
+  string e.g. utt1 is queried, it will use that map to convert the utterance-id
+  to a speaker-id (e.g. spk1) and use that as the key to query the table being
+  read from rspecifier.  The utterance-to-speaker map is also an archive
+  because it happens that the Table code is the easiest way to read in such maps.
 
 
 */

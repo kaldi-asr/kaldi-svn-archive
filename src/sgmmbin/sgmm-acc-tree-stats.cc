@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -160,7 +162,7 @@ int main(int argc, char *argv[]) {
     for (std::map<EventType, SgmmClusterable*>::const_iterator iter = tree_stats.begin();  
         iter != tree_stats.end();
         iter++ ) {
-      stats.push_back(std::make_pair<EventType, Clusterable*>(iter->first, iter->second));
+      stats.push_back(std::make_pair(iter->first, static_cast<Clusterable*>(iter->second)));
     }
     tree_stats.clear();
 

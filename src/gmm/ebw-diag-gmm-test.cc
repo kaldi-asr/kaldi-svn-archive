@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Petr Motlicek
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -119,7 +121,7 @@ void UnitTestEstimateMmieDiagGmm() {
   EbwOptions ebw_opts;
   EbwWeightOptions ebw_weight_opts;
 
-  int r = rand() % 16;
+  int r = Rand() % 16;
   GmmFlagsType flags = (r%2 == 0 ? kGmmMeans : 0)
       + ((r/2)%2 == 0 ? kGmmVariances : 0)
       + ((r/4)%2 == 0 ? kGmmWeights : 0);
@@ -209,6 +211,8 @@ void UnitTestEstimateMmieDiagGmm() {
     iteration++;
   }
   delete gmm;
+  
+  unlink("tmpfeats");
 }
 
 }  // end namespace kaldi

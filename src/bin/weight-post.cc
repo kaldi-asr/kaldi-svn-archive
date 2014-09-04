@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Chao Weng  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -18,6 +20,7 @@
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
@@ -43,9 +46,9 @@ int main(int argc, char *argv[]) {
         weights_rspecifier = po.GetArg(2),
         post_wspecifier = po.GetArg(3);
 
-    kaldi::SequentialPosteriorReader posterior_reader(post_rspecifier);
-    kaldi::RandomAccessBaseFloatVectorReader weights_reader(weights_rspecifier);
-    kaldi::PosteriorWriter post_writer(post_wspecifier); 
+    SequentialPosteriorReader posterior_reader(post_rspecifier);
+    RandomAccessBaseFloatVectorReader weights_reader(weights_rspecifier);
+    PosteriorWriter post_writer(post_wspecifier); 
     
     int32 num_done = 0, num_err = 0;
     

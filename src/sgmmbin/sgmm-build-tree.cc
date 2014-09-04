@@ -2,6 +2,8 @@
 
 // Copyright 2009-2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -105,7 +107,7 @@ int main(int argc, char *argv[]) {
       Input ki(stats_filename, &binary_in);
       ReadBuildTreeStats(ki.Stream(), binary_in, sc, &stats);
     }
-    KALDI_LOG << "Number of separate statistics is " << stats.size() << '\n';
+    KALDI_LOG << "Number of separate statistics is " << stats.size();
 
     Questions qo;
     {
@@ -189,7 +191,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    KALDI_LOG << "Wrote tree\n";
+    KALDI_LOG << "Wrote tree";
 
     DeleteBuildTreeStats(&stats);
   } catch(const std::exception &e) {

@@ -2,6 +2,8 @@
 
 // Copyright 2012 BUT, Mirko Hannemann
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -27,7 +29,7 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Reverse features in time (for backwards decoding)\n"
-        "Usage: reverse-features [options] in-rspecifier out-wspecifier\n";
+        "Usage: reverse-feats [options] in-rspecifier out-wspecifier\n";
     ParseOptions po(usage);
 
     po.Read(argc, argv);

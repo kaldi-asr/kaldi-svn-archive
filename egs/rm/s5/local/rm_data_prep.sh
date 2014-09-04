@@ -34,7 +34,7 @@ if [ ! -d $RMROOT/rm1_audio1 -o ! -d $RMROOT/rm1_audio2 ]; then
 fi  
 
 if [ ! -d $RMROOT/rm2_audio ]; then
-   echo "**Warning: $RMROOT/rm2_audio does not exist; won't create spk2gender.map file correctly***"
+   echo "**Warning: $RMROOT/rm2_audio does not exist; won't create spk2gender file correctly***"
    sleep 1
 fi  
 
@@ -49,13 +49,13 @@ mkdir -p $dir
 
 # make_trans.pl also creates the utterance id's and the kaldi-format scp file.
 local/make_trans.pl trn $tmpdir/train_sph.flist $RMROOT/rm1_audio1/rm1/doc/al_sents.snr >(sort -k1 >$dir/text) \
- >(sort -k1 > $dir/sph.scp)
+  >(sort -k1 >$dir/sph.scp)
 
 
 sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
 [ ! -f $sph2pipe ] && echo "Could not find the sph2pipe program at $sph2pipe" && exit 1;
 
-awk '{printf("%s '$sph2pipe' -f wav %s |\n", $1, $2);}' < $dir/sph.scp > $dir/wav.scp
+awk '{printf("%s '$sph2pipe' -f wav %s |\n", $1, $2);}' <$dir/sph.scp > $dir/wav.scp
 rm $dir/sph.scp
 
 cat $dir/wav.scp | perl -ane 'm/^((\w+)\w_\w+_\w+) / || die; print "$1 $2\n"' > $dir/utt2spk
@@ -66,7 +66,7 @@ for ntest in 1_mar87 2_oct87 4_feb89 5_oct89 6_feb91 7_sep92; do
   n=`echo $ntest | cut -d_ -f 1` # e.g. n = 1, 2, 4, 5..
   test=`echo $ntest | cut -d_ -f 2` # e.g. test=mar87, oct87...
   dir=data/test_${test}
-  mkdir $dir
+  mkdir -p $dir
   root=$RMROOT/rm1_audio2/2_4_2
   for x in `grep -v ';' $root/rm1/doc/tests/$ntest/${n}_indtst.ndx`; do
     echo "$root/$x ";
@@ -74,8 +74,9 @@ for ntest in 1_mar87 2_oct87 4_feb89 5_oct89 6_feb91 7_sep92; do
 
   local/make_trans.pl ${test} $dir/sph.flist $RMROOT/rm1_audio1/rm1/doc/al_sents.snr \
      >(sort -k1 >$dir/text) >(sort -k1 >$dir/sph.scp)
-
-  awk '{printf("%s '$sph2pipe' -f wav %s |\n", $1, $2);}' < $dir/sph.scp >$dir/wav.scp
+  sleep 0.25 # At one point I had the next line failing because $dir/sph.scp appeared not
+             # to exist.  Adding this sleep statement appeared to fix the problem.
+  awk '{printf("%s '$sph2pipe' -f wav %s |\n", $1, $2);}' <$dir/sph.scp >$dir/wav.scp
   rm $dir/sph.flist $dir/sph.scp
 
   cat $dir/wav.scp | perl -ane 'm/^((\w+)\w_\w+_\w+) / || die; print "$1 $2\n"' > $dir/utt2spk
@@ -85,15 +86,15 @@ done
 cat $RMROOT/rm1_audio2/2_5_1/rm1/doc/al_spkrs.txt \
     $RMROOT/rm2_audio/3-1.2/rm2/doc/al_spkrs.txt | \
     perl -ane 'tr/A-Z/a-z/;print;' | grep -v ';' | \
-    awk '{print $1, $2}' | sort | uniq > $tmpdir/spk2gender.map || exit 1;
+    awk '{print $1, $2}' | sort | uniq > $tmpdir/spk2gender || exit 1;
 
 for t in train test_mar87 test_oct87 test_feb89 test_oct89 test_feb91 test_sep92; do
-  utils/filter_scp.pl data/$t/spk2utt $tmpdir/spk2gender.map >data/$t/spk2gender.map
+  utils/filter_scp.pl data/$t/spk2utt $tmpdir/spk2gender >data/$t/spk2gender
 done
 
 local/make_rm_lm.pl $RMROOT/rm1_audio1/rm1/doc/wp_gram.txt  > $tmpdir/G.txt || exit 1;
 
-mkdir data/local/dict
+mkdir -p data/local/dict
 
 # Getting lexicon
 local/make_rm_dict.pl  $RMROOT/rm1_audio2/2_4_2/score/src/rdev/pcdsril.txt \

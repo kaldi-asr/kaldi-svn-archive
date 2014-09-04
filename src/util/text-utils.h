@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Saarland University;  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -60,9 +62,11 @@ void JoinVectorToString(const std::vector<std::string> &vec_in,
 template<class I>
 bool SplitStringToIntegers(const std::string &full,
                            const char *delim,
-                           bool omit_empty_strings,  // typically false [but true if "delim" is spaces].
+                           bool omit_empty_strings,  // typically false [but
+                                                     // should probably be true
+                                                     // if "delim" is spaces].
                            std::vector<I> *out) {
-  assert(out != NULL);
+  KALDI_ASSERT(out != NULL);
   KALDI_ASSERT_IS_INTEGER_TYPE(I);
   if ( *(full.c_str()) == '\0') {
     out->clear();

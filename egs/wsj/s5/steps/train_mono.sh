@@ -19,7 +19,8 @@ realign_iters="1 2 3 4 5 6 7 8 9 10 12 14 16 18 20 23 26 29 32 35 38";
 config= # name of config file.
 stage=-4
 power=0.25 # exponent to determine number of gaussians from occurrence counts
-feat_dim=39
+norm_vars=false # deprecated, prefer --cmvn-opts "--norm-vars=false"
+cmvn_opts=  # can be used to add extra options to cmvn.
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -33,7 +34,6 @@ if [ $# != 3 ]; then
   echo "main options (for others, see top of script file)"
   echo "  --config <config-file>                           # config containing options"
   echo "  --nj <nj>                                        # number of parallel jobs"
-  echo "  --feat_dim <dim>                                 # dimension of feature vector (39)"
   echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
   exit 1;
 fi
@@ -50,8 +50,11 @@ sdata=$data/split$nj;
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
 
-feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |"
-example_feats="`echo '$feats' | sed s/JOB/1/g`";
+$norm_vars && cmvn_opts="--norm-vars=true $cmvn_opts"
+echo $cmvn_opts  > $dir/cmvn_opts # keep track of options to CMVN.
+
+feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |"
+example_feats="`echo $feats | sed s/JOB/1/g`";
 
 echo "$0: Initializing monophone system."
 
@@ -60,6 +63,8 @@ shared_phones_opt="--shared-phones=$lang/phones/sets.int"
 
 if [ $stage -le -3 ]; then
 # Note: JOB=1 just uses the 1st part of the features-- we only need a subset anyway.
+  feat_dim=`feat-to-dim "$example_feats" - 2>/dev/null`
+  [ -z "$feat_dim" ] && echo "error getting feature dimension" && exit 1;
   $cmd JOB=1 $dir/log/init.log \
     gmm-init-mono $shared_phones_opt "--train-feats=$feats subset-feats --n=10 ark:- ark:-|" $lang/topo $feat_dim \
     $dir/0.mdl $dir/tree || exit 1;

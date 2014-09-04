@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -61,7 +63,7 @@ int main(int argc, char *argv[]) {
         "structure.  The program is called linear-to-nbest because very often\n"
         "the archives concerned will represent N-best lists\n"
         "Usage:  linear-to-nbest [options] <alignments-rspecifier> "
-        "<transcriptions-rspecifier> [<lm-cost-rspecifier>|''] [<ac-cost-rspecifier>|''] "
+        "<transcriptions-rspecifier> (<lm-cost-rspecifier>|'') (<ac-cost-rspecifier>|'') "
         "<nbest-wspecifier>\n"
         "Note: if the rspecifiers for lm-cost or ac-cost are the empty string,\n"
         "these value will default to zero.\n"

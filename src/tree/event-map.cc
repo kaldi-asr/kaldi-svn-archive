@@ -1,7 +1,10 @@
 // tree/event-map.cc
 
 // Copyright 2009-2011  Microsoft Corporation
+//                2013  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -65,6 +68,56 @@ ConstantEventMap* ConstantEventMap::Read(std::istream &is, bool binary) {
   return new ConstantEventMap(answer);
 }
 
+EventMap* TableEventMap::Prune() const {
+  std::vector<EventMap*> table;
+  table.reserve(table_.size());
+  EventValueType size = table_.size();
+  for (EventKeyType value = 0; value < size; value++) {
+    if (table_[value] != NULL) {
+      EventMap *pruned_map = table_[value]->Prune();
+      if (pruned_map != NULL) {
+        table.resize(value + 1, NULL);
+        table[value] = pruned_map;
+      }
+    }
+  }
+  if (table.empty()) return NULL;
+  else return new TableEventMap(key_, table);
+}
+
+EventMap* TableEventMap::MapValues(
+    const unordered_set<EventKeyType> &keys_to_map,
+    const unordered_map<EventValueType,EventValueType> &value_map) const {
+  std::vector<EventMap*> table;
+  table.reserve(table_.size());
+  EventValueType size = table_.size();
+  for (EventValueType value = 0; value < size; value++) {
+    if (table_[value] != NULL) {
+      EventMap *this_map = table_[value]->MapValues(keys_to_map, value_map);
+      EventValueType mapped_value;
+
+      if (keys_to_map.count(key_) == 0) mapped_value = value;
+      else {
+        unordered_map<EventValueType,EventValueType>::const_iterator
+            iter = value_map.find(value);
+        if (iter == value_map.end()) {
+          KALDI_ERR << "Could not map value " << value
+                    << " for key " << key_;
+        }
+        mapped_value = iter->second;
+      }
+      KALDI_ASSERT(mapped_value >= 0);
+      if (static_cast<EventValueType>(table.size()) <= mapped_value)
+        table.resize(mapped_value + 1, NULL);
+      if (table[mapped_value] != NULL)
+        KALDI_ERR << "Multiple values map to the same point: this code cannot "
+                  << "handle this case.";
+      table[mapped_value] = this_map;
+    }
+  }
+  return new TableEventMap(key_, table);
+}
+
 
 void TableEventMap::Write(std::ostream &os, bool binary) {
   WriteToken(os, binary, "TE");
@@ -100,12 +153,48 @@ TableEventMap* TableEventMap::Read(std::istream &is, bool binary) {
   return new TableEventMap(key, table);
 }
 
+EventMap* SplitEventMap::Prune() const {
+  EventMap *yes = yes_->Prune(),
+      *no = no_->Prune();
+  if (yes == NULL && no == NULL) return NULL;
+  else if (yes == NULL) return no;
+  else if (no == NULL) return yes;
+  else return new SplitEventMap(key_, yes_set_, yes, no);
+}
+
+EventMap* SplitEventMap::MapValues(
+    const unordered_set<EventKeyType> &keys_to_map,
+    const unordered_map<EventValueType,EventValueType> &value_map) const {
+  EventMap *yes = yes_->MapValues(keys_to_map, value_map),
+      *no = no_->MapValues(keys_to_map, value_map);
+
+  if (keys_to_map.count(key_) == 0) {
+    return new SplitEventMap(key_, yes_set_, yes, no);
+  } else {
+    std::vector<EventValueType> yes_set;
+    for (ConstIntegerSet<EventValueType>::iterator iter = yes_set_.begin();
+         iter != yes_set_.end();
+         ++iter) {
+      EventValueType value = *iter;
+      unordered_map<EventValueType, EventValueType>::const_iterator
+          map_iter = value_map.find(value);
+      if (map_iter == value_map.end())
+        KALDI_ERR << "Value " << value << ", for key "
+                  << key_ << ", cannot be mapped.";
+      EventValueType mapped_value = map_iter->second;
+      yes_set.push_back(mapped_value);
+    }
+    SortAndUniq(&yes_set);
+    return new SplitEventMap(key_, yes_set, yes, no);
+  }  
+}
+
 void SplitEventMap::Write(std::ostream &os, bool binary) {
   WriteToken(os, binary, "SE");
   WriteBasicType(os, binary, key_);
   // WriteIntegerVector(os, binary, yes_set_);
   yes_set_.Write(os, binary);
-  assert(yes_ != NULL && no_ != NULL);
+  KALDI_ASSERT(yes_ != NULL && no_ != NULL);
   WriteToken(os, binary, "{");
   yes_->Write(os, binary);
   no_->Write(os, binary);
@@ -148,7 +237,7 @@ void WriteEventType(std::ostream &os, bool binary, const EventType &evec) {
 }
 
 void ReadEventType(std::istream &is, bool binary, EventType *evec) {
-  assert(evec != NULL);
+  KALDI_ASSERT(evec != NULL);
   ExpectToken(is, binary, "EV");
   uint32 size;
   ReadBasicType(is, binary, &size);
@@ -179,7 +268,7 @@ size_t EventMapVectorHash::operator ()(const EventType &vec) {
   for (; iter != end; ++iter) {
 #ifdef KALDI_PARANOID // Check names are distinct and increasing.
     EventType::const_iterator iter2=iter; iter2++;
-    if (iter2 != end) { assert(iter->first < iter2->first); }
+    if (iter2 != end) { KALDI_ASSERT(iter->first < iter2->first); }
 #endif
     ans += iter->first + kPrime1*iter->second;
     ans *= kPrime2;
@@ -193,7 +282,7 @@ void EventMap::Check(const std::vector<std::pair<EventKeyType, EventValueType> >
   // will crash if not sorted or has duplicates
   size_t sz = event.size();
   for (size_t i = 0;i+1 < sz;i++)
-    assert(event[i].first < event[i+1].first);
+    KALDI_ASSERT(event[i].first < event[i+1].first);
 }
 
 
@@ -241,7 +330,7 @@ TableEventMap::TableEventMap(EventKeyType key, const std::map<EventValueType, Ev
     table_.resize(highest_val+1, NULL);
     std::map<EventValueType, EventMap*>::const_iterator iter = map_in.begin(), end = map_in.end();
     for (; iter != end; ++iter) {
-      assert(iter->first >= 0 && iter->first <= highest_val);
+      KALDI_ASSERT(iter->first >= 0 && iter->first <= highest_val);
       table_[iter->first] = iter->second;
     }
   }
@@ -255,7 +344,7 @@ TableEventMap::TableEventMap(EventKeyType key, const std::map<EventValueType, Ev
     table_.resize(highest_val+1, NULL);
     std::map<EventValueType, EventAnswerType>::const_iterator iter = map_in.begin(), end = map_in.end();
     for (; iter != end; ++iter) {
-      assert(iter->first >= 0 && iter->first <= highest_val);
+      KALDI_ASSERT(iter->first >= 0 && iter->first <= highest_val);
       table_[iter->first] = new ConstantEventMap(iter->second);
     }
   }

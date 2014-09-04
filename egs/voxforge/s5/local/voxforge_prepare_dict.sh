@@ -11,7 +11,7 @@ echo "=== Preparing the dictionary ..."
 if [ ! -f $locdict/cmudict/cmudict.0.7a ]; then
   echo "--- Downloading CMU dictionary ..."
   mkdir -p $locdict 
-  svn co https://cmusphinx.svn.sourceforge.net/svnroot/cmusphinx/trunk/cmudict  \
+  svn co http://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict \
     $locdict/cmudict || exit 1;
 fi
 
@@ -58,7 +58,8 @@ if [ ! -f conf/g2p_model ]; then
 fi
 
 echo "--- Preparing pronunciations for OOV words ..."
-python tools/g2p/lib/python${pyver}/site-packages/g2p.py \
+export PYTHONPATH=`readlink -f tools/g2p/lib/python*/site-packages`
+python tools/g2p/g2p.py \
   --model=conf/g2p_model --apply $locdict/vocab-oov.txt > $locdict/lexicon-oov.txt
 
 cat $locdict/lexicon-oov.txt $locdict/lexicon-iv.txt |\

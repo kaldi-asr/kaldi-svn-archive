@@ -1,7 +1,10 @@
 // feat/feature-functions.h
 
 // Copyright 2009-2011  Karel Vesely;  Petr Motlicek;  Microsoft Corporation
+//                2014  IMSL, PKU-HKUST (author: Wei Shi)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,16 +22,13 @@
 #ifndef KALDI_FEAT_FEATURE_FUNCTIONS_H_
 #define KALDI_FEAT_FEATURE_FUNCTIONS_H_
 
+#include <string>
+#include <vector>
+
 #include "matrix/matrix-lib.h"
 #include "util/common-utils.h"
 #include "base/kaldi-error.h"
 #include "feat/mel-computations.h"
-
-#include <cassert>
-#include <cstdlib>
-
-
-
 
 namespace kaldi {
 /// @addtogroup  feat FeatureExtraction
@@ -42,18 +42,30 @@ struct MelBanksOptions {
   // ->added to the Nyquist frequency to get the cutoff.
   BaseFloat vtln_low;  // vtln lower cutoff of warping function.
   BaseFloat vtln_high;  // vtln upper cutoff of warping function: if negative, added
-  // to the Nyquist frequency to get the cutoff.
+                        // to the Nyquist frequency to get the cutoff.
   bool debug_mel;
-  MelBanksOptions(int num_bins = 25): num_bins(num_bins), low_freq(20), high_freq(0),
-                                    vtln_low(400), vtln_high(-400), debug_mel(false) { }
+  // htk_mode is a "hidden" config, it does not show up on command line.
+  // Enables more exact compatibibility with HTK, for testing purposes.  Affects
+  // mel-energy flooring and reproduces a bug in HTK.
+  bool htk_mode;
+  explicit MelBanksOptions(int num_bins = 25)
+      : num_bins(num_bins), low_freq(20), high_freq(0), vtln_low(100),
+        vtln_high(-500), debug_mel(false), htk_mode(false) {}
 
-  void Register(ParseOptions *po) {
-    po->Register("num-mel-bins", &num_bins, "Number of triangular mel-frequency bins");
-    po->Register("low-freq", &low_freq, "Low cutoff frequency for mel bins");
-    po->Register("high-freq", &high_freq, "High cutoff frequency for mel bins (if <= 0, offset from Nyquist)");
-    po->Register("vtln-low", &vtln_low, "Low inflection point in piecewise linear VTLN warping function");
-    po->Register("vtln-high", &vtln_high, "High inflection point in piecewise linear VTLN warping function (if negative, offset from high-mel-freq");
-    po->Register("debug-mel", &debug_mel, "Print out debugging information for mel bin computation");
+  void Register(OptionsItf *po) {
+    po->Register("num-mel-bins", &num_bins,
+                 "Number of triangular mel-frequency bins");
+    po->Register("low-freq", &low_freq,
+                 "Low cutoff frequency for mel bins");
+    po->Register("high-freq", &high_freq,
+                 "High cutoff frequency for mel bins (if < 0, offset from Nyquist)");
+    po->Register("vtln-low", &vtln_low,
+                 "Low inflection point in piecewise linear VTLN warping function");
+    po->Register("vtln-high", &vtln_high,
+                 "High inflection point in piecewise linear VTLN warping function"
+                 " (if negative, offset from high-mel-freq");
+    po->Register("debug-mel", &debug_mel,
+                 "Print out debugging information for mel bin computation");
   }
 };
 
@@ -67,6 +79,7 @@ struct FrameExtractionOptions {
   bool remove_dc_offset;  // Subtract mean of wave before FFT.
   std::string window_type;  // e.g. Hamming window
   bool round_to_power_of_two;
+  bool snip_edges;
   // Maybe "hamming", "rectangular", "povey", "hanning"
   // "povey" is a window I made to be similar to Hamming but to go to zero at the
   // edges, it's pow((0.5 - 0.5*cos(n/N*2*pi)), 0.85)
@@ -79,34 +92,50 @@ struct FrameExtractionOptions {
       preemph_coeff(0.97),
       remove_dc_offset(true),
       window_type("povey"),
-      round_to_power_of_two(true) { }
+      round_to_power_of_two(true),
+      snip_edges(true){ }
 
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("sample-frequency", &samp_freq,
-                 "Waveform data sample frequency (must match the waveform file, if specified there)");
+                 "Waveform data sample frequency (must match the waveform file, "
+                 "if specified there)");
     po->Register("frame-length", &frame_length_ms, "Frame length in milliseconds");
     po->Register("frame-shift", &frame_shift_ms, "Frame shift in milliseconds");
-    po->Register("preemphasis-coefficient", &preemph_coeff, "Coefficient for use in signal preemphasis");
-    po->Register("remove-dc-offset", &remove_dc_offset, "Subtract mean from waveform on each frame");
+    po->Register("preemphasis-coefficient", &preemph_coeff,
+                 "Coefficient for use in signal preemphasis");
+    po->Register("remove-dc-offset", &remove_dc_offset,
+                 "Subtract mean from waveform on each frame");
     po->Register("dither", &dither, "Dithering constant (0.0 means no dither)");
-    po->Register("window-type", &window_type, "Type of window (\"hamming\"|\"hanning\"|\"povey\"|\"rectangular\")");
-    po->Register("round-to-power-of-two", &round_to_power_of_two, "If true, round window size to power of two.");
+    po->Register("window-type", &window_type, "Type of window "
+                 "(\"hamming\"|\"hanning\"|\"povey\"|\"rectangular\")");
+    po->Register("round-to-power-of-two", &round_to_power_of_two,
+                 "If true, round window size to power of two.");
+    po->Register("snip-edges", &snip_edges,
+                 "If true, end effects will be handled by outputting only frames that "
+                 "completely fit in the file, and the number of frames depends on the "
+                 "frame-length.  If false, the number of frames depends only on the "
+                 "frame-shift, and we reflect the data at the ends.");
   }
-  int32 WindowShift() const {  return static_cast<int32>(samp_freq * 0.001 * frame_shift_ms); }
-  int32 WindowSize() const {  return static_cast<int32>(samp_freq * 0.001 * frame_length_ms); }
-  int32 PaddedWindowSize() const { return (round_to_power_of_two ?
-                                           RoundUpToNearestPowerOfTwo(WindowSize()) :
-                                           WindowSize()); }
+  int32 WindowShift() const {
+    return static_cast<int32>(samp_freq * 0.001 * frame_shift_ms);
+  }
+  int32 WindowSize() const {
+    return static_cast<int32>(samp_freq * 0.001 * frame_length_ms);
+  }
+  int32 PaddedWindowSize() const {
+    return (round_to_power_of_two ? RoundUpToNearestPowerOfTwo(WindowSize()) :
+                                    WindowSize());
+  }
 };
 
 
 struct FeatureWindowFunction {
-  FeatureWindowFunction() { }
-  FeatureWindowFunction(const FrameExtractionOptions &opts);  // initializer sets up window function.
+  FeatureWindowFunction() {}
+  explicit FeatureWindowFunction(const FrameExtractionOptions &opts);
   Vector<BaseFloat> window;
 };
 
-int32 NumFrames(size_t wave_length,
+int32 NumFrames(int32 wave_length,
                 const FrameExtractionOptions &opts);
 
 void Dither(VectorBase<BaseFloat> *waveform, BaseFloat dither_value);
@@ -115,15 +144,14 @@ void Preemphasize(VectorBase<BaseFloat> *waveform, BaseFloat preemph_coeff);
 
 
 // ExtractWindow extracts a windowed frame of waveform with a power-of-two,
-// padded size.
+// padded size. If log_energy_pre_window != NULL, outputs the log of the
+// sum-of-squared samples before preemphasis and windowing
 void ExtractWindow(const VectorBase<BaseFloat> &wave,
                    int32 f,  // with 0 <= f < NumFrames(wave.Dim(), opts)
                    const FrameExtractionOptions &opts,
                    const FeatureWindowFunction &window_function,
                    Vector<BaseFloat> *window,
-                   BaseFloat *log_energy_pre_window = NULL);  // if log_energy_pre_window != NULL, puts the log
-     // of the sum-of-squared samples before preemphasis and windowing
-
+                   BaseFloat *log_energy_pre_window = NULL);
 
 // ExtractWaveformRemainder is useful if the waveform is coming in segments.
 // It extracts the bit of the waveform at the end of this block that you
@@ -169,9 +197,11 @@ struct DeltaFeaturesOptions {
 
   DeltaFeaturesOptions(int32 order = 2, int32 window = 2):
       order(order), window(window) { }
-  void Register(ParseOptions *po) {
+  void Register(OptionsItf *po) {
     po->Register("delta-order", &order, "Order of delta computation");
-    po->Register("delta-window", &window, "Parameter controlling window for delta computation (actual window size for each delta order is 1 + 2*delta-window-size)");
+    po->Register("delta-window", &window,
+                 "Parameter controlling window for delta computation (actual window"
+                 " size for each delta order is 1 + 2*delta-window-size)");
   }
 };
 
@@ -184,16 +214,49 @@ class DeltaFeatures {
   // This is not the most efficient way to do the computation, but it's
   // state-free and thus easier to understand
 
-  DeltaFeatures(const DeltaFeaturesOptions &opts);
+  explicit DeltaFeatures(const DeltaFeaturesOptions &opts);
 
   void Process(const MatrixBase<BaseFloat> &input_feats,
                int32 frame,
-               SubVector<BaseFloat> *output_frame) const;
+               VectorBase<BaseFloat> *output_frame) const;
  private:
   DeltaFeaturesOptions opts_;
   std::vector<Vector<BaseFloat> > scales_;  // a scaling window for each
   // of the orders, including zero: multiply the features for each
   // dimension by this window.
+};
+
+struct ShiftedDeltaFeaturesOptions {
+  int32 window,           // The time delay and advance
+        num_blocks,
+        block_shift;      // Distance between consecutive blocks
+
+  ShiftedDeltaFeaturesOptions():
+      window(1), num_blocks(7), block_shift(3) { }
+  void Register(OptionsItf *po) {
+    po->Register("delta-window", &window, "Size of delta advance and delay.");
+    po->Register("num-blocks", &num_blocks, "Number of delta blocks in advance"
+                 " of each frame to be concatenated");
+    po->Register("block-shift", &block_shift, "Distance between each block");
+  }
+};
+
+class ShiftedDeltaFeatures {
+ public:
+  // This class provides a low-level function to compute shifted
+  // delta cesptra (SDC).
+  // The function takes as input a matrix of features and a frame index
+  // that it should compute the deltas on.  It puts its output in an object
+  // of type VectorBase, of size original-feature-dimension + (1  * num_blocks).
+
+  explicit ShiftedDeltaFeatures(const ShiftedDeltaFeaturesOptions &opts);
+
+  void Process(const MatrixBase<BaseFloat> &input_feats,
+               int32 frame,
+               SubVector<BaseFloat> *output_frame) const;
+ private:
+  ShiftedDeltaFeaturesOptions opts_;
+  Vector<BaseFloat> scales_;  // a scaling window for each
 
 };
 
@@ -206,6 +269,12 @@ void ComputeDeltas(const DeltaFeaturesOptions &delta_opts,
                    const MatrixBase<BaseFloat> &input_features,
                    Matrix<BaseFloat> *output_features);
 
+// ComputeShiftedDeltas computes deltas from a feature file by applying
+// ShiftedDeltaFeatures over the frames. This function is provided for
+// convenience, however, ShiftedDeltaFeatures can be used directly.
+void ComputeShiftedDeltas(const ShiftedDeltaFeaturesOptions &delta_opts,
+                   const MatrixBase<BaseFloat> &input_features,
+                   Matrix<BaseFloat> *output_features);
 
 // SpliceFrames will normally be used together with LDA.
 // It splices frames together to make a window.  At the
@@ -230,16 +299,55 @@ void GetEqualLoudnessVector(const MelBanks &mel_banks,
                             Vector<BaseFloat> *ans);
 
 
-void InitIdftBases(size_t n_bases, size_t dimension, Matrix<BaseFloat> *mat_out);
+void InitIdftBases(int32 n_bases, int32 dimension, Matrix<BaseFloat> *mat_out);
 
 
 // Compute LP coefficients from autocorrelation coefficients.
 BaseFloat ComputeLpc(const VectorBase<BaseFloat> &autocorr_in,
                      Vector<BaseFloat> *lpc_out);
 
+// This is used for speaker-id.  Also see OnlineCmnOptions in ../online2/, which
+// is online CMN with no latency, for online speech recognition.
+struct SlidingWindowCmnOptions {
+  int32 cmn_window;
+  int32 min_window;
+  bool normalize_variance;
+  bool center;
+
+  SlidingWindowCmnOptions():
+      cmn_window(600),
+      min_window(100),
+      normalize_variance(false),
+      center(false) { }
+
+  void Register(OptionsItf *po) {
+    po->Register("cmn-window", &cmn_window, "Window in frames for running "
+                 "average CMN computation");
+    po->Register("min-cmn-window", &min_window, "Minimum CMN window "
+                 "used at start of decoding (adds latency only at start). "
+                 "Only applicable if center == false, ignored if center==true");
+    po->Register("norm-vars", &normalize_variance, "If true, normalize "
+                 "variance to one."); // naming this as in apply-cmvn.cc
+    po->Register("center", &center, "If true, use a window centered on the "
+                 "current frame (to the extent possible, modulo end effects). "
+                 "If false, window is to the left.");
+  }
+  void Check() const;
+};
+
+
+/// Applies sliding-window cepstral mean and/or variance normalization.  See the
+/// strings registering the options in the options class for information on how
+/// this works and what the options are.  input and output must have the same
+/// dimension.
+void SlidingWindowCmn(const SlidingWindowCmnOptions &opts,
+                      const MatrixBase<BaseFloat> &input,
+                      MatrixBase<BaseFloat> *output);
+
+
 /// @} End of "addtogroup feat"
-}// namespace
+}  // namespace kaldi
 
 
 
-#endif
+#endif  // KALDI_FEAT_FEATURE_FUNCTIONS_H_

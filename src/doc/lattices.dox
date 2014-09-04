@@ -2,7 +2,10 @@
 
 
 // Copyright 2009-2011 Microsoft Corporation
+//                2013 Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -561,7 +564,7 @@ to the LatticeWeight weight type.
  a lexicon to convert back to words, for example:
 \verbatim
  lattice-to-phone-lattice final.mdl ark:1.lats ark:- | \
-   lattice-compose ark:- ark:Ldet.fst ark:words.lats
+   lattice-compose ark:- Ldet.fst ark:words.lats
 \endverbatim
  This is a simplified example; you'd do further processing
  to remove the original "graph scores" from the lattices and
@@ -810,7 +813,7 @@ or:
  we want an actual linear structure, e.g. just a sequence of words.  For this,
  we can use the following program:
 \verbatim
- nbest-to-linear ark:1.nbest ark:1.words ark:1.ali ark:1.acscore ark:1.lmscore
+ nbest-to-linear ark:1.nbest ark:1.ali ark:1.words ark:1.lmscore ark:1.acscore
 \endverbatim
  This program reads in an archive of lattices, which must each be a linear FST,
  and outputs 4 archives, corresponding to the input symbol sequences, the output 
@@ -837,17 +840,23 @@ can be accomplished with linear-to-nbest.
 
  \section lattices_times Times on lattices
 
- If you want the time information of the lattices explicitly (rather than having to
- count transition-ids), there is a function LatticeStateTimes (for Lattice), and
- CompactLatticeStateTimes (for CompactLattice), which will give you the time
- where each state is located (a number from 0 to the number of frames in the file).
- Be careful that in general, the words are ``pushed'' relative to the transition-ids,
- so the times you get from the lattice will (as far as the word labels are concerned)
- be inexact.  If you want exact times (e.g. for conversion to HTK lattices, or for
- sclite scoring), then you should run the program lattice-word-align.  This program
- only works if you built your system with word-position-dependent phones, and it
- requires certain command-line options to tell it which phones are in which position
- in the word.  See egs/wsj/s3/run.sh for an example (search for align).  
+ If you want the time information of the lattices explicitly (rather than having
+ to count transition-ids), there is a function LatticeStateTimes (for Lattice),
+ and CompactLatticeStateTimes (for CompactLattice), which will give you the time
+ where each state is located (a number from 0 to the number of frames in the
+ file).  Be careful that in general, the words are not synchronized with to the
+ transition-ids, meaning that the transition-ids on an arc won't necessarily all
+ belong to the word whose label is on that arc.  This means that the times you
+ get from the lattice will (as far as the word labels are concerned) be inexact.
+ The same is also true of the weights; these are also not synchronized with
+ either the words or the transition-ids on a particular arc.  If you want exact
+ times (e.g. for conversion to HTK lattices, or for sclite scoring), then you
+ should run the program lattice-align-words.  This program only works if you
+ built your system with word-position-dependent phones, and it requires certain
+ command-line options to tell it which phones are in which position in the word.
+ See egs/wsj/s3/run.sh for an example (search for align).  There is an
+ alternative program, lattice-align-words-lexicon, that you can use if your
+ system does not have word-position-dependent phones.
 
 
 */

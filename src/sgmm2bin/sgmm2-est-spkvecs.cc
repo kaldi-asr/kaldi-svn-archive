@@ -2,7 +2,10 @@
 
 // Copyright 2009-2012  Saarland University  Microsoft Corporation
 //                      Johns Hopkins University (Author: Daniel Povey)
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,9 +26,10 @@ using std::vector;
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "sgmm2/am-sgmm.h"
-#include "sgmm2/estimate-am-sgmm.h"
+#include "sgmm2/am-sgmm2.h"
+#include "sgmm2/estimate-am-sgmm2.h"
 #include "hmm/transition-model.h"
+#include "hmm/posterior.h"
 
 namespace kaldi {
 
@@ -39,14 +43,16 @@ void AccumulateForUtterance(const Matrix<BaseFloat> &feats,
   kaldi::Sgmm2PerFrameDerivedVars per_frame_vars;
 
   KALDI_ASSERT(gselect.size() == feats.NumRows());
+  Posterior pdf_post;
+  ConvertPosteriorToPdfs(trans_model, post, &pdf_post);
   for (size_t i = 0; i < post.size(); i++) {
     am_sgmm.ComputePerFrameVars(feats.Row(i), gselect[i],
                                 *spk_vars, &per_frame_vars);
     
-    for (size_t j = 0; j < post[i].size(); j++) {
-      int32 pdf_id = trans_model.TransitionIdToPdf(post[i][j].first);
+    for (size_t j = 0; j < pdf_post[i].size(); j++) {
+      int32 pdf_id = pdf_post[i][j].first;
       spk_stats->Accumulate(am_sgmm, per_frame_vars, pdf_id,
-                            post[i][j].second, spk_vars);
+                            pdf_post[i][j].second, spk_vars);
     }
   }
 }

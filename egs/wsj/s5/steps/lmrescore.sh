@@ -3,14 +3,12 @@
 # Begin configuration section.
 mode=4
 cmd=run.pl
+skip_scoring=false
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
 
-for x in `seq 2`; do
-  [ "$1" == "--cmd" ] && cmd=$2 && shift 2;
-  [ "$1" == "--mode" ] && mode=$2 && shift 2;
-done
+. ./utils/parse_options.sh
 
 if [ $# != 5 ]; then
    echo "Do language model rescoring of lattices (remove old LM, add new LM)"
@@ -110,8 +108,12 @@ esac
 
 rm $outdir/Ldet.fst 2>/dev/null
 
-[ ! -x local/score.sh ] && \
-  echo "Not scoring because local/score.sh does not exist or not executable." && exit 1;
-local/score.sh --cmd "$cmd" $data $newlang $outdir
+if ! $skip_scoring ; then
+  [ ! -x local/score.sh ] && \
+    echo "Not scoring because local/score.sh does not exist or not executable." && exit 1;
+  local/score.sh --cmd "$cmd" $data $newlang $outdir
+else
+  echo "Not scoring because requested so..."
+fi
 
 exit 0;

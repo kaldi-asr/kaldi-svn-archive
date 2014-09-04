@@ -3,6 +3,8 @@
 // Copyright 2009-2011   Saarland University
 // Author: Arnab Ghoshal
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -68,6 +70,8 @@ int main(int argc, char *argv[]) {
     for (; !lattice_reader.Done(); lattice_reader.Next()) {
       std::string key = lattice_reader.Key();
       kaldi::Lattice lat = lattice_reader.Value();
+      // FreeCurrent() is an optimization that prevents the lattice from being
+      // copied unnecessarily (OpenFst does copy-on-write).
       lattice_reader.FreeCurrent();
       if (acoustic_scale != 1.0 || lm_scale != 1.0)
         fst::ScaleLattice(fst::LatticeScale(lm_scale, acoustic_scale), &lat);

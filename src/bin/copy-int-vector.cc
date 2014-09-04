@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011  Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
          != kNoWspecifier);
 
     if (in_is_rspecifier != out_is_wspecifier)
-      KALDI_ERR << "Cannot mix archives with regular files (copying vectors)\n";
+      KALDI_ERR << "Cannot mix archives with regular files (copying vectors)";
     
     if (!in_is_rspecifier) {
       std::vector<int32> vec;

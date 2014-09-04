@@ -1,7 +1,10 @@
 // gmmbin/gmm-acc-mllt.cc
 
 // Copyright 2009-2011  Microsoft Corporation
+//                2014  Guoguo Chen
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,8 +24,7 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "transform/mllt.h"
-
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
@@ -38,7 +40,8 @@ int main(int argc, char *argv[]) {
     bool binary = true;
     BaseFloat rand_prune = 0.25;
     po.Register("binary", &binary, "Write output in binary mode");
-    po.Register("rand-prune", &rand_prune, "Randomized pruning parameter to speed up accumulation");
+    po.Register("rand-prune", &rand_prune, "Randomized pruning parameter to speed up "
+                "accumulation (larger -> more pruning.  May exceed one).");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 4) {
@@ -89,11 +92,12 @@ int main(int argc, char *argv[]) {
         num_done++;
         BaseFloat tot_like_this_file = 0.0, tot_weight = 0.0;
 
+        Posterior pdf_posterior;
+        ConvertPosteriorToPdfs(trans_model, posterior, &pdf_posterior);
         for (size_t i = 0; i < posterior.size(); i++) {
-          for (size_t j = 0; j < posterior[i].size(); j++) {
-            int32 tid = posterior[i][j].first,  // transition identifier.
-                pdf_id = trans_model.TransitionIdToPdf(tid);
-            BaseFloat weight = posterior[i][j].second;
+          for (size_t j = 0; j < pdf_posterior[i].size(); j++) {
+            int32 pdf_id = pdf_posterior[i][j].first;
+            BaseFloat weight = pdf_posterior[i][j].second;
 
             tot_like_this_file += mllt_accs.AccumulateFromGmm(am_gmm.GetPdf(pdf_id),
                                                               mat.Row(i),
@@ -103,7 +107,7 @@ int main(int argc, char *argv[]) {
         }
         KALDI_LOG << "Average like for this file is "
                   << (tot_like_this_file/tot_weight) << " over "
-                  << tot_weight <<" frames.";
+                  << tot_weight << " frames.";
         tot_like += tot_like_this_file;
         tot_t += tot_weight;
         if (num_done % 10 == 0)
@@ -121,8 +125,7 @@ int main(int argc, char *argv[]) {
 
     WriteKaldiObject(mllt_accs, accs_wxfilename, binary);
     KALDI_LOG << "Written accs.";
-    if (num_done != 0) return 0;
-    else return 1;
+    return (num_done != 0 ? 0 : 1);
   } catch(const std::exception &e) {
     std::cerr << e.what();
     return -1;

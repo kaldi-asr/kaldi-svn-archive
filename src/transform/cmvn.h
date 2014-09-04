@@ -3,6 +3,8 @@
 // Copyright 2009-2013 Microsoft Corporation
 //                     Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -49,6 +51,14 @@ void AccCmvnStats(const MatrixBase<BaseFloat> &feats,
 void ApplyCmvn(const MatrixBase<double> &stats,
                bool norm_vars,
                MatrixBase<BaseFloat> *feats);
+
+/// Modify the stats so that for some dimensions (specified in "dims"), we
+/// replace them with "fake" stats that have zero mean and unit variance; this
+/// is done to disable CMVN for those dimensions.
+void FakeStatsForSomeDims(const std::vector<int32> &dims,
+                          MatrixBase<double> *stats);
+                          
+
 
 }  // namespace kaldi
 

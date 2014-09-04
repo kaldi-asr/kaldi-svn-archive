@@ -3,7 +3,7 @@ ifeq ($(KALDI_FLAVOR), dynamic)
     XLDLIBS := $(LDLIBS)
     ifdef LIBNAME
       LIBFILE = lib$(LIBNAME).dylib
-      LDLIBS  += -l$(LIBNAME)
+      #LDLIBS  += -l$(LIBNAME)
     endif
     LDFLAGS += -L$(KALDILIBDIR) -Wl,-rpath -Wl,$(KALDILIBDIR)
     XDEPENDS = $(foreach dep,$(ADDLIBS), $(dir $(dep))/lib$(notdir $(basename $(dep))).dylib )
@@ -12,7 +12,7 @@ ifeq ($(KALDI_FLAVOR), dynamic)
     ifeq ($(shell uname), Linux)
       ifdef LIBNAME
         LIBFILE = lib$(LIBNAME).so
-        LDLIBS  += -l$(LIBNAME)
+        #LDLIBS  += -l$(LIBNAME)
       endif
       LDFLAGS += -Wl,-rpath=$(shell readlink -f $(KALDILIBDIR)) -L.
       LDFLAGS += $(foreach dep,$(ADDLIBS), -L$(dir $(dep)) )
@@ -36,12 +36,12 @@ $(LIBFILE): $(OBJFILES)
 	$(RANLIB) $(LIBNAME).a
 ifeq ($(KALDI_FLAVOR), dynamic)
 ifeq ($(shell uname), Darwin)
-	$(CXX) -dynamiclib -o $@ -install_name @rpath/$@ -framework Accelerate $(LDFLAGS) $(XLDLIBS) $(OBJFILES)
+	$(CXX) -dynamiclib -o $@ -install_name @rpath/$@ -framework Accelerate $(LDFLAGS) $(XLDLIBS) $(OBJFILES) $(LDLIBS)
 	rm -f $(KALDILIBDIR)/$@; ln -s $(shell pwd)/$@ $(KALDILIBDIR)/$@
 else
 ifeq ($(shell uname), Linux)
 	# Building shared library from static (static was compiled with -fPIC)
-	$(CXX) -shared -o $@ -Wl,-soname=$@,--whole-archive $(LIBNAME).a -Wl,--no-whole-archive
+	$(CXX) -shared -o $@ -Wl,--no-undefined -Wl,--as-needed  -Wl,-soname=$@,--whole-archive $(LIBNAME).a -Wl,--no-whole-archive  $(LDFLAGS) $(XDEPENDS) $(LDLIBS)
 	rm -f $(KALDILIBDIR)/$@; ln -s $(shell pwd)/$@ $(KALDILIBDIR)/$@
 	#cp $@ $(KALDILIBDIR)
 else  # Platform not supported
@@ -72,7 +72,7 @@ $(TESTFILES): $(LIBFILE) $(XDEPENDS)
 test_compile: $(TESTFILES)
   
 test: test_compile
-	@result=0; for x in $(TESTFILES); do printf "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
+	@result=0; for x in $(TESTFILES); do printf "Running $$x ..."; ./$$x >/dev/null 2>&1; if [ $$? -ne 0 ]; then echo "... FAIL $$x"; result=1; else echo "... SUCCESS";  fi;  done; exit $$result
 
 .valgrind: $(BINFILES) $(TESTFILES)
 

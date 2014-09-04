@@ -3,6 +3,8 @@
 // Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 //                 Frantisek Skala
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -19,6 +21,7 @@
 
 #include "base/kaldi-common.h"
 #include "thread/kaldi-thread.h"
+#include "thread/kaldi-mutex.h"
 
 namespace kaldi {
 
@@ -78,11 +81,30 @@ void TestThreads() {
   }
 }
 
+void TestMutex() {
+  for (int32 i = 0; i < 4; i++) {
+    Mutex mut;
+    for (int32 i = 0; i < 100; i++) {
+      if (rand() % 2 == 0) {
+        mut.Lock();
+        KALDI_ASSERT(!mut.TryLock());
+        mut.Unlock();
+      } else {
+        KALDI_ASSERT(mut.TryLock());
+        mut.Unlock();
+      }
+    }
+  }
+}
+
+
 
 }  // end namespace kaldi.
 
 int main() {
   using namespace kaldi;
   TestThreads();
+  for (int i = 0; i < 20; i++)
+    TestMutex();
 }
 

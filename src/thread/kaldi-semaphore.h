@@ -1,7 +1,9 @@
-// util/kaldi-semaphore.h
+// thread/kaldi-semaphore.h
 
 // Copyright 2012  Karel Vesely (Brno University of Technology)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -45,7 +47,7 @@ class Semaphore {
   
   pthread_mutex_t mutex_;
   pthread_cond_t cond_;
-
+  KALDI_DISALLOW_COPY_AND_ASSIGN(Semaphore);
 };
 
 

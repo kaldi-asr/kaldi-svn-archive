@@ -26,7 +26,7 @@ local/wsj_data_prep.sh $wsj0/??-{?,??}.? $wsj1/??-{?,??}.?  || exit 1;
 #
 # corpus=/exports/work/inf_hcrc_cstr_general/corpora/wsj
 # local/cstr_wsj_data_prep.sh $corpus
-#
+# rm data/local/dict/lexiconp.txt
 # $corpus must contain a 'wsj0' and a 'wsj1' subdirectory for this to work.
 
 local/wsj_prepare_dict.sh || exit 1;
@@ -66,6 +66,18 @@ local/wsj_format_data.sh || exit 1;
  #     local/wsj_train_rnnlms.sh --cmd "$decode_cmd -l mem_free=16G" \
  #      --hidden 300 --nwords 40000 --class 400 --direct 2000 data/local/rnnlm.h300.voc40k &
  #   )
+   false && \ # Comment this out to train RNNLM-HS
+   (
+       num_threads_rnnlm=8
+       local/wsj_train_rnnlms.sh --rnnlm_ver rnnlm-hs-0.1b --threads $num_threads_rnnlm \
+	   --cmd "$decode_cmd -l mem_free=1G" --bptt 4 --bptt-block 10 --hidden 30  --nwords 10000 --direct 1000 data/local/rnnlm-hs.h30.voc10k  
+       local/wsj_train_rnnlms.sh --rnnlm_ver rnnlm-hs-0.1b --threads $num_threads_rnnlm \
+	   --cmd "$decode_cmd -l mem_free=1G" --bptt 4 --bptt-block 10 --hidden 100 --nwords 20000 --direct 1500 data/local/rnnlm-hs.h100.voc20k 
+       local/wsj_train_rnnlms.sh --rnnlm_ver rnnlm-hs-0.1b --threads $num_threads_rnnlm \
+	   --cmd "$decode_cmd -l mem_free=1G" --bptt 4 --bptt-block 10 --hidden 300 --nwords 30000 --direct 1500 data/local/rnnlm-hs.h300.voc30k 
+       local/wsj_train_rnnlms.sh --rnnlm_ver rnnlm-hs-0.1b --threads $num_threads_rnnlm \
+	   --cmd "$decode_cmd -l mem_free=1G" --bptt 4 --bptt-block 10 --hidden 400 --nwords 40000 --direct 2000 data/local/rnnlm-hs.h400.voc40k 
+   )
   ) &
 
 
@@ -140,11 +152,8 @@ sil_label=`grep '!SIL' data/lang_test_tgpr/words.txt | awk '{print $2}'`
 steps/word_align_lattices.sh --cmd "$train_cmd" --silence-label $sil_label \
   data/lang_test_tgpr exp/tri1/decode_tgpr_dev93 exp/tri1/decode_tgpr_dev93_aligned || exit 1;
 
-
-# Align tri1 system with si84 data.
 steps/align_si.sh --nj 10 --cmd "$train_cmd" \
   data/train_si84 data/lang exp/tri1 exp/tri1_ali_si84 || exit 1;
-
 
 # Train tri2a, which is deltas + delta-deltas, on si84 data.
 steps/train_deltas.sh --cmd "$train_cmd" \
@@ -172,6 +181,11 @@ steps/decode.sh --nj 10 --cmd "$decode_cmd" \
 steps/decode.sh --nj 8 --cmd "$decode_cmd" \
   exp/tri2b/graph_tgpr data/test_eval92 exp/tri2b/decode_tgpr_eval92 || exit 1;
 
+# At this point, you could run the example scripts that show how VTLN works.
+# We haven't included this in the default recipes yet.
+# local/run_vtln.sh
+# local/run_vtln2.sh
+
 # Now, with dev93, compare lattice rescoring with biglm decoding,
 # going from tgpr to tg.  Note: results are not the same, even though they should
 # be, and I believe this is due to the beams not being wide enough.  The pruning
@@ -194,7 +208,7 @@ local/score_mbr.sh --cmd "$decode_cmd" \
 
 steps/decode_fromlats.sh --cmd "$decode_cmd" \
   data/test_dev93 data/lang_test_tgpr exp/tri2b/decode_tgpr_dev93 \
-  exp/tri2a/decode_tgpr_dev93_fromlats || exit 1;
+  exp/tri2a/decode_tgpr_dev93_fromlats || exit 1
 
 
 # Align tri2b system with si84 data.
@@ -244,6 +258,10 @@ steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_bd_tgpr data/lang_test_bd_
 # that build the RNNLMs, so it would fail.
 # local/run_rnnlms_tri3b.sh
 
+# The command below is commented out as we commented out the steps above
+# that build the RNNLMs (HS version), so it would fail.
+# wait; local/run_rnnlm-hs_tri3b.sh
+
 # The following two steps, which are a kind of side-branch, try mixing up
 ( # from the 3b system.  This is to demonstrate that script.
  steps/mixup.sh --cmd "$train_cmd" \
@@ -257,6 +275,11 @@ steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_bd_tgpr data/lang_test_bd_
 steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
   data/train_si284 data/lang exp/tri3b exp/tri3b_ali_si284 || exit 1;
 
+# These demonstrate how to build a sytem usable for online-decoding with the nnet2 setup.
+# (see local/run_nnet2.sh for other, non-online nnet2 setups).
+# local/online/run_nnet2.sh
+# local/online/run_nnet2_baseline.sh
+
 # From 3b system, train another SAT system (tri4a) with all the si284 data.
 
 steps/train_sat.sh  --cmd "$train_cmd" \
@@ -267,7 +290,11 @@ steps/train_sat.sh  --cmd "$train_cmd" \
    exp/tri4a/graph_tgpr data/test_dev93 exp/tri4a/decode_tgpr_dev93 || exit 1;
  steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
    exp/tri4a/graph_tgpr data/test_eval92 exp/tri4a/decode_tgpr_eval92 || exit 1;
-) &
+) & 
+
+
+# This step is just to demonstrate the train_quick.sh script, in which we
+# initialize the GMMs from the old system's GMMs.
 steps/train_quick.sh --cmd "$train_cmd" \
    4200 40000 data/train_si284 data/lang exp/tri3b_ali_si284 exp/tri4b || exit 1;
 
@@ -285,6 +312,28 @@ steps/train_quick.sh --cmd "$train_cmd" \
   exp/tri4b/graph_bd_tgpr data/test_eval92 exp/tri4b/decode_bd_tgpr_eval92 || exit 1;
 ) &
 
+
+( # run decoding with larger dictionary and pron-probs.  Need to get dict with
+  # pron-probs first.  [This seems to help by about 0.1% absolute in general.]
+  cp -rT data/local/dict_larger data/local/dict_larger_pp
+  rm -r data/local/dict_larger_pp/{b,f,*.gz,lexicon.txt}
+  steps/get_lexicon_probs.sh data/train_si284 data/lang exp/tri4b data/local/dict_larger/lexicon.txt \
+    exp/tri4b_lexprobs data/local/dict_larger_pp/lexiconp.txt || exit 1;
+  utils/prepare_lang.sh --share-silence-phones true \
+    data/local/dict_larger_pp "<SPOKEN_NOISE>" data/dict_larger/tmp data/lang_bd_pp
+  cmp data/lang_bd/words.txt data/lang_bd_pp/words.txt || exit 1;
+  for suffix in tg tgpr fg; do
+    cp -rT data/lang_bd_pp data/lang_test_bd_pp_${suffix}
+    cp data/lang_test_bd_${suffix}/G.fst data/lang_test_bd_pp_${suffix}/G.fst || exit 1;
+  done
+  utils/mkgraph.sh data/lang_test_bd_pp_tgpr exp/tri4b exp/tri4b/graph_bd_pp_tgpr || exit 1;
+  steps/decode_fmllr.sh --nj 10 --cmd "$decode_cmd" \
+    exp/tri4b/graph_bd_pp_tgpr data/test_dev93 exp/tri4b/decode_bd_pp_tgpr_dev93 
+  steps/decode_fmllr.sh --nj 8 --cmd "$decode_cmd" \
+    exp/tri4b/graph_bd_pp_tgpr data/test_eval92 exp/tri4b/decode_bd_pp_tgpr_eval92
+)
+
+
 # Train and test MMI, and boosted MMI, on tri4b (LDA+MLLT+SAT on
 # all the data).  Use 30 jobs.
 steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
@@ -292,7 +341,7 @@ steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
 
 local/run_mmi_tri4b.sh
 
-#local/run_nnet_cpu.sh
+#local/run_nnet2.sh
 
 ## Segregated some SGMM builds into a separate file.
 #local/run_sgmm.sh
@@ -300,15 +349,28 @@ local/run_mmi_tri4b.sh
 # You probably want to run the sgmm2 recipe as it's generally a bit better:
 local/run_sgmm2.sh
 
-# You probably wany to run the hybrid recipe as it is complementary:
-local/run_hybrid.sh
+# We demonstrate MAP adaptation of GMMs to gender-dependent systems here.  This also serves
+# as a generic way to demonstrate MAP adaptation to different domains.
+# local/run_gender_dep.sh
 
+# You probably want to run the hybrid recipe as it is complementary:
+local/run_dnn.sh
+
+# The next two commands show how to train a bottleneck network based on the nnet2 setup,
+# and build an SGMM system on top of it.
+#local/run_bnf.sh
+#local/run_bnf_sgmm.sh
+
+
+# You probably want to try KL-HMM 
+#local/run_kl_hmm.sh
 
 # Getting results [see RESULTS file]
 # for x in exp/*/decode*; do [ -d $x ] && grep WER $x/wer_* | utils/best_wer.sh; done
 
 
 # KWS setup. We leave it commented out by default
+
 # $duration is the length of the search collection, in seconds
 #duration=`feat-to-len scp:data/test_eval92/feats.scp  ark,t:- | awk '{x+=$2} END{print x/100;}'`
 #local/generate_example_kws.sh data/test_eval92/ data/kws/

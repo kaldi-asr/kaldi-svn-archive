@@ -3,6 +3,8 @@
 // Copyright 2009-2011 Microsoft Corporation
 //                2013 Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -45,7 +47,7 @@ void AccumulateTreeStats(const TransitionModel &trans_model,
   std::vector<std::vector<int32> > split_alignment;
   bool ans = SplitToPhones(trans_model, alignment, &split_alignment);
   if (!ans) {
-    KALDI_WARN << "AccumulateTreeStats: alignment appears to be bad, not using it\n";
+    KALDI_WARN << "AccumulateTreeStats: alignment appears to be bad, not using it";
     return;
   }
   int cur_pos = 0;
@@ -81,7 +83,7 @@ void AccumulateTreeStats(const TransitionModel &trans_model,
         // [setting it to zero would have the same effect given the "normal"
         // recipe but might be less robust to changes in tree-building recipe].
         if (is_ctx_dep || j == P)
-          evec.push_back(std::make_pair<EventKeyType, EventValueType>(j, phone));
+          evec.push_back(std::make_pair(static_cast<EventKeyType>(j), static_cast<EventValueType>(phone)));
       }
       for (int j = 0; j < static_cast<int>(split_alignment[i+P].size());j++) {
         // for central phone of this window...

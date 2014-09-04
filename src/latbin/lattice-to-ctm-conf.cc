@@ -1,7 +1,9 @@
-// latbin/lattice-mbr-decode.cc
+// latbin/lattice-to-ctm-conf.cc
 
 // Copyright 2012-2013  Johns Hopkins University (Author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -97,6 +99,8 @@ int main(int argc, char *argv[]) {
                     << (frame_shift * (times[i].second-times[i].first)) << ' '
                     << words[i] << ' ' << conf[i] << '\n';
       }
+      KALDI_LOG << "For utterance " << key << ", Bayes Risk " << mbr.GetBayesRisk()
+                << " and per word, " << mbr.GetBayesRisk()/mbr.GetOneBest().size();
       n_done++;
       n_words += mbr.GetOneBest().size();
       tot_bayes_risk += mbr.GetBayesRisk();

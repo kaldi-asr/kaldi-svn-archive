@@ -1,7 +1,11 @@
 // gmmbin/gmm-acc-stats-twofeats.cc
 
 // Copyright 2009-2011  Microsoft Corporation
+//                2014  Guoguo Chen
+//                2014  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,16 +25,16 @@
 #include "gmm/am-diag-gmm.h"
 #include "hmm/transition-model.h"
 #include "gmm/mle-am-diag-gmm.h"
-
-
+#include "hmm/posterior.h"
 
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
   try {
     const char *usage =
-        "Accumulate stats for GMM training, computing posteriors with one set of features\n"
+        "Accumulate stats for GMM training, computing posteriors with one set of features\n"        
         "but accumulating statistics with another.\n"
+        "First features are used to get posteriors, second to accumulate stats\n"        
         "Usage:  gmm-acc-stats-twofeats [options] <model-in> <feature1-rspecifier> <feature2-rspecifier> <posteriors-rspecifier> <stats-out>\n"
         "e.g.: \n"
         " gmm-acc-stats-twofeats 1.mdl 1.ali scp:train.scp scp:train_new.scp ark:1.ali 1.acc\n";
@@ -110,12 +114,13 @@ int main(int argc, char *argv[]) {
         BaseFloat tot_like_this_file = 0.0,
             tot_weight_this_file = 0.0;
 
+        Posterior pdf_posterior;
+        ConvertPosteriorToPdfs(trans_model, posterior, &pdf_posterior);
         for (size_t i = 0; i < posterior.size(); i++) {
-          for (size_t j = 0; j < posterior[i].size(); j++) {
-            int32 tid = posterior[i][j].first,  // transition identifier.
-                pdf_id = trans_model.TransitionIdToPdf(tid);
-            BaseFloat weight = posterior[i][j].second;
-            trans_model.Accumulate(weight, tid, &transition_accs);
+          // Accumulates for GMM.
+          for (size_t j = 0; j <pdf_posterior[i].size(); j++) {
+            int32 pdf_id = pdf_posterior[i][j].first;
+            BaseFloat weight = pdf_posterior[i][j].second;
             tot_like_this_file += weight *
                 gmm_accs.AccumulateForGmmTwofeats(am_gmm,
                                                   mat1.Row(i),
@@ -123,6 +128,13 @@ int main(int argc, char *argv[]) {
                                                   pdf_id,
                                                   weight);
             tot_weight_this_file += weight;
+          }
+
+          // Accumulates for transitions.
+          for (size_t j = 0; j < posterior[i].size(); j++) {
+            int32 tid = posterior[i][j].first;
+            BaseFloat weight = posterior[i][j].second;
+            trans_model.Accumulate(weight, tid, &transition_accs);
           }
         }
         KALDI_LOG << "Average like for this file is "

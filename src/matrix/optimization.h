@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 //
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -31,6 +33,40 @@ namespace kaldi {
 
 /// @addtogroup matrix_optimization
 /// @{
+
+struct LinearCgdOptions {
+  int32 max_iters;  //  Maximum number of iters (if >= 0).
+  BaseFloat max_error;  // Maximum 2-norm of the residual A x - b (convergence
+                        // test)
+  // Every time the residual 2-norm decreases by this recompute_residual_factor
+  // since the last time it was computed from scratch, recompute it from
+  // scratch.  This helps to keep the computed residual accurate even in the
+  // presence of roundoff.
+  BaseFloat recompute_residual_factor;
+  
+  LinearCgdOptions(): max_iters(-1),
+                      max_error(0.0),
+                      recompute_residual_factor(0.01) { }
+};
+  
+/*
+  This function uses linear conjugate gradient descent to approximately solve
+  the system A x = b.  The value of x at entry corresponds to the initial guess
+  of x.  The algorithm continues until the number of iterations equals b.Dim(),
+  or until the 2-norm of (A x - b) is <= max_error, or until the number of
+  iterations equals max_iter, whichever happens sooner.  It is a requirement
+  that A be positive definite.
+  It returns the number of iterations that were actually executed (this is
+  useful for testing purposes).
+*/
+template<typename Real>
+int32 LinearCgd(const LinearCgdOptions &opts,
+                const SpMatrix<Real> &A, const VectorBase<Real> &b,
+                VectorBase<Real> *x);
+
+
+
+
 
 
 /**
@@ -81,7 +117,7 @@ struct LbfgsOptions {
       avg_step_length(4) { }
 };
 
-template<class Real>
+template<typename Real>
 class OptimizeLbfgs {
  public:
   /// Initializer takes the starting value of x.
@@ -201,11 +237,6 @@ class OptimizeLbfgs {
 
 };
   
-
-
-
-
-
 /// @} 
 
 

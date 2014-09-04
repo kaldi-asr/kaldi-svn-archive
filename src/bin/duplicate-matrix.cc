@@ -2,6 +2,8 @@
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -29,7 +31,7 @@ int main(int argc, char *argv[]) {
         "Copy tables of BaseFloat matrices, from one input to possibly multiple outputs,\n"
         "with each element of the input written too all outputs.\n"
         "\n"
-        "Usage: copy-matrix [options] <matrix-rspecifier> <matrix-wspecifier1> [<matrix-wspecifier2> ...]\n";
+        "Usage: duplicate-matrix [options] <matrix-rspecifier> <matrix-wspecifier1> [<matrix-wspecifier2> ...]\n";
     
     ParseOptions po(usage);
 

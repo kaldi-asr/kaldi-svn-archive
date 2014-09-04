@@ -2,6 +2,8 @@
 
 // Copyright 2009-2011 Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -88,6 +90,12 @@ class MlltAccs {
                               const VectorBase<BaseFloat> &data,
                               BaseFloat weight);  // e.g. weight = 1.0
 
+  BaseFloat AccumulateFromGmmPreselect(const DiagGmm &gmm,
+                                       const std::vector<int32> &gselect,
+                                       const VectorBase<BaseFloat> &data,
+                                       BaseFloat weight);  // e.g. weight = 1.0
+
+  
   // premultiplies the means of the model by M.  typically called
   // after update.
   // removed since we now do this using different code.

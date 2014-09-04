@@ -1,7 +1,9 @@
-// lat/kaldi-lattice.cc
+// lat/kaldi-lattice-test.cc
 
 // Copyright 2009-2011     Microsoft Corporation
 
+// See ../../COPYING for clarification regarding multiple authors
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -147,7 +149,7 @@ void TestLatticeTableCross(bool binary) {
     const CompactLattice &fst = reader.Value(key);
     Lattice fst2;
     ConvertLattice(fst, &fst2);
-    KALDI_ASSERT(fst::RandEquivalent(fst2, *(lat_vec[i]), 5, 0.01, rand(), 10));
+    KALDI_ASSERT(fst::RandEquivalent(fst2, *(lat_vec[i]), 5, 0.01, Rand(), 10));
     delete lat_vec[i];
   }
 }
@@ -166,4 +168,6 @@ int main() {
     TestLatticeTableCross(binary);
   }
   std::cout << "Test OK\n";
+  
+  unlink("tmpf");
 }
