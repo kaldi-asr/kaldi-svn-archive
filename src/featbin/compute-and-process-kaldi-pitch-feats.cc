@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
         "Equivalent to compute-kaldi-pitch-feats | process-kaldi-pitch-feats, except\n"
         "that it is able to simulate online pitch extraction; see options like\n"
         "--frames-per-chunk, --simulate-first-pass-online, --recompute-frame.\n"
-        a"\n"
+        "\n"
         "Usage: compute-and-process-kaldi-pitch-feats [options...] <wav-rspecifier> <feats-wspecifier>\n"
         "e.g.\n"
         "compute-and-process-kaldi-pitch-feats --simulate-first-pass-online=true \\\n"

@@ -44,6 +44,8 @@ cleanup=true
 transform_dir=
 degs_dir=
 retroactive=false
+online_ivector_dir=
+use_preconditioning=false
 # End configuration section.
 
 
@@ -83,6 +85,8 @@ if [ $# != 6 ]; then
   echo "  --modify-learning-rates <true,false|false>       # If true, modify learning rates to try to equalize relative"
   echo "                                                   # changes across layers."
   echo "  --degs-dir <dir|"">                              # Directory for discriminative examples, e.g. exp/foo/degs"
+  echo "  --online-ivector-dir <dir|"">                    # Directory for online-estimated iVectors, used in the"
+  echo "                                                   # online-neural-net setup."
   exit 1;
 fi
 
@@ -93,9 +97,14 @@ denlatdir=$4
 src_model=$5
 dir=$6
 
+
+extra_files=
+[ ! -z $online_ivector_dir ] && \
+ extra_files="$online_ivector_dir/ivector_period $online_ivector_dir/ivector_online.scp"
+
 # Check some files.
 for f in $data/feats.scp $lang/L.fst $alidir/ali.1.gz $alidir/num_jobs $alidir/tree \
-         $denlatdir/lat.1.gz $denlatdir/num_jobs $src_model; do
+         $denlatdir/lat.1.gz $denlatdir/num_jobs $src_model $extra_files; do
   [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
 done
 
@@ -120,6 +129,14 @@ cmvn_opts=`cat $alidir/cmvn_opts 2>/dev/null`
 cp $alidir/splice_opts $dir 2>/dev/null
 cp $alidir/cmvn_opts $dir 2>/dev/null
 cp $alidir/tree $dir
+
+if [ ! -z "$online_ivector_dir" ]; then
+  ivector_period=$(cat $online_ivector_dir/ivector_period)
+  ivector_dim=$(feat-to-dim scp:$online_ivector_dir/ivector_online.scp -) || exit 1;
+  # the 'const_dim_opt' allows it to write only one iVector per example,
+  # rather than one per time-index... it has to average over
+  const_dim_opt="--const-feat-dim=$ivector_dim"
+fi
 
 ## Set up features.
 ## Don't support deltas, only LDA or raw (mainly because deltas are less frequently used).
@@ -171,6 +188,11 @@ if [ ! -z "$transform_dir" ]; then
     feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$transform_dir/$trans.JOB ark:- ark:- |"
   fi
 fi
+if [ ! -z $online_ivector_dir ]; then
+  # add iVectors to the features.
+  feats="$feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $sdata/JOB/utt2spk $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- |' ark:- |"
+fi
+
 
 if [ -z "$degs_dir" ]; then
   if [ $stage -le -8 ]; then
@@ -196,9 +218,20 @@ else
 fi
 
 if [ $stage -le -7 ]; then
-  echo "$0: Copying initial model and removing any preconditioning"
-  nnet-am-copy --learning-rate=$learning_rate --remove-preconditioning=true \
-    "$src_model" $dir/0.mdl || exit 1;
+  echo "$0: Copying initial model and modifying preconditioning setup"
+  # We want online preconditioning with a larger number of samples of history, since
+  # in this setup the frames are only randomized at the segment level so they are highly
+  # correlated.  It might make sense to tune this a little, later on, although I doubt
+  # it matters once it's large enough.
+
+  if $use_preconditioning; then
+    $cmd $dir/log/convert.log \
+      nnet-am-copy --learning-rate=$learning_rate "$src_model" - \| \
+      nnet-am-switch-preconditioning  --num-samples-history=50000 - $dir/0.mdl || exit 1;
+  else
+    $cmd $dir/log/convert.log \
+      nnet-am-copy --learning-rate=$learning_rate "$src_model" $dir/0.mdl || exit 1;
+  fi
 fi
 
 if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
@@ -214,7 +247,7 @@ if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
      $dir/0.mdl "$feats" \
     "ark,s,cs:gunzip -c $alidir/ali.JOB.gz |" \
     "ark,s,cs:gunzip -c $denlatdir/lat.JOB.gz|" ark:- \| \
-    nnet-copy-egs-discriminative ark:- $egs_list || exit 1;
+    nnet-copy-egs-discriminative $const_dim_opt ark:- $egs_list || exit 1;
 fi
 
 if [ $stage -le -5 ] && [ -z "$degs_dir" ]; then

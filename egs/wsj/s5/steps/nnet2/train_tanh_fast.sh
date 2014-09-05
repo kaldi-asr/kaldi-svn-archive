@@ -177,8 +177,9 @@ if [ $stage -le -4 ]; then
 fi
 
 # these files will have been written by get_lda.sh
-feat_dim=`cat $dir/feat_dim` || exit 1;
-lda_dim=`cat $dir/lda_dim` || exit 1;
+feat_dim=$(cat $dir/feat_dim) || exit 1;
+ivector_dim=$(cat $dir/ivector_dim) || exit 1;
+lda_dim=$(cat $dir/lda_dim) || exit 1;
 
 if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   echo "$0: calling get_egs.sh"
@@ -208,16 +209,15 @@ if [ $stage -le -2 ]; then
 
   # Get spk-vec dim (in case we're using them).
   lda_mat=$dir/lda.mat
-  ext_lda_dim=$lda_dim
-  ext_feat_dim=$feat_dim
+  tot_input_dim=$[$feat_dim+$ivector_dim]
 
   online_preconditioning_opts="alpha=$alpha num-samples-history=$num_samples_history update-period=$update_period rank-in=$precondition_rank_in rank-out=$precondition_rank_out max-change-per-sample=$max_change_per_sample"
 
   stddev=`perl -e "print 1.0/sqrt($hidden_layer_dim);"`
   cat >$dir/nnet.config <<EOF
-SpliceComponent input-dim=$ext_feat_dim left-context=$splice_width right-context=$splice_width
+SpliceComponent input-dim=$tot_input_dim left-context=$splice_width right-context=$splice_width const-component-dim=$ivector_dim
 FixedAffineComponent matrix=$lda_mat
-AffineComponentPreconditionedOnline input-dim=$ext_lda_dim output-dim=$hidden_layer_dim $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
+AffineComponentPreconditionedOnline input-dim=$lda_dim output-dim=$hidden_layer_dim $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
 TanhComponent dim=$hidden_layer_dim
 AffineComponentPreconditionedOnline input-dim=$hidden_layer_dim output-dim=$num_leaves $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
 SoftmaxComponent dim=$num_leaves

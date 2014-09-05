@@ -20,6 +20,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
+#include "nnet2/nnet-example-functions.h"
 
 namespace kaldi {
 namespace nnet2 {

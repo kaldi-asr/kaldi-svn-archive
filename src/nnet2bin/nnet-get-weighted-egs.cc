@@ -20,6 +20,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "hmm/transition-model.h"
+#include "nnet2/nnet-example-functions.h"
 
 namespace kaldi {
 namespace nnet2 {
@@ -55,11 +56,12 @@ static void ProcessFile(const MatrixBase<BaseFloat> &feats,
                         int64 *num_frames_skipped,
                         NnetExampleWriter *example_writer) {
   KALDI_ASSERT(feats.NumRows() == static_cast<int32>(pdf_post.size()));
+  int32 feat_dim = feats.NumCols();
   KALDI_ASSERT(const_feat_dim < feat_dim);
-  int32 normal_feat_dim = feat_dim - const_feat_dim;
+  int32 basic_feat_dim = feat_dim - const_feat_dim;
   NnetExample eg;
   Matrix<BaseFloat> input_frames(left_context + 1 + right_context,
-                                 normal_feat_dim);
+                                 basic_feat_dim);
   eg.left_context = left_context;
   for (int32 i = 0; i < feats.NumRows(); i++) {
     int32 count = GetCount(keep_proportion); // number of times
@@ -79,9 +81,8 @@ static void ProcessFile(const MatrixBase<BaseFloat> &feats,
       if (const_feat_dim > 0) {
         // we'll normally reach here if we're using online-estimated iVectors.
         SubVector<BaseFloat> const_part(feats.Row(i),
-                                        normal_feat_dim, const_feat_dim);
-        eg.spk_info.Range(spk_vec.Dim(), const_feat_dim).CopyFromVec(
-            const_part);
+                                        basic_feat_dim, const_feat_dim);
+        eg.spk_info.CopyFromVec(const_part);
       }
       if (use_frame_selection) {
         if (weights(i) < weight_threshold) {
@@ -174,7 +175,6 @@ int main(int argc, char *argv[]) {
     NnetExampleWriter example_writer(examples_wspecifier);
     
     int32 num_done = 0, num_err = 0;
-    int32 spk_dim = -1;
     int64 num_frames_written = 0;
     int64 num_frames_skipped = 0;
     

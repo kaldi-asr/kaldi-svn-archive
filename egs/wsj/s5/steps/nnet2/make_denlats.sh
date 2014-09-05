@@ -18,8 +18,12 @@ max_mem=20000000 # This will stop the processes getting too large.
 # This is in bytes, but not "real" bytes-- you have to multiply
 # by something like 5 or 10 to get real bytes (not sure why so large)
 num_threads=1
+online_ivector_dir=
 parallel_opts=
+feat_type=  # you can set this in order to run on top of delta features, although we don't
+            # normally want to do this.
 # End configuration section.
+
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -50,7 +54,11 @@ lang=$2
 srcdir=$3
 dir=$4
 
-for f in $data/feats.scp $lang/L.fst $srcdir/final.mdl; do
+
+extra_files=
+[ ! -z "$online_ivector_dir" ] && \
+  extra_files="$online_ivector_dir/ivector_online.scp $online_ivector_dir/ivector_period"
+for f in $data/feats.scp $lang/L.fst $srcdir/final.mdl $extra_files; do
   [ ! -f $f ] && echo "$0: expected file $f to exist" && exit 1;
 done
 
@@ -90,7 +98,9 @@ fi
 cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
 cp $srcdir/cmvn_opts $dir 2>/dev/null
 
-if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
+if [ -z "$feat_type" ]; then
+  if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=raw; fi
+fi
 echo "align_si.sh: feature type is $feat_type"
 
 case $feat_type in
@@ -129,6 +139,14 @@ if [ ! -z "$transform_dir" ]; then
     feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$transform_dir/$trans.JOB ark:- ark:- |"
   fi
 fi
+
+
+if [ ! -z "$online_ivector_dir" ]; then
+  ivector_period=$(cat $online_ivector_dir/ivector_period) || exit 1;
+  # note: subsample-feats, with negative n, will repeat each feature -n times.
+  feats="$feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $sdata/JOB/utt2spk $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- |' ark:- |"
+fi
+
 
 if [ $sub_split -eq 1 ]; then 
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode_den.JOB.log \
