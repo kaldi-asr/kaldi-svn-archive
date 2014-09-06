@@ -849,3 +849,6 @@
 /src/online2bin/.depend.mk
 /src/online2/.depend.mk
 /src/ivector/.depend.mk
+/egs/librispeech/s5/data
+/egs/librispeech/s5/mfcc
+/egs/librispeech/s5/exp
