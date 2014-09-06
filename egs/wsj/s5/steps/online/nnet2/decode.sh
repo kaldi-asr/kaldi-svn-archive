@@ -70,18 +70,6 @@ for f in $srcdir/conf/online_nnet2_decoding.conf $srcdir/${iter}.mdl \
   fi
 done
 
-( 
-  ieconf=$srcdir/conf/ivector_extractor.conf
-  if grep "use-most-recent-ivector=true" $ieconf >/dev/null; then
-    echo "$0: **  You have --use-most-recent-ivector=true in your config $ieconf."
-    echo "   ** This used to be added by default by prepare_online_decoding.sh, but we have"
-    echo "   ** now changed the meaning of the option and you should remove this line"
-    echo "   ** from the config file.  If you really want to run in not-truly-online mode,"
-    echo "   ** you should instead give the option '--online false' to this script."
-    exit 1;
-  fi
-)
-
 if ! $per_utt; then
   spk2utt_rspecifier="ark:$sdata/JOB/spk2utt"
 else
