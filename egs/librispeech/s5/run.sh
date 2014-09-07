@@ -25,9 +25,7 @@ for part in dev-clean test-clean dev-other test-other train-clean-100; do
   local/data_prep.sh $data/LibriSpeech/$part data/$part  
 done
 
-# the inputs are created by Vassil but we need to include the scripts to create them.
-local/prepare_dict.sh --nj 30 --cmd "$train_cmd" \
-   /export/a15/vpanayotov/kaldi-egs/ls/s5/data/lm /export/a15/vpanayotov/data/g2p data/local/dict
+# 
 
 mfccdir=mfcc
 
