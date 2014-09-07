@@ -80,8 +80,7 @@ static void ProcessFile(const MatrixBase<BaseFloat> &feats,
         // we'll normally reach here if we're using online-estimated iVectors.
         SubVector<BaseFloat> const_part(feats.Row(i),
                                         basic_feat_dim, const_feat_dim);
-        eg.spk_info.Range(basic_feat_dim, const_feat_dim).CopyFromVec(
-            const_part);
+        eg.spk_info.CopyFromVec(const_part);
       }
       std::ostringstream os;
       os << ((*num_frames_written)++);

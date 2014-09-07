@@ -183,6 +183,8 @@ int main(int argc, char *argv[]) {
         writer.Write(utt, output);
         num_frames += feats.NumRows();
         num_done++;
+
+        KALDI_LOG << "Processed data for utterance " << utt;
       }
     }
 

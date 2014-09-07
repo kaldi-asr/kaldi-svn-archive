@@ -166,7 +166,7 @@ exit 0;
 
 
 #The same with online decoding:
-#%WER 24.35 [ 9530 / 39141, 1487 ins, 2241 del, 5802 sub ] exp/nnet2_online/nnet_b_gpu_online/decode_dev_utt/wer_10
+#%WER 24.05 [ 9415 / 39141, 1413 ins, 2332 del, 5670 sub ] exp/nnet2_online/nnet_b_gpu_online/decode_dev_utt/wer_11
 grep WER exp/nnet2_online/nnet_a_gpu_online/decode_dev_utt/wer_* | utils/best_wer.sh 
 %WER 25.12 [ 9832 / 39141, 1423 ins, 2471 del, 5938 sub ] exp/nnet2_online/nnet_a_gpu_online/decode_dev_utt/wer_11
 
