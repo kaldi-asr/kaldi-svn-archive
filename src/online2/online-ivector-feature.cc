@@ -176,6 +176,9 @@ void OnlineIvectorFeature::GetFrame(int32 frame,
   KALDI_ASSERT(feat->Dim() == this->Dim());
   
   if (info_.use_most_recent_ivector) {
+    KALDI_VLOG(5) << "due to --use-most-recent-ivector=true, using iVector "
+                  << "from frame " << num_frames_stats_ << " for frame "
+                  << frame;
     // use the most recent iVector we have, even if 'frame' is significantly in
     // the past.
     feat->CopyFromVec(current_ivector_);
