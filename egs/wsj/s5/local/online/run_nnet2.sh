@@ -160,7 +160,7 @@ if [ $stage -le 10 ]; then
     for year in eval92 dev93; do
       steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 8 \
         --per-utt true --online false \
-        "$graph_dir" data/test_${year} ${dir}_online/decode_${lm_suffix}_${year}_utt_noonline || exit 1;
+        "$graph_dir" data/test_${year} ${dir}_online/decode_${lm_suffix}_${year}_utt_offline || exit 1;
     done
   done
 fi

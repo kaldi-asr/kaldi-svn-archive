@@ -138,6 +138,15 @@ if [ $stage -le 9 ]; then
       exp/tri5a/graph data/dev ${dir}_online/decode_dev_utt || exit 1;
 fi
 
+if [ $stage -le 10 ]; then
+  # this version of the decoding treats each utterance separately
+  # without carrying forward speaker information, but looks to the end
+  # of the utterance while computing the iVector.
+   steps/online/nnet2/decode.sh --config conf/decode.config --cmd "$decode_cmd" --nj 30 \
+     --per-utt true --online false \
+      exp/tri5a/graph data/dev ${dir}_online/decode_dev_utt_offline || exit 1;
+fi
+
 
 exit 0;
 
