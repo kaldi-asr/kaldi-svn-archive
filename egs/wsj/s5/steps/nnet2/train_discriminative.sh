@@ -123,6 +123,9 @@ mkdir -p $dir/log || exit 1;
 sdata=$data/split$nj
 utils/split_data.sh $data $nj
 
+# function to remove egs that might be soft links.
+remove () { for x in $*; do [ -L $x ] && rm $(readlink -f $x); rm $x; done }
+
 splice_opts=`cat $alidir/splice_opts 2>/dev/null`
 silphonelist=`cat $lang/phones/silence.csl` || exit 1;
 cmvn_opts=`cat $alidir/cmvn_opts 2>/dev/null`
@@ -217,6 +220,24 @@ else
   echo "$0: Every epoch, splitting the data up into $iters_per_epoch iterations"
 fi
 
+
+# we create these data links regardless of the stage, as there are situations where we
+# would want to recreate a data link that had previously been deleted.
+if [ -z "$degs_dir" ] && [ -d $dir/degs/storage ]; then
+  echo "$0: creating data links for distributed storage of degs"
+    # See utils/create_split_dir.pl for how this 'storage' directory
+    # is created.
+  for x in $(seq $num_jobs_nnet); do
+    for y in $(seq $nj); do
+      utils/create_data_link.pl $dir/degs/degs_orig.$x.$y
+    done
+    for z in $(seq 0 $[$iters_per_epoch-1]); do
+      utils/create_data_link.pl $dir/degs/degs_tmp.$x.$z
+      utils/create_data_link.pl $dir/degs/degs.$x.$z
+    done
+  done
+fi
+
 if [ $stage -le -7 ]; then
   echo "$0: Copying initial model and modifying preconditioning setup"
   # We want online preconditioning with a larger number of samples of history, since
@@ -234,6 +255,9 @@ if [ $stage -le -7 ]; then
   fi
 fi
 
+
+
+
 if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
   echo "$0: getting initial training examples by splitting lattices"
 
@@ -241,6 +265,7 @@ if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
   for n in `seq 1 $num_jobs_nnet`; do
     egs_list="$egs_list ark:$dir/degs/degs_orig.$n.JOB.ark"
   done
+
 
   $cmd $io_opts JOB=1:$nj $dir/log/get_egs.JOB.log \
     nnet-get-egs-discriminative --criterion=$criterion --drop-frames=$drop_frames \
@@ -261,19 +286,17 @@ if [ $stage -le -5 ] && [ -z "$degs_dir" ]; then
     echo "Since iters-per-epoch == 1, just concatenating the data."
     for n in `seq 1 $num_jobs_nnet`; do
       cat $dir/degs/degs_orig.$n.*.ark > $dir/degs/degs_tmp.$n.0.ark || exit 1;
-      rm $dir/degs/degs_orig.$n.*.ark  # don't "|| exit 1", due to NFS bugs...
+      remove $dir/degs/degs_orig.$n.*.ark  # don't "|| exit 1", due to NFS bugs...
     done
   else # We'll have to split it up using nnet-copy-egs.
     egs_list=
     for n in `seq 0 $[$iters_per_epoch-1]`; do
       egs_list="$egs_list ark:$dir/degs/degs_tmp.JOB.$n.ark"
     done
-    # note, the "|| true" below is a workaround for NFS bugs
-    # we encountered running this script with Debian-7, NFS-v4.
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/split_egs.JOB.log \
       nnet-copy-egs-discriminative --srand=JOB \
-        "ark:cat $dir/degs/degs_orig.JOB.*.ark|" $egs_list '&&' \
-        '(' rm $dir/degs/degs_orig.JOB.*.ark '||' true ')' || exit 1;
+        "ark:cat $dir/degs/degs_orig.JOB.*.ark|" $egs_list || exit 1;
+    remove $dir/degs/degs_orig.*.*.ark
   fi
 fi
 
@@ -289,12 +312,17 @@ if [ $stage -le -4 ] && [ -z "$degs_dir" ]; then
 
   # note, the "|| true" below is a workaround for NFS bugs
   # we encountered running this script with Debian-7, NFS-v4.
+  # Also, we should note that we used to do nnet-combine-egs-discriminative
+  # at this stage, but if iVectors are used this would expand the size of
+  # the examples on disk (because they could no longer be stored in the spk_info
+  # variable of the discrminative example, no longer being constant), so
+  # now we do the nnet-combine-egs-discriminative operation on the fly during
+  # training.
   for n in `seq 0 $[$iters_per_epoch-1]`; do
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/shuffle.$n.JOB.log \
       nnet-shuffle-egs-discriminative "--srand=\$[JOB+($num_jobs_nnet*$n)]" \
-      ark:$dir/degs/degs_tmp.JOB.$n.ark ark:- \| \
-      nnet-combine-egs-discriminative ark:- ark:$dir/degs/degs.JOB.$n.ark '&&' \
-      '(' rm $dir/degs/degs_tmp.JOB.$n.ark '||' true ')' || exit 1;
+      ark:$dir/degs/degs_tmp.JOB.$n.ark ark:$dir/degs/degs.JOB.$n.ark || exit 1;
+    remove $dir/degs/degs_tmp.*.$n.ark
   done
 fi
 
@@ -324,7 +352,8 @@ while [ $x -lt $num_iters ]; do
       nnet-train-discriminative$train_suffix --silence-phones=$silphonelist \
        --criterion=$criterion --drop-frames=$drop_frames \
        --boost=$boost --acoustic-scale=$acoustic_scale \
-       $dir/$x.mdl ark:$degs_dir/degs.JOB.$[$x%$iters_per_epoch].ark $dir/$[$x+1].JOB.mdl \
+       $dir/$x.mdl "ark:nnet-combine-egs-discriminative ark:$degs_dir/degs.JOB.$[$x%$iters_per_epoch].ark ark:- |" \
+        $dir/$[$x+1].JOB.mdl \
       || exit 1;
 
     nnets_list=
@@ -359,7 +388,7 @@ if $cleanup; then
 
   echo Removing training examples
   if [ -d $dir/degs ] && [ ! -L $dir/degs ]; then # only remove if directory is not a soft link.
-    rm $dir/degs/degs*
+    remove $dir/degs/degs.*
   fi
 
   echo Removing most of the models

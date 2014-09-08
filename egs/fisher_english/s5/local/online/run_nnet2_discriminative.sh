@@ -1,10 +1,12 @@
 #!/bin/bash
 
+# This is to be run after run_nnet2.sh
+# THIS IS NOT TESTED YET.
 
-# This is discriminative training, to be run after run_nnet2.sh.
 
 . cmd.sh
 
+use_preconditioning=true
 
 stage=1
 train_stage=-10
@@ -35,6 +37,9 @@ else
   srcdir=exp/nnet2_online/nnet_a
 fi
 
+
+set -e
+
 nj=40
 
 if [ $stage -le 1 ]; then
@@ -45,25 +50,27 @@ if [ $stage -le 1 ]; then
   # run at one time.
   steps/nnet2/make_denlats.sh --cmd "$decode_cmd -l mem_free=1G,ram_free=1G" \
       --nj $nj --sub-split 40 --num-threads 6 --parallel-opts "-pe smp 6" \
-      --online-ivector-dir exp/nnet2_online/ivectors2_train_si284 \
-      data/train_si284 data/lang $srcdir ${srcdir}_denlats
+      --online-ivector-dir exp/nnet2_online/ivectors_train \
+      data/train data/lang $srcdir ${srcdir}_denlats
 fi
 
 if [ $stage -le 2 ]; then
   steps/nnet2/align.sh  --cmd "$decode_cmd $gpu_opts" \
-      --online-ivector-dir exp/nnet2_online/ivectors2_train_si284 \
+      --online-ivector-dir exp/nnet2_online/ivectors_train \
       --use-gpu $use_gpu \
-      --nj $nj data/train_si284 data/lang ${srcdir} ${srcdir}_ali
+      --nj $nj data/train data/lang ${srcdir} ${srcdir}_ali
 fi
 
 if [ $stage -le 3 ]; then
-  if $use_gpu; then
-    steps/nnet2/train_discriminative.sh --cmd "$decode_cmd" --learning-rate 0.00002 \
-      --online-ivector-dir exp/nnet2_online/ivectors2_train_si284 \
-      --num-jobs-nnet 4  --num-threads $num_threads --parallel-opts "$gpu_opts" \
-        data/train_si284 data/lang \
-      ${srcdir}_ali ${srcdir}_denlats ${srcdir}/final.mdl ${srcdir}_smbr
+  if [ $USER == dpovey ]; then # this shows how you can split across multiple file-systems.
+    utils/create_split_dir.pl /export/b0{1,2,3,4}/dpovey/kaldi-online/egs/fisher_english/s5/${srcdir}_smbr/degs ${srcdir}_smbr/degs/storage
   fi
+  steps/nnet2/train_discriminative.sh --cmd "$decode_cmd" --learning-rate 0.00002 \
+    --use-preconditioning $use_preconditioning \
+    --online-ivector-dir exp/nnet2_online/ivectors_train \
+    --num-jobs-nnet 4  --num-threads $num_threads --parallel-opts "$gpu_opts" \
+      data/train data/lang \
+    ${srcdir}_ali ${srcdir}_denlats ${srcdir}/final.mdl ${srcdir}_smbr
 fi
 
 if [ $stage -le 4 ]; then
@@ -73,18 +80,13 @@ if [ $stage -le 4 ]; then
     cp ${srcdir}_smbr/${epoch}.mdl ${srcdir}_online/smbr_epoch${epoch}.mdl
   done
 
-
   for epoch in 1 2 3 4; do
     # do the actual online decoding with iVectors, carrying info forward from 
     # previous utterances of the same speaker.
-    # We just do the bd_tgpr decodes; otherwise the number of combinations 
-    # starts to get very large.
-    for lm_suffix in bd_tgpr; do
-      graph_dir=exp/tri4b/graph_${lm_suffix}
-      for year in eval92 dev93; do
-        steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 8 --iter smbr_epoch${epoch} \
-          "$graph_dir" data/test_${year} ${dir}_online/decode_${lm_suffix}_${year} || exit 1;
-      done
+    steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 8 --iter smbr_epoch${epoch} \
+       exp/tri5a/graph data/dev ${dir}_online/decode_dev || exit 1;
     done
   done
 fi
+
+
