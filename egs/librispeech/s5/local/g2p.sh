@@ -31,6 +31,10 @@ sequitur=$KALDI_ROOT/tools/sequitur/g2p.py
 sequitur_path="$(dirname $sequitur)/lib/$PYTHON/site-packages"
 sequitur_model=$g2p_model_dir/model-full.5
 
+# Turns out, that Sequitur has some sort of bug so it doesn't output pronunciations
+# for some (admittedly peculiar) words. We manually specify these exceptions below
+g2p_exceptions="HH HH" # more such entries can be added, separated by "\n"
+
 [ ! -f  $sequitur ] && \
   echo "Can't find the Sequitur G2P script. Please check $KALDI_ROOT/tools for installation script and instructions" && \
   exit 1;
@@ -40,6 +44,12 @@ sequitur_model=$g2p_model_dir/model-full.5
 
 PYTHONPATH=$sequitur_path:$PYTHONPATH $PYTHON $sequitur \
   --model=$sequitur_model --apply $vocab \
-  >$out_lexicon || exit 1
+  >${out_lexicon}.tmp || exit 1
+
+
+awk 'NR==FNR{p[$1]=$0; next;} {if ($1 in p) print p[$1]; else print}' \
+  <(echo -e $g2p_exceptions) ${out_lexicon}.tmp >$out_lexicon || exit 1
+
+rm ${out_lexicon}.tmp
 
 exit 0

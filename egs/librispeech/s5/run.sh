@@ -25,13 +25,18 @@ for part in dev-clean test-clean dev-other test-other train-clean-100; do
   local/data_prep.sh $data/LibriSpeech/$part data/$part  
 done
 
-# 
+# the inputs are created by Vassil but we need to include the scripts to create them.
+local/prepare_dict.sh --nj 30 --cmd "$train_cmd" \
+   /export/a15/vpanayotov/data/lm /export/a15/vpanayotov/data/g2p data/local/dict
+
+utils/prepare_lang.sh data/local/dict "<SPOKEN_NOISE>" data/local/lang_tmp data/lang || exit 1;
+
+local/format_data.sh /export/a15/vpanayotov/data/lm || exit 1
 
 mfccdir=mfcc
-
 for part in dev-clean test-clean dev-other test-other train-clean-100; do
- steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$part exp/make_mfcc/$part $mfccdir
- steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
+  steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$part exp/make_mfcc/$part $mfccdir
+  steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
 done
 
 # Make some small data subsets for early system-build stages.  Note, there are 29k
