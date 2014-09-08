@@ -147,7 +147,7 @@ done
 if [ $stage -le 0 ]; then
   echo "$0: extracting iVectors"
   $cmd JOB=1:$nj $dir/log/extract_ivectors.JOB.log \
-     ivector-extract-online2 --config=$ieconf ark:$dir/spk2utt_fake/spk2utt.JOB scp:$sdata/JOB/feats.scp \| \
+     ivector-extract-online2 --config=$ieconf ark:$dir/spk2utt_fake/spk2utt.JOB scp:$sdata/JOB/feats.scp ark:- \| \
      copy-feats --compress=$compress ark:- \
       ark,scp,t:$dir/ivector_online.JOB.ark,$dir/ivector_online.JOB.scp || exit 1;
 fi

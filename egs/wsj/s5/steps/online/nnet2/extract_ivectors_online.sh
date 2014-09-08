@@ -87,7 +87,7 @@ if [ $stage -le 0 ]; then
   $cmd JOB=1:$nj $dir/log/extract_ivectors.JOB.log \
     gmm-global-get-post --n=$num_gselect --min-post=$min_post $srcdir/final.dubm \
       "$gmm_feats" ark:- \| scale-post ark:- $posterior_scale ark:- \| \
-    ivector-extract-online --ivector-period=$ivector_period $srcdir/final.ie "$feats" ark,s,cs:- \| \
+    ivector-extract-online --ivector-period=$ivector_period $srcdir/final.ie "$feats" ark,s,cs:- ark:- \| \
     copy-feats --compress=$compress ark:- \
       ark,scp,t:$dir/ivector_online.JOB.ark,$dir/ivector_online.JOB.scp || exit 1;
 fi
