@@ -148,6 +148,15 @@ if [ ! -z "$online_ivector_dir" ]; then
 fi
 
 
+# if this job is interrupted by the user, we want any background jobs to be
+# killed too.
+cleanup() {
+  local pids=$(jobs -pr)
+  [ -n "$pids" ] && kill $pids
+}
+trap "cleanup" INT QUIT TERM EXIT
+
+
 if [ $sub_split -eq 1 ]; then 
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode_den.JOB.log \
    nnet-latgen-faster$thread_string --beam=$beam --lattice-beam=$lattice_beam --acoustic-scale=$acwt \
@@ -159,8 +168,6 @@ else
   # from one job, we can be processing another one at the same time.
   rm $dir/.error 2>/dev/null
 
-  # if this job is interrupted by the user, we want any background jobs to be
-  # killed too.
   trap "kill 0" SIGINT SIGTERM EXIT
   prev_pid=
   for n in `seq $[nj+1]`; do
