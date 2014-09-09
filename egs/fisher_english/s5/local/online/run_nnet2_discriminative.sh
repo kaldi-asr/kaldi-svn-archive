@@ -55,9 +55,10 @@ if [ $stage -le 1 ]; then
 fi
 
 if [ $stage -le 2 ]; then
+  if $use_gpu; then use_gpu_opt=yes; else use_gpu_opt=no; fi
   steps/nnet2/align.sh  --cmd "$decode_cmd $gpu_opts" \
       --online-ivector-dir exp/nnet2_online/ivectors_train \
-      --use-gpu $use_gpu \
+      --use-gpu $use_gpu_opt \
       --nj $nj data/train data/lang ${srcdir} ${srcdir}_ali
 fi
 
@@ -65,7 +66,10 @@ if [ $stage -le 3 ]; then
   if [ $USER == dpovey ]; then # this shows how you can split across multiple file-systems.
     utils/create_split_dir.pl /export/b0{1,2,3,4}/dpovey/kaldi-online/egs/fisher_english/s5/${srcdir}_smbr/degs ${srcdir}_smbr/degs/storage
   fi
-  steps/nnet2/train_discriminative.sh --cmd "$decode_cmd" --learning-rate 0.00002 \
+  # decreasing the learning rate by a factor of 2, due to having so much data, 
+  # and decreasing the number of epochs for the same reason.
+  steps/nnet2/train_discriminative.sh --cmd "$decode_cmd" --learning-rate 0.00001 \
+    --num-epochs 2 \
     --use-preconditioning $use_preconditioning \
     --online-ivector-dir exp/nnet2_online/ivectors_train \
     --num-jobs-nnet 4  --num-threads $num_threads --parallel-opts "$gpu_opts" \
@@ -76,11 +80,11 @@ fi
 if [ $stage -le 4 ]; then
   # we'll do the decoding as 'online' decoding by using the existing
   # _online directory but with extra models copied to it.
-  for epoch in 1 2 3 4; do
+  for epoch in 1 2; do
     cp ${srcdir}_smbr/${epoch}.mdl ${srcdir}_online/smbr_epoch${epoch}.mdl
   done
 
-  for epoch in 1 2 3 4; do
+  for epoch in 1 2; do
     # do the actual online decoding with iVectors, carrying info forward from 
     # previous utterances of the same speaker.
     steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 8 --iter smbr_epoch${epoch} \

@@ -50,9 +50,10 @@ if [ $stage -le 1 ]; then
 fi
 
 if [ $stage -le 2 ]; then
+  if $use_gpu; then gpu_opt=yes; else gpu_opt=no; fi
   steps/nnet2/align.sh  --cmd "$decode_cmd $gpu_opts" \
       --online-ivector-dir exp/nnet2_online/ivectors2_train_si284 \
-      --use-gpu $use_gpu \
+      --use-gpu $gpu_opt \
       --nj $nj data/train_si284 data/lang ${srcdir} ${srcdir}_ali
 fi
 

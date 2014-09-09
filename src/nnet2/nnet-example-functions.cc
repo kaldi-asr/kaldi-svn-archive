@@ -892,7 +892,6 @@ void AppendDiscriminativeExamples(
   KALDI_ASSERT(!input.empty());
   const DiscriminativeNnetExample &eg0 = *(input[0]);
   
-  KALDI_ASSERT(eg0.spk_info.Dim() == 0);
   int32 dim = eg0.input_frames.NumCols() + eg0.spk_info.Dim(),
       left_context = eg0.left_context,
       num_frames = eg0.num_ali.size(),
