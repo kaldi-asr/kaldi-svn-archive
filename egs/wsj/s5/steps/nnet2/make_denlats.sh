@@ -168,7 +168,6 @@ else
   # from one job, we can be processing another one at the same time.
   rm $dir/.error 2>/dev/null
 
-  trap "kill 0" SIGINT SIGTERM EXIT
   prev_pid=
   for n in `seq $[nj+1]`; do
     if [ $n -gt $nj ]; then
