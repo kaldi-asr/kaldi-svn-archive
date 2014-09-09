@@ -92,7 +92,7 @@ if [ $stage -le 3 ]; then
   extra_questions=$dst_dir/extra_questions.txt
 
   echo "Preparing phone lists and clustering questions"
-  (echo SIL; echo SPN; echo NSN) > $silence_phones
+  (echo SIL; echo SPN;) > $silence_phones
   echo SIL > $optional_silence
   # nonsilence phones; on each line is a list of phones that correspond
   # really to the same base phone.
