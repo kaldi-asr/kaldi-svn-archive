@@ -28,7 +28,6 @@ final_learning_rate=0.004
 bias_stddev=0.5
 pnorm_input_dim=3000 
 pnorm_output_dim=300
-first_component_power=1.0  # could set this to 0.5, sometimes seems to improve results.
 p=2
 minibatch_size=128 # by default use a smallish minibatch size for neural net
                    # training; this controls instability which would otherwise
@@ -188,7 +187,6 @@ lda_dim=$(cat $dir/lda_dim) || exit 1;
 
 if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   echo "$0: calling get_egs.sh"
-  [ ! -z $spk_vecs_dir ] && egs_opts="$egs_opts --spk-vecs-dir $spk_vecs_dir";
   steps/nnet2/get_egs.sh $egs_opts "${extra_opts[@]}" \
       --samples-per-iter $samples_per_iter \
       --num-jobs-nnet $num_jobs_nnet --stage $get_egs_stage \
@@ -224,11 +222,6 @@ SpliceComponent input-dim=$tot_input_dim left-context=$splice_width right-contex
 FixedAffineComponent matrix=$lda_mat
 AffineComponentPreconditionedOnline input-dim=$lda_dim output-dim=$pnorm_input_dim $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
 PnormComponent input-dim=$pnorm_input_dim output-dim=$pnorm_output_dim p=$p
-EOF
-  if [ $first_component_power != 1.0 ]; then
-    echo "PowerComponent dim=$pnorm_output_dim power=$first_component_power" >> $dir/nnet.config
-  fi
-  cat >>$dir/nnet.config <<EOF
 NormalizeComponent dim=$pnorm_output_dim
 AffineComponentPreconditionedOnline input-dim=$pnorm_output_dim output-dim=$num_leaves $online_preconditioning_opts learning-rate=$initial_learning_rate param-stddev=0 bias-stddev=0
 SoftmaxComponent dim=$num_leaves

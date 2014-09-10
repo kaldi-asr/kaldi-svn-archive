@@ -25,7 +25,7 @@
 #include <vector>
 #include <deque>
 
-#include "util/timer.h"
+#include "base/timer.h"
 #include "base/kaldi-error.h"
 
 namespace kaldi {
@@ -90,7 +90,11 @@ class OnlineTimer {
   /// This call, which should be made after decoding is done,
   /// writes the stats to the object that accumulates them.
   void OutputStats(OnlineTimingStats *stats);
-      
+
+  /// Returns the simulated time elapsed in seconds since the timer was started;
+  /// this equals waited_ plus the real time elapsed.
+  double Elapsed();
+  
  private:
   std::string utterance_id_;
   Timer timer_;
