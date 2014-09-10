@@ -71,7 +71,7 @@ if [ $stage -le 4 ]; then
   # we'll do the decoding as 'online' decoding by using the existing
   # _online directory but with extra models copied to it.
   for epoch in 1 2 3 4; do
-    cp ${srcdir}_smbr/${epoch}.mdl ${srcdir}_online/smbr_epoch${epoch}.mdl
+    cp ${srcdir}_smbr/epoch${epoch}.mdl ${srcdir}_online/smbr_epoch${epoch}.mdl
   done
 
 
@@ -84,7 +84,7 @@ if [ $stage -le 4 ]; then
       graph_dir=exp/tri4b/graph_${lm_suffix}
       for year in eval92 dev93; do
         steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 8 --iter smbr_epoch${epoch} \
-          "$graph_dir" data/test_${year} ${dir}_online/decode_${lm_suffix}_${year} || exit 1;
+          "$graph_dir" data/test_${year} ${srcdir}_online/decode_${lm_suffix}_${year} || exit 1;
       done
     done
   done
