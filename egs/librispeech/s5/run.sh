@@ -142,3 +142,25 @@ for test in dev-clean dev-other; do
 done
 )&
 
+# align train-clean-100 using the tri4b model
+steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+  data/train-clean-100 data/lang exp/tri4b exp/tri4b_ali_train-clean-100 || exit 1;
+
+# train and test NN model(s)
+local/run_nnet2.sh --train-set "train-clean-100" || exit 1
+
+# now add the "clean-360" subset to the mix ...
+local/data_prep.sh $data/LibriSpeech/train-clean-360 data/train-clean-360 || exit 1
+steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train-clean-360 \
+  exp/make_mfcc/train-clean-360 $mfccdir || exit 1
+steps/compute_cmvn_stats.sh data/train-clean-360 exp/make_mfcc/train-clean-360 $mfccdir || exit 1
+
+# ... and then combine the two sets into a 460 hour one
+utils/combine_data.sh data/train-clean-460 data/train-clean-100 data/train-clean-360 || exit 1
+
+# align the new, combined set, using the tri4b model
+steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+  data/train-clean-460 data/lang exp/tri4b exp/tri4b_ali_train-clean-460 || exit 1;
+
+# train a NN model on the 460 hour set
+local/run_nnet2.sh --train-set "train-clean-460" || exit 1
