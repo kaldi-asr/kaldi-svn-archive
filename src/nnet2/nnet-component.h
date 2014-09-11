@@ -1,7 +1,7 @@
 // nnet2/nnet-component.h
 
 // Copyright 2011-2013  Karel Vesely
-//                      Johns Hopkins University (author: Daniel Povey)
+//           2012-2014  Johns Hopkins University (author: Daniel Povey)
 //              2013  Xiaohui Zhang    
 
 // See ../../COPYING for clarification regarding multiple authors
@@ -36,6 +36,68 @@ namespace nnet2 {
 
 
 /**
+   ChunkInfo is a struct (with some member functions) whose purpose is to
+   describe the structure of matrices holding features.  This is useful mostly
+   in training time.  The main reason why we have this is to support efficient
+   training for networks which we have splicing components that splice in a
+   non-contiguous way, e.g. frames -5, 0 and 5.  We also have in mind future
+   extensibility to convnets which might have similar issues.  This struct
+   describes the structure of a minibatch of features, or of a single
+   contiguous block of features.
+   Examples are as follows, and indexes is empty if not mentioned:
+     When decoding, at input to the network:
+       feat_dim = 13, num_chunks = 1, first_index = 0, last_index = 691
+      and in the middle of the network (assuming splicing is +-7):
+       feat_dim = 1024, num_chunks = 1, first_index = 7, last_index = 684
+    When training, at input to the network:
+      feat_dim = 13, num_chunks = 512, first_index = 0, last_index = 14
+     and in the middle of the network:
+      feat_dim = 1024, num_chunks = 512, first_index = 7, last_index = 7
+   The only situation where indexes would be nonempty would be if we do
+   splicing with gaps in.  E.g. suppose at network input we splice +-2 frames
+   (contiguous) and somewhere in the middle we splice frames {-5, 0, 5}, then
+   we would have the following while training
+     At input to the network:
+      feat_dim = 13, num_chunks = 512, first_index = 0, last_index = 14
+     After the first hidden layer:
+      feat_dim = 1024, num_chunks = 512, first_index = 2, last_index = 12,
+       indexes = {2, 10, 12}
+     At the output of the last hidden layer (after the {-5, 0, 5} splice):
+      feat_dim = 1024, num_chunks = 512, first_index = 7, last_index = 7
+   (the decoding setup would still look pretty normal, so we don't give an example).
+    
+*/
+struct ChunkInfo {
+  int32 feat_dim;  // Feature dimension.
+  int32 num_chunks;  // Number of separate equal-sized chunks of features
+  int32 first_index;  // Start time index within each chunk, numbered so that at
+                      // the input to the network, the start_index of the first
+                      // feature would always be zero.
+  int32 last_index;  // End time index within each chunk.
+  std::vector<int32> indexes;  // indexes is only nonempty if the chunk contains
+                               // a non-contiguous sequence.  If nonempty, it must
+                               // be sorted, and indexes.front() == first_index,
+                               // indexes.back() == last_index.
+
+  /// Returns the number of rows that we expect the feature matrix to have.
+  int32 NumRows() { return num_chunks * (!indexes.empty() ? indexes.size() :
+                                         end_index - start_index + 1); }
+
+  /// Returns the number of columns that we expect the feature matrix to have.
+  int32 NumCols() { return feat_dim; }
+    
+  /// Resize the matrix.
+  void Resize(CuMatrix<BaseFloat> *mat) { mat->Resize(NumRows(), NumCols()); }
+
+  /// Check that the matrix has the size we expect, and die if not.
+  void SizeCheck(CuMatrixBase<BaseFloat> *mat);
+  
+  /// Check that the data in the ChunkInfo is valid, and die if not.
+  void Check();  
+};
+
+
+/**
  * Abstract class, basic element of the network,
  * it is a box with defined inputs, outputs,
  * and tranformation functions interface.
@@ -44,7 +106,6 @@ namespace nnet2 {
  * exact implementation is to be implemented in descendants.
  *
  */ 
-
 class Component {
  public:
   Component(): index_(-1) { }
@@ -69,13 +130,14 @@ class Component {
   /// Get size of output vectors 
   virtual int32 OutputDim() const = 0;
   
-  /// Number of left-context frames the component sees for each output frame;
-  /// nonzero only for splicing layers.
-  virtual int32 LeftContext() const { return 0; }
+  /// Return a vector describing the temporal context this requires for each
+  /// frame of output, as a sorted list.  The default implementation returns a
+  /// vector ( 0 ), but a splicing layer might return e.g. (-2, -1, 0, 1, 2),
+  /// but it doesn't have to be contiguous.
+  virtual std::vector<int32> Context() const { return vector<int32>(1, 0); }
 
-  /// Number of right-context frames the component sees for each output frame;
-  /// nonzero only for splicing layers.
-  virtual int32 RightContext() const { return 0; }
+  // Note: replace LeftContext() with Context().front()
+  // and RightContext() with Context().back().
 
   /// Perform forward pass propagation Input->Output.  Each row is
   /// one frame or training example.  Interpreted as "num_chunks"
@@ -84,8 +146,9 @@ class Component {
   /// will either be 1 (when we're processing a single contiguous
   /// chunk of data) or will be the same as in.NumFrames(), but
   /// other values are possible if some layers do splicing.
-  virtual void Propagate(const CuMatrixBase<BaseFloat> &in,
-                         int32 num_chunks,
+  virtual void Propagate(const ChunkInfo &in_info,
+                         const ChunkInfo &out_info,
+                         const CuMatrixBase<BaseFloat> &in,
                          CuMatrix<BaseFloat> *out) const = 0; 
   
   /// Perform backward pass propagation of the derivative, and
@@ -96,12 +159,13 @@ class Component {
   /// BackpropNeedsInput() or BackpropNeedsOutput() return false for
   /// that component (not all components need these).
   ///
-  /// num_chunks lets us treat the input matrix as n contiguous-in-time
+  /// num_chunks lets us treat the input matrix as contiguous-in-time
   /// chunks of equal size; it only matters if splicing is involved.
-  virtual void Backprop(const CuMatrixBase<BaseFloat> &in_value,
+  virtual void Backprop(const ChunkInfo &in_info,
+                        const ChunkInfo &out_info,
+                        const CuMatrixBase<BaseFloat> &in_value,
                         const CuMatrixBase<BaseFloat> &out_value,                        
                         const CuMatrixBase<BaseFloat> &out_deriv,
-                        int32 num_chunks,
                         Component *to_update, // may be identical to "this".
                         CuMatrix<BaseFloat> *in_deriv) const = 0;
   
