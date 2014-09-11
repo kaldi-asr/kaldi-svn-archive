@@ -6,9 +6,6 @@
 train_stage=-10
 use_gpu=true
 
-train_set="train-clean-100"
-test_sets="dev-clean dev-other"
-
 . cmd.sh
 . ./path.sh
 . utils/parse_options.sh
@@ -25,11 +22,11 @@ EOF
   parallel_opts="-l gpu=1" 
   num_threads=1
   minibatch_size=512
-  dir=exp/nnet5c_gpu_${train_set}
+  dir=exp/nnet5c_gpu_clean_460
 else
   num_threads=16
   parallel_opts="-pe smp $num_threads" 
-  dir=exp/nnet5c_${train_set}
+  dir=exp/nnet5c_clean_460
   minibatch_size=128
 fi
 
@@ -49,13 +46,13 @@ if [ ! -f $dir/final.mdl ]; then
     --initial-learning-rate 0.01 --final-learning-rate 0.001 \
     --num-hidden-layers 4 --hidden-layer-dim 1024 \
     --cmd "$decode_cmd" \
-     data/$train_set data/lang exp/tri4b_ali_${train_set} $dir || exit 1
+     data/train-clean-460 data/lang exp/tri4b_ali_clean_460 $dir || exit 1
 fi
 
-for test in $test_sets; do
+for test in dev-clean dev-other; do
   steps/nnet2/decode.sh --nj 20 --cmd "$decode_cmd" \
-    --transform-dir exp/tri4b/decode_tgpr_$test \
-    exp/tri4b/graph_tgpr data/$test $dir/decode_tgpr_$test || exit 1;
+    --transform-dir exp/tri4c/decode_tgpr_$test \
+    exp/tri4c/graph_tgpr data/$test $dir/decode_tgpr_$test || exit 1;
 done
 
 wait

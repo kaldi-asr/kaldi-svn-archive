@@ -127,11 +127,11 @@ done
 
 # align the entire train-clean-100 subset using the tri3b model
 steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
-  data/train-clean-100 data/lang exp/tri3b exp/tri3b_ali_100h || exit 1;
+  data/train-clean-100 data/lang exp/tri3b exp/tri3b_ali_clean_100 || exit 1;
 
 # train another LDA+MLLT+SAT system on the entire 100 hour subset
 steps/train_sat.sh  --cmd "$train_cmd" \
-  4200 40000 data/train-clean-100 data/lang exp/tri3b_ali_100h exp/tri4b || exit 1;
+  4200 40000 data/train-clean-100 data/lang exp/tri3b_ali_clean_100 exp/tri4b || exit 1;
 
 # decode using the tri4b model
 (
@@ -144,10 +144,10 @@ done
 
 # align train-clean-100 using the tri4b model
 steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
-  data/train-clean-100 data/lang exp/tri4b exp/tri4b_ali_train-clean-100 || exit 1;
+  data/train-clean-100 data/lang exp/tri4b exp/tri4b_ali_clean_100 || exit 1;
 
-# train and test NN model(s)
-local/run_nnet2.sh --train-set "train-clean-100" || exit 1
+# train and test NN model(s) on the 100 hour subset
+local/run_nnet2_clean_100.sh || exit 1
 
 # now add the "clean-360" subset to the mix ...
 local/data_prep.sh $data/LibriSpeech/train-clean-360 data/train-clean-360 || exit 1
@@ -160,7 +160,36 @@ utils/combine_data.sh data/train-clean-460 data/train-clean-100 data/train-clean
 
 # align the new, combined set, using the tri4b model
 steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
-  data/train-clean-460 data/lang exp/tri4b exp/tri4b_ali_train-clean-460 || exit 1;
+  data/train-clean-460 data/lang exp/tri4b exp/tri4b_ali_clean_460 || exit 1;
 
 # train a NN model on the 460 hour set
-local/run_nnet2.sh --train-set "train-clean-460" || exit 1
+local/run_nnet2_clean_460.sh || exit 1
+
+# prepare the 500 hour subset
+local/data_prep.sh $data/LibriSpeech/train-other-500 data/train-other-500 || exit 1
+steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train-other-500 \
+  exp/make_mfcc/train-other-500 $mfccdir || exit 1
+steps/compute_cmvn_stats.sh data/train-other-500 exp/make_mfcc/train-other-500 $mfccdir || exit 1
+
+# combine all the data
+utils/combine_data.sh data/train-960 data/train-clean-460 data/train-other-500 || exit 1
+
+# now take a decent-sized subset of the combined set
+utils/subset_data_dir.sh data/train-960 65000 data/train-65k || exit 1
+
+steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+  data/train-65k data/lang exp/tri4b exp/tri4b_ali_65k || exit 1;
+
+# train a SAT model on the 65k mixed(clean + other) subset
+steps/train_sat.sh  --cmd "$train_cmd" \
+  5300 54000 data/train-65k data/lang exp/tri4b_ali_65k exp/tri4c || exit 1;
+
+# align the entire dataset
+steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+  data/train-960 data/lang exp/tri4c exp/tri4c_ali_960 || exit 1;
+
+# train NN models on the entire dataset
+local/run_nnet2_960.sh || exit 1
+
+# train models on cleaned-up data
+local/run_data_cleaning.sh
