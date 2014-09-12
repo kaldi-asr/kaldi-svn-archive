@@ -26,6 +26,13 @@ for part in dev-clean test-clean dev-other test-other train-clean-100; do
   local/data_prep.sh $data/LibriSpeech/$part data/$part  
 done
 
+## Optional text corpus normalization and LM training
+## These scripts are here primarily as a documentation of the process that has been
+## used to build the LM. Most users of this recipe will NOT need/want to run
+## this step
+#local/lm/train_lm.sh $LM_CORPUS_ROOT \
+#  data/lm/norm/tmp data/lm/norm/norm_texts data/lm || exit 1
+
 # the inputs are created by Vassil but we need to include the scripts to create them.
 local/prepare_dict.sh --nj 30 --cmd "$train_cmd" \
    /export/a15/vpanayotov/data/lm /export/a15/vpanayotov/data/g2p data/local/dict
