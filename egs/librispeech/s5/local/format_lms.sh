@@ -22,9 +22,7 @@ tmpdir=data/local/lm_tmp
 lexicon=data/local/lang_tmp/lexiconp.txt
 mkdir -p $tmpdir
 
-# This loop was taken verbatim from wsj_format_data.sh, and I'm leaving it in place in
-# case we decide to add more language models at some point
-for lm_suffix in tgpr; do
+for lm_suffix in tgsmall tgmed; do
   test=data/lang_test_${lm_suffix}
   mkdir -p $test
   for f in phones.txt words.txt phones.txt L.fst L_disambig.fst phones/; do
@@ -46,7 +44,7 @@ for lm_suffix in tgpr; do
     utils/remove_oovs.pl $tmpdir/oovs_${lm_suffix}.txt | \
     utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=$test/words.txt \
       --osymbols=$test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
-     fstrmepsilon > $test/G.fst
+     fstrmepsilon | fstarcsort --sort_type=ilabel > $test/G.fst
   fstisstochastic $test/G.fst
  # The output is like:
  # 9.14233e-05 -0.259833

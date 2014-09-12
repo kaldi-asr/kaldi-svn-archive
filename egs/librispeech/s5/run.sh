@@ -32,7 +32,7 @@ local/prepare_dict.sh --nj 30 --cmd "$train_cmd" \
 
 utils/prepare_lang.sh data/local/dict "<SPOKEN_NOISE>" data/local/lang_tmp data/lang || exit 1;
 
-local/format_data.sh /export/a15/vpanayotov/data/lm || exit 1
+local/format_lms.sh /export/a15/vpanayotov/data/lm || exit 1
 
 mfccdir=mfcc
 for part in dev-clean test-clean dev-other test-other train-clean-100; do
@@ -55,10 +55,10 @@ steps/train_mono.sh --boost-silence 1.25 --nj 20 --cmd "$train_cmd" \
 
 # decode using the monophone model
 (
-utils/mkgraph.sh --mono data/lang_test_tgpr exp/mono exp/mono/graph_tgpr || exit 1
+utils/mkgraph.sh --mono data/lang_test_tgsmall exp/mono exp/mono/graph_tgsmall || exit 1
 for test in dev-clean dev-other; do
   steps/decode.sh --nj 20 --cmd "$decode_cmd" \
-    exp/mono/graph_tgpr data/$test exp/mono/decode_tgpr_$test
+    exp/mono/graph_tgsmall data/$test exp/mono/decode_tgsmall_$test
 done
 )&
 
@@ -71,28 +71,18 @@ steps/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
 
 # decode using the tri1 model
 (
-utils/mkgraph.sh data/lang_test_tgpr exp/tri1 exp/tri1/graph_tgpr || exit 1;
+utils/mkgraph.sh data/lang_test_tgsmall exp/tri1 exp/tri1/graph_tgsmall || exit 1;
 for test in dev-clean dev-other; do
   steps/decode.sh --nj 20 --cmd "$decode_cmd" \
-    exp/tri1/graph_tgpr data/$test exp/tri1/decode_tgpr_$test || exit 1;
-done
+    exp/tri1/graph_tgsmall data/$test exp/tri1/decode_tgsmall_$test || exit 1;
+  steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
+     data/$test exp/tri1/decode_{tgsmall,tgmed}_$test  || exit 1;
+ done
 )&
 
 steps/align_si.sh --nj 10 --cmd "$train_cmd" \
   data/train-10k data/lang exp/tri1 exp/tri1_ali_10k || exit 1;
 
-# train a second slightly larger delta + delta-delta model
-steps/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
-    2500 15000 data/train-10k data/lang exp/tri1_ali_10k exp/tri2a || exit 1;
-
-# decode using the tri2a model
-(
-utils/mkgraph.sh data/lang_test_tgpr exp/tri2a exp/tri2a/graph_tgpr || exit 1;
-for test in dev-clean dev-other; do
-  steps/decode.sh --nj 20 --cmd "$decode_cmd" \
-    exp/tri2a/graph_tgpr data/$test exp/tri2a/decode_tgpr_$test || exit 1;
-done
-)&
 
 # train an LDA+MLLT system.
 steps/train_lda_mllt.sh --cmd "$train_cmd" \
@@ -101,11 +91,13 @@ steps/train_lda_mllt.sh --cmd "$train_cmd" \
 
 # decode using the LDA+MLLT model
 (
-utils/mkgraph.sh data/lang_test_tgpr exp/tri2b exp/tri2b/graph_tgpr || exit 1;
-for test in dev-clean dev-other; do
-  steps/decode.sh --nj 20 --cmd "$decode_cmd" \
-    exp/tri2b/graph_tgpr data/$test exp/tri2b/decode_tgpr_$test || exit 1;
-done
+  utils/mkgraph.sh data/lang_test_tgsmall exp/tri2b exp/tri2b/graph_tgsmall || exit 1;
+  for test in dev-clean dev-other; do
+    steps/decode.sh --nj 20 --cmd "$decode_cmd" \
+      exp/tri2b/graph_tgsmall data/$test exp/tri2b/decode_tgsmall_$test || exit 1;
+    steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
+      data/$test exp/tri2b/decode_{tgsmall,tgmed}_$test  || exit 1;
+  done
 )&
 
 # Align a 10k utts subset using the tri2b model
@@ -118,11 +110,13 @@ steps/train_sat.sh --cmd "$train_cmd" \
 
 # decode using the tri3b model
 (
-utils/mkgraph.sh data/lang_test_tgpr exp/tri3b exp/tri3b/graph_tgpr || exit 1;
-for test in dev-clean dev-other; do
-  steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
-    exp/tri3b/graph_tgpr data/$test exp/tri3b/decode_tgpr_$test || exit 1;
-done
+  utils/mkgraph.sh data/lang_test_tgsmall exp/tri3b exp/tri3b/graph_tgsmall || exit 1;
+  for test in dev-clean dev-other; do
+    steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
+      exp/tri3b/graph_tgsmall data/$test exp/tri3b/decode_tgsmall_$test || exit 1;
+    steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
+      data/$test exp/tri3b/decode_{tgsmall,tgmed}_$test  || exit 1;
+  done
 )&
 
 # align the entire train-clean-100 subset using the tri3b model
@@ -135,10 +129,10 @@ steps/train_sat.sh  --cmd "$train_cmd" \
 
 # decode using the tri4b model
 (
-utils/mkgraph.sh data/lang_test_tgpr exp/tri4b exp/tri4b/graph_tgpr || exit 1;
+utils/mkgraph.sh data/lang_test_tgsmall exp/tri4b exp/tri4b/graph_tgsmall || exit 1;
 for test in dev-clean dev-other; do
   steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
-    exp/tri4b/graph_tgpr data/$test exp/tri4b/decode_tgpr_$test || exit 1;
+    exp/tri4b/graph_tgsmall data/$test exp/tri4b/decode_tgsmall_$test || exit 1;
 done
 )&
 
@@ -180,7 +174,7 @@ utils/subset_data_dir.sh data/train-960 65000 data/train-65k || exit 1
 steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
   data/train-65k data/lang exp/tri4b exp/tri4b_ali_65k || exit 1;
 
-# train a SAT model on the 65k mixed(clean + other) subset
+# train a SAT model on the 65k mixed (clean + other) subset
 steps/train_sat.sh  --cmd "$train_cmd" \
   5300 54000 data/train-65k data/lang exp/tri4b_ali_65k exp/tri4c || exit 1;
 
