@@ -52,6 +52,77 @@ int32 Nnet::RightContext() const {
   return ans;
 }
 
+void Nnet::ComputeChunkInfo(int32 input_chunk_size,
+                      int32 num_chunks,
+                      std::vector<ChunkInfo> *chunk_info_out) const {
+  
+  int32 total_context = RightContext() - LeftContext();
+  KALDI_ASSERT(total_context <= input_chunk_size);
+  
+  // Computing the output-chunk indices for the last component in the network
+  // We add LeftContext() to these values to ensure that the input-chunk indices
+  // for the first component in the network always start from zero
+  
+  int32 output_chunk_size = input_chunk_size - total_context + 1;
+  std::vector<int32> current_output_inds;
+  for (int32 i = 0; i < output_chunk_size; i++)
+    current_output_inds.push_back(i + LeftContext()); 
+
+  (*chunk_info_out).resize(NumComponents() + 1);
+  ChunkInfo& last_chunk_info = (*chunk_info_out).back();
+  last_chunk_info.num_chunks = num_chunks;
+  last_chunk_info.first_index = current_output_inds.front();
+  last_chunk_info.last_index = current_output_inds.back();
+  last_chunk_info.indexes = std::vector<int32>(); // empty since last
+  // component's output is always contiguous
+
+  std::vector<int32> current_input_inds;
+  for (size_t i = NumComponents() - 1; i--; i >= 0) {
+    std::vector<int32> current_context = GetComponent(i).Context();
+    std::set<int32> current_input_ind_set;
+    for (size_t j = 0; j < current_context.size(); j++) 
+      for (size_t k = 0; k < current_output_inds.size(); k++) 
+        current_input_ind_set.insert(current_context[j] +
+                                     current_output_inds[k]);
+    current_output_inds.resize(current_input_ind_set.size());
+    std::copy(current_input_ind_set.begin(),
+              current_input_ind_set.end(),
+              current_output_inds.begin());
+    ChunkInfo& chunk_info = (*chunk_info_out)[i];
+    chunk_info.num_chunks = num_chunks;
+    chunk_info.first_index = current_output_inds.front();
+    chunk_info.last_index = current_output_inds.back();
+    // checking if the vector has contiguous data
+    if (current_output_inds.size() == 
+        current_output_inds.back() - current_output_inds.front() + 1)
+      chunk_info.indexes = current_output_inds; 
+  }
+    
+  // TODO: Make a set of components which can deal with data rearrangement.
+  // Define this set in an appropriate place so that
+  // users adding new components can simply update the list.
+  std::vector< std::string > data_rearrange_components{"SpliceComponent",
+                                                       "SpliceMaxComponent"};
+
+  // Ensuring that all components upto the first component capable of data
+  // rearrangement (e.g. SpliceComponent|SpliceMaxComponent) operate on
+  // contiguous chunks at the input
+  for (size_t i = 0 ; i < NumComponents() ; i++) {
+      ChunkInfo& chunk_info = (*chunk_info_out)[i];
+      chunk_info.indexes.clear(); // since indexes is clear the component
+                                  // assumes contiguous data
+      // Check if the current component is present in the set of components
+      // capable of data rearrangement.
+      if (std::find(std::begin(data_rearrange_components),
+                    std::end(data_rearrange_components),
+                    components_[i].Type())
+          != std::end(data_rearrange_components))
+          break;
+  }
+
+  // TODO: write sanity testing code for chunk_info_out vector, if needed
+}
+    
 const Component& Nnet::GetComponent(int32 component) const {
   KALDI_ASSERT(static_cast<size_t>(component) < components_.size());
   return *(components_[component]);

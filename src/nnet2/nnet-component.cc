@@ -1,5 +1,4 @@
 // nnet2/nnet-component.cc
-
 // Copyright 2011-2012  Karel Vesely
 //           2013-2014  Johns Hopkins University (author: Daniel Povey)
 //                  2013  Xiaohui Zhang    
@@ -28,6 +27,7 @@
 
 namespace kaldi {
 namespace nnet2 {
+
 
 // static
 Component* Component::ReadNew(std::istream &is, bool binary) {
@@ -346,9 +346,10 @@ void PowerExpandComponent::InitFromString(std::string args) {
 }
 
 
-void PowerExpandComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32 num_chunks,
-                                     CuMatrix<BaseFloat> *out) const {
+void PowerExpandComponent::Propagate(const ChunkInfo &, //in_info,
+                                     const ChunkInfo &, //out_info,
+                                     const CuMatrixBase<BaseFloat> &in,
+                                     CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), in.NumCols() * max_power_, kUndefined);
   for (int32 p = 1; p <= max_power_; p++) {
     CuSubMatrix<BaseFloat> out_part(*out, 0, in.NumRows(),
@@ -362,12 +363,13 @@ void PowerExpandComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   }
 }
 
-void PowerExpandComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                    const CuMatrixBase<BaseFloat> &,// out_value,
+void PowerExpandComponent::Backprop(const ChunkInfo &, //in_info,
+                                    const ChunkInfo &, //out_info,
+                                    const CuMatrixBase<BaseFloat> &in_value,
+                                    const CuMatrixBase<BaseFloat> &, //out_value,                        
                                     const CuMatrixBase<BaseFloat> &out_deriv,
-                                    int32, // num_chunks
-                                    Component *, // to_update
-                                    CuMatrix<BaseFloat> *in_deriv) const {
+                                    Component *,  //to_update, // may be identical to "this".
+                                    CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(in_value.NumRows(), in_value.NumCols(), kUndefined);
   CuMatrix<BaseFloat> temp(in_value.NumRows(), in_value.NumCols(), kUndefined);
   for (int32 p = 1; p <= max_power_; p++) {
@@ -536,9 +538,10 @@ void MaxoutComponent::InitFromString(std::string args) {
 }
 
 
-void MaxoutComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                int32 num_chunks,
-                                CuMatrix<BaseFloat> *out) const {
+void MaxoutComponent::Propagate(const ChunkInfo &in_info,
+                                const ChunkInfo &out_info,
+                                const CuMatrixBase<BaseFloat> &in,
+                                CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), output_dim_, kUndefined);
   int32 group_size = input_dim_ / output_dim_;
   for (MatrixIndexT j = 0; j < output_dim_; j++) {
@@ -549,12 +552,13 @@ void MaxoutComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   }
 }
 
-void MaxoutComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                               const CuMatrixBase<BaseFloat> &out_value,
+void MaxoutComponent::Backprop(const ChunkInfo &, //in_info,
+                               const ChunkInfo &, //out_info,
+                               const CuMatrixBase<BaseFloat> &in_value,
+                               const CuMatrixBase<BaseFloat> &out_value,                        
                                const CuMatrixBase<BaseFloat> &out_deriv,
-                               int32, // num_chunks
-                               Component *to_update, // to_update
-                               CuMatrix<BaseFloat> *in_deriv) const {
+                               Component *to_update, // may be identical to "this".
+                               CuMatrix<BaseFloat> *in_deriv) const { 
   int32 group_size = input_dim_ / output_dim_;
   in_deriv->Resize(in_value.NumRows(), in_value.NumCols(), kSetZero);
   for (MatrixIndexT j = 0; j < output_dim_; j++) {
@@ -623,19 +627,21 @@ void PnormComponent::InitFromString(std::string args) {
 }
 
 
-void PnormComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                               int32 num_chunks,
-                               CuMatrix<BaseFloat> *out) const {
+void PnormComponent::Propagate(const ChunkInfo &in_info,
+                               const ChunkInfo &out_info,
+                               const CuMatrixBase<BaseFloat> &in,
+                               CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), output_dim_, kUndefined);
   out->GroupPnorm(in, p_);
 }
 
-void PnormComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                              const CuMatrixBase<BaseFloat> &out_value,
+void PnormComponent::Backprop(const ChunkInfo &,  //in_info,
+                              const ChunkInfo &,  //out_info,
+                              const CuMatrixBase<BaseFloat> &in_value,
+                              const CuMatrixBase<BaseFloat> &out_value,                        
                               const CuMatrixBase<BaseFloat> &out_deriv,
-                              int32, // num_chunks
-                              Component *to_update, // to_update
-                              CuMatrix<BaseFloat> *in_deriv) const {
+                              Component *to_update, // may be identical to "this".
+                              CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(in_value.NumRows(), in_value.NumCols(), kSetZero);
   in_deriv->GroupPnormDeriv(in_value, out_value, p_);
   in_deriv->MulRowsGroupMat(out_deriv); 
@@ -675,9 +681,10 @@ const BaseFloat NormalizeComponent::kNormFloor = pow(2.0, -66);
 // This component modifies the vector of activations by scaling it so that the
 // root-mean-square equals 1.0.
 
-void NormalizeComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                              int32, // num_chunks
-                              CuMatrix<BaseFloat> *out) const {
+void NormalizeComponent::Propagate(const ChunkInfo &in_info,
+                                   const ChunkInfo &out_info,
+                                   const CuMatrixBase<BaseFloat> &in,
+                                   CuMatrix<BaseFloat> *out) const  {
   *out = in;
   CuVector<BaseFloat> in_norm(in.NumRows());
   in_norm.AddDiagMat2(1.0 / in.NumCols(),
@@ -709,12 +716,13 @@ row_out = f row_in.
 
 */
 
-void NormalizeComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                  const CuMatrixBase<BaseFloat> &out_value,
+void NormalizeComponent::Backprop(const ChunkInfo &,  //in_info,
+                                  const ChunkInfo &,  //out_info,
+                                  const CuMatrixBase<BaseFloat> &in_value,
+                                  const CuMatrixBase<BaseFloat> &out_value,                        
                                   const CuMatrixBase<BaseFloat> &out_deriv,
-                                  int32, // num_chunks
-                                  Component *to_update,
-                                  CuMatrix<BaseFloat> *in_deriv) const {
+                                  Component *to_update, // may be identical to "this".
+                                  CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
   
   CuVector<BaseFloat> in_norm(in_value.NumRows());
@@ -732,19 +740,21 @@ void NormalizeComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
   in_deriv->AddDiagVecMat(-1.0 / in_value.NumCols(), dot_products, in_value, kNoTrans, 1.0);
 }
 
-void SigmoidComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                 int32, // num_chunks
-                                 CuMatrix<BaseFloat> *out) const {
+void SigmoidComponent::Propagate(const ChunkInfo &in_info,
+                                 const ChunkInfo &out_info,
+                                 const CuMatrixBase<BaseFloat> &in,
+                                 CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), in.NumCols());
   out->Sigmoid(in);
 }
 
-void SigmoidComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                const CuMatrixBase<BaseFloat> &out_value,
+void SigmoidComponent::Backprop(const ChunkInfo &,  //in_info,
+                                const ChunkInfo &,  //out_info,
+                                const CuMatrixBase<BaseFloat> &,  //in_value,
+                                const CuMatrixBase<BaseFloat> &out_value,                        
                                 const CuMatrixBase<BaseFloat> &out_deriv,
-                                int32, // num_chunks
-                                Component *to_update,
-                                CuMatrix<BaseFloat> *in_deriv) const {
+                                Component *to_update, // may be identical to "this".
+                                CuMatrix<BaseFloat> *in_deriv) const  {
   // we ignore in_value and to_update.
 
   // The element by element equation would be:
@@ -766,9 +776,10 @@ void SigmoidComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
 }
 
 
-void TanhComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                              int32, // num_chunks
-                              CuMatrix<BaseFloat> *out) const {
+void TanhComponent::Propagate(const ChunkInfo &in_info,
+                              const ChunkInfo &out_info,
+                              const CuMatrixBase<BaseFloat> &in,
+                              CuMatrix<BaseFloat> *out) const  {
   // Apply tanh function to each element of the output...
   // the tanh function may be written as -1 + ( 2 / (1 + e^{-2 x})),
   // which is a scaled and shifted sigmoid.
@@ -776,11 +787,12 @@ void TanhComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   out->Tanh(in);
 }
 
-void TanhComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                             const CuMatrixBase<BaseFloat> &out_value,
+void TanhComponent::Backprop(const ChunkInfo &, //in_info,
+                             const ChunkInfo &, //out_info,
+                             const CuMatrixBase<BaseFloat> &, //in_value,
+                             const CuMatrixBase<BaseFloat> &out_value,                        
                              const CuMatrixBase<BaseFloat> &out_deriv,
-                             int32, // num_chunks
-                             Component *to_update,
+                             Component *to_update, // may be identical to "this".
                              CuMatrix<BaseFloat> *in_deriv) const {
   /*
     Note on the derivative of the tanh function:
@@ -824,21 +836,23 @@ void PowerComponent::InitFromString(std::string args) {
   Init(dim, power);
 }
 
-void PowerComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                              int32, // num_chunks
-                              CuMatrix<BaseFloat> *out) const {
+void PowerComponent::Propagate(const ChunkInfo &in_info,
+                               const ChunkInfo &out_info,
+                               const CuMatrixBase<BaseFloat> &in,
+                               CuMatrix<BaseFloat> *out) const  {
   // Apply power operation to each element of the input...
   out->Resize(in.NumRows(), in.NumCols(), kUndefined);
   out->CopyFromMat(in);
   out->ApplyPowAbs(power_);
 }
 
-void PowerComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                             const CuMatrixBase<BaseFloat> &out_value,
-                             const CuMatrixBase<BaseFloat> &out_deriv,
-                             int32, // num_chunks
-                             Component *to_update,
-                             CuMatrix<BaseFloat> *in_deriv) const {
+void PowerComponent::Backprop(const ChunkInfo &,  //in_info,
+                              const ChunkInfo &,  //out_info,
+                              const CuMatrixBase<BaseFloat> &in_value,
+                              const CuMatrixBase<BaseFloat> &out_value,                        
+                              const CuMatrixBase<BaseFloat> &out_deriv,
+                              Component *to_update, // may be identical to "this".
+                              CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(in_value.NumRows(), in_value.NumCols());
   // in scalar terms: in_deriv += p * in_value^(p-1) * out_deriv
   in_deriv->CopyFromMat(in_value); 
@@ -875,20 +889,22 @@ std::string PowerComponent::Info() const {
   return stream.str();
 }
 
-void RectifiedLinearComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                              int32, // num_chunks
-                              CuMatrix<BaseFloat> *out) const {
+void RectifiedLinearComponent::Propagate(const ChunkInfo &in_info,
+                                         const ChunkInfo &out_info,
+                                         const CuMatrixBase<BaseFloat> &in,
+                                         CuMatrix<BaseFloat> *out) const  {
   // Apply rectified linear function (x >= 0 ? 1.0 : 0.0) 
   *out = in;
   out->ApplyFloor(0.0);
 }
 
-void RectifiedLinearComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                        const CuMatrixBase<BaseFloat> &out_value,
+void RectifiedLinearComponent::Backprop(const ChunkInfo &,  //in_info,
+                                        const ChunkInfo &,  //out_info,
+                                        const CuMatrixBase<BaseFloat> &,  //in_value,
+                                        const CuMatrixBase<BaseFloat> &out_value,                        
                                         const CuMatrixBase<BaseFloat> &out_deriv,
-                                        int32, // num_chunks
-                                        Component *to_update,
-                                        CuMatrix<BaseFloat> *in_deriv) const {
+                                        Component *to_update, // may be identical to "this".
+                                        CuMatrix<BaseFloat> *in_deriv) const  {
 
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols(),
                    kUndefined);
@@ -903,20 +919,22 @@ void RectifiedLinearComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_v
   in_deriv->MulElements(out_deriv);
 }  
 
-void SoftHingeComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                   int32, // num_chunks
-                                   CuMatrix<BaseFloat> *out) const {
+void SoftHingeComponent::Propagate(const ChunkInfo &in_info,
+                                   const ChunkInfo &out_info,
+                                   const CuMatrixBase<BaseFloat> &in,
+                                   CuMatrix<BaseFloat> *out) const  {
   // Apply function x = log(1 + exp(x))
   out->Resize(in.NumRows(), in.NumCols(), kUndefined);
   out->SoftHinge(in);
 }
 
-void SoftHingeComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                  const CuMatrixBase<BaseFloat> &out_value,
+void SoftHingeComponent::Backprop(const ChunkInfo &,  //in_info,
+                                  const ChunkInfo &,  //out_info,
+                                  const CuMatrixBase<BaseFloat> &in_value,
+                                  const CuMatrixBase<BaseFloat> &out_value,                        
                                   const CuMatrixBase<BaseFloat> &out_deriv,
-                                  int32, // num_chunks
-                                  Component *to_update,
-                                  CuMatrix<BaseFloat> *in_deriv) const {
+                                  Component *to_update, // may be identical to "this".
+                                  CuMatrix<BaseFloat> *in_deriv) const  {
 
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols(),
                    kUndefined);
@@ -937,19 +955,21 @@ void SoftHingeComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
 }  
 
 
-void ScaleComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                   int32, // num_chunks
-                                   CuMatrix<BaseFloat> *out) const {
+void ScaleComponent::Propagate(const ChunkInfo &in_info,
+                               const ChunkInfo &out_info,
+                               const CuMatrixBase<BaseFloat> &in,
+                               CuMatrix<BaseFloat> *out) const  {
   *out = in;
   out->Scale(scale_);
 }
 
-void ScaleComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                              const CuMatrixBase<BaseFloat> &, // out_value,
+void ScaleComponent::Backprop(const ChunkInfo &,  //in_info,
+                              const ChunkInfo &,  //out_info,
+                              const CuMatrixBase<BaseFloat> &,  //in_value,
+                              const CuMatrixBase<BaseFloat> &,  //out_value,                        
                               const CuMatrixBase<BaseFloat> &out_deriv,
-                              int32, // num_chunks
-                              Component *, // to_update
-                              CuMatrix<BaseFloat> *in_deriv) const {
+                              Component *, //to_update, // may be identical to "this".
+                              CuMatrix<BaseFloat> *in_deriv) const  {
 
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols(),
                    kUndefined);
@@ -998,9 +1018,10 @@ std::string ScaleComponent::Info() const {
   return stream.str();
 }
 
-void SoftmaxComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                 int32, // num_chunks
-                                 CuMatrix<BaseFloat> *out) const {
+void SoftmaxComponent::Propagate(const ChunkInfo &in_info,
+                                 const ChunkInfo &out_info,
+                                 const CuMatrixBase<BaseFloat> &in,
+                                 CuMatrix<BaseFloat> *out) const  {
   // Apply softmax function to each row of the output...
   // for that row, we do
   // x_i = exp(x_i) / sum_j exp(x_j).
@@ -1013,12 +1034,13 @@ void SoftmaxComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   out->ApplyFloor(1.0e-20);
 }
 
-void SoftmaxComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                const CuMatrixBase<BaseFloat> &out_value,
+void SoftmaxComponent::Backprop(const ChunkInfo &in_info,
+                                const ChunkInfo &out_info,
+                                const CuMatrixBase<BaseFloat> &,  //in_value,
+                                const CuMatrixBase<BaseFloat> &out_value,                        
                                 const CuMatrixBase<BaseFloat> &out_deriv,
-                                int32 num_chunks,
                                 Component *to_update, // only thing updated is counts_.
-                                CuMatrix<BaseFloat> *in_deriv) const {
+                                CuMatrix<BaseFloat> *in_deriv) const  {
   /*
     Note on the derivative of the softmax function: let it be
     p_i = exp(x_i) / sum_i exp_i
@@ -1216,9 +1238,10 @@ void AffineComponent::InitFromString(std::string args) {
 }
 
 
-void AffineComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                int32, // num_chunks
-                                CuMatrix<BaseFloat> *out) const {
+void AffineComponent::Propagate(const ChunkInfo &in_info,
+                                const ChunkInfo &out_info,
+                                const CuMatrixBase<BaseFloat> &in,
+                                CuMatrix<BaseFloat> *out) const  {
   // No need for asserts as they'll happen within the matrix operations.
   out->Resize(in.NumRows(), linear_params_.NumRows());
   out->CopyRowsFromVec(bias_params_); // copies bias_params_ to each row
@@ -1233,11 +1256,12 @@ void AffineComponent::UpdateSimple(const CuMatrixBase<BaseFloat> &in_value,
                            in_value, kNoTrans, 1.0);
 }
 
-void AffineComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                               const CuMatrixBase<BaseFloat> &,  // out_value
+void AffineComponent::Backprop(const ChunkInfo &, //in_info,
+                               const ChunkInfo &, //out_info,
+                               const CuMatrixBase<BaseFloat> &in_value,
+                               const CuMatrixBase<BaseFloat> &, //out_value,                        
                                const CuMatrixBase<BaseFloat> &out_deriv,
-                               int32, //  num_chunks
-                               Component *to_update_in,
+                               Component *to_update_in, // may be identical to "this".
                                CuMatrix<BaseFloat> *in_deriv) const {
   AffineComponent *to_update = dynamic_cast<AffineComponent*>(to_update_in);
   in_deriv->Resize(out_deriv.NumRows(), InputDim());
@@ -1518,9 +1542,10 @@ void PiecewiseLinearComponent::InitFromString(std::string args) {
 }
 
 
-void PiecewiseLinearComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                         int32, // num_chunks
-                                         CuMatrix<BaseFloat> *out) const {
+void PiecewiseLinearComponent::Propagate(const ChunkInfo &in_info,
+                                         const ChunkInfo &out_info,
+                                         const CuMatrixBase<BaseFloat> &in,
+                                         CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), OutputDim());
 
   KALDI_ASSERT(in.NumCols() == InputDim());
@@ -1546,12 +1571,13 @@ void PiecewiseLinearComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
 }
 
 
-void PiecewiseLinearComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                        const CuMatrixBase<BaseFloat> &,  // out_value
+void PiecewiseLinearComponent::Backprop(const ChunkInfo &,  //in_info,
+                                        const ChunkInfo &,  //out_info,
+                                        const CuMatrixBase<BaseFloat> &in_value,
+                                        const CuMatrixBase<BaseFloat> &,  //out_value,                        
                                         const CuMatrixBase<BaseFloat> &out_deriv,
-                                        int32, //  num_chunks
-                                        Component *to_update_in,
-                                        CuMatrix<BaseFloat> *in_deriv) const {
+                                        Component *to_update_in, // may be identical to "this".
+                                        CuMatrix<BaseFloat> *in_deriv) const  {
 
   PiecewiseLinearComponent *to_update =
       dynamic_cast<PiecewiseLinearComponent*>(to_update_in);
@@ -2439,13 +2465,14 @@ void AffinePreconInputComponent::SetZero(bool treat_as_gradient) {
   bias_params_.SetZero();
 }
 
-void AffinePreconInputComponent::Backprop(
-    const CuMatrixBase<BaseFloat> &in_value,
-    const CuMatrixBase<BaseFloat> &, // out_value
-    const CuMatrixBase<BaseFloat> &out_deriv,
-    int32, //  num_chunks
-    Component *to_update_in,
-    CuMatrix<BaseFloat> *in_deriv) const {
+void AffinePreconInputComponent::Backprop(const ChunkInfo &,  //in_info,
+                                          const ChunkInfo &,  //out_info,
+                                          const CuMatrixBase<BaseFloat> &in_value,
+                                          const CuMatrixBase<BaseFloat> &,  //out_value,                        
+                                          const CuMatrixBase<BaseFloat> &out_deriv,
+                                          Component *to_update_in, 
+                                          CuMatrix<BaseFloat> *in_deriv) const  {
+
   AffinePreconInputComponent *to_update =
       dynamic_cast<AffinePreconInputComponent*>(to_update_in);
   in_deriv->Resize(out_deriv.NumRows(), InputDim());
@@ -2634,9 +2661,10 @@ void BlockAffineComponent::Add(BaseFloat alpha,
   bias_params_.AddVec(alpha, other->bias_params_);
 }
 
-void BlockAffineComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32, // num_chunks
-                                     CuMatrix<BaseFloat> *out) const {
+void BlockAffineComponent::Propagate(const ChunkInfo &in_info,
+                                     const ChunkInfo &out_info,
+                                     const CuMatrixBase<BaseFloat> &in,
+                                     CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), bias_params_.Dim());
 
   // The matrix has a block structure where each matrix has input dim
@@ -2692,13 +2720,14 @@ void BlockAffineComponent::UpdateSimple(
   }
 }
 
-void BlockAffineComponent::Backprop(
-    const CuMatrixBase<BaseFloat> &in_value,
-    const CuMatrixBase<BaseFloat> &, // out_value
-    const CuMatrixBase<BaseFloat> &out_deriv,
-    int32, // num_chunks
-    Component *to_update_in,
-    CuMatrix<BaseFloat> *in_deriv) const {
+void BlockAffineComponent::Backprop(const ChunkInfo &,  //in_info,
+                                    const ChunkInfo &,  //out_info,
+                                    const CuMatrixBase<BaseFloat> &in_value,
+                                    const CuMatrixBase<BaseFloat> &,  //out_value,                        
+                                    const CuMatrixBase<BaseFloat> &out_deriv,
+                                    Component *to_update_in, 
+                                    CuMatrix<BaseFloat> *in_deriv) const  {
+
   // This code mirrors the code in Propagate().
   int32 num_frames = in_value.NumRows();
   BlockAffineComponent *to_update = dynamic_cast<BlockAffineComponent*>(
@@ -2989,9 +3018,10 @@ void PermuteComponent::InitFromString(std::string args) {
   Init(dim);
 }
 
-void PermuteComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                 int32, // num_chunks
-                                 CuMatrix<BaseFloat> *out) const {
+void PermuteComponent::Propagate(const ChunkInfo &in_info,
+                                 const ChunkInfo &out_info,
+                                 const CuMatrixBase<BaseFloat> &in,
+                                 CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), in.NumCols());
   std::vector<int32> reverse_reorder(reorder_.size());
   for (size_t i = 0; i < reorder_.size(); i++)
@@ -2999,12 +3029,13 @@ void PermuteComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   out->CopyCols(in, reverse_reorder);
 }
 
-void PermuteComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                const CuMatrixBase<BaseFloat> &out_value,
+void PermuteComponent::Backprop(const ChunkInfo &,  //in_info,
+                                const ChunkInfo &,  //out_info,
+                                const CuMatrixBase<BaseFloat> &in_value,
+                                const CuMatrixBase<BaseFloat> &out_value,                        
                                 const CuMatrixBase<BaseFloat> &out_deriv,
-                                int32, // num_chunks
-                                Component *to_update,
-                                CuMatrix<BaseFloat> *in_deriv) const {
+                                Component *to_update, 
+                                CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
   KALDI_ASSERT(out_deriv.NumCols() == OutputDim());
   in_deriv->CopyCols(out_deriv, reorder_);
@@ -3192,9 +3223,10 @@ void MixtureProbComponent::SetZero(bool treat_as_gradient) {
   Refresh();
 }
 
-void MixtureProbComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32, // num_chunks
-                                     CuMatrix<BaseFloat> *out) const {
+void MixtureProbComponent::Propagate(const ChunkInfo &in_info,
+                                     const ChunkInfo &out_info,
+                                     const CuMatrixBase<BaseFloat> &in,
+                                     CuMatrix<BaseFloat> *out) const  {
   KALDI_ASSERT(in.NumCols() == InputDim());
   out->Resize(in.NumRows(), OutputDim());
   
@@ -3217,12 +3249,13 @@ void MixtureProbComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   KALDI_ASSERT(input_offset == InputDim() && output_offset == OutputDim());
 }
 
-void MixtureProbComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                    const CuMatrixBase<BaseFloat> &,// out_value
+void MixtureProbComponent::Backprop(const ChunkInfo &,  //in_info,
+                                    const ChunkInfo &,  //out_info,
+                                    const CuMatrixBase<BaseFloat> &in_value,
+                                    const CuMatrixBase<BaseFloat> &,  //out_value,                        
                                     const CuMatrixBase<BaseFloat> &out_deriv,
-                                    int32, // num_chunks
-                                    Component *to_update_in,
-                                    CuMatrix<BaseFloat> *in_deriv) const {
+                                    Component *to_update_in, // may be identical to "this".
+                                    CuMatrix<BaseFloat> *in_deriv) const  {
   MixtureProbComponent *to_update = dynamic_cast<MixtureProbComponent*>(
       to_update_in);
 
@@ -3384,18 +3417,20 @@ void SumGroupComponent::Write(std::ostream &os, bool binary) const {
   WriteToken(os, binary, "<SumGroupComponent>");
 }
 
-void SumGroupComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                  int32 num_chunks,
-                                  CuMatrix<BaseFloat> *out) const {
+void SumGroupComponent::Propagate(const ChunkInfo &in_info,
+                                  const ChunkInfo &out_info,
+                                  const CuMatrixBase<BaseFloat> &in,
+                                  CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), this->OutputDim(), kUndefined);
   out->SumColumnRanges(in, indexes_);
 }
 
-void SumGroupComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value,
-                                 const CuMatrixBase<BaseFloat> &, // out_value,
+void SumGroupComponent::Backprop(const ChunkInfo &in_info,
+                                 const ChunkInfo &out_info,
+                                 const CuMatrixBase<BaseFloat> &, //in_value,
+                                 const CuMatrixBase<BaseFloat> &, //out_value,                        
                                  const CuMatrixBase<BaseFloat> &out_deriv,
-                                 int32 num_chunks,
-                                 Component *to_update,
+                                 Component *to_update, // may be identical to "this".
                                  CuMatrix<BaseFloat> *in_deriv) const {
   in_deriv->Resize(out_deriv.NumRows(), InputDim());
   in_deriv->CopyCols(out_deriv, reverse_indexes_);
@@ -3445,9 +3480,12 @@ int32 SpliceComponent::OutputDim() const {
       + const_component_dim_;
 }
 
-void SpliceComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                int32 num_chunks,
-                                CuMatrix<BaseFloat> *out) const {
+void SpliceComponent::Propagate(const ChunkInfo &in_info,
+                                const ChunkInfo &out_info,
+                                const CuMatrixBase<BaseFloat> &in,
+                                CuMatrix<BaseFloat> *out) const  {
+  int32 num_chunks =0;
+  //rewrite propagate
   KALDI_ASSERT(in.NumRows() > 0 && num_chunks > 0);
   if (in.NumRows() % num_chunks != 0)
     KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
@@ -3507,13 +3545,15 @@ void SpliceComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   }
 }
 
-void SpliceComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                               const CuMatrixBase<BaseFloat> &, // out_value,
+void SpliceComponent::Backprop(const ChunkInfo &in_info,
+                               const ChunkInfo &out_info,
+                               const CuMatrixBase<BaseFloat> &, //in_value,
+                               const CuMatrixBase<BaseFloat> &, //out_value,                        
                                const CuMatrixBase<BaseFloat> &out_deriv,
-                               int32 num_chunks,
-                               Component *to_update, // may == "this".
+                               Component *to_update, // may be identical to "this".
                                CuMatrix<BaseFloat> *in_deriv) const {
- 
+  int32 num_chunks =0;
+  // rewrite backpropagate 
   KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
 
   if (out_deriv.NumRows() % num_chunks != 0)
@@ -3657,9 +3697,12 @@ void SpliceMaxComponent::InitFromString(std::string args) {
   Init(dim, left_context, right_context);
 }
 
-void SpliceMaxComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                   int32 num_chunks,
-                                   CuMatrix<BaseFloat> *out) const {
+void SpliceMaxComponent::Propagate(const ChunkInfo &in_info,
+                                   const ChunkInfo &out_info,
+                                   const CuMatrixBase<BaseFloat> &in,
+                                   CuMatrix<BaseFloat> *out) const  {
+  int32 num_chunks =0;
+  // rewrite propagate
   KALDI_ASSERT(in.NumRows() > 0 && in.NumCols() == InputDim());
   if (in.NumRows() % num_chunks != 0)
     KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
@@ -3691,12 +3734,15 @@ void SpliceMaxComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   }  
 }
 
-void SpliceMaxComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                  const CuMatrixBase<BaseFloat> &, // out_value,
+void SpliceMaxComponent::Backprop(const ChunkInfo &in_info,
+                                  const ChunkInfo &out_info,
+                                  const CuMatrixBase<BaseFloat> &in_value,
+                                  const CuMatrixBase<BaseFloat> &,  //out_value,                        
                                   const CuMatrixBase<BaseFloat> &out_deriv,
-                                  int32 num_chunks,
-                                  Component *to_update, // may == "this".
-                                  CuMatrix<BaseFloat> *in_deriv) const {
+                                  Component *to_update, // may be identical to "this".
+                                  CuMatrix<BaseFloat> *in_deriv) const  {
+  int32 num_chunks =0;
+ //rewrit backprop
  KALDI_ASSERT(out_deriv.NumRows() > 0 && num_chunks > 0);
 
   if (out_deriv.NumRows() % num_chunks != 0)
@@ -3837,9 +3883,10 @@ void DctComponent::Reorder(CuMatrixBase<BaseFloat> *mat, bool reverse) const {
   }
 }
 
-void DctComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                             int32, // num_chunks
-                             CuMatrix<BaseFloat> *out) const {
+void DctComponent::Propagate(const ChunkInfo &in_info,
+                             const ChunkInfo &out_info,
+                             const CuMatrixBase<BaseFloat> &in,
+                             CuMatrix<BaseFloat> *out) const  {
   KALDI_ASSERT(in.NumCols() == InputDim());
   
   int32 dct_dim = dct_mat_.NumCols(),
@@ -3867,12 +3914,13 @@ void DctComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
     Reorder(out, true);
 }
 
-void DctComponent::Backprop(const CuMatrixBase<BaseFloat>&, // in_value,
-                            const CuMatrixBase<BaseFloat>&, // out_value,
+void DctComponent::Backprop(const ChunkInfo &,  //in_info,
+                            const ChunkInfo &,  //out_info,
+                            const CuMatrixBase<BaseFloat> &,  //in_value,
+                            const CuMatrixBase<BaseFloat> &,  //out_value,                        
                             const CuMatrixBase<BaseFloat> &out_deriv,
-                            int32, // num_chunks
-                            Component*,// to_update
-                            CuMatrix<BaseFloat> *in_deriv) const {
+                            Component *,  //to_update,
+                            CuMatrix<BaseFloat> *in_deriv) const  {
   KALDI_ASSERT(out_deriv.NumCols() == OutputDim());
 
   int32 dct_dim = dct_mat_.NumCols(),
@@ -3983,19 +4031,21 @@ std::string FixedLinearComponent::Info() const {
   return stream.str();
 }
 
-void FixedLinearComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32 num_chunks,
-                                     CuMatrix<BaseFloat> *out) const {
+void FixedLinearComponent::Propagate(const ChunkInfo &in_info,
+                                     const ChunkInfo &out_info,
+                                     const CuMatrixBase<BaseFloat> &in,
+                                     CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), mat_.NumRows());
   out->AddMatMat(1.0, in, kNoTrans, mat_, kTrans, 0.0);
 }
 
-void FixedLinearComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                    const CuMatrixBase<BaseFloat> &, // out_value
+void FixedLinearComponent::Backprop(const ChunkInfo &,  //in_info,
+                                    const ChunkInfo &,  //out_info,
+                                    const CuMatrixBase<BaseFloat> &,  //in_value,
+                                    const CuMatrixBase<BaseFloat> &,  //out_value,                        
                                     const CuMatrixBase<BaseFloat> &out_deriv,
-                                    int32, // num_chunks
-                                    Component *, // to_update
-                                    CuMatrix<BaseFloat> *in_deriv) const {
+                                    Component *,  //to_update, // may be identical to "this".
+                                    CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(out_deriv.NumRows(), mat_.NumCols());
   in_deriv->AddMatMat(1.0, out_deriv, kNoTrans, mat_, kNoTrans, 0.0);
 }
@@ -4063,20 +4113,22 @@ std::string FixedAffineComponent::Info() const {
   return stream.str();
 }
 
-void FixedAffineComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32 num_chunks,
-                                     CuMatrix<BaseFloat> *out) const {
+void FixedAffineComponent::Propagate(const ChunkInfo &in_info,
+                                     const ChunkInfo &out_info,
+                                     const CuMatrixBase<BaseFloat> &in,
+                                     CuMatrix<BaseFloat> *out) const  {
   out->Resize(in.NumRows(), linear_params_.NumRows());
   out->AddMatMat(1.0, in, kNoTrans, linear_params_, kTrans, 0.0);
   out->AddVecToRows(1.0, bias_params_);
 }
 
-void FixedAffineComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                    const CuMatrixBase<BaseFloat> &, // out_value
+void FixedAffineComponent::Backprop(const ChunkInfo &,  //in_info,
+                                    const ChunkInfo &,  //out_info,
+                                    const CuMatrixBase<BaseFloat> &,  //in_value,
+                                    const CuMatrixBase<BaseFloat> &,  //out_value,                        
                                     const CuMatrixBase<BaseFloat> &out_deriv,
-                                    int32, // num_chunks
-                                    Component *, // to_update
-                                    CuMatrix<BaseFloat> *in_deriv) const {
+                                    Component *,  //to_update, // may be identical to "this".
+                                    CuMatrix<BaseFloat> *in_deriv) const  {
   in_deriv->Resize(out_deriv.NumRows(), linear_params_.NumCols());
   in_deriv->AddMatMat(1.0, out_deriv, kNoTrans, linear_params_, kNoTrans, 0.0);
 }
@@ -4138,19 +4190,21 @@ std::string FixedScaleComponent::Info() const {
   return stream.str();
 }
 
-void FixedScaleComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32 num_chunks,
-                                     CuMatrix<BaseFloat> *out) const {
+void FixedScaleComponent::Propagate(const ChunkInfo &in_info,
+                                    const ChunkInfo &out_info,
+                                    const CuMatrixBase<BaseFloat> &in,
+                                    CuMatrix<BaseFloat> *out) const  {
   *out = in;
   out->MulColsVec(scales_);
 }
 
-void FixedScaleComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                    const CuMatrixBase<BaseFloat> &, // out_value
-                                    const CuMatrixBase<BaseFloat> &out_deriv,
-                                    int32, // num_chunks
-                                    Component *, // to_update
-                                    CuMatrix<BaseFloat> *in_deriv) const {
+void FixedScaleComponent::Backprop(const ChunkInfo &, //in_info,
+                                   const ChunkInfo &, //out_info,
+                                   const CuMatrixBase<BaseFloat> &, //in_value,
+                                   const CuMatrixBase<BaseFloat> &, //out_value,                        
+                                   const CuMatrixBase<BaseFloat> &out_deriv,
+                                   Component *, //to_update, // may be identical to "this".
+                                   CuMatrix<BaseFloat> *in_deriv) const {
   *in_deriv = out_deriv;
   in_deriv->MulColsVec(scales_);
 }
@@ -4206,19 +4260,21 @@ std::string FixedBiasComponent::Info() const {
   return stream.str();
 }
 
-void FixedBiasComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                                     int32 num_chunks,
-                                     CuMatrix<BaseFloat> *out) const {
+void FixedBiasComponent::Propagate(const ChunkInfo &in_info,
+                                   const ChunkInfo &out_info,
+                                   const CuMatrixBase<BaseFloat> &in,
+                                   CuMatrix<BaseFloat> *out) const  {
   *out = in;
   out->AddVecToRows(1.0, bias_, 1.0);
 }
 
-void FixedBiasComponent::Backprop(const CuMatrixBase<BaseFloat> &, // in_value
-                                    const CuMatrixBase<BaseFloat> &, // out_value
-                                    const CuMatrixBase<BaseFloat> &out_deriv,
-                                    int32, // num_chunks
-                                    Component *, // to_update
-                                    CuMatrix<BaseFloat> *in_deriv) const {
+void FixedBiasComponent::Backprop(const ChunkInfo &, //in_info,
+                                  const ChunkInfo &, //out_info,
+                                  const CuMatrixBase<BaseFloat> &,  //in_value,
+                                  const CuMatrixBase<BaseFloat> &,  //out_value,                        
+                                  const CuMatrixBase<BaseFloat> &out_deriv,
+                                  Component *,  //to_update,
+                                  CuMatrix<BaseFloat> *in_deriv) const  {
   *in_deriv = out_deriv;
 }
 
@@ -4297,9 +4353,10 @@ void DropoutComponent::Init(int32 dim,
   dropout_scale_ = dropout_scale;
 }
   
-void DropoutComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
-                     int32 num_chunks,
-                     CuMatrix<BaseFloat> *out) const {
+void DropoutComponent::Propagate(const ChunkInfo &in_info,
+                                 const ChunkInfo &out_info,
+                                 const CuMatrixBase<BaseFloat> &in,
+                                 CuMatrix<BaseFloat> *out) const  {
   KALDI_ASSERT(in.NumCols() == this->InputDim());
   out->Resize(in.NumRows(), in.NumCols());
 
@@ -4331,12 +4388,13 @@ void DropoutComponent::Propagate(const CuMatrixBase<BaseFloat> &in,
   out->MulElements(in);
 }
 
-void DropoutComponent::Backprop(const CuMatrixBase<BaseFloat> &in_value,
-                                const CuMatrixBase<BaseFloat> &out_value,
+void DropoutComponent::Backprop(const ChunkInfo &,  //in_info,
+                                const ChunkInfo &,  //out_info,
+                                const CuMatrixBase<BaseFloat> &in_value,
+                                const CuMatrixBase<BaseFloat> &out_value,                        
                                 const CuMatrixBase<BaseFloat> &out_deriv,
-                                int32, // num_chunks
-                                Component *, // to_update
-                                CuMatrix<BaseFloat> *in_deriv) const {
+                                Component *,  //to_update
+                                CuMatrix<BaseFloat> *in_deriv) const  {
   KALDI_ASSERT(SameDim(in_value, out_value) && SameDim(in_value, out_deriv));
   in_deriv->Resize(out_deriv.NumRows(), out_deriv.NumCols());
   in_deriv->AddMatMatDivMat(out_deriv, out_value, in_value);
@@ -4383,10 +4441,10 @@ void AdditiveNoiseComponent::Init(int32 dim, BaseFloat stddev) {
   stddev_ = stddev;
 }
   
-void AdditiveNoiseComponent::Propagate(
-    const CuMatrixBase<BaseFloat> &in,
-    int32 num_chunks,
-    CuMatrix<BaseFloat> *out) const {
+void AdditiveNoiseComponent::Propagate(const ChunkInfo &in_info,
+                                       const ChunkInfo &out_info,
+                                       const CuMatrixBase<BaseFloat> &in,
+                                       CuMatrix<BaseFloat> *out) const  {
   KALDI_ASSERT(in.NumCols() == this->InputDim());
   *out = in;
   CuMatrix<BaseFloat> rand(in.NumRows(), in.NumCols());
