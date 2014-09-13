@@ -17,5 +17,9 @@ SRILM_ROOT=$KALDI_ROOT/tools/srilm
 SRILM_PATH=$SRILM_ROOT/bin:$SRILM_ROOT/bin/i686-m64
 export PATH=$PATH:$SRILM_PATH
 
+# Sequitur G2P executable
+sequitur=$KALDI_ROOT/tools/sequitur/g2p.py
+sequitur_path="$(dirname $sequitur)/lib/$PYTHON/site-packages"
+
 # Directory under which the LM training corpus should be extracted
 LM_CORPUS_ROOT=./lm-corpus

@@ -3,8 +3,7 @@
 # Copyright 2014 Vassil Panayotov
 # Apache 2.0
 
-# The only reason for the existence of this script is the inability of Sequitur
-# to save the results of its work into a file, rather that print them on stdout
+# Auto-generates pronunciations using Sequitur G2P
 
 . path.sh || exit 1
 
@@ -26,10 +25,7 @@ out_lexicon=$3
 
 [ ! -f $vocab ] && echo "Can't find the G2P input file: $vocab" && exit 1;
 
-# Sequitur G2P executable
-sequitur=$KALDI_ROOT/tools/sequitur/g2p.py
-sequitur_path="$(dirname $sequitur)/lib/$PYTHON/site-packages"
-sequitur_model=$g2p_model_dir/model-full.5
+sequitur_model=$g2p_model_dir/model-5
 
 # Turns out, that Sequitur has some sort of bug so it doesn't output pronunciations
 # for some (admittedly peculiar) words. We manually specify these exceptions below

@@ -34,6 +34,11 @@ done
 #local/lm/train_lm.sh $LM_CORPUS_ROOT \
 #  data/lm/norm/tmp data/lm/norm/norm_texts data/lm || exit 1
 
+## Optional G2P training scripts.
+## As the LM training scripts above, this script is intended primarily to
+## document our G2P model creation process
+#local/g2p/train_g2p.sh data/local/dict/cmudict data/local/g2p_models
+
 # the inputs are created by Vassil but we need to include the scripts to create them.
 local/prepare_dict.sh --nj 30 --cmd "$train_cmd" \
    /export/a15/vpanayotov/data/lm /export/a15/vpanayotov/data/g2p data/local/dict
