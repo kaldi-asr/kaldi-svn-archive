@@ -18,6 +18,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include "nnet2/nnet-nnet.h"
 #include "util/stl-utils.h"
 
@@ -40,7 +41,7 @@ int32 Nnet::LeftContext() const {
   KALDI_ASSERT(!components_.empty());
   int32 ans = 0;
   for (size_t i = 0; i < components_.size(); i++)
-    ans += components_[i]->LeftContext();
+    ans += components_[i]->Context().front();
   return ans;
 }
 
@@ -48,7 +49,7 @@ int32 Nnet::RightContext() const {
   KALDI_ASSERT(!components_.empty());
   int32 ans = 0;
   for (size_t i = 0; i < components_.size(); i++)
-    ans += components_[i]->RightContext();
+    ans += components_[i]->Context().back();
   return ans;
 }
 
@@ -77,7 +78,7 @@ void Nnet::ComputeChunkInfo(int32 input_chunk_size,
   // component's output is always contiguous
 
   std::vector<int32> current_input_inds;
-  for (size_t i = NumComponents() - 1; i--; i >= 0) {
+  for (size_t i = NumComponents() - 1; i >= 0; i--) {
     std::vector<int32> current_context = GetComponent(i).Context();
     std::set<int32> current_input_ind_set;
     for (size_t j = 0; j < current_context.size(); j++) 
@@ -101,8 +102,8 @@ void Nnet::ComputeChunkInfo(int32 input_chunk_size,
   // TODO: Make a set of components which can deal with data rearrangement.
   // Define this set in an appropriate place so that
   // users adding new components can simply update the list.
-  std::vector< std::string > data_rearrange_components{"SpliceComponent",
-                                                       "SpliceMaxComponent"};
+  const char *dinit[] = {"SpliceComponent", "SpliceMaxComponent"};
+  std::vector< std::string > data_rearrange_components(dinit, dinit + 2);
 
   // Ensuring that all components upto the first component capable of data
   // rearrangement (e.g. SpliceComponent|SpliceMaxComponent) operate on
@@ -113,10 +114,10 @@ void Nnet::ComputeChunkInfo(int32 input_chunk_size,
                                   // assumes contiguous data
       // Check if the current component is present in the set of components
       // capable of data rearrangement.
-      if (std::find(std::begin(data_rearrange_components),
-                    std::end(data_rearrange_components),
-                    components_[i].Type())
-          != std::end(data_rearrange_components))
+      if (std::find(data_rearrange_components.begin(),
+                    data_rearrange_components.end(),
+                    components_[i]->Type())
+          != data_rearrange_components.end())
           break;
   }
 

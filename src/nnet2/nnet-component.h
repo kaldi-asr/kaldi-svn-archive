@@ -74,10 +74,17 @@ struct ChunkInfo {
                       // the input to the network, the start_index of the first
                       // feature would always be zero.
   int32 last_index;  // End time index within each chunk.
-  std::vector<int32> indexes;  // indexes is only nonempty if the chunk contains
-                               // a non-contiguous sequence.  If nonempty, it must
-                               // be sorted, and indexes.front() == first_index,
-                               // indexes.back() == last_index.
+  std::map<int32, int32> indexes; // indexes is only nonempty if the chunk contains
+                                  // a non-contiguous sequence.  If nonempty, it must
+                                  // be sorted, and indexes.begin()->first == first_index,
+                                  // indexes.end()->first == last_index.
+
+  // Returns the actual index in the physical memory, for the required index
+  inline int32 GetChunkIndex(int32 index) {
+    if  ( indexes.size() == 0 ) // chunk is contiguous
+      return index - first_index;
+    return indexes[index];
+  }
 
   /// Returns the number of rows that we expect the feature matrix to have.
   int32 NumRows() { return num_chunks * (!indexes.empty() ? indexes.size() :
@@ -1247,8 +1254,6 @@ class SpliceComponent: public Component {
   int32 right_context_;
   int32 const_component_dim_;
 };
-
-
 
 /// This is as SpliceComponent but outputs the max of
 /// any of the inputs (taking the max across time).

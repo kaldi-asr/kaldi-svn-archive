@@ -19,6 +19,7 @@
 // limitations under the License.
 
 #include <sstream>
+#include <iterator>
 #include "nnet2/nnet-component.h"
 #include "nnet2/nnet-precondition.h"
 #include "nnet2/nnet-precondition-online.h"
@@ -27,6 +28,50 @@
 
 namespace kaldi {
 namespace nnet2 {
+
+template < class T >
+std::string Vec2String(std::vector<T> vec) const {
+  std::ostringstream os;
+  if ( ! vec.empty() )  {
+    std::copy( vec.begin(), vec.end()-1, std::ostream_iterator< T >(os, ","));
+    os << vec.back();
+  }
+  return os.str();
+}
+
+//  Class with methods to operate on the ChunkInfo struct.
+//  These methods and variables are seperated from the ChunkInfo struct in a  
+//  seperate class as the ChunkInfo structs are frequently passed around by a 
+//  number of components but only a few components actually require the 
+//  information present in these structs
+class ChunkInfoWrapper  {
+ public :
+  ChunkInfoWrapper(const ChunkInfo &chunk_info) {
+    chunk_info_ = chunk_info;
+    Init();
+  }
+
+  inline int32 GetChunkIndex(int32 index) const  {
+    KALDI_ASSERT( (index <= chunk_info_.last_index) 
+                 && (index >= chunk_info_.first_index) );
+    if (chunk_info_.indexes.size() == 0 ) // if data is contiguous
+      return index - chunk_info_.first_index;
+   return indexes_map_[index]; 
+  }
+
+ private:
+  ChunkInfo chunk_info_;
+  std::map<int32, int32> indexes_map_;
+
+  void Init() {
+    // initializing indexes_map_ used for quick conversion from index in
+    // assumed contiguous memory to the actual index pointing to the
+    // non-contiguous storage
+    indexes_map_.resize(chunk_info_.indexes.size());
+    for (int32 i = 0; i < chunk_info_.indexes.size(); i++)
+      indexes_map_[chunk_info_.indexes[i]] = i;
+  }
+}
 
 
 // static
@@ -3439,7 +3484,7 @@ void SumGroupComponent::Backprop(const ChunkInfo &in_info,
 
 std::string SpliceComponent::Info() const {
   std::stringstream stream;
-  stream << Component::Info() << ", context=" << left_context_ << "/" << right_context_;
+  stream << Component::Info() << ", context=" << Vec2String(Context());
   if (const_component_dim_ != 0)
     stream << ", const_component_dim=" << const_component_dim_;
 
@@ -3484,26 +3529,26 @@ void SpliceComponent::Propagate(const ChunkInfo &in_info,
                                 const ChunkInfo &out_info,
                                 const CuMatrixBase<BaseFloat> &in,
                                 CuMatrix<BaseFloat> *out) const  {
-  int32 num_chunks =0;
-  //rewrite propagate
-  KALDI_ASSERT(in.NumRows() > 0 && num_chunks > 0);
-  if (in.NumRows() % num_chunks != 0)
-    KALDI_ERR << "Number of chunks " << num_chunks << "does not divide "
-              << "number of frames " << in.NumRows();
-  int32 input_chunk_size = in.NumRows() / num_chunks,
-       output_chunk_size = input_chunk_size - left_context_ - right_context_,
-               input_dim = in.NumCols(),
-              output_dim = OutputDim();
+  
+  KALDI_ASSERT(in_info.NumRows() > 0 && in_info.num_chunks > 0);
+  if (in_info.NumRows() % in_info.num_chunks != 0)
+    KALDI_ERR << "Number of chunks " << in_info.num_chunks << "does not divide "
+              << "number of frames " << in_info.NumRows();
+  int32 input_chunk_size  = in_info.NumRows() / in_info.num_chunks,
+        output_chunk_size = out_info.NumRows(),
+        input_dim = in_info.NumCols(),
+        output_dim  = OutputDim();
   if (output_chunk_size <= 0)
     KALDI_ERR << "Splicing features: output will have zero dimension. "
               << "Probably a code error.";
-  out->Resize(num_chunks * output_chunk_size, output_dim);
+  out->Resize(out_info.NumRows(), out_info.NumCols());
+  
+  ChunkInfoWrapper in_info_wrap(in_info);
 
   // 'indexes' is, for each index from 0 to (left_context_+right_context_+1)-1,
   // then for each row of "out", the corresponding row of "in" that we copy from.
-  int32 num_splice = left_context_ + right_context_ + 1,
-      const_dim = const_component_dim_;
-  std::vector<std::vector<int32> > indexes(num_splice);
+  int32 num_splice = in_info_wrap.GetContextLen(),
+        const_dim = const_component_dim_;
   // const_component_dim_ != 0, "const_indexes" will be used to determine which
   // row of "in" we copy the last part of each row of "out" from (this part is
   // not subject to splicing, it's assumed constant for each frame of "input".
@@ -3514,9 +3559,16 @@ void SpliceComponent::Propagate(const ChunkInfo &in_info,
 
   for (int32 chunk = 0; chunk < num_chunks; chunk++) {
     for (int32 c = 0; c < num_splice; c++) {
+      // actual frame index in the context window
+      int32 frame_in_context = context_[c]; 
       for (int32 offset = 0; offset < output_chunk_size; offset++) {
+        int32 out_actual_chunk_ind  = offset;
+        int32 out_contiguous_chunk_ind = out_info.indexes[out_actual_chunk_ind];
+        int32 input_actual_chunk_ind 
+            = in_info_wrap.GetChunkIndex(out_contiguous_chunk_ind + context_[c]);
+         
         indexes[c][chunk * output_chunk_size + offset] =
-            chunk * input_chunk_size + c + offset;
+            chunk * input_chunk_size + input_actual_chunk_id;
       }
     }
     if (const_dim != 0) {
