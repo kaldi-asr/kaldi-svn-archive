@@ -160,7 +160,7 @@ steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
 local/nnet2/run_5c_clean_100.sh || exit 1
 
 # now add the "clean-360" subset to the mix ...
-local/data_prep.sh $data/LibriSpeech/train_clean_360 data/train_clean_360 || exit 1
+local/data_prep.sh $data/LibriSpeech/train-clean-360 data/train_clean_360 || exit 1
 steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_clean_360 \
   exp/make_mfcc/train_clean_360 $mfccdir || exit 1
 steps/compute_cmvn_stats.sh data/train_clean_360 exp/make_mfcc/train_clean_360 $mfccdir || exit 1
@@ -172,11 +172,26 @@ utils/combine_data.sh data/train_clean_460 data/train_clean_100 data/train_clean
 steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
   data/train_clean_460 data/lang exp/tri4b exp/tri4b_ali_clean_460 || exit 1;
 
+# create a larger SAT model, trained on the 460 hours of data.
+steps/train_sat.sh  --cmd "$train_cmd" \
+  5000 100000 data/train_clean_460 data/lang exp/tri4b_ali_clean_460 exp/tri5b || exit 1;
+
+# decode using the tri5b model
+(
+  utils/mkgraph.sh data/lang_test_tgsmall exp/tri5b exp/tri5b/graph_tgsmall || exit 1;
+  for test in dev_clean dev_other; do
+    steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
+      exp/tri5b/graph_tgsmall data/$test exp/tri5b/decode_tgsmall_$test || exit 1;
+    steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
+      data/$test exp/tri5b/decode_{tgsmall,tgmed}_$test  || exit 1;
+  done
+)&
+
 # train a NN model on the 460 hour set
-local/nnet2/run_5c_clean_460.sh || exit 1
+local/nnet2/run_6a_clean_460.sh || exit 1
 
 # prepare the 500 hour subset
-local/data_prep.sh $data/LibriSpeech/train_other_500 data/train_other_500 || exit 1
+local/data_prep.sh $data/LibriSpeech/train-other-500 data/train_other_500 || exit 1
 steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_other_500 \
   exp/make_mfcc/train_other_500 $mfccdir || exit 1
 steps/compute_cmvn_stats.sh data/train_other_500 exp/make_mfcc/train_other_500 $mfccdir || exit 1

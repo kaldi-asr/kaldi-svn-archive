@@ -2,7 +2,12 @@
 
 # This is p-norm neural net training, with the "fast" script, on top of adapted
 # 40-dimensional features.
+# This version uses 460 hours of "clean" (typically relatively un-accented) 
+# training data.
+# We're using 6 jobs rather than 4, for speed.
 
+# Note: we highly discourage running this with --use-gpu false, it will
+# take way too long.
 
 train_stage=-10
 use_gpu=true
@@ -23,13 +28,13 @@ EOF
   parallel_opts="-l gpu=1" 
   num_threads=1
   minibatch_size=512
-  dir=exp/nnet5a_clean_100_gpu
+  dir=exp/nnet6a_clean_460_gpu
 else
   # with just 4 jobs this might be a little slow.
   num_threads=16
   parallel_opts="-pe smp $num_threads" 
   minibatch_size=128
-  dir=exp/nnet5a_clean_100
+  dir=exp/nnet6a_clean_460
 fi
 
 . ./cmd.sh
@@ -44,15 +49,16 @@ if [ ! -f $dir/final.mdl ]; then
 
   steps/nnet2/train_pnorm_fast.sh --stage $train_stage \
    --samples-per-iter 400000 \
+   --num-epochs 7 --num-epochs-final 3 \
    --parallel-opts "$parallel_opts" \
    --num-threads "$num_threads" \
    --minibatch-size "$minibatch_size" \
-   --num-jobs-nnet 4  --mix-up 8000 \
+   --num-jobs-nnet 6  --mix-up 10000 \
    --initial-learning-rate 0.01 --final-learning-rate 0.001 \
    --num-hidden-layers 4 \
-   --pnorm-input-dim 2000 --pnorm-output-dim 400 \
+   --pnorm-input-dim 4000 --pnorm-output-dim 400 \
    --cmd "$decode_cmd" \
-    data/train_clean_100 data/lang exp/tri4b_ali_clean_100 $dir || exit 1
+    data/train_clean_460 data/lang exp/tri5b $dir || exit 1
 fi
 
 
@@ -65,4 +71,3 @@ for test in dev_clean dev_other; do
 done
 
 exit 0;
-
