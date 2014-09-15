@@ -21,6 +21,9 @@ for part in dev-clean test-clean dev-other test-other train-clean-100; do
   local/download_and_untar.sh $data $url $part
 done
 
+# download the LM resources
+local/download_lm.sh $url data/local/lm || exit 1
+
 # format the data as Kaldi data directories
 for part in dev-clean test-clean dev-other test-other train-clean-100; do
   # use underscore-separated names in data directories.
@@ -32,20 +35,20 @@ done
 ## used to build the LM. Most users of this recipe will NOT need/want to run
 ## this step
 #local/lm/train_lm.sh $LM_CORPUS_ROOT \
-#  data/lm/norm/tmp data/lm/norm/norm_texts data/lm || exit 1
+#  data/local/lm/norm/tmp data/local/lm/norm/norm_texts data/local/lm || exit 1
 
 ## Optional G2P training scripts.
 ## As the LM training scripts above, this script is intended primarily to
 ## document our G2P model creation process
-#local/g2p/train_g2p.sh data/local/dict/cmudict data/local/g2p_models
+#local/g2p/train_g2p.sh data/local/dict/cmudict data/local/lm
 
 # the inputs are created by Vassil but we need to include the scripts to create them.
 local/prepare_dict.sh --nj 30 --cmd "$train_cmd" \
-   /export/a15/vpanayotov/data/lm /export/a15/vpanayotov/data/g2p data/local/dict
+   data/local/lm data/local/lm data/local/dict
 
 utils/prepare_lang.sh data/local/dict "<SPOKEN_NOISE>" data/local/lang_tmp data/lang || exit 1;
 
-local/format_lms.sh /export/a15/vpanayotov/data/lm || exit 1
+local/format_lms.sh data/local/lm || exit 1
 
 mfccdir=mfcc
 for part in dev_clean test_clean dev_other test_other train_clean_100; do
