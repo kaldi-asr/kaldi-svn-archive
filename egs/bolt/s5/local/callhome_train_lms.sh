@@ -49,14 +49,14 @@ cut -f 2- -d ' ' $text | awk -v lex=$lexicon 'BEGIN{while((getline<lex) >0){ see
   > $cleantext || exit 1;
 
 
-cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | sort | uniq -c | \
+cat $cleantext | awk '{for(n=1;n<=NF;n++) print $n; }' | sort | uniq -c | \
    sort -nr > $dir/word.counts || exit 1;
 
 
 # Get counts from acoustic training transcripts, and add  one-count
 # for each word in the lexicon (but not silence, we don't want it
 # in the LM-- we'll add it optionally later).
-cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | \
+cat $cleantext | awk '{for(n=1;n<=NF;n++) print $n; }' | \
   cat - <(grep -w -v '!SIL' $lexicon | awk '{print $1}') | \
    sort | uniq -c | sort -nr > $dir/unigram.counts || exit 1;
 
@@ -64,9 +64,9 @@ cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | \
 cat $dir/unigram.counts  | awk '{print $2}' | get_word_map.pl "<s>" "</s>" "<UNK>" > $dir/word_map \
    || exit 1;
 
-# note: ignore 1st field of train.txt, it's the utterance-id.
+# note: $cleantext does not start with the utterance-id for each line.
 cat $cleantext | awk -v wmap=$dir/word_map 'BEGIN{while((getline<wmap)>0)map[$1]=$2;}
-  { for(n=2;n<=NF;n++) { printf map[$n]; if(n<NF){ printf " "; } else { print ""; }}}' | gzip -c >$dir/train.gz \
+  { for(n=1;n<=NF;n++) { printf map[$n]; if(n<NF){ printf " "; } else { print ""; }}}' | gzip -c >$dir/train.gz \
    || exit 1;
 
 train_lm.sh --arpa --lmtype 3gram-mincount $dir || exit 1;
@@ -86,9 +86,9 @@ heldout_sent=10000 # Don't change this if you want result to be comparable with
     # kaldi_lm results
 sdir=$dir/srilm # in case we want to use SRILM to double-check perplexities.
 mkdir -p $sdir
-cat $cleantext | awk '{for(n=2;n<=NF;n++){ printf $n; if(n<NF) printf " "; else print ""; }}' | \
+cat $cleantext | awk '{for(n=1;n<=NF;n++){ printf $n; if(n<NF) printf " "; else print ""; }}' | \
   head -$heldout_sent > $sdir/heldout
-cat $cleantext | awk '{for(n=2;n<=NF;n++){ printf $n; if(n<NF) printf " "; else print ""; }}' | \
+cat $cleantext | awk '{for(n=1;n<=NF;n++){ printf $n; if(n<NF) printf " "; else print ""; }}' | \
   tail -n +$heldout_sent > $sdir/train
 
 cat $dir/word_map | awk '{print $1}' | cat - <(echo "<s>"; echo "</s>" ) > $sdir/wordlist
