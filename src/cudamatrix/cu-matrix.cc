@@ -1167,7 +1167,7 @@ void CuMatrixBase<Real>::DiffSigmoid(const CuMatrixBase<Real> &value,
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
     dim3 dimGrid(n_blocks(num_cols_, CU2DBLOCK), n_blocks(num_rows_, CU2DBLOCK));
 
-    cuda_diff_sigmoid(dimGrid, dimBlock, data_, diff.data_, value.data_, Dim(), diff.Stride());
+    cuda_diff_sigmoid(dimGrid, dimBlock, data_, diff.data_, value.data_, Dim(), diff.Stride(), value.Stride());
     CU_SAFE_CALL(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
@@ -1212,7 +1212,7 @@ void CuMatrixBase<Real>::DiffTanh(const CuMatrixBase<Real> &value,
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
     dim3 dimGrid(n_blocks(num_cols_, CU2DBLOCK), n_blocks(num_rows_, CU2DBLOCK));
 
-    cuda_diff_tanh(dimGrid, dimBlock, data_, diff.data_, value.data_, Dim());
+    cuda_diff_tanh(dimGrid, dimBlock, data_, diff.data_, value.data_, Dim(), diff.Stride(), value.Stride());
     CU_SAFE_CALL(cudaGetLastError());
 
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
@@ -2174,9 +2174,9 @@ void CuMatrixBase<Real>::Lookup(const std::vector<Int32Pair> &indices,
     CuArray<Real> cuda_output(output->size());
 
     Timer tim;
-    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
-    dim3 dimGrid(n_blocks(NumRows(), CU2DBLOCK), n_blocks(NumCols(), CU2DBLOCK));
-
+    dim3 dimBlock(CU1DBLOCK, 1);
+    dim3 dimGrid(n_blocks(indices.size(), CU1DBLOCK), 1);
+    
     cuda_matrix_lookup(dimGrid, dimBlock, this->data_, this->Dim(),
                        cuda_indices.Data(), indices.size(), cuda_output.Data());
     CU_SAFE_CALL(cudaGetLastError());
