@@ -12,7 +12,7 @@ include ../kaldi.mk
 
 TESTFILES = lm-lib-test
 
-OBJFILES = kaldi-lmtable.o kaldi-lm.o
+OBJFILES = const-arpa-lm.o kaldi-lmtable.o kaldi-lm.o
 
 TESTOUTPUTS = composed.fst output.fst output1.fst output2.fst
 
