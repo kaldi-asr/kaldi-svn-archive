@@ -29,10 +29,10 @@ local/callhome_prepare_dict.sh || exit 1;
 utils/prepare_lang.sh data/local/dict "<UNK>" data/local/lang data/lang
 
 # LM training
-local/callhome_train_lms.sh
+local/bolt_train_lms_interpolate.sh
 
 # G compilation, check LG composition
-local/callhome_format_data.sh
+local/bolt_format_data.sh
 # Now make MFCC features.
 # mfccdir should be some place with a largish disk where you
 # want to store MFCC features.
