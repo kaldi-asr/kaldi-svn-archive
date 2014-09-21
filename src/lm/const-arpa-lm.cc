@@ -638,6 +638,26 @@ void ConstArpaLm::Read(std::istream &is, bool binary) {
   initialized_ = true;;
 }
 
+bool ConstArpaLm::HistoryStateExists(const std::vector<int32>& hist) const {
+  int32* lm_state = GetLmState(hist);
+  if (lm_state == NULL) {
+    // <lm_state> does not exist means <hist> has no child.
+    return false;
+  } else {
+    // Note that we always create LmState for unigrams, so even if <lm_state> is
+    // not NULL, we still have to check if it has child.
+    KALDI_ASSERT(lm_state >= lm_states_);
+    KALDI_ASSERT(lm_state + 2 <= lm_states_end_);
+    // <lm_state + 2> points to <num_children>.
+    if (*(lm_state + 2) > 0) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
 float ConstArpaLm::GetNgramLogprob(const int32 word,
                                    const std::vector<int32>& hist) const {
   KALDI_ASSERT(initialized_);
@@ -891,6 +911,68 @@ void ConstArpaLm::WriteArpa(std::ostream &os) const {
   }
 
   os << std::endl << "\\end\\" << std::endl;
+}
+
+ConstArpaLmDeterministicFst::ConstArpaLmDeterministicFst(
+    const ConstArpaLm& lm) : lm_(lm) {
+  // Creates a history state for <s>.
+  std::vector<Label> bos_state(1, lm_.BosSymbol());
+  state_to_wseq_.push_back(bos_state);
+  wseq_to_state_[bos_state] = 0;
+  start_state_ = 0;
+}
+
+typename fst::StdArc::Weight ConstArpaLmDeterministicFst::Final(
+    StateId s) const {
+  // At this point, we should have created the state.
+  KALDI_ASSERT(static_cast<size_t>(s) < state_to_wseq_.size());
+  const std::vector<Label>& wseq = state_to_wseq_[s];
+  float logprob = lm_.GetNgramLogprob(lm_.EosSymbol(), wseq);
+  return Weight(-logprob);
+}
+
+bool ConstArpaLmDeterministicFst::GetArc(StateId s,
+                                         Label ilabel, fst::StdArc *oarc) {
+  // At this point, we should have created the state.
+  KALDI_ASSERT(static_cast<size_t>(s) < state_to_wseq_.size());
+  std::vector<Label> wseq = state_to_wseq_[s];
+
+  float logprob = lm_.GetNgramLogprob(ilabel, wseq);
+  if (logprob == std::numeric_limits<float>::min()) {
+    return false;
+  }
+
+  // Locates the next state in ConstArpaLm. Note that OOV and backoff have been
+  // taken care of in ConstArpaLm.
+  wseq.push_back(ilabel);
+  if (wseq.size() >= lm_.NgramOrder()) {
+    // History state has at most lm_.NgramOrder() -1 words in the state.
+    KALDI_ASSERT(wseq.size() == lm_.NgramOrder());
+    wseq.erase(wseq.begin(), wseq.begin() + 1);
+  }
+  while (!lm_.HistoryStateExists(wseq)) {
+    wseq.erase(wseq.begin(), wseq.begin() + 1);
+  }
+
+  std::pair<const std::vector<Label>, StateId> wseq_state_pair(
+      wseq, static_cast<Label>(state_to_wseq_.size()));
+
+  // Attemps to insert the current <wseq_state_pair>. If the pair already exists
+  // then it returns false.
+  typedef typename MapType::iterator IterType;
+  std::pair<IterType, bool> result = wseq_to_state_.insert(wseq_state_pair);
+
+  // If the pair was just inserted, then also add it to <state_to_wseq_>.
+  if (result.second == true)
+    state_to_wseq_.push_back(wseq);
+
+  // Creates the arc.
+  oarc->ilabel = ilabel;
+  oarc->olabel = ilabel;
+  oarc->nextstate = result.first->second;
+  oarc->weight = Weight(-logprob);
+
+  return true;
 }
 
 bool BuildConstArpaLm(const bool natural_base, const int32 bos_symbol,

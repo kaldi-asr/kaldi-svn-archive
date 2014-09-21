@@ -21,6 +21,7 @@
 #define KALDI_LM_CONST_ARPA_LM_H_
 
 #include "base/kaldi-common.h"
+#include "fstext/deterministic-fst.h"
 #include "util/common-utils.h"
 
 namespace kaldi {
@@ -88,6 +89,10 @@ class ConstArpaLm {
   // words to <unk>, if <unk> is defined, and then calls GetNgramLogprobRecurse.
   float GetNgramLogprob(const int32 word, const std::vector<int32>& hist) const;
 
+  // Returns true if the history word sequence <hist> has successor, which means
+  // <hist> will be a state in the FST format language model.
+  bool HistoryStateExists(const std::vector<int32>& hist) const;
+
   int32 BosSymbol() const { return bos_symbol_; }
   int32 EosSymbol() const { return eos_symbol_; }
   int32 UnkSymbol() const { return unk_symbol_; }
@@ -103,7 +108,7 @@ class ConstArpaLm {
   // Returns NULL if no corresponding LmState is found.
   //
   // If the word sequence exists in n-gram language model, but it is a leaf and
-  // is not an unigram, we still return NULL, since there is not LmState struct
+  // is not an unigram, we still return NULL, since there is no LmState struct
   // reserved for this sequence. 
   int32* GetLmState(const std::vector<int32>& seq) const;
 
@@ -188,6 +193,34 @@ class ConstArpaLm {
   //
   // x = 1 + 1 + 1 + 2 * children.size() = 3 + 2 * children.size() 
   int32* lm_states_;
+};
+
+/**
+ This class wraps a ConstArpaLm format language model with the interface defined
+ in DeterministicOnDemandFst.
+ */
+class ConstArpaLmDeterministicFst :
+    public fst::DeterministicOnDemandFst<fst::StdArc> {
+ public:
+  typedef typename fst::StdArc::Weight Weight;
+  typedef typename fst::StdArc::StateId StateId;
+  typedef typename fst::StdArc::Label Label;
+
+  ConstArpaLmDeterministicFst(const ConstArpaLm& lm);
+
+  virtual StateId Start() const { return start_state_; }
+
+  virtual Weight Final(StateId s) const;
+
+  virtual bool GetArc(StateId s, Label ilabel, fst::StdArc* oarc);
+
+ private:
+  typedef unordered_map<std::vector<Label>,
+                        StateId, VectorHasher<Label> > MapType;
+  StateId start_state_;
+  MapType wseq_to_state_;
+  std::vector<std::vector<Label> > state_to_wseq_;
+  const ConstArpaLm& lm_;
 };
 
 // Reads in an Arpa format language model and converts it into ConstArpaLm
