@@ -36,10 +36,10 @@ if [ $stage -le 4 ]; then
 fi
 
 if [ $stage -le 5 ]; then
-  utils/mkgraph.sh data/lang_test_tgsmall exp/tri6b_$thresh exp/tri6b_$thresh/graph || exit 1
+  utils/mkgraph.sh data/lang_test_tgsmall exp/tri6b_$thresh exp/tri6b_$thresh/graph_tgsmall || exit 1
   for test in dev_clean dev_other; do
     steps/decode_fmllr.sh --nj 50 --cmd "$decode_cmd" --config conf/decode.config \
-      exp/tri6b_$thresh/graph data/$test exp/tri6b_$thresh/decode_$test || exit 1
+      exp/tri6b_$thresh/graph_tgsmall data/$test exp/tri6b_$thresh/decode_tgsmall_$test || exit 1
     steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
       data/$test exp/tri6b_$thresh/decode_{tgsmall,tgmed}_$test  || exit 1;
   done
