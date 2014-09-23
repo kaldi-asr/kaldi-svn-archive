@@ -2,9 +2,9 @@
 
 # This is p-norm neural net training, with the "fast" script, on top of adapted
 # 40-dimensional features.
-# This version uses 460 hours of "clean" (typically relatively un-accented) 
-# training data.
-# We're using 6 jobs rather than 4, for speed.
+# This version uses 960 hours of mixed (clean + "other") training data.
+# We're using 6 jobs rather than 4, for speed, and 5 hidden layers
+# rather than 4.
 
 # Note: we highly discourage running this with --use-gpu false, it will
 # take way too long.
@@ -28,13 +28,13 @@ EOF
   parallel_opts="-l gpu=1" 
   num_threads=1
   minibatch_size=512
-  dir=exp/nnet6a_clean_460_gpu
+  dir=exp/nnet7a_960_gpu
 else
   # with just 4 jobs this might be a little slow.
   num_threads=16
   parallel_opts="-pe smp $num_threads" 
   minibatch_size=128
-  dir=exp/nnet6a_clean_460
+  dir=exp/nnet7a_960
 fi
 
 . ./cmd.sh
@@ -49,23 +49,23 @@ if [ ! -f $dir/final.mdl ]; then
 
   steps/nnet2/train_pnorm_fast.sh --stage $train_stage \
    --samples-per-iter 400000 \
-   --num-epochs 7 --num-epochs-extra 3 \
+   --num-epochs 6 --num-epochs-extra 2 \
    --parallel-opts "$parallel_opts" \
    --num-threads "$num_threads" \
    --minibatch-size "$minibatch_size" \
-   --num-jobs-nnet 6  --mix-up 10000 \
+   --num-jobs-nnet 6  --mix-up 14000 \
    --initial-learning-rate 0.01 --final-learning-rate 0.001 \
-   --num-hidden-layers 4 \
-   --pnorm-input-dim 4000 --pnorm-output-dim 400 \
+   --num-hidden-layers 5 \
+   --pnorm-input-dim 5000 --pnorm-output-dim 500 \
    --cmd "$decode_cmd" \
-    data/train_clean_460 data/lang exp/tri5b $dir || exit 1
+    data/train_960 data/lang exp/tri6b $dir || exit 1
 fi
 
 
 for test in dev_clean dev_other; do
   steps/nnet2/decode.sh --nj 20 --cmd "$decode_cmd" \
-    --transform-dir exp/tri5b/decode_tgsmall_$test \
-    exp/tri5b/graph_tgsmall data/$test $dir/decode_tgsmall_$test || exit 1;
+    --transform-dir exp/tri6b/decode_tgsmall_$test \
+    exp/tri6b/graph_tgsmall data/$test $dir/decode_tgsmall_$test || exit 1;
   steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
     data/$test $dir/decode_{tgsmall,tgmed}_$test  || exit 1;
 done

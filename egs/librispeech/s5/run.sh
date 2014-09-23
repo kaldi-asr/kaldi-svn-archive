@@ -51,6 +51,14 @@ utils/prepare_lang.sh data/local/dict "<SPOKEN_NOISE>" data/local/lang_tmp data/
 local/format_lms.sh data/local/lm || exit 1
 
 mfccdir=mfcc
+# spread the mfccs over various machines, as this data-set is quite large.
+if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then 
+  mfcc=$(basename mfccdir) # in case was absolute pathname (unlikely), get basename.
+  utils/create_split_dir.pl /export/b0{1,2,3,4}/$USER/kaldi-data/egs/librispeech/s5/$dir/$mfcc/storage \
+    $mfccdir/storage
+fi
+
+
 for part in dev_clean test_clean dev_other test_other train_clean_100; do
   steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$part exp/make_mfcc/$part $mfccdir
   steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
@@ -155,7 +163,7 @@ steps/train_sat.sh  --cmd "$train_cmd" \
 )&
 
 # align train_clean_100 using the tri4b model
-steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
   data/train_clean_100 data/lang exp/tri4b exp/tri4b_ali_clean_100 || exit 1;
 
 # if you want at this point you can train and test NN model(s) on the 100 hour
@@ -172,7 +180,7 @@ steps/compute_cmvn_stats.sh data/train_clean_360 exp/make_mfcc/train_clean_360 $
 utils/combine_data.sh data/train_clean_460 data/train_clean_100 data/train_clean_360 || exit 1
 
 # align the new, combined set, using the tri4b model
-steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
+steps/align_fmllr.sh --nj 40 --cmd "$train_cmd" \
   data/train_clean_460 data/lang exp/tri4b exp/tri4b_ali_clean_460 || exit 1;
 
 # create a larger SAT model, trained on the 460 hours of data.
@@ -193,7 +201,7 @@ steps/train_sat.sh  --cmd "$train_cmd" \
 # train a NN model on the 460 hour set
 local/nnet2/run_6a_clean_460.sh || exit 1
 
-# prepare the 500 hour subset
+# prepare the 500 hour subset.
 local/data_prep.sh $data/LibriSpeech/train-other-500 data/train_other_500 || exit 1
 steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_other_500 \
   exp/make_mfcc/train_other_500 $mfccdir || exit 1
@@ -202,22 +210,27 @@ steps/compute_cmvn_stats.sh data/train_other_500 exp/make_mfcc/train_other_500 $
 # combine all the data
 utils/combine_data.sh data/train_960 data/train_clean_460 data/train_other_500 || exit 1
 
-# now take a decent-sized subset of the combined set
-utils/subset_data_dir.sh data/train_960 65000 data/train_65k || exit 1
+steps/align_fmllr.sh --nj 40 --cmd "$train_cmd" \
+  data/train_960 data/lang exp/tri5b exp/tri5b_ali_960 || exit 1;
 
-steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
-  data/train_65k data/lang exp/tri4b exp/tri4b_ali_65k || exit 1;
+# train a SAT model on the 960 hour mixed data.  Use the train_quick.sh script
+# as it is faster.
+steps/train_quick.sh --cmd "$train_cmd" \
+  7000 150000 data/train_960 data/lang exp/tri5b_ali_960 exp/tri6b || exit 1;
 
-# train a SAT model on the 65k mixed (clean + other) subset
-steps/train_sat.sh  --cmd "$train_cmd" \
-  5300 54000 data/train_65k data/lang exp/tri4b_ali_65k exp/tri4c || exit 1;
-
-# align the entire dataset
-steps/align_fmllr.sh --nj 20 --cmd "$train_cmd" \
-  data/train_960 data/lang exp/tri4c exp/tri4c_ali_960 || exit 1;
+# decode using the tri6b model
+(
+  utils/mkgraph.sh data/lang_test_tgsmall exp/tri6b exp/tri6b/graph_tgsmall || exit 1;
+  for test in dev_clean dev_other; do
+    steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
+      exp/tri6b/graph_tgsmall data/$test exp/tri6b/decode_tgsmall_$test || exit 1;
+    steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
+      data/$test exp/tri6b/decode_{tgsmall,tgmed}_$test  || exit 1;
+  done
+)&
 
 # train NN models on the entire dataset
-local/run_nnet2_960.sh || exit 1
+local/nnet2/run_7a_960.sh || exit 1
 
-# train models on cleaned-up data
-local/run_data_cleaning.sh
+## train models on cleaned-up data
+#local/run_data_cleaning.sh
