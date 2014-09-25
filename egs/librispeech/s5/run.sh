@@ -233,4 +233,5 @@ steps/train_quick.sh --cmd "$train_cmd" \
 local/nnet2/run_7a_960.sh || exit 1
 
 ## train models on cleaned-up data
+## we've found that this isn't helpful-- see the comments in local/run_data_cleaning.sh
 #local/run_data_cleaning.sh
