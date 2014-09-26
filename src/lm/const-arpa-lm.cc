@@ -81,10 +81,14 @@ class LmState {
     return children_.size();
   }
 
-  std::pair<int32, LmState*> Children(const int32 index) {
+  std::pair<int32, LmState*> GetChild(const int32 index) {
     KALDI_ASSERT(index < children_.size());
     KALDI_ASSERT(index >= 0);
     return children_[index];
+  }
+
+  void SortChildren() {
+    std::sort(children_.begin(), children_.end());
   }
 
   // Checks if the current LmState is a leaf.
@@ -468,19 +472,20 @@ void ConstArpaLmBuilder::Build() {
     // 2. Child is not a leaf or is unigram
     //    2.1 Relative address can be represented by 30 bits
     //    2.2 Relative address cannot be represented by 30 bits
+    sorted_vec[i].second->SortChildren();
     for (int32 j = 0; j < sorted_vec[i].second->NumChildren(); ++j) {
       int32 child_info;
-      if (sorted_vec[i].second->Children(j).second->MemSize() == 0) {
+      if (sorted_vec[i].second->GetChild(j).second->MemSize() == 0) {
         // Child is a leaf and not unigram. In this case we will not create an
         // entry in <lm_states_>; instead, we put the logprob in the place where
         // we normally store the poitner.
         float child_logprob =
-            sorted_vec[i].second->Children(j).second->Logprob();
+            sorted_vec[i].second->GetChild(j).second->Logprob();
         child_info = *reinterpret_cast<int32*>(&child_logprob);
         child_info &= ~1;   // Sets the last bit to 0 so <child_info> is even.
       } else {
         // Child is not a leaf or is unigram.
-        int64 offset = sorted_vec[i].second->Children(j).second->MyAddress()
+        int64 offset = sorted_vec[i].second->GetChild(j).second->MyAddress()
             - sorted_vec[i].second->MyAddress();
         KALDI_ASSERT(offset > 0);
         if (offset <= max_address_offset_) {
@@ -499,7 +504,7 @@ void ConstArpaLmBuilder::Build() {
         }
       }
       // Child word.
-      lm_states_[lm_states_index++] = sorted_vec[i].second->Children(j).first;
+      lm_states_[lm_states_index++] = sorted_vec[i].second->GetChild(j).first;
       // Child info.
       lm_states_[lm_states_index++] = child_info;
     }
@@ -639,6 +644,13 @@ void ConstArpaLm::Read(std::istream &is, bool binary) {
 }
 
 bool ConstArpaLm::HistoryStateExists(const std::vector<int32>& hist) const {
+  // We do not create LmState for empty word sequence, but technically it is the
+  // history state of all unigrams.
+  if (hist.size() == 0) {
+    return true;
+  }
+
+  // Tries to locate the LmState of the given word sequence.
   int32* lm_state = GetLmState(hist);
   if (lm_state == NULL) {
     // <lm_state> does not exist means <hist> has no child.
@@ -661,14 +673,20 @@ bool ConstArpaLm::HistoryStateExists(const std::vector<int32>& hist) const {
 float ConstArpaLm::GetNgramLogprob(const int32 word,
                                    const std::vector<int32>& hist) const {
   KALDI_ASSERT(initialized_);
-  KALDI_ASSERT(hist.size() + 1 <= ngram_order_);
+
+  // If the history size plus one is larger than <ngram_order_>, remove the old
+  // words.
+  std::vector<int32> mapped_hist(hist);
+  while (mapped_hist.size() >= ngram_order_) {
+    mapped_hist.erase(mapped_hist.begin(), mapped_hist.begin() + 1);
+  }
+  KALDI_ASSERT(mapped_hist.size() + 1 <= ngram_order_);
 
   // TODO(guoguo): check with Dan if this is reasonable.
   // Maps possible out-of-vocabulary words to <unk>. If a word does not have a
   // corresponding LmState, we treat it as <unk>. We map it to <unk> if <unk> is
   // specified.
   int32 mapped_word = word;
-  std::vector<int32> mapped_hist(hist);
   if (unk_symbol_ != -1) {
     KALDI_ASSERT(mapped_word >= 0);
     if (mapped_word >= num_words_ || unigram_states_[mapped_word] == NULL) {
@@ -718,18 +736,16 @@ float ConstArpaLm::GetNgramLogprobRecurse(
       backoff_logprob = *reinterpret_cast<float*>(state + 1);
     }
   }
-  std::vector<int32> new_hist(hist.size() - 1);
-  for (int32 i = 0; i < new_hist.size(); ++i) {
-    new_hist[i] = hist[i + 1];
-  }
+  std::vector<int32> new_hist(hist);
+  new_hist.erase(new_hist.begin(), new_hist.begin() + 1);
   return backoff_logprob + GetNgramLogprobRecurse(word, new_hist);
 }
 
 int32* ConstArpaLm::GetLmState(const std::vector<int32>& seq) const {
   KALDI_ASSERT(initialized_);
 
-  // Loops up the unigram directly from <unigram_states_>.
-  KALDI_ASSERT(seq.size() >= 1);
+  // No LmState exists for empty word sequence.
+  if (seq.size() == 0) return NULL;
 
   // If <unk> is defined, then the word sequence should have already been mapped
   // to <unk> is necessary; this is for the case where <unk> is not defined.
@@ -922,8 +938,7 @@ ConstArpaLmDeterministicFst::ConstArpaLmDeterministicFst(
   start_state_ = 0;
 }
 
-typename fst::StdArc::Weight ConstArpaLmDeterministicFst::Final(
-    StateId s) const {
+typename fst::StdArc::Weight ConstArpaLmDeterministicFst::Final(StateId s) {
   // At this point, we should have created the state.
   KALDI_ASSERT(static_cast<size_t>(s) < state_to_wseq_.size());
   const std::vector<Label>& wseq = state_to_wseq_[s];
@@ -945,12 +960,12 @@ bool ConstArpaLmDeterministicFst::GetArc(StateId s,
   // Locates the next state in ConstArpaLm. Note that OOV and backoff have been
   // taken care of in ConstArpaLm.
   wseq.push_back(ilabel);
-  if (wseq.size() >= lm_.NgramOrder()) {
+  while (wseq.size() >= lm_.NgramOrder()) {
     // History state has at most lm_.NgramOrder() -1 words in the state.
-    KALDI_ASSERT(wseq.size() == lm_.NgramOrder());
     wseq.erase(wseq.begin(), wseq.begin() + 1);
   }
   while (!lm_.HistoryStateExists(wseq)) {
+    KALDI_ASSERT(wseq.size() > 0);
     wseq.erase(wseq.begin(), wseq.begin() + 1);
   }
 

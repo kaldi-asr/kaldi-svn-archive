@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 
     kaldi::ParseOptions po(usage);
 
-    bool natural_base = false;
+    bool natural_base = true;
     int32 unk_symbol = -1;
     int32 bos_symbol = -1;
     int32 eos_symbol = -1;

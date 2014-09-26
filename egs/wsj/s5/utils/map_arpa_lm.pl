@@ -75,12 +75,14 @@ while (<I>) {
   my @col = split(/[\s]+/, $_);
 
   if (m/^\\data\\$/) {
+    print STDERR "$0: Processing \"\\data\\\"\n";
     $current_order = 0;
   } elsif (m/^\\[0-9]*-grams:$/) {
     $current_order = $_;
     $current_order =~ s/-grams:$//g;
     $current_order =~ s/^\\//g;
     $arpa .= "$_\n";
+    print STDERR "$0: Processing \"\\$current_order-grams:\\\"\n";
   } elsif (m/\\end\\/) {
     $arpa .= "$_\n";
   } elsif ($_ eq "") {

@@ -208,9 +208,13 @@ class ConstArpaLmDeterministicFst :
 
   ConstArpaLmDeterministicFst(const ConstArpaLm& lm);
 
-  virtual StateId Start() const { return start_state_; }
+  // We cannot use "const" because the pure virtual function in the interface is
+  // not const.
+  virtual StateId Start() { return start_state_; }
 
-  virtual Weight Final(StateId s) const;
+  // We cannot use "const" because the pure virtual function in the interface is
+  // not const.
+  virtual Weight Final(StateId s);
 
   virtual bool GetArc(StateId s, Label ilabel, fst::StdArc* oarc);
 
