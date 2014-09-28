@@ -137,7 +137,9 @@ sub check_lexicon {
   $idx = 1;
   $success = 1;
   print "--> reading $lexfn\n";
+  $line_count = 0;
   while (<L>) {
+    $line_count += 1;
     if (! s/\n$//) {
       print "--> ERROR: last line '$_' of $lexfn does not end in newline.\n";
       set_to_fail();
@@ -150,7 +152,7 @@ sub check_lexicon {
     if ($pron_probs) {
       $prob = shift @row;
       if (!($prob > 0.0 && $prob <= 1.0)) { 
-        set_to_fail(); print "--> ERROR: bad pron-prob in lexicon-line '$_', in $lexfn\n";
+        set_to_fail(); print "--> ERROR: bad pron-prob in lexicon-line '$_', in $lexfn at line $line_count\n";
       }
     }
     foreach (0 .. @row-1) {
