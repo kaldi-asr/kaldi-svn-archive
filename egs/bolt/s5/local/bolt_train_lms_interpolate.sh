@@ -71,7 +71,7 @@ for c in ${corpus[@]} ; do
   #cat $dir/word_${c}_map | awk '{print $1}' | cat - <(echo "<s>"; echo "</s>" ) > $sdir/wordlist_${c}
   cat ${!cleantrain} | awk '{for(n=1;n<=NF;n++) print $n; }' | \
   cat - <(grep -w -v '!SIL' $lexicon | awk '{print $1}') | \
-  sort | uniq -c | sort -nr | awk '{print $2}' | cat - <(echo "<s>"; echo "</s>"; echo "<UNK>") > $sdir/wordlist_$c || exit 1;
+  sort -u | cat - <(echo "<s>"; echo "</s>"; echo "<UNK>") > $sdir/wordlist_$c || exit 1;
   ngram-count -text ${!cleantrain} -order 3 -limit-vocab -vocab $sdir/wordlist_$c -unk \
   -map-unk "<UNK>" -kndiscount -interpolate -lm $sdir/srilm.$c.o3g.kn.gz
 done
