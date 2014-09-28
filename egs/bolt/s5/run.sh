@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2014 Jan Trmal, Hainan Xu, Xiaohui Zhang, Xin Lei
+# Copyright 2014 Jan Trmal, Hainan Xu, Xiaohui Zhang, Xin Lei, Minhua Wu
 # Apache 2.0
 #
 # This is a shell script to run BOLT evaluation recipe. It's recommended
@@ -135,6 +135,8 @@ steps/decode_fmllr_extra.sh --nj $decode_nj --cmd "$decode_cmd" "${extra_decodin
    --config conf/decode.config  --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
    exp/tri5a/graph data/dev exp/tri5a/decode_dev || exit 1;
 
+./local/run_dnn.sh
+./local/run_dnn_mpe.sh
 exit 0;
 
 # MMI starting from system in tri5a

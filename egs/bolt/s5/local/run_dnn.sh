@@ -1,17 +1,17 @@
 #!/bin/bash
 
-# DNN training recipe based on swithboard nnet5d_gpu recipe. (It's tuned on CALLHOME data only for now). It's using steps/nnet2/train_pnorm_fast.sh.
+# DNN training recipe based on swithboard tri6_nnet recipe. (It's tuned on CALLHOME data only for now). It's using steps/nnet2/train_pnorm_fast.sh.
 
-dir=nnet5d_gpu
+dir=tri6_nnet
 temp_dir=
 train_stage=-10
 
 . ./cmd.sh
 . ./path.sh
-! cuda-compiled && cat <<EOF && exit 1 
-This script is intended to be used with GPUs but you have not compiled Kaldi with CUDA 
-If you want to use GPUs (and have them), go to src/, and configure and make on a machine
-where "nvcc" is installed.
+ ! cuda-compiled && cat <<EOF && exit 1 
+ This script is intended to be used with GPUs but you have not compiled Kaldi with CUDA 
+ If you want to use GPUs (and have them), go to src/, and configure and make on a machine
+ where "nvcc" is installed.
 EOF
 
 
@@ -34,20 +34,22 @@ parallel_opts="-l gpu=1"  # This is suitable for the CLSP network, you'll likely
     fi
 
     steps/nnet2/train_pnorm_fast.sh --stage $train_stage \
-      --num-jobs-nnet 2 --num-threads 1 \
+      --num-jobs-nnet 8 --num-threads 1 \
       --minibatch-size 128 --parallel-opts "$parallel_opts" \
       --mix-up 8000 \
-      --initial-learning-rate 0.02 --final-learning-rate 0.004 \
+      --initial-learning-rate 0.08 --final-learning-rate 0.008 \
       --samples-per-iter 400000 \
-      --num-hidden-layers 3 \
-      --pnorm-input-dim 1000 \
-      --pnorm-output-dim 200 \
+      --num-hidden-layers 4 \
+      --stage $train_stage \
+      --pnorm-input-dim 3000 \
+      --pnorm-output-dim 500 \
       --cmd "$decode_cmd" \
       data/train data/lang exp/tri5a_ali exp/$dir || exit 1;
+  cat exp/$dir/.done
   fi
 
-    steps/nnet2/decode.sh --cmd "$decode_cmd" --nj 30 \
-      --config conf/decode.config --transform-dir exp/tri5a/decode_dev \
-      exp/tri5a/graph data/dev exp/$dir/decode_dev
+  steps/nnet2/decode.sh --cmd "$decode_cmd" --nj 30 \
+    --config conf/decode.config --transform-dir exp/tri5a/decode_dev \
+    exp/tri5a/graph data/dev exp/$dir/decode_dev
 )
 
