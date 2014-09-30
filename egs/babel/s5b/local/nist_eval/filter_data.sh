@@ -1,3 +1,5 @@
+. ./path.sh
+
 min_lmwt=5
 max_lmwt=25
 cer=0
@@ -14,7 +16,7 @@ name=$1; shift
 set -e
 set -o pipefail
 
-[ ! -d $datadir/compounds/$name ] && echo "Component called $name does not exist" && exit 1
+[ ! -d $datadir/compounds/$name ] && echo "Component called $name does not exist in $datadir/compounds/" && exit 1
 ecf=$datadir/compounds/$name/ecf.xml
 cat $ecf | grep -P -o '(?<=audio_filename\=")[^"]*' > $datadir/compounds/$name/files.list
 filelist=$datadir/compounds/$name/files.list
@@ -94,7 +96,7 @@ while (( "$#" )); do
     $cmd LMWT=$min_lmwt:$max_lmwt $targetdir/$kws/kws_filter.LMWT.log \
       set -e';' set -o pipefail';' \
       mkdir -p $targetdir/${kws}_LMWT';'\
-      cat $resultdir/${kws}_LMWT/'result.*' \| utils/filter_scp.pl -f 1 $filter \> $targetdir/${kws}_LMWT/result || exit -1
+      cat $resultdir/${kws}_LMWT/'result.*' \| utils/filter_scp.pl -f 2 $filter \> $targetdir/${kws}_LMWT/result || exit -1
 
 
     echo -e  "\tWrite normalized..."
