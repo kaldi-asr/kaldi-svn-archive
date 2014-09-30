@@ -54,7 +54,7 @@ steps/train_mono.sh --nj 4 --cmd "$train_cmd"\
   data/train_sub1 data/lang exp/mono0a || exit 1;
 
 
-# Monophone decoding
+# Monophone decoding.
 utils/mkgraph.sh --mono data/lang_test exp/mono0a exp/mono0a/graph || exit 1
 # note: local/decode.sh calls the command line once for each
 # test, and afterwards averages the WERs into (in this case
@@ -67,7 +67,7 @@ steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_op
 
 # Get alignments from monophone system.
 steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
-  data/train data/lang exp/mono0a exp/mono_ali || exit 1;
+  data/train_sub2 data/lang exp/mono0a exp/mono_ali || exit 1;
 
 # train tri1 [first triphone pass]
 steps/train_deltas.sh --cmd "$train_cmd"\
@@ -83,7 +83,7 @@ steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_op
 
 # align tri1
 steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
-  data/train data/lang exp/tri1 exp/tri1_ali || exit 1;
+  data/train_sub3 data/lang exp/tri1 exp/tri1_ali || exit 1;
 
 # train tri2 [delta+delta-deltas]
 steps/train_deltas.sh --cmd "$train_cmd"\
