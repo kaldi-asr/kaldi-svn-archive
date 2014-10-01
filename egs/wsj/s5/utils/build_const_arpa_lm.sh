@@ -41,7 +41,7 @@ done
 
 # First, convert the words in the Arpa format language model into integers.
 arpa_lm_int=$new_lang/arpa.int
-gzip -cdf $arpa_lm | utils/map_arpa_lm.pl $new_lang/words.txt - $arpa_lm_int
+
 
 # Second, convert $arpa_lm_int to ConstArpaLm format.
 unk=`cat $new_lang/oov.int`
@@ -51,6 +51,8 @@ if [[ -z $bos || -z $eos ]]; then
   echo "$0: <s> and </s> symbols are not in $new_lang/words.txt"
   exit 1
 fi
-arpa-to-const-arpa --bos-symbol=$bos \
-  --eos-symbol=$eos --unk-symbol=$unk $arpa_lm_int $new_lang/G.carpa || exit 1
-rm -f $arpa_lm_int
+
+gunzip -c $arpa_lm | utils/map_arpa_lm.pl $new_lang/words.txt | \
+  arpa-to-const-arpa --bos-symbol=$bos \
+   --eos-symbol=$eos --unk-symbol=$unk - $new_lang/G.carpa || exit 1
+

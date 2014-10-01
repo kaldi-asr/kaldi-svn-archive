@@ -372,7 +372,12 @@ void ConstArpaLmBuilder::Read(std::istream &is, bool binary) {
         }
       }
     } while (getline(is, line) && !is.eof());
-    KALDI_ASSERT(num_ngrams[order] == ngram_count);
+    if (ngram_count > num_ngrams[order] ||
+        (ngram_count == 0 && num_ngrams[order] != 0)) {
+      KALDI_ERR << "Header said there would be " << num_ngrams[order]
+                << " n-grams of order " << order << ", but we saw "
+                << ngram_count;
+    }
   }
 
   // <num_words_> is <max_word_id> plus 1.

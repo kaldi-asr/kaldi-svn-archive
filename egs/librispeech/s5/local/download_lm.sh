@@ -57,4 +57,8 @@ for f in 3-gram.arpa.gz 3-gram.pruned.1e-7.arpa.gz 3-gram.pruned.3e-7.arpa.gz\
   check_and_download $f || exit 1
 done
 
+ln -s 3-gram.pruned.1e-7.arpa.gz $dst_dir/lm_tgmed.arpa.gz
+ln -s 3-gram.pruned.3e-7.arpa.gz $dst_dir/lm_tgsmall.arpa.gz
+ln -s 3-gram.arpa.gz $dst_dir/lm_tglarge.arpa.gz
+
 exit 0

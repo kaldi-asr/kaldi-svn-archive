@@ -7,6 +7,7 @@
 # (adapted from wsj/s5/local/wsj_format_data.sh)
 
 . path.sh
+set -e
 
 if [ $# -ne 1 ]; then
   echo "Usage: $0 <lm-dir>"
@@ -45,7 +46,7 @@ for lm_suffix in tgsmall tgmed; do
     utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=$test/words.txt \
       --osymbols=$test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
      fstrmepsilon | fstarcsort --sort_type=ilabel > $test/G.fst
-  fstisstochastic $test/G.fst
+  fstisstochastic $test/G.fst || true
  # The output is like:
  # 9.14233e-05 -0.259833
  # we do expect the first of these 2 numbers to be close to zero (the second is

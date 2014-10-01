@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 # Copyright 2014  Guoguo Chen
+#           2014  Johns Hopkins University (author: Daniel Povey)
 # Apache 2.0.
 #
 use strict;
@@ -17,8 +18,8 @@ language model. We first map the words in an Arpa format language model to
 integers, and then use lmbin/arpa-to-const-arpa to build a ConstArpaLm format
 language model.
 
-Usage: utils/map_arpa_lm.pl [options] <words.txt> <input-arpa> <output-arpa>
- e.g.: utils/map_arpa_lm.pl words.txt arpa_lm.txt arpa_lm.int
+Usage: utils/map_arpa_lm.pl [options] <vocab-file> < input-arpa >output-arpa
+ e.g.: utils/map_arpa_lm.pl words.txt <arpa_lm.txt >arpa_lm.int
 
 Allowed options:
   --sym2int   : If true, maps words to integers, other wise maps integers to
@@ -32,7 +33,7 @@ GetOptions('sym2int=s' => \$sym2int);
 ($sym2int eq "true" || $sym2int eq "false") ||
   die "$0: Bad value for option --sym2int\n";
 
-if (@ARGV != 3) {
+if (@ARGV != 1) {
   die $Usage;
 }
 
@@ -43,8 +44,6 @@ my $arpa_out = shift @ARGV;
 
 # Opens files.
 open(M, "<$symtab") || die "$0: Fail to open $symtab\n";
-open(I, "<$arpa_in") || die "$0: Fail to open $arpa_in\n";
-open(O, ">$arpa_out") || die "$0: Fail to open $arpa_out\n";
 
 # Reads in the mapper.
 my %mapper;
@@ -65,85 +64,69 @@ while (<M>) {
   }
 }
 
+my $num_oov_lines = 0;
+my $max_oov_warn = 20;
+
 # Parses Arpa n-gram language model.
 my $arpa = "";
 my $current_order = -1;
 my %head_ngram_count;
 my %actual_ngram_count;
-while (<I>) {
+while (<STDIN>) {
   chomp;
-  my @col = split(/[\s]+/, $_);
+  my @col = split(" ", $_);
 
   if (m/^\\data\\$/) {
     print STDERR "$0: Processing \"\\data\\\"\n";
+    print "$_\n";
     $current_order = 0;
   } elsif (m/^\\[0-9]*-grams:$/) {
     $current_order = $_;
     $current_order =~ s/-grams:$//g;
     $current_order =~ s/^\\//g;
-    $arpa .= "$_\n";
+    print "$_\n";
     print STDERR "$0: Processing \"\\$current_order-grams:\\\"\n";
-  } elsif (m/\\end\\/) {
-    $arpa .= "$_\n";
+  } elsif (m/^\\end\\/) {
+    print "$_\n";
   } elsif ($_ eq "") {
     if ($current_order >= 1) {
-      $arpa .= "\n";
+      print "\n";
     }
   } else {
     if ($current_order == 0) {
-      # Parses head section.
-      if ($col[0] ne "ngram" || @col != 2) {
-        die "$0: Expecting \"ngram\" token in head section, got \"$_\"\n";
-      } else {
-        my @sub_col = split("=", $col[1]);
-        @sub_col == 2 || die "$0: Bad line in arpa lm \"$_\"\n";
-        $head_ngram_count{$sub_col[0]} = $sub_col[1];
-      }
+      # echo head section.
+      print "$_\n";
     } else {
       # Parses n-gram section.
       if (@col > 2 + $current_order || @col < 1 + $current_order) {
         die "$0: Bad line in arpa lm \"$_\"\n";
       }
-      if (!defined($actual_ngram_count{$current_order})) {
-        $actual_ngram_count{$current_order} = 0;
-      }
-      my $new_line = "$col[0]\t";
-      my $is_oov = "false";
-      for (my $i = 1; $i <= $current_order; $i++) {
-        if (!defined($mapper{$col[$i]})) {
-          $is_oov = "true";
+      my $prob = shift @col;
+      my $is_oov = 0;
+      for (my $i = 0; $i < $current_order; $i++) {
+        my $temp = $mapper{$col[$i]};
+        if (!defined($temp)) {
+          $is_oov = 1;
+          $num_oov_lines++;
           last;
-        }
-        $new_line .= $mapper{$col[$i]};
-        if ($i != $current_order) {
-          $new_line .= " ";
+        } else {
+          $col[$i] = $temp;
         }
       }
-      if ($is_oov eq "false") {
-        if (@col == 2 + $current_order) {
-          $new_line .= "\t$col[1 + $current_order]";
+      if (!$is_oov) {
+        my $rest_of_line = join(" ", @col);
+        print "$prob\t$rest_of_line\n";
+      } else {
+        if ($num_oov_lines < $max_oov_warn) {
+          print STDERR "map_arpa_lm.pl: Warning: OOV line $_\n";
         }
-        $arpa .= "$new_line\n";
-        $actual_ngram_count{$current_order} += 1;
       }
     }
   }
 }
 
-foreach my $order (keys(%head_ngram_count)) {
-  if ($head_ngram_count{$order} < $actual_ngram_count{$order}) {
-    die "$0: Expecting $head_ngram_count{$order} $order-grams, seeing more.\n"
-  }
+if ($num_oov_lines > 0) {
+  print STDERR "map_arpa_lm.pl: $num_oov_lines lines of the Arpa file contained OOVs and were not printed.\n";
 }
-
-my $header = "\n\\data\\\n";
-foreach my $order (sort(keys(%actual_ngram_count))) {
-  $header .= "ngram $order=$actual_ngram_count{$order}\n";
-}
-$arpa = $header . "\n" . $arpa;
-
-print O $arpa;
 
 close(M);
-close(I);
-close(O);
