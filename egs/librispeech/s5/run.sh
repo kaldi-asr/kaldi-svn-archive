@@ -2,11 +2,13 @@
 
 
 # Set this to somewhere where you want to put your data, or where
-# someone else has already put it.
+# someone else has already put it.  You'll want to change this 
+# if you're not on the CLSP grid.
 data=/export/a15/vpanayotov/data
 
 # base url for downloads.
-url=www.openslr.org/resources/11
+data_url=www.openslr.org/resources/12
+lm_url=www.openslr.org/resources/11
 
 . cmd.sh
 . path.sh
@@ -18,11 +20,11 @@ set -e
 # now; later in the script we'll download more and use it to train neural
 # nets.
 for part in dev-clean test-clean dev-other test-other train-clean-100; do
-  local/download_and_untar.sh $data $url $part
+  local/download_and_untar.sh $data $data_url $part
 done
 
 # download the LM resources
-local/download_lm.sh $url data/local/lm || exit 1
+local/download_lm.sh $lm_url data/local/lm || exit 1
 
 # format the data as Kaldi data directories
 for part in dev-clean test-clean dev-other test-other train-clean-100; do
@@ -186,6 +188,8 @@ steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
 # subset
 local/nnet2/run_5c_clean_100.sh || exit 1
 
+local/download_and_untar.sh $data $data_url train-clean-360 || exit 1;
+
 # now add the "clean-360" subset to the mix ...
 local/data_prep.sh $data/LibriSpeech/train-clean-360 data/train_clean_360 || exit 1
 steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_clean_360 \
@@ -219,6 +223,8 @@ steps/train_sat.sh  --cmd "$train_cmd" \
 
 # train a NN model on the 460 hour set
 local/nnet2/run_6a_clean_460.sh || exit 1
+
+local/download_and_untar.sh $data $data_url train-other-500 || exit 1;
 
 # prepare the 500 hour subset.
 local/data_prep.sh $data/LibriSpeech/train-other-500 data/train_other_500 || exit 1

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # example script for online-nnet2 system training and decoding,
 # based on the one for fisher-English.
 
@@ -165,6 +164,9 @@ if [ $stage -le 9 ]; then
       exp/tri6b/graph_tgsmall data/${test}_hires $dir/decode_${test}_tgsmall || exit 1;
     steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
       data/${test}_hires $dir/decode_${test}_{tgsmall,tgmed}  || exit 1;
+    steps/lmrescore_const_arpa.sh \
+      --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
+      data/$test $dir/decode_${test}_{tgsmall,tglarge} || exit 1;
   done
 fi
 
@@ -172,11 +174,11 @@ fi
 if [ $stage -le 10 ]; then
   # If this setup used PLP features, we'd have to give the option --feature-type plp
   # to the script below.
-  steps/online/nnet2/prepare_online_decoding.sh data/lang exp/nnet2_online/extractor \
-    "$dir" ${dir}_online || exit 1;
+  steps/online/nnet2/prepare_online_decoding.sh --mfcc-config conf/mfcc_hires.conf \
+    data/lang exp/nnet2_online/extractor "$dir" ${dir}_online || exit 1;
 fi
 
-if [ $stage -le 10 ]; then
+if [ $stage -le 11 ]; then
   # do the actual online decoding with iVectors, carrying info forward from 
   # previous utterances of the same speaker.
   for test in dev_clean dev_other; do
@@ -184,10 +186,13 @@ if [ $stage -le 10 ]; then
       exp/tri6b/graph_tgsmall data/$test ${dir}_online/decode_${test}_tgsmall || exit 1;
     steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
       data/$test ${dir}_online/decode_${test}_{tgsmall,tgmed}  || exit 1;
+    steps/lmrescore_const_arpa.sh \
+      --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
+      data/$test $dir_online/decode_${test}_{tgsmall,tglarge} || exit 1;
   done
 fi
 
-if [ $stage -le 11 ]; then
+if [ $stage -le 12 ]; then
   # this version of the decoding treats each utterance separately
   # without carrying forward speaker information.
   for test in dev_clean dev_other; do
@@ -195,10 +200,13 @@ if [ $stage -le 11 ]; then
       --per-utt true exp/tri6b/graph_tgsmall data/$test ${dir}_online/decode_${test}_tgsmall_utt || exit 1;
     steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
       data/$test ${dir}_online/decode_${test}_{tgsmall,tgmed}_utt  || exit 1;
+    steps/lmrescore_const_arpa.sh \
+      --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
+      data/$test $dir_online/decode_${test}_{tgsmall,tglarge}_utt || exit 1;
   done
 fi
 
-if [ $stage -le 12 ]; then
+if [ $stage -le 13 ]; then
   # this version of the decoding treats each utterance separately
   # without carrying forward speaker information, but looks to the end
   # of the utterance while computing the iVector (--online false)
@@ -208,6 +216,9 @@ if [ $stage -le 12 ]; then
         ${dir}_online/decode_${test}_tgsmall_utt_offline || exit 1;
     steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
       data/$test ${dir}_online/decode_${test}_{tgsmall,tgmed}_utt_offline  || exit 1;
+    steps/lmrescore_const_arpa.sh \
+      --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
+      data/$test $dir_online/decode_${test}_{tgsmall,tglarge}_utt_offline || exit 1;
   done
 fi
 
