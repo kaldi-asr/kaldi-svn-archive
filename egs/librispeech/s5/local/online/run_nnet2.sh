@@ -202,7 +202,7 @@ if [ $stage -le 12 ]; then
       data/$test ${dir}_online/decode_${test}_{tgsmall,tgmed}_utt  || exit 1;
     steps/lmrescore_const_arpa.sh \
       --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
-      data/$test $dir_online/decode_${test}_{tgsmall,tglarge}_utt || exit 1;
+      data/$test ${dir}_online/decode_${test}_{tgsmall,tglarge}_utt || exit 1;
   done
 fi
 
