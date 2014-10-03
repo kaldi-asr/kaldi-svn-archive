@@ -25,7 +25,7 @@ out_lexicon=$3
 
 [ ! -f $vocab ] && echo "Can't find the G2P input file: $vocab" && exit 1;
 
-sequitur_model=$g2p_model_dir/model-5
+sequitur_model=$g2p_model_dir/g2p-model-5
 
 # Turns out, that Sequitur has some sort of bug so it doesn't output pronunciations
 # for some (admittedly peculiar) words. We manually specify these exceptions below
