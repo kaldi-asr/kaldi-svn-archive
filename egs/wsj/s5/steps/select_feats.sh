@@ -49,14 +49,20 @@ rm $data/feats.scp 2>/dev/null
 # use "name" as part of name of the archive.
 name=`basename $data`
 
+for n in $(seq $nj); do
+  # the next command does nothing unless $ark_dir/storage/ exists, see
+  # utils/create_data_link.pl for more info.
+  utils/create_data_link.pl $ark_dir/selected_$name.$n.ark
+done
+
 $cmd JOB=1:$nj $logdir/append.JOB.log \
    select-feats "$selector" scp:$data_in/split$nj/JOB/feats.scp ark:- \| \
    copy-feats --compress=$compress ark:- \
-    ark,scp:$ark_dir/pasted_$name.JOB.ark,$ark_dir/pasted_$name.JOB.scp || exit 1;
+    ark,scp:$ark_dir/selected_$name.JOB.ark,$ark_dir/selected_$name.JOB.scp || exit 1;
               
 # concatenate the .scp files together.
 for ((n=1; n<=nj; n++)); do
-  cat $ark_dir/pasted_$name.$n.scp >> $data/feats.scp || exit 1;
+  cat $ark_dir/selected_$name.$n.scp >> $data/feats.scp || exit 1;
 done > $data/feats.scp || exit 1;
 
 

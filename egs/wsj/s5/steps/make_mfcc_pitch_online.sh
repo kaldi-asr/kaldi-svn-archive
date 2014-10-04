@@ -12,7 +12,7 @@ nj=4
 cmd=run.pl
 mfcc_config=conf/mfcc.conf
 online_pitch_config=conf/online_pitch.conf
-paste_length_tolerance=2
+paste_length_tolerance=10
 compress=true
 # End configuration section.
 
