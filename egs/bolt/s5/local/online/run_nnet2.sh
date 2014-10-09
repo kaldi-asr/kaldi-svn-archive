@@ -47,7 +47,7 @@ fi
 if [ $stage -le 1 ]; then
   # we'll use the features with just MFCC, no pitch, to train the iVector
   # extractor on.  Check that we're using 40-dim features so the command line is correct.
-  ! grep 'num-mel-bins=40' conf/mfcc_hires.conf >/dev/null && \
+  ! grep 'num-ceps=40' conf/mfcc_hires.conf >/dev/null && \
      echo "Change the script if you change conf/mfcc_hires.conf" && exit 1;
   steps/select_feats.sh  --nj 5 --cmd "$train_cmd" 0-39 data/train_hires \
       data/train_hires_mfcconly exp/nnet2_online/select_hires_train $mfccdir
