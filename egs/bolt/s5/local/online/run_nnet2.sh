@@ -47,9 +47,9 @@ fi
 if [ $stage -le 1 ]; then
   # we'll use the features with just MFCC, no pitch, to train the iVector
   # extractor on.  Check that we're using 40-dim features so the command line is correct.
-  ! grep 'num-ceps=40' conf/mfcc_hires.conf >/dev/null && \
+  ! grep 'num-ceps=20' conf/mfcc_hires.conf >/dev/null && \
      echo "Change the script if you change conf/mfcc_hires.conf" && exit 1;
-  steps/select_feats.sh  --nj 5 --cmd "$train_cmd" 0-39 data/train_hires \
+  steps/select_feats.sh  --nj 5 --cmd "$train_cmd" 0-19 data/train_hires \
       data/train_hires_mfcconly exp/nnet2_online/select_hires_train $mfccdir
 
   steps/compute_cmvn_stats.sh data/train_hires_mfcconly exp/nnet2_online/select_hires_train $mfccdir
@@ -122,7 +122,7 @@ if [ $stage -le 6 ]; then
   # data across four filesystems for speed.
 
   steps/nnet2/train_pnorm_simple.sh --stage $train_stage \
-    --num-epochs 15 \
+    --num-epochs 8 \
     --samples-per-iter 400000 \
     --splice-width 7 --feat-type raw \
     --online-ivector-dir exp/nnet2_online/ivectors_train \
@@ -131,13 +131,13 @@ if [ $stage -le 6 ]; then
     --minibatch-size "$minibatch_size" \
     --parallel-opts "$parallel_opts" \
     --io-opts "-tc 12" \
-    --num-jobs-nnet 6 \
-    --num-hidden-layers 4 \
+    --num-jobs-nnet 8 \
     --mix-up 12000 \
-    --initial-learning-rate 0.01 --final-learning-rate 0.001 \
+    --num-hidden-layers 4 \
+    --initial-learning-rate 0.06 --final-learning-rate 0.006 \
     --cmd "$decode_cmd" \
-    --pnorm-input-dim 2500 \
-    --pnorm-output-dim 250 \
+    --pnorm-input-dim 3000 \
+    --pnorm-output-dim 300 \
      data/train_hires data/lang exp/tri5a $dir  || exit 1;
 fi
 
@@ -168,6 +168,29 @@ if [ $stage -le 10 ]; then
    steps/online/nnet2/decode.sh --config conf/decode.config --cmd "$decode_cmd" --nj 30 \
      --per-utt true --online false \
       exp/tri5a/graph data/dev ${dir}_online/decode_dev_utt_offline || exit 1;
+fi
+ 
+if [ $stage -le 11 ]; then
+  # this version of the decoding does pure offline decoding, with
+  # mfcc + online_pitch + iVector features
+  utils/copy_data_dir.sh data/dev data/dev_hires
+
+  steps/make_mfcc_pitch_online.sh --nj 70 --mfcc-config conf/mfcc_hires.conf \
+      --cmd "$train_cmd" data/dev_hires exp/make_hires/dev $mfccdir || exit 1;
+
+  steps/compute_cmvn_stats.sh data/dev_hires exp/make_hires/dev $mfccdir || exit 1;
+  
+  steps/select_feats.sh  --nj 5 --cmd "$train_cmd" 0-19 data/dev_hires \
+      data/dev_hires_mfcconly exp/nnet2_online/select_hires_dev $mfccdir
+
+  steps/compute_cmvn_stats.sh data/dev_hires_mfcconly exp/nnet2_online/select_hires_dev $mfccdir
+  
+  steps/online/nnet2/extract_ivectors_online.sh --cmd "$train_cmd" --nj 30 \
+    data/dev_hires_mfcconly exp/nnet2_online/extractor exp/nnet2_online/ivectors_dev || exit 1;
+
+  steps/nnet2/decode.sh --nj 30 --cmd "$decode_cmd" \
+          --online-ivector-dir exp/nnet2_online/ivectors_dev \
+      exp/tri5a/graph data/dev_hires ${dir}/decode_dev || exit 1;
 fi
 
 exit 0;
