@@ -214,6 +214,11 @@ class ConstantEventMap: public EventMap {
 
   virtual void Write(std::ostream &os, bool binary);
   static ConstantEventMap *Read(std::istream &is, bool binary);
+
+  EventAnswerType GetAnswer() const {
+    return answer_;
+  }
+
  private:
   EventAnswerType answer_;
   KALDI_DISALLOW_COPY_AND_ASSIGN(ConstantEventMap);

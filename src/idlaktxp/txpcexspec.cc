@@ -365,14 +365,15 @@ TxpCexspecContext::TxpCexspecContext(const pugi::xml_document &doc,
 bool TxpCexspecContext::Next() {
   pugi::xml_node node, phon, empty;
 
-  // std::cout << (cur_phon_->node()).attribute("val").value() << ":"
-  //           << (cur_syl_->node()).attribute("val").value() << ":"
-  //           << (cur_wrd_->node()).attribute("norm").value() << ":"
-  //           << (cur_spt_->node()).attribute("phraseid").value() << ":"
-  //           << (cur_utt_->node()).attribute("uttid").value() << " "
-  //           << (cur_phon_->node()).attribute("type").value() << "\n";
+  // std::cout << (current_phone_->node()).attribute("val").value() << ":"
+  //           << (current_syllable_->node()).attribute("val").value() << ":"
+  //           << (current_word_->node()).attribute("norm").value() << ":"
+  //           << (current_spurt_->node()).attribute("phraseid").value() << ":"
+  //           << (current_utterance_->node()).attribute("uttid").value() << " "
+  //           << (current_phone_->node()).attribute("type").value() << "\n";
   // iterate over phone/break items
-  current_phone_ = current_phone_++;
+  current_phone_++;
+  if (current_phone_ == phones_.end()) return false;
   phon = current_phone_->node();
   // update other iterators as required
   // dummy pau items already added for tk and syl levels

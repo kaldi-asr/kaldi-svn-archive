@@ -8,13 +8,13 @@ OPENFST_LDLIBS =
 
 include ../kaldi.mk
 
-BINFILES = idlaktxp idlakcex
+BINFILES = idlaktxp idlakcex convert-tree-pdf-hts
 
 OBJFILES =
 
 TESTFILES =
 
-ADDLIBS = ../idlaktxp/idlak-txp.a ../util/kaldi-util.a ../matrix/kaldi-matrix.a ../base/kaldi-base.a
+ADDLIBS = ../idlaktxp/idlak-txp.a ../tree/kaldi-tree.a  ../hmm/kaldi-hmm.a ../gmm/kaldi-gmm.a ../util/kaldi-util.a ../matrix/kaldi-matrix.a ../base/kaldi-base.a
 
 include ../makefiles/default_rules.mk
 

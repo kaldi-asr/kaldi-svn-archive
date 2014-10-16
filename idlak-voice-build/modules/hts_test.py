@@ -158,7 +158,7 @@ def main():
         ll = l.split()
         origwav = 'cmu_us_arctic_slt_' +  idlak2corpus[ll[0][4:-8]].split('_')[1]
         # currently use ch_wave change to kaldi style MA070314
-        cmd = 'ch_wave -o %s/cmu_us_arctic_%s.raw -f 48000 -itype raw -otype raw -start %s -end %s %s/%s.raw' % (
+        cmd = htsdemodir+'speech_tools/bin/ch_wave -o %s/cmu_us_arctic_%s.raw -f 48000 -itype raw -otype raw -start %s -end %s %s/%s.raw' % (
             os.path.join(htsdatadir, 'kaldiraw'),
             ll[0][:-4],
             ll[1], ll[2], os.path.join(htsdatadir, 'raw.orig'), origwav)

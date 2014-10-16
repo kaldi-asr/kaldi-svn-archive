@@ -1,4 +1,4 @@
-// idlaktxp/mod-toxparse.cc
+// idlaktxp/idlaktxp.cc
 
 // Copyright 2012 CereProc Ltd.  (Author: Matthew Aylett)
 

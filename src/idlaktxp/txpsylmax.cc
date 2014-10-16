@@ -103,7 +103,6 @@ int32 TxpSylmax::AddSylBound(PhoneVector *pronptr) {
   enum TXPSYLMAX_TYPE ltype = pron[0].type;
   bool codab = pron[0].codab;
   int i, coda;
-  const TxpSylItem litem;
   for (i = 1; i < pron.size(); i++) {
     if (codab &&
         !((ltype == TXPSYLMAX_TYPE_ONSET &&

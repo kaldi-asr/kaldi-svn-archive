@@ -119,7 +119,7 @@ def main():
     gmminitmodel = os.path.join(build_conf.kaldidir, 'src', 'gmmbin',
                                                  'gmm-init-model')
     modelout = os.path.join(build_conf.outdir, 'output', 'pitch.mdl')
-    com = "%s %s %s %s %s" % (gmminitmodel, treeout, pitchacc, topo, modelout)
+    com = "%s --binary=false %s %s %s %s" % (gmminitmodel, treeout, pitchacc, topo, modelout)
     os.system(com)
 
     # END OF MODULE SPECIFIC CODE

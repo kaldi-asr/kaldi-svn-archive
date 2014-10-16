@@ -27,15 +27,18 @@
 
  - A text processing front end (idlaktxp)
  - Context extraction (idlakpcex)
- - Parameter extraction (idlakpex)
- - Parameter analysis (idlakpan)
- - Model training (idlakmtr)
- - Voice data aggregation (idlakvda)
+ - Voice building system
 
  It is currently under construction.
 
- The end result of the process is a HMM set of models and qestion
+ The end result of the process is a HMM set of models and question
  trees that can be used by a standard HTS engine to produce speech synthesis.
 
+ @section idlak_install Installation
+
+ Follow the kaldi install instructions but in addtion to running make
+ in tools you also need to run tools/install_idlak.sh to download
+ third party libraries that Idlak dpends on (pujixml, pcre,
+ expat). Then go to src and run ./configure - make
 
 */
