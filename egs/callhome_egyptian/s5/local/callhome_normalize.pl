@@ -31,6 +31,8 @@ use Data::Dumper;
 
 LINE: while (<STDIN>) {
   $line=$_;
+  #print STDERR Dumper($line);
+  #$line =~ s/\+/ /g;
   @A = split(" ", $line);
   print "$A[0] ";
 
@@ -38,6 +40,7 @@ LINE: while (<STDIN>) {
   while ($n < @A ) {
     $a = $A[$n]; 
     $n+=1;
+    #print STDERR Dumper($a);
 
     if ( grep { $_ =~ m/^\Q$a/i } @vocalized_noise ) {
       print "<V-NOISE> ";
@@ -94,13 +97,20 @@ LINE: while (<STDIN>) {
       #(( ))               unintelligible; can't even guess text
       #                    (( ))
       $tmp=$a;
-      print "<UNK> ";
+      $b=$a;
+      $b =~ s/^\(\(//g;
+      print "<UNK> " if $b;
+
       while (( $a !~ /.*\)\)/ ) && ($n < @A)) {
         #print Dumper(\@A, $tmp, $a, $n);
         $a = $A[$n]; 
         $n += 1;
         $tmp = "$tmp $a";
-        print "<UNK> ";
+        
+        $b=$a;
+        $b =~ s/^\(\(//g;
+        $b =~ s/\)\)$//g;
+        print "<UNK> " if $b;
       }
       $unint{$tmp} += 1;
       next;
@@ -119,11 +129,17 @@ LINE: while (<STDIN>) {
       next;
     }
 
-    if (( $a =~ /\+.*\+/) || ( $a =~/\@.*\@/)) {
+    if (( $a =~ /^\+.*?\+$/) || ( $a =~/^\@.*\@$/)) {
       #+text+  mandarinized foreign name, no standard spelling
       #@text@  a abbreviation word
-      
-      $a =~ s/[+@](.*)[+@]/$1/;
+      #print STDERR Dumper($a);
+      $a =~ s/^[+@](.*)[+@]$/$1/;
+      $a =~ s/^&//g; 
+      $a =~ s/B\~/B/g;
+      $a =~ s/B\(t\)/B/g;
+      $a =~ s/il\(k\)/il/g;
+      $a =~ s/il\(g\)/il/g;
+      $a =~ s/(.+)\+&/$1+/g;
       print "$a ";
       next;
     }
@@ -137,7 +153,7 @@ LINE: while (<STDIN>) {
       next;
     }
 
-    if (( $a =~/^;/ ) || ( $a =~/^\&/ ) || ($a eq "--") || ($a eq "//" ) ) {
+    if (( $a =~/^;/ ) || ( $a =~/^\&/ ) || ($a eq "--") || ($a =~ /^\/\// ) || ($a =~ /\/\/$/ ))  {
       #;text      used to mark proper names and place names
       #&text      used to mark proper names and place names
       #             Example: &Fiat           &Joe's &Grill
@@ -149,14 +165,19 @@ LINE: while (<STDIN>) {
       #//text//   aside (talker addressing someone in background)
       #             Example: //quit it, I'm talking to your sister!//
      
-      $a=~s/^&(.*)&/$1/;
-      $a=~s/^&(.*)/$1/;
-      $a=~s/^;(.*);/$1/;
-      $a=~s/^;(.*)/$1/;
-      $a=~s/\/\///;
-      $a=~s/--//;
-        
-      
+      $a=~s/^&(.*)&/$1/g;
+      $a=~s/^&(.*)/$1/g;
+      $a=~s/^;(.*);/$1/g;
+      $a=~s/^;(.*)/$1/g;
+      $a=~s/\/\///g;
+      $a=~s/--//g;
+      $a =~ s/B\~/B/g;
+      $a =~ s/B\(t\)/B/g;
+      $a =~ s/il\(k\)/il/g;
+      $a =~ s/il\(g\)/il/g;
+      $a =~ s/il\+\&/il+/g;
+      $a =~ s/[+,.?!]$//g;
+
       print "$a " if $a;
       next;
     }
@@ -167,12 +188,12 @@ LINE: while (<STDIN>) {
       
     #This is to get the full "English phrase" into the $a variable
     #In cases where spaces are used instead of underscores...
-    if (  ( $a =~ /\<(English|French|MSA|Italian|Delta|Upper)/i ) && ( $a !~ /\<(English|French|MSA|Italian|Delta|Upper)_.*\>/i) ) {
-      while (($a !~ /\<(English|French|MSA|Italian|Delta|Upper)_.*\>/i) && ($n < @A )) {
+    if (  ( $a =~ /\<(English|French|MSA|Italian|Delta|Upper|\?)/i ) && ( $a !~ /\<(English|French|MSA|Italian|Delta|Upper|\?)_.*\>/i) ) {
+      while (($a !~ /\<(English|French|MSA|Italian|Delta|Upper|\?)_.*\>/i) && ($n < @A )) {
         $a = $a . "_" . $A[$n]; 
         $n += 1;
       }
-      if ( $a !~ /\<(English|French|MSA|Italian|Delta|Upper)_.*\>/i ) {
+      if ( $a !~ /\<(English|French|MSA|Italian|Delta|Upper|\?)_.*\>/i ) {
         print STDERR "Could not parse line ${line}Reparsed: $a\n";
         next LINE;
       }
@@ -242,8 +263,8 @@ LINE: while (<STDIN>) {
         }
 
 
-        while ($word =~ /(.*)[+.,?!]/) {
-           $word =~ s/(.*)[+.,?!]/$1/;
+        while ($word =~ /(.*)[+.,?!]$/) {
+           $word =~ s/(.*)[+.,?!]$/$1/;
         }
         $word=~s/^\&//g;
         print "$word " if $word =~ /[a-zA-Z0-9][-a-zA-Z0-9']*/;
@@ -297,8 +318,18 @@ LINE: while (<STDIN>) {
     #  print "<NOISE> ";
     #  next; # if $i < @words;
     #}
+    
+    $a =~ s/B\~/B/g;
+    $a =~ s/B\(t\)/B/g;
+    $a =~ s/il\(k\)/il/g;
+    $a =~ s/il\(g\)/il/g;
+    $a =~ s/(.+)\+&/$1+/g;
+    $a =~ s/\+(.+)$/$1/g;
+    $a =~ s/^;(.+)$/$1/g;
+    $a =~ s/[+,.?!]$//g;
 
-    print "$a " unless $a =~ /[+,.?!#]/;
+    #print STDERR "X: $a\n" unless $a =~ /^[+,.?!#]$/;
+    print "$a " unless $a =~ /^[+,.?!#]$/;
   }
   print "\n";
 }

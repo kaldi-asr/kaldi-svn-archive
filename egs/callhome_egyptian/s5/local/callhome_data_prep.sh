@@ -55,6 +55,7 @@ if [ "$stage" -le 0 ] ; then
     echo "datadir=$datadir"
     mkdir -p $datadir
     find -L $AUDIO_DATA -ipath "*/$dataset/*" -iname '*.SPH' > $datadir/sph.flist
+    #find -L $TEXT_DATA -ipath "*/transcrp/$dataset/roman/*" -iname '*.txt' > $datadir/txt.flist
     find -L $TEXT_DATA -ipath "*/transcrp/$dataset/script/*" -iname '*.scr' > $datadir/txt.flist
     
     eval fcount_${dataset}=`cat $datadir/sph.flist| wc -l`
@@ -70,6 +71,7 @@ if [ "$stage" -le 0 ] ; then
     mkdir -p $datadir
     find -L $AUDIO_DATA -ipath "*/evltest/*" -iname '*.SPH' > $datadir/sph.flist
     find -L $TEXT_DATA -ipath "*/transcrp/evaltest/script/*" -iname '*.scr' > $datadir/txt.flist
+    #find -L $TEXT_DATA -ipath "*/transcrp/evaltest/roman/*" -iname '*.txt' > $datadir/txt.flist
     
     fcount_evltest=`cat $datadir/sph.flist| wc -l`
     fcount_t_evltest=`cat $datadir/txt.flist| wc -l`
@@ -124,10 +126,13 @@ if [ $stage -le 2 ]; then
                }
               ' | \
       grep -v -T "//she just hanged ((the phone))//" |\
-      #grep "AR_5627-B-078221-078404" |\
+      sed 's/}((/} ((/g' |\
+      #grep "AR_5151-B-089248-089536" |\
       #grep "AR_4849-B-052026-052517" |\
       sed  's/((\s\s*))/(())/g' |\
       perl -pe 's/\[\[.*?\]\]//g;' |\
+      sed 's:#: # :g' |\
+      sed 's://: // :g' |\
       uconv -f utf-8 -t utf-8 "${icu_transform[@]}" |\
       local/callhome_normalize.pl | \
       perl -ane 'print if @F > 1; ' |\

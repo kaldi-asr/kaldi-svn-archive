@@ -11,37 +11,28 @@ sourcedir=data/local/train
 set -e 
 set -o pipefail
 
-#First get the list of unique words from our text file
-if [ $# -lt 1 ]; then
-  echo 'Usage callhome_prepare_dict.sh lexicon'
-  exit 1;
-fi
-
-lexicon=$1
 mkdir -p $dictdir
-
-if [ ! -f $lexicon ] ; then
-  lexicon=`find -L $lexicon -iname "ar_lex.v07"`
-  [ ! -f $lexicon ] && "Could not locate the lexicon (file ar_lex.v07 not found)" && exit 1
-fi
-
-echo  "$0: Using lexicon from $lexicon"
-echo  "$0: Using text from $sourcedir/text"
-
-cut -f 2- -d ' ' $sourcedir/text | sed 's/ /\n/g' | sort -u > $dictdir/words.txt
-
-# Get the two columns of the lexicon we care about
-uconv -f ISO-8859-6 -t utf-8 $lexicon | \
-  perl -ane ' 
-    @prons= split "//", $F[2]; 
-    foreach $pron(@prons) {
-      print "$F[1]\t$pron\n";
-  }' > $dictdir/lexicon.full
-
 #Lets remove the diphtongs... Seems they are actually harming the performance
-cat conf/phones.txt | grep -e "^$" -v | awk '{print $1}' | \
+cat conf/phones.txt | awk '{print $1}' | grep -e "^$" -v | \
   grep -v "^\s*aw" | \
   grep -v "^\s*ay"  > $dictdir/phones
+
+if false; then
+grep -v "NEEE" | perl -ane ' 
+    next if @F != 2;
+
+    @prons= split "//", $F[1]; 
+    @words= split / /, $F[0];
+  
+    foreach $pron(@prons) {
+      
+      print "$F[0]\t$pron\n" if @words eq 1;
+  }' > $dictdir/lexicon.full
+
+(
+  cut -f 2- $sourcedir/text | sed 's/ /\n/g' 
+  #cut -f 1  $dictdir/lexicon.full 
+)  | sort -u > $dictdir/words.txt
 
 #Convert the pronunciation field into a sequence of phones separated with spaces
 #Skip all words that are not to be found in the "training" text
@@ -75,8 +66,10 @@ cat $dictdir/lexicon.full | \
 
     while($line = <STDIN>) {
       chomp $line;
-      @F = split /\t/, $line;
+      @F = split /\s+/, $line;
+      die "Unknown format for line $line" if @F != 2;
       $word = @F[0];
+      die "Cannot process non-blackwalter transcript: $line!" unless $word =~ m/.*_bw/; 
       $pron = @F[1];
       next unless exists $words{$word};
       $orig_pron=$pron;
@@ -110,10 +103,11 @@ cat $dictdir/lexicon.full | \
 (set +e; set +o pipefail;  diff $dictdir/words.txt <(cat $dictdir/lexicon-arz.txt | awk '{print $1}') | \
   grep "^<" | awk '{print $2}' | grep -v '<.*>' | sed '/^\s*$/d' > $dictdir/oov.txt; true) || true
 
-grep "^['A-Z][-'A-Z]*$" $dictdir/oov.txt > $dictdir/words-en-oov.txt
-grep -v "^['A-Z][-'A-Z]*$" $dictdir/oov.txt > $dictdir/words-arz-oov.txt
 
+grep "^.*_en$" $dictdir/oov.txt > $dictdir/words-en-oov.txt
+grep "^.*_bw$" $dictdir/oov.txt | grep -v "_en_bw$" > $dictdir/words-arz-oov.txt
 
+if true; then
 ##
 ##This is for the english OOV processing
 ##
@@ -127,10 +121,12 @@ if [ ! -f exp/g2p/en/model.english ]; then
   fi
 fi
 
+cat $dictdir/words-en-oov.txt | sed 's/_en$//g' > $dictdir/words-en-oov.txt.notags
 local/apply_g2p.sh --icu-transform ""  --model exp/g2p/en/model.english \
-  --with-probs false --output-lex $dictdir/vocab-en-oov.lex \
-  $dictdir/words-en-oov.txt exp/g2p/en exp/g2p/en
-
+  --with-probs false --output-lex $dictdir/vocab-en-oov.lex.notags \
+  $dictdir/words-en-oov.txt.notags exp/g2p/en exp/g2p/en
+cat $dictdir/vocab-en-oov.lex.notags | \
+  perl -ane 'print "$F[0]_en\t"; print join(" ", @F[1..$#F]) . "\n"; ' > $dictdir/vocab-en-oov.lex
 cat $dictdir/vocab-en-oov.lex | \
   perl -e '
     use strict;
@@ -178,17 +174,22 @@ cat $dictdir/vocab-en-oov.lex | \
       }
     }
 
-  ' conf/cmu2arz.map > $dictdir/lexicon-en-oov.txt
+  ' conf/cmu2arz.map | sort -u > $dictdir/lexicon-en-oov.txt
 ##END of ENGLISH OOV processing
+fi
 
 ##START of ARABIC OOV processing
-local/train_g2p.sh --cmd "$decode_cmd" --lexicon $dictdir/lexicon-arz.txt\
+cat $dictdir/lexicon-arz.txt | sed 's/_bw//g' > $dictdir/lexicon-arz.txt.notags
+cat $dictdir/words-arz-oov.txt | sed 's/_bw$//g' > $dictdir/words-arz-oov.txt.notags
+local/train_g2p.sh --icu-transform "" --cmd "$decode_cmd" --lexicon $dictdir/lexicon-arz.txt.notags\
   data/local/dict/ exp/g2p/arz
 local/apply_g2p.sh --cmd "$decode_cmd"  --icu-transform "" --with-probs false \
-  --output-lex $dictdir/lexicon-arz-oov.txt \
-  $dictdir/words-arz-oov.txt exp/g2p/arz exp/g2p/arz
+  --output-lex $dictdir/lexicon-arz-oov.txt.notags \
+  $dictdir/words-arz-oov.txt.notags exp/g2p/arz exp/g2p/arz
+fi
+cat $dictdir/lexicon-arz-oov.txt.notags | \
+  perl -ane 'print "$F[0]_bw\t"; print join(" ", @F[1..$#F]) . "\n"; ' > $dictdir/lexicon-arz-oov.txt
 ##END of ARABIC OOV processing
-
 cat $dictdir/lexicon-arz.txt $dictdir/lexicon-arz-oov.txt $dictdir/lexicon-en-oov.txt | \
   sort -u | sed '/^\s*$/d' >  $dictdir/lexicon
 
@@ -197,7 +198,6 @@ mv $dictdir/phones $dictdir/phones.full
 cat $dictdir/lexicon | grep -v "<.*>" | cut -f 2- | sed 's/ /\n/g' | sort -u > $dictdir/phones.used
 
 awk '{print $1}' $dictdir/phones.used | sort -u | grep -v "^\s*$" > $dictdir/nonsilence_phones.txt
-
 
 
 # silence phones, one per line. 

@@ -28,10 +28,16 @@ use strict;
 use PerlIO::encoding;
 use Encode qw(:fallbacks decode encode );
 use Data::Dumper;
+use Getopt::Long;
 
 binmode STDIN, ":utf8";
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
+
+
+my $NUMERIC_CHANNEL = 0;
+
+GetOptions("numeric-channel-id" => \$NUMERIC_CHANNEL);
 
 #$PerlIO::encoding::fallback = sub{ sprintf "<U+%04X>", shift };
 
@@ -45,12 +51,14 @@ if ( @ARGV != 2 ) {
   print STDERR "               The list is needed to create proper reference to the audio\n";
   print STDERR "TARGET_KALDI_DIR is the directory where all kaldi data files will be created \n";
   print STDERR "                 directory must exist already!\n";
+  die;
 }
 
 my $sph_list=$ARGV[0];
 my $dest_dir=$ARGV[1];
 my %UTT2SPH;
 
+my $total_seconds=0.0;
 
 open(my $sph, "<$sph_list")
   or die "Could not open the file $sph_list: $_\n";
@@ -84,29 +92,41 @@ open(my $reco, ">$dest_dir/reco2file_and_channel")
   or die "Could not open the file $dest_dir/reco2file_and_channel: $_\n";
 
 my $sph2pipe=`which sph2pipe`
-  or die "Could not find the sph2pipe binary on PATH: $_";
+  or die "Could not find the sph2pipe binary on PATH: $!";
 chomp $sph2pipe;
+
+my $sox=`which sox`
+  or die "Could not find the sox binary on PATH: $!";
+chomp $sox;
 
 while (my $filename=<STDIN>) {
   print $filename;
   chomp $filename;
+
   my $rec_id=`basename $filename`;
   chomp $rec_id;
   $rec_id=~ s/\.txt|\.scr//i;
   $rec_id=uc($rec_id);
 
+  my $audio=$UTT2SPH{$rec_id};
+
   die "Could not remap the utterance id $rec_id into audio recording filename\n"
     unless exists $UTT2SPH{$rec_id};
-  print $wav "$rec_id-A $sph2pipe -f wav -p -c 1 " . $UTT2SPH{$rec_id} . "|\n";
-  print $wav "$rec_id-B $sph2pipe -f wav -p -c 2 " . $UTT2SPH{$rec_id} . "|\n";
-
-  print $reco "$rec_id-A $rec_id A\n";
-  print $reco "$rec_id-B $rec_id B\n";
+  if ( $audio =~ /.*\.flac$/i ) {
+    print $wav "$rec_id-A $sox " . $UTT2SPH{$rec_id} . "-r 8000 -c 1 -t wav - remix 1|\n";
+    print $wav "$rec_id-B $sox " . $UTT2SPH{$rec_id} . "-r 8000 -c 2 -t wav - remix 2|\n";
+  } elsif ( $audio =~ /.*\.sph$/i ) { 
+    print $wav "$rec_id-A $sph2pipe -f wav -p -c 1 " . $UTT2SPH{$rec_id} . "|\n";
+    print $wav "$rec_id-B $sph2pipe -f wav -p -c 2 " . $UTT2SPH{$rec_id} . "|\n";
+  } else {
+    die "Unknow format (extension) of $audio -- flac or sph expected!"
+  }
+  print $reco "$rec_id-A $rec_id 1\n";
+  print $reco "$rec_id-B $rec_id 2\n";
 
   #open(my $fh, "cat $filename | uconv -f GB18030 -t utf-8 --callback substitute|")
   open(my $fh, $filename)
     or die "Could not open the file $filename: $_\n";
-
   while (my $line=<$fh>) {
     $line= decode("iso-8859-6", $line,  sub{ sprintf "<U+%04X>", shift });
     chomp $line;
@@ -146,7 +166,8 @@ while (my $filename=<STDIN>) {
       my $utt_end=$A[1];
 
       next if (($utt_end - $utt_start) * 100 le 1);
-
+      
+      $total_seconds+=$utt_end - $utt_start;
       my $utt_id=sprintf "%s-%s-%06.0f-%06.0f", $rec_id, $spk_id, 100*$utt_start, 100*$utt_end;
       print $text $utt_id;
       for(my $n = 3; $n < @A; $n++) { print $text " $A[$n]" };
@@ -167,3 +188,5 @@ close($text);
 close($utt2spk);
 close($reco);
 
+print "$0: Extracted $total_seconds seconds of audio (" . $total_seconds/3600.0 . " hours of audio)\n";
+print "$0: Done\n";

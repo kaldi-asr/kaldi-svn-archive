@@ -2,39 +2,26 @@
 
 # To be run from one level above this directory
 # Generate the text for the LM training
-tmp_dir=data/local/tmp
-train_all=data/local/data/train_all
+. ./cmd.sh
+. ./path.sh
 
+tmp_dir=data/local/tmp
+lmdir=data/lm
+lexicon=data/local/dict/lexicon.txt 
+
+. ./utils/parse_options.sh
 if [ $# -lt 1 ]; then
-  echo "Specify the location of the split files"
+  echo "Specify the split (\"train\" or \"train,devtest\")"
   exit 1;
 fi
 
-splitFile=$1
-split=train
-# Train only
-if [ -d $tmp_dir/$split ]; then
-  rm -r $tmp_dir/$split
-fi
-cp -r $train_all $tmp_dir/$split
-
-awk 'BEGIN {FS=" "}; FNR==NR { a[$1]; next } ((substr($2,0,length($2)-2) ".sph") in a)' \
-$splitFile/$split $train_all/segments > $tmp_dir/$split/segments
-
-n=`awk 'BEGIN {FS = " "}; {print substr($2,0,length($2)-2)}' $tmp_dir/$split/segments | sort | uniq | wc -l`
-
-echo "$n conversations left in split $split"
-
-utils/fix_data_dir.sh $tmp_dir/$split
-utils/fix_data_dir.sh $tmp_dir/$split
-# There is no feature file yet, use --no-feats switch
-utils/validate_data_dir.sh --no-feats $tmp_dir/$split
-rm $tmp_dir/$split/*.tmp
-
+mkdir -p $lmdir
+text=$lmdir/text
+for elem in "$@" ; do
+  cat data/${elem}/text
+done | cut -f 2- -d ' '> $text
 # Now use this training text
 
-text=$tmp_dir/train/text
-lexicon=data/local/dict/lexicon.txt 
 
 for f in "$text" "$lexicon"; do
   [ ! -f $x ] && echo "$0: No such file $f" && exit 1;
@@ -46,8 +33,6 @@ done
 #data/train_all/text
 #data/local/dict/lexicon.txt
 
-dir=`pwd`/data/local/lm
-mkdir -p $dir
 export LC_ALL=C # You'll get errors about things being not sorted, if you
 # have a different locale.
 ( 
@@ -67,38 +52,49 @@ export LC_ALL=C # You'll get errors about things being not sorted, if you
    echo Done making the kaldi_lm tools
  fi
 ) || exit 1;
+#PATH=$KALDI_ROOT/tools/kaldi_lm:$PATH
 
-mkdir -p $dir
-
-
-cleantext=$dir/text.no_oov
-
-cat $text | awk -v lex=$lexicon 'BEGIN{while((getline<lex) >0){ seen[$1]=1; } } 
-  {for(n=1; n<=NF;n++) {  if (seen[$n]) { printf("%s ", $n); } else {printf("<unk> ");} } printf("\n");}' \
+cleantext=$lmdir/text.clean
+cat $text | awk -v lex=$lexicon '
+  BEGIN{ 
+    while((getline<lex) >0){ 
+      seen[$1]=1; 
+    } 
+  } 
+  {
+    for(n=1; n<=NF;n++) {  
+      if (seen[$n]) { 
+        printf("%s ", $n); 
+      } else {
+        printf("<UNK> ");
+      } 
+    } printf("\n");
+  }' \
   > $cleantext || exit 1;
 
 
-cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | sort | uniq -c | \
-   sort -nr > $dir/word.counts || exit 1;
-
+cat $cleantext | sed 's/  */\n/g' |sed '/^$/d' | sort | uniq -c | \
+   sort -nr > $lmdir/word.counts || exit 1;
 
 # Get counts from acoustic training transcripts, and add  one-count
 # for each word in the lexicon (but not silence, we don't want it
 # in the LM-- we'll add it optionally later).
+#cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | \
+#   sort | uniq -c | sort -nr > $lmdir/unigram.counts || exit 1;
 cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | \
-  cat - <(grep -w -v '!SIL' $lexicon | awk '{print $1}') | \
-   sort | uniq -c | sort -nr > $dir/unigram.counts || exit 1;
+  cat - <(grep -w -v '<SIL>' $lexicon | awk '{print $1}' | sort -u ) | \
+   sort | uniq -c | sort -nr > $lmdir/unigram.counts || exit 1;
 
 # note: we probably won't really make use of <unk> as there aren't any OOVs
-cat $dir/unigram.counts  | awk '{print $2}' | get_word_map.pl "<s>" "</s>" "<unk>" > $dir/word_map \
+cat $lmdir/unigram.counts  | awk '{print $2}' | get_word_map.pl "<s>" "</s>" "<UNK>" > $lmdir/word_map \
    || exit 1;
 
 # note: ignore 1st field of train.txt, it's the utterance-id.
-cat $cleantext | awk -v wmap=$dir/word_map 'BEGIN{while((getline<wmap)>0)map[$1]=$2;}
-  { for(n=2;n<=NF;n++) { printf map[$n]; if(n<NF){ printf " "; } else { print ""; }}}' | gzip -c >$dir/train.gz \
+cat $cleantext | awk -v wmap=$lmdir/word_map 'BEGIN{while((getline<wmap)>0)map[$1]=$2;}
+  { for(n=2;n<=NF;n++) { printf map[$n]; if(n<NF){ printf " "; } else { print ""; }}}' | gzip -c >$lmdir/train.gz \
    || exit 1;
 
-train_lm.sh --arpa --lmtype 3gram-mincount $dir || exit 1;
+train_lm.sh --arpa --lmtype 3gram-mincount $lmdir || exit 1;
 
 # Perplexity over 88307.000000 words (excluding 691.000000 OOVs) is 71.241332
 
