@@ -134,7 +134,9 @@ do
   --mathlib=*)
   MATHLIB=`expr "X$1" : '[^=]*=\(.*\)'`; shift ;;
   --cudatk-dir=*)
-  CUDATKDIR=`read_dirname $1`; shift ;; #CUDA is used in src/cudamatrix and src/nnet{,bin} only
+  CUDATKDIR=`read_dirname $1`; shift ;; #CUDA is used in src/cudamatrix
+  --cudnn-dir=*)
+  CUDNNDIR=`read_dirname $1`; shift ;; #cuDNN is based on CUDA, used in DNN training
   *)  echo "Unknown argument: $1, exiting"; usage; exit 1 ;;
   esac
 done
@@ -331,6 +333,19 @@ function linux_configure_cuda {
       cat makefiles/linux_x86_64_cuda.mk >> kaldi.mk
     else
       cat makefiles/linux_cuda.mk >> kaldi.mk
+    fi
+
+    if [ ! -z $CUDNNDIR ]; then
+      echo "Using cuDNN from $CUDNNDIR (requires CUDA 6.5+, compute capability 3.0+)"
+      { echo "# Setting-up cuDNN" 
+        echo "CUDNNDIR = $CUDNNDIR"
+        echo "CXXFLAGS += -DHAVE_CUDNN -I\$(CUDNNDIR)"
+        echo "CUDA_LDFLAGS += -L\$(CUDNNDIR) -Wl,-rpath,\$(CUDNNDIR)"
+        echo "CUDA_LDLIBS += -lcudnn"
+        echo "#"
+      } >> kaldi.mk
+    else
+      echo "cuDNN not used, to enable it use './configure --cudnn-dir=<DIR>'"
     fi
   else
     echo "CUDA will not be used! If you have already installed cuda drivers and cuda toolkit, try using --cudatk-dir=... option.  Note: this is only relevant for neural net experiments"

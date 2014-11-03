@@ -26,6 +26,7 @@
 #if HAVE_CUDA == 1
 #include <cuda_runtime_api.h>
 #include <cublas.h>
+#include <thrust/transform.h> 
 #endif
 
 #include "base/timer.h"
@@ -1022,11 +1023,62 @@ void CuMatrixBase<Real>::Sigmoid(const CuMatrixBase<Real> &src) {
     
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
-  #endif
+#endif
   {
     Mat().Sigmoid(src.Mat());
   }
 }
+
+template<typename Real>
+void CuMatrixBase<Real>::SigmoidCuDnn(const CuMatrixBase<Real> &src) {
+  KALDI_ASSERT(SameDim(*this, src));
+#if HAVE_CUDA == 1 
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    #ifndef HAVE_CUDNN
+      KALDI_ERROR << "Configured without cuDNN!";
+    #else 
+      cudnnHandle_t h = CuDevice::Instantiate().GetCuDnnContext();
+      cudnnActivationMode_t t = CUDNN_ACTIVATION_SIGMOID;
+      const void* srcData = static_cast<const void*>(src.data_);
+      void* destData = static_cast<void*>(this->data_);
+      CU_SAFE_CALL(cudnnActivationForward(h, t, src.DimCuDnn(), srcData, this->DimCuDnn(), destData));
+    #endif
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().Sigmoid(src.Mat());
+  }
+}
+
+
+template<typename Real>
+__host__ __device__
+static Real thrust_functor_sigmoid(const Real& x) {
+  return 1.0 / (1.0 + exp(-x));
+}
+
+template<typename Real>
+void CuMatrixBase<Real>::SigmoidThrust(const CuMatrixBase<Real> &src) {
+  KALDI_ASSERT(SameDim(*this, src));
+#if HAVE_CUDA == 1 
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    // See thrust::transform examples : http://docs.nvidia.com/cuda/thrust/#axzz3I2pBlHr1
+    for (int32 r=0; r<NumRows(); r++) {
+      thrust::transform(src.RowData(r), src.RowData(r) + src.NumCols(), 
+                        this->RowData(r), thrust_functor_sigmoid<Real>);
+    }
+    CU_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().Sigmoid(src.Mat());
+  }
+}
+
 
 template<typename Real>
 void CuMatrixBase<Real>::SoftHinge(const CuMatrixBase<Real> &src) {

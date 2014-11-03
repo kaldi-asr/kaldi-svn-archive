@@ -164,6 +164,10 @@ void CuDevice::FinalizeActiveGpu() {
     active_gpu_id_ = act_gpu_id; //CuDevice::Enabled() is true from now on
     // Initialize the CUBLAS
     CU_SAFE_CALL(cublasInit());
+#ifdef HAVE_CUDNN
+    CU_SAFE_CALL(cudnnCreate(&cudnn_context_));
+#endif
+
 
     // Notify user which GPU is finally used
     char name[128];
@@ -798,8 +802,12 @@ CuDevice::CuDevice(): active_gpu_id_(-1), verbose_(true),
 CuDevice::~CuDevice() {
   if (allocator_ != NULL)
     delete allocator_;
-  if (Enabled())
+  if (Enabled()) {
+#ifdef HAVE_CUDNN
+    CU_SAFE_CALL(cudnnDestroy(cudnn_context_));
+#endif
     CU_SAFE_CALL(cublasShutdown());
+  }
 }
   
 // The instance of the static singleton 

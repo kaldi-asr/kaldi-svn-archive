@@ -30,6 +30,9 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include "base/kaldi-common.h"
+#ifdef HAVE_CUDNN
+  #include "cudnn.h"
+#endif
 
 namespace kaldi {
 
@@ -99,7 +102,11 @@ class CuDevice {
   /// Check if GPU is in good condition by multiplying small matrices on GPU+CPU.
   /// Overheated GPUs may give inaccurate results, which we want to detect.
   void CheckGpuHealth();
-  
+
+#ifdef HAVE_CUDNN
+  cudnnHandle_t GetCuDnnContext() { return cudnn_context_; }
+#endif
+
  private:
   CuDevice();
   CuDevice(CuDevice&); // Disallow.
@@ -144,7 +151,10 @@ class CuDevice {
   bool verbose_;
 
   CuAllocator *allocator_;
-  
+#ifdef HAVE_CUDNN
+  cudnnHandle_t cudnn_context_;
+#endif
+
 }; // class CuDevice
 
 

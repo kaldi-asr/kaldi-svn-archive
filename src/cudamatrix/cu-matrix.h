@@ -39,6 +39,35 @@
 
 namespace kaldi {
 
+/** 
+ * Wraper of cudnnTensor4dDescriptor_t, storing the matrix dimensions for cuDNN
+ */
+class MatrixDimCuDnn {
+ public:
+  MatrixDimCuDnn(MatrixIndexT rows, MatrixIndexT cols, MatrixIndexT stride, MatrixIndexT elem_size) {
+    CU_SAFE_CALL(cudnnCreateTensor4dDescriptor(&d_));
+    cudnnDataType_t t = (elem_size == sizeof(float) ? CUDNN_DATA_FLOAT : CUDNN_DATA_DOUBLE);
+    // TODO is it good? Check the forum...
+    CU_SAFE_CALL(cudnnSetTensor4dDescriptorEx(d_, t, rows, cols, 1,   1, 
+                                                     stride, 1, 1, 1));
+  }
+  MatrixDimCuDnn(const MatrixDimCuDnn& d_src) {
+    CU_SAFE_CALL(cudnnCreateTensor4dDescriptor(&d_));
+    cudnnDataType_t t;
+    int n, c, h, w, nS, cS, hS, wS;
+    CU_SAFE_CALL(cudnnGetTensor4dDescriptor(d_src, &t, &n, &c, &h, &w, &nS, &cS, &hS, &wS));
+    CU_SAFE_CALL(cudnnSetTensor4dDescriptorEx(d_, t, n, c, h, w, nS, cS, hS, wS));
+  }
+  ~MatrixDimCuDnn() {
+    CU_SAFE_CALL(cudnnDestroyTensor4dDescriptor(d_));
+  }
+  operator const cudnnTensor4dDescriptor_t() const { return d_; } ///< typecast to nested struct
+ private:
+  cudnnTensor4dDescriptor_t d_;
+  // disallow assignment operator, declared and undefined,
+  MatrixDimCuDnn& operator= (const MatrixDimCuDnn & d_src);
+};
+
 template<typename Real>
 Real TraceMatMat(const CuMatrixBase<Real> &A, const CuMatrixBase<Real> &B,
                  MatrixTransposeType trans = kNoTrans);
@@ -135,6 +164,9 @@ class CuMatrixBase {
     return d; 
   }
 
+  // cudnnTensor4dDescriptor_t,
+  MatrixDimCuDnn DimCuDnn() const { return MatrixDimCuDnn(NumRows(), NumCols(), Stride(), sizeof(Real)); }
+
   Real FrobeniusNorm() const { return sqrt(TraceMatMat(*this, *this, kTrans)); }
 
   bool IsUnit(Real tol = 0.001) const;  
@@ -177,6 +209,8 @@ class CuMatrixBase {
   /// Set each element to the sigmoid of the corresponding element of "src":
   /// element by element, x = 1 / (1 + exp(-x))
   void Sigmoid(const CuMatrixBase<Real> &src);
+  void SigmoidCuDnn(const CuMatrixBase<Real> &src);
+  void SigmoidThrust(const CuMatrixBase<Real> &src);
 
   /// Apply the function y = log(1 + exp(x)), to each element.
   /// Note: the derivative of this function is the sigmoid function.
@@ -252,6 +286,7 @@ class CuMatrixBase {
   /// Y = Softmax(X) : Yij = e^Xij / sum_k(e^Xik), done to each row
   /// for each row, the max value is first subtracted for good numerical stability
   void ApplySoftMaxPerRow(const CuMatrixBase<Real> &src);
+  void ApplySoftMaxPerRowCuDnn(const CuMatrixBase<Real> &src);
 
   /// Find the id of the maximal element for each row
   void FindRowMaxId(CuArray<int32> *id) const;

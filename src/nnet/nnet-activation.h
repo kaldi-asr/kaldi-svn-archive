@@ -161,6 +161,30 @@ class Sigmoid : public Component {
   }
 };
 
+class SigmoidCuDnn : public Component {
+ public:
+  SigmoidCuDnn(int32 dim_in, int32 dim_out) 
+    : Component(dim_in, dim_out)
+  { }
+  ~SigmoidCuDnn()
+  { }
+
+  Component* Copy() const { return new SigmoidCuDnn(*this); }
+  ComponentType GetType() const { return kSigmoidCuDnn; }
+
+  void PropagateFnc(const CuMatrixBase<BaseFloat> &in, CuMatrixBase<BaseFloat> *out) {
+    // y = 1/(1+e^-x)
+    out->SigmoidCuDnn(in);
+  }
+
+  void BackpropagateFnc(const CuMatrixBase<BaseFloat> &in, const CuMatrixBase<BaseFloat> &out,
+                        const CuMatrixBase<BaseFloat> &out_diff, CuMatrixBase<BaseFloat> *in_diff) {
+    // ey = y(1-y)ex
+    in_diff->DiffSigmoid(out, out_diff);
+  }
+};
+
+
 
 
 class Tanh : public Component {

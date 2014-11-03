@@ -194,6 +194,48 @@ static void UnitTestCuMatrixSigmoid() {
 }
 
 template<typename Real> 
+static void UnitTestCuMatrixSigmoidCuDnn() {
+  for (int32 i = 0; i < 2; i++) {
+    int32 M = 100 + Rand() % 200, N = 100 + Rand() % 200;
+    Matrix<Real> H(M, N);
+    H.SetRandn();
+    H.MulElements(H); // make numbers positive
+
+    CuMatrix<Real> D(H);
+    CuMatrix<Real> E(M, N);
+
+    E.SigmoidCuDnn(D);
+    H.Sigmoid(H);
+
+    Matrix<Real> H2(E);
+
+    AssertEqual(H, H2);
+  }
+}
+
+
+template<typename Real> 
+static void UnitTestCuMatrixSigmoidThrust() {
+  for (int32 i = 0; i < 2; i++) {
+    int32 M = 100 + Rand() % 200, N = 100 + Rand() % 200;
+    Matrix<Real> H(M, N);
+    H.SetRandn();
+    H.MulElements(H); // make numbers positive
+
+    CuMatrix<Real> D(H);
+    CuMatrix<Real> E(M, N);
+
+    E.SigmoidThrust(D);
+    H.Sigmoid(H);
+
+    Matrix<Real> H2(E);
+
+    AssertEqual(H, H2);
+  }
+}
+
+
+template<typename Real> 
 static void UnitTestCuMatrixScale() {
   int32 M = 100 + Rand() % 200, N = 100 + Rand() % 200;
   Matrix<Real> H(M, N);
@@ -1941,6 +1983,8 @@ template<typename Real> void CudaMatrixUnitTest() {
   UnitTestCuMatrixSetRandUniform<Real>();
   UnitTestCuMatrixScale<Real>();
   UnitTestCuMatrixSigmoid<Real>();
+  UnitTestCuMatrixSigmoidCuDnn<Real>();
+  UnitTestCuMatrixSigmoidThrust<Real>();
   UnitTestCuMatrixSoftHinge<Real>();
   UnitTestCuMatrixApplyPow<Real>(); 
   UnitTestCuMatrixApplyPowAbs<Real>(); 
