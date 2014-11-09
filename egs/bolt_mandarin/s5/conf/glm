@@ -1,0 +1,17 @@
+;;
+;;  File: ma970904.glm
+;;  Desc: This file contains the transcript filtering rules for the ARPA
+;;        Mandarin Hub5-NE Evaluation.
+;;
+;;  Date: 970904
+;;         - initial creation 
+;;
+;;  Hesitation mappings
+%诶%        =>  %HESITATION     / [ ] __ [ ]
+%呃%        =>  %HESITATION     / [ ] __ [ ]
+%嗯%        =>  %HESITATION     / [ ] __ [ ]
+;;
+诶        =>  %HESITATION     / [ ] __ [ ]
+呃        =>  %HESITATION     / [ ] __ [ ]
+嗯        =>  %HESITATION     / [ ] __ [ ]
+
