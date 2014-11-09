@@ -1,0 +1,31 @@
+.TH text2lex 1 "text2lex 1.0" "NIST Software"
+.SH NAME
+text2lex - Convert words in STM or CTM format files to their lexeme
+.SH SYNOPSIS
+.B "text2lex  <OPTIONS> infile|- outfile|-"
+
+.SH DESCRIPTION
+.PP
+The perl script 'text2lex', based on a script from Ken Ross of BBN,
+uses the LDC Spanish dictionary to map each word in the input
+text file to it's lexeme.  Words not found in the dictionary are passed
+through unchanged.  Words which map to multiple lexeme-s are treated
+as alternations in the output file.
+
+Currently, two input formats are recognized, CTM and STM.  Both formats
+are documented in the manual pages supplied in the 'sclite' distribution.
+.SH OPTIONS
+
+.IP "\fB-d dictionary\fP"
+Set the filename of the LDC Japanese dictionary to 'dictionary'
+.IP "\fB-i stm|ctm\fP"
+Set the input format to either "stm" or "ctm".
+
+.SH REVISION HISTORY
+
+text2lexeme 1.0 - Released October 6, 1995
+
+text2lexeme 1.1 - Released Jult 11, 1997
+
+.SH SEE ALSO
+sclite(1) ctm(5) stm(5)
