@@ -146,8 +146,8 @@ if [ -f $data/wav.scp ]; then
       # this file is needed only for ctm scoring; it's indexed by recording-id.
       check_sorted_and_uniq $data/reco2file_and_channel
       ! cat $data/reco2file_and_channel | \
-        awk '{if (NF != 3 || ($3 != "A" && $3 != "B" )) { 
-                if ( NF == 3 && $3 == "1" ) {
+         awk '{if (NF != 3 || ($3 != "A" && $3 != "B" && $3 != "1" && $3 != "2")) { 
+                if ( NF == 3 ) {
                   warning_issued = 1;
                 } else {
                   print "Bad line ", $0; exit 1; 
@@ -156,7 +156,7 @@ if [ -f $data/wav.scp ]; then
             } 
             END {
               if (warning_issued == 1) {
-                print "The channel should be marked as A or B, not 1! You should change it ASAP! "
+                print "The channel should be marked as A, B, 1, or 2! You should change it ASAP! "
               }
             }' && echo "$0: badly formatted reco2file_and_channel file" && exit 1;
       cat $data/reco2file_and_channel | awk '{print $1}' > $tmpdir/recordings.r2fc
