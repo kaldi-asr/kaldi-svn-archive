@@ -16,20 +16,11 @@ arpa_lm=data/local/lm/srilm/mixed_lm.gz
 [ ! -f $arpa_lm ] && echo No such file $arpa_lm && exit 1;
 
 # Copy stuff into its final locations...
-
 for f in spk2utt utt2spk wav.scp text segments reco2file_and_channel; do
   cp data/local/train/$f data/train/$f;
 done
 
-# for f in spk2utt utt2spk wav.scp text segments reco2file_and_channel stm; do
-cp /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/CU-BOLT-Mandarin-dev14-scoring-20141029/glms/ma970904.glm conf/glm
 cp conf/glm data/train
-cp conf/glm data/bolt_dev 
-cp conf/glm data/bolt_tune
-cp conf/glm data/bolt_test
-cp /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/CU-BOLT-Mandarin-dev14-scoring-20141029/stms/dev-test.stm data/bolt_test/stm 
-cp /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/CU-BOLT-Mandarin-dev14-scoring-20141029/stms/dev-tune.stm data/bolt_tune/stm
-cp /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/CU-BOLT-Mandarin-dev14-scoring-20141029/stms/dev-dev.stm data/bolt_dev/stm 
 rm -r data/lang_test
 cp -r data/lang data/lang_test
 
