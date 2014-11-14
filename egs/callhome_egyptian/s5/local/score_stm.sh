@@ -28,7 +28,7 @@ ctm_name=
 glm=
 case_insensitive=true
 use_icu=true
-icu_transform='Any-Lower'
+icu_transform=''
 #end configuration section.
 
 echo $0 $@
@@ -53,8 +53,11 @@ set -e
 set -o pipefail
 set -u
 
-ScoringProgram=`which sclite` || ScoringProgram=$KALDI_ROOT/tools/sctk/bin/sclite
-[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && \
+#ScoringProgram=`which sclite` || ScoringProgram=$KALDI_ROOT/tools/sctk/bin/sclite
+#[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram" && \
+#                            echo "You might need to go to $KALDI_ROOT/tools and call 'make sclite' " && exit 1;
+ScoringProgram=`which hubscr.pl` || SortingProgram=$KALDI_ROOT/tools/sctk/bin/hubscr.pl
+[ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram." && \
                             echo "You might need to go to $KALDI_ROOT/tools and call 'make sclite' " && exit 1;
 SortingProgram=`which hubscr.pl` || SortingProgram=$KALDI_ROOT/tools/sctk/bin/hubscr.pl
 [ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram." && \
@@ -73,36 +76,30 @@ else
 fi
 
 if [ ! -z $glm ] ; then
-  glm=" -glm $glm "
+  glm=" -g $glm "
+fi
+
+if [ $stage -le 0 ]; then
+  # Remove some stuff we don't want to score, from the ctm.
+  for seqid in `seq $min_lmwt $max_lmwt` ;  do
+    x=$dir/score_$seqid/$name.ctm; 
+    echo $x
+    cp $x $x.bkup1;
+    cat $x.bkup1 |  \
+      grep -v "(*%[a-zA-Z]*)*"  |\
+      grep -v "[^ ]*-_bw" \
+    > $x;
+  done
 fi
 
 mkdir -p $dir/scoring/log
-if [ $stage -le 0 ] ; then
+if [ $stage -le 1 ] ; then
   $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.log \
     set -e';' set -o pipefail';' \
-    cp -f $data/stm $dir/score_LMWT/stm.unsorted '&&' \
-    cp -f $dir/score_LMWT/${name}.ctm $dir/score_LMWT/${name}.ctm.unsorted '&&'\
-    $SortingProgram sortSTM \<$dir/score_LMWT/stm.unsorted          \>$dir/score_LMWT/stm.sorted '&&' \
-    $SortingProgram sortCTM \<$dir/score_LMWT/${name}.ctm.unsorted  \>$dir/score_LMWT/${name}.ctm.sorted '&&' \
-    paste -d ' ' \<\(cut -f 1-5 -d ' ' $dir/score_LMWT/stm.sorted \) \
-                 \<\(cut -f 6- -d ' ' $dir/score_LMWT/stm.sorted \| uconv -f utf8 -t utf8 -x "$icu_transform" \) \
-        \> $dir/score_LMWT/stm '&&' \
-    paste -d ' ' \<\(cut -f 1-4 -d ' ' $dir/score_LMWT/${name}.ctm.sorted \) \
-                 \<\(cut -f 5-  -d ' ' $dir/score_LMWT/${name}.ctm.sorted \| uconv -f utf8 -t utf8 -x "$icu_transform" \) \
-        \> $dir/score_LMWT/${name}.ctm.fixed '&&' \
-    utils/fix_ctm.sh $dir/score_LMWT/stm $dir/score_LMWT/${name}.ctm.fixed '&&' \
-    $SortingProgram sortCTM \<$dir/score_LMWT/${name}.ctm.fixed  \>$dir/score_LMWT/${name}.ctm '&&' \
-    $ScoringProgram -s -r $dir/score_LMWT/stm  stm -h $dir/score_LMWT/${name}.ctm ctm \
-      -n "$name.ctm" -f 0 -D -F  -o  sum rsum prf dtl sgml -e utf-8 || exit 1
+    utils/fix_ctm.sh $data/stm $dir/score_LMWT/${name}.ctm '&&' \
+    $ScoringProgram -v -d -H -T -l arabic -h rt-stt $glm -r $data/stm  $dir/score_LMWT/${name}.ctm
 fi
 
-if [ $stage -le 1 ]; then
-  if [ $cer -eq 1 ]; then
-    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.char.log \
-      $ScoringProgram -s -r $dir/score_LMWT/stm stm -h $dir/score_LMWT/${name}.ctm ctm \
-        -n "$name.char.ctm" -o sum rsum prf dtl sgml -f 0 -D -F -c NOASCII DH -e utf-8 || exit 1
-  fi
-fi
 
 
 echo "Finished scoring on" `date`

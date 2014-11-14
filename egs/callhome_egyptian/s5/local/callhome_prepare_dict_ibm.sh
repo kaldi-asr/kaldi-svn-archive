@@ -17,7 +17,6 @@ cat conf/phones.txt | awk '{print $1}' | grep -e "^$" -v | \
   grep -v "^\s*aw" | \
   grep -v "^\s*ay"  > $dictdir/phones
 
-if false; then
 grep -v "NEEE" | perl -ane ' 
     next if @F != 2;
 
@@ -32,7 +31,13 @@ grep -v "NEEE" | perl -ane '
 (
   cut -f 2- $sourcedir/text | sed 's/ /\n/g' 
   #cut -f 1  $dictdir/lexicon.full 
-)  | sort -u > $dictdir/words.txt
+)  | sort -u | grep -v "%" > $dictdir/words.txt
+(
+  cut -f 2- $sourcedir/text | sed 's/ /\n/g' 
+  #cut -f 1  $dictdir/lexicon.full 
+)  | sort -u | grep "%" > $dictdir/nonspeech_words.txt
+
+touch $dictdir/lexicon
 
 #Convert the pronunciation field into a sequence of phones separated with spaces
 #Skip all words that are not to be found in the "training" text
@@ -104,10 +109,11 @@ cat $dictdir/lexicon.full | \
   grep "^<" | awk '{print $2}' | grep -v '<.*>' | sed '/^\s*$/d' > $dictdir/oov.txt; true) || true
 
 
-grep "^.*_en$" $dictdir/oov.txt > $dictdir/words-en-oov.txt
-grep "^.*_bw$" $dictdir/oov.txt | grep -v "_en_bw$" > $dictdir/words-arz-oov.txt
+grep "^.*_en$" $dictdir/oov.txt | grep -v "_bw" > $dictdir/words-en-oov.txt
+grep "^.*_bw$" $dictdir/oov.txt | grep -v "_en" > $dictdir/words-arz-oov.txt
+grep "^.*_en_bw$" $dictdir/oov.txt > $dictdir/words-arz-en-oov.txt
 
-if true; then
+
 ##
 ##This is for the english OOV processing
 ##
@@ -127,70 +133,62 @@ local/apply_g2p.sh --icu-transform ""  --model exp/g2p/en/model.english \
   $dictdir/words-en-oov.txt.notags exp/g2p/en exp/g2p/en
 cat $dictdir/vocab-en-oov.lex.notags | \
   perl -ane 'print "$F[0]_en\t"; print join(" ", @F[1..$#F]) . "\n"; ' > $dictdir/vocab-en-oov.lex
-cat $dictdir/vocab-en-oov.lex | \
-  perl -e '
-    use strict;
-    use warnings;
-
-    use Data::Dumper;
-    open(MAP, $ARGV[0]) or die "Cannot open the char map: $!";
-    my %MAPPING;
-    while (my $line=<MAP>) {
-      chomp $line;
-      (my $phone, my $mappings) = split " ", $line, 2;
-      #print STDERR $phone . "\n";
-      #print STDERR $mappings . "\n";
-      my @mapseq = split /,/, $mappings;
-      #print STDERR Dumper(\@mapseq);
-      push @{$MAPPING{$phone}}, @mapseq;
-      #print STDERR Dumper(\%MAPPING);
-    }
-    close(MAP);
-    #print STDERR Dumper(\%MAPPING);
-    while ( my $line=<STDIN> ) {
-      #print STDERR $line;
-      chomp $line;
-      (my $phone, my $pron_str) = split " ", $line, 2;
-      my @pron = split " ", $pron_str;
-      my @out_prons = ("") ;
-      foreach $phone (@pron) {
-        #print STDERR Dumper(\@out_prons, \@pron, $pron_str);
-        my @replacements = @{$MAPPING{$phone}};
-        my @tmp;
-        foreach my $repl (@replacements) {
-          foreach my $pos (@out_prons) {
-            push @tmp, "$pos $repl";
-          }
-        }
-        @out_prons= @tmp;
-        @tmp = ();
-      }
-      #print STDERR Dumper(\@out_prons);
-
-      foreach  my $pron_var (@out_prons) {
-        my $s = "$phone\t$pron_var";
-        $s =~ s/^\s+|\s+$//g;
-        print $s . "\n";
-      }
-    }
-
-  ' conf/cmu2arz.map | sort -u > $dictdir/lexicon-en-oov.txt
+cat $dictdir/vocab-en-oov.lex | local/apply_phoneme_map.pl conf/cmu2arz.map |\
+  sort -u > $dictdir/lexicon-en-oov.txt
 ##END of ENGLISH OOV processing
-fi
 
 ##START of ARABIC OOV processing
 cat $dictdir/lexicon-arz.txt | sed 's/_bw//g' > $dictdir/lexicon-arz.txt.notags
 cat $dictdir/words-arz-oov.txt | sed 's/_bw$//g' > $dictdir/words-arz-oov.txt.notags
 local/train_g2p.sh --icu-transform "" --cmd "$decode_cmd" --lexicon $dictdir/lexicon-arz.txt.notags\
   data/local/dict/ exp/g2p/arz
+
+paste $dictdir/words-arz-oov.txt.notags \
+  <(sed 's/-//' $dictdir/words-arz-oov.txt.notags) > $dictdir/words-arz-oov.map
 local/apply_g2p.sh --cmd "$decode_cmd"  --icu-transform "" --with-probs false \
   --output-lex $dictdir/lexicon-arz-oov.txt.notags \
-  $dictdir/words-arz-oov.txt.notags exp/g2p/arz exp/g2p/arz
-fi
+  <(cut -f 2 $dictdir/words-arz-oov.map ) exp/g2p/arz exp/g2p/arz
+
 cat $dictdir/lexicon-arz-oov.txt.notags | \
-  perl -ane 'print "$F[0]_bw\t"; print join(" ", @F[1..$#F]) . "\n"; ' > $dictdir/lexicon-arz-oov.txt
+  perl -e '
+    open(MAP, $ARGV[0]) or die "Cannot open $ARGV[0]: $!\n";
+    while(<MAP>) {
+      chomp;
+      @F=split;
+      push @{$WORDMAP{$F[1]}}, $F[0];
+    }
+    while (<STDIN>) {
+      chomp;
+      @F=split;
+      
+      foreach $w (@{$WORDMAP{$F[0]}}) {
+        print "${w}_bw\t"; 
+        print join(" ", @F[1..$#F]) . "\n"; 
+      }
+    }
+  ' $dictdir/words-arz-oov.map  > $dictdir/lexicon-arz-oov.txt
 ##END of ARABIC OOV processing
-cat $dictdir/lexicon-arz.txt $dictdir/lexicon-arz-oov.txt $dictdir/lexicon-en-oov.txt | \
+
+
+##START OF COMBINED PROCESSING
+cat $dictdir/words-arz-en-oov.txt | sed 's/^w//g'  | sed 's/_en_bw$//g' > $dictdir/words-arz-en-oov.txt.notags
+local/apply_g2p.sh  --icu-transform "" --with-probs false\
+  --output-lex $dictdir/w_pron_lex.txt\
+  <(echo -e "w")  exp/g2p/arz exp/g2p/arz
+
+local/apply_g2p.sh --icu-transform ""  --model exp/g2p/en/model.english \
+  --with-probs false --output-lex $dictdir/vocab-arz-en-oov.lex.notags \
+   $dictdir/words-arz-en-oov.txt.notags exp/g2p/en exp/g2p/en
+
+cat $dictdir/w_pron_lex.txt | cut -f 2- | while read alternative ; do
+  #echo $alternative >&2
+  cat $dictdir/vocab-arz-en-oov.lex.notags | \
+    local/apply_phoneme_map.pl conf/cmu2arz.map |\
+    perl -ane 'print "w$F[0]_en_bw\t"; print "'"$alternative"' " . join(" ", @F[1..$#F]) . "\n"; '
+done | sort -u > $dictdir/lexicon-arz-en-oov.txt
+
+##END OF COMBINED PROCESSING
+cat $dictdir/lexicon-arz.txt $dictdir/lexicon-arz-oov.txt $dictdir/lexicon-en-oov.txt $dictdir/lexicon-arz-en-oov.txt | \
   sort -u | sed '/^\s*$/d' >  $dictdir/lexicon
 
 #Regenerate the phones file once more:
@@ -199,16 +197,19 @@ cat $dictdir/lexicon | grep -v "<.*>" | cut -f 2- | sed 's/ /\n/g' | sort -u > $
 
 awk '{print $1}' $dictdir/phones.used | sort -u | grep -v "^\s*$" > $dictdir/nonsilence_phones.txt
 
-
 # silence phones, one per line. 
-for w in sil laughter "v-noise" noise unk hes; do 
+for w in sil unk `cat $dictdir/nonspeech_words.txt | sed 's/\%//g;'`; do 
   echo "<$w>"
 done > $dictdir/silence_phones.txt
 echo "<sil>" > $dictdir/optional_silence.txt
 
-for w in `cat $dictdir/silence_phones.txt | grep -v "<sil>"`; do
-  perl -e 'print uc($ARGV[0]) . "\t" . $ARGV[0] . "\n";' $w
-done | cat - $dictdir/lexicon   > $dictdir/lexicon.txt
+(
+echo -e "~SIL\t<sil>"
+echo -e "<UNK>\t<unk>"
+for w in `cat $dictdir/nonspeech_words.txt | grep -i -v sil `; do
+  perl -e '$ph=$ARGV[0]; $ph=~s/\%//g; print $ARGV[0] . "\t<" . $ph . ">\n";' $w
+done ) | cat - $dictdir/lexicon   > $dictdir/lexicon.txt
+
 
 # An extra question will be added by including the silence phones in one class.
 cat $dictdir/silence_phones.txt | paste -s  > $dictdir/extra_questions.txt || exit 1;

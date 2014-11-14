@@ -62,35 +62,6 @@ if [ $stage -le 0 ]; then
     '>' $dir/score_LMWT/$name.ctm || exit 1;
 fi
 
-if [ $stage -le 1 ]; then
-  # Remove some stuff we don't want to score, from the ctm.
-  for x in $dir/score_*/$name.ctm; do
-    cp $x $x.bkup1;
-    cat $x.bkup1 | grep -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
-      grep -v -E '<UNK>|%HESITATION|\(\(\)\)' | \
-      grep -v -E -i '<eps>' | \
-      grep -v -E -i '<noise>' | \
-      grep -v -E -i '<silence>' | \
-      grep -v -E -i '<hes>' | \
-      grep -v -E -i '<unk>' | \
-      grep -v -E -i '<v-noise>' | \
-      perl -e '@list = (); %list = ();
-      while(<>) {
-        chomp; 
-        @col = split(" ", $_); 
-        push(@list, $_);
-        $key = "$col[0]" . " $col[1]"; 
-        $list{$key} = 1;
-      } 
-      foreach(sort keys %list) {
-        $key = $_;
-        foreach(grep(/$key/, @list)) {
-          print "$_\n";
-        }
-      }' > $x;
-  done
-fi
-
 
 echo "Lattice2CTM finished on " `date`
 exit 0

@@ -26,7 +26,8 @@ if [ $# -ne 3 ]; then
 fi
 
 data=$1
-
+graph=$2
+decode=$3
 
 if [ -f $data/stm ]; then # use sclite scoring.
   echo "$data/stm exists: using local/score_sclite.sh"
@@ -34,6 +35,13 @@ if [ -f $data/stm ]; then # use sclite scoring.
   [ -f $data/glm ] && glm=" --glm $data/glm "
   eval local/lattice_to_ctm.sh $orig_args
   eval local/score_stm.sh --cer 1 $glm  $orig_args
+  
+  if [ -f $data/stm.utf8.sorted ] ; then
+    for seqid in `seq $min_lmwt $max_lmwt` ; do
+      ./IBM/scoring/score.py  $decode/score_$seqid/`basename $data`.ctm $data/stm.utf8.sorted
+    done
+  fi
+
 else
   echo "$data/stm does not exist: using local/score_basic.sh"
   eval local/score_basic.sh $orig_args
