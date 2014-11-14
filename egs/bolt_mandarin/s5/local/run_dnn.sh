@@ -45,16 +45,7 @@ parallel_opts="-l gpu=1"  # This is suitable for the CLSP network, you'll likely
     touch exp/$dir/.done
   fi
 
-  steps/nnet2/decode.sh --cmd "$decode_cmd" --nj 30 \
-    --config conf/decode.config --transform-dir exp/tri5a/decode_bolt_dev \
-    exp/tri5a/graph data/bolt_dev exp/$dir/decode_bolt_dev &
-
-  steps/nnet2/decode.sh --cmd "$decode_cmd" --nj 30 \
-    --config conf/decode.config --transform-dir exp/tri5a/decode_bolt_tune \
-    exp/tri5a/graph data/bolt_tune exp/$dir/decode_bolt_tune &
-
-  steps/nnet2/decode.sh --cmd "$decode_cmd" --nj 30 \
-    --config conf/decode.config --transform-dir exp/tri5a/decode_bolt_test \
-    exp/tri5a/graph data/bolt_test exp/$dir/decode_bolt_test &
+  ./local/run_anydecode.sh bolt_dev &
+  ./local/run_anydecode.sh bolt_tune &
+  ./local/run_anydecode.sh bolt_test &
 )
-
