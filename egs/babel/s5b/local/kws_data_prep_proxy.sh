@@ -111,18 +111,18 @@ fi
 
 # Writes some scoring related files.
 cat $kwsdatadir/keywords_all.int |\
-  egrep -v " 0 | 0$" | cut -f 1 -d ' ' |\
+  (grep -E -v " 0 | 0$" || true) | cut -f 1 -d ' ' |\
   local/subset_kwslist.pl $keywords > $kwsdatadir/kwlist_invocab.xml
 
 cat $kwsdatadir/keywords_all.int |\
-  egrep " 0 | 0$" | cut -f 1 -d ' ' |\
+  (grep -E " 0 | 0$" || true) | cut -f 1 -d ' ' |\
   local/subset_kwslist.pl $keywords > $kwsdatadir/kwlist_outvocab.xml
 
 # Selects a set to generate proxies for. By default, generate proxies for OOV
 # keywords.
 if [ -z $proxy_set ]; then
   cat $kwsdatadir/keywords_all.int |\
-    egrep " 0 | 0$" | awk '{print $1;}' | sort -u \
+    (grep -E " 0 | 0$" || true) | awk '{print $1;}' | sort -u \
     > $kwsdatadir/keywords_proxy.list
 else
   cp $proxy_set $kwsdatadir/keywords_proxy.list
@@ -139,11 +139,11 @@ cat $kwsdatadir/keywords_proxy.txt |\
 # L1 since it is the lexicon used for the LVCSR training.
 cat $kwsdatadir/tmp/L1.tmp.lex | cut -d ' ' -f 1 |\
   paste -d ' ' - <(cat $kwsdatadir/tmp/L1.tmp.lex | cut -d ' ' -f 2-|\
-  sed 's/_[B|E|I|S]//g' | sed 's/_[%|"]//g') |\
+  sed 's/_[B|E|I|S]//g' | sed 's/_[%|"]//g' | sed 's/_[0-9]\+//g') |\
   awk '{if(NF>=2) {print $0}}' > $kwsdatadir/tmp/L1.lex
 cat $kwsdatadir/tmp/L2.tmp.lex | cut -d ' ' -f 1 |\
   paste -d ' ' - <(cat $kwsdatadir/tmp/L2.tmp.lex | cut -d ' ' -f 2-|\
-  sed 's/_[B|E|I|S]//g' | sed 's/_[%|"]//g') |\
+  sed 's/_[B|E|I|S]//g' | sed 's/_[%|"]//g' | sed 's/_[0-9]\+//g') |\
   awk '{if(NF>=2) {print $0}}' | perl -e '
   ($lex1, $words) = @ARGV;
   open(L, "<$lex1") || die "Fail to open $lex1.\n";
@@ -197,7 +197,8 @@ cat $kwsdatadir/keywords_proxy.txt |\
   awk '{for(i=2; i <= NF; i++) {print $i;}}' |\
   cat - <(cat $kwsdatadir/tmp/L2.lex | awk '{print $1;}') |\
   cat - <(cat $kwsdatadir/tmp/L1.lex | awk '{print $1;}') |\
-  sort -u | grep -F -v -x -f <(cat $kwsdatadir/words.txt | awk '{print $1;}') |\
+  sort -u | \
+  (grep -F -v -x -f <(cat $kwsdatadir/words.txt | awk '{print $1;}') || true)|\
   awk 'BEGIN{x='$max_id'+1}{print $0"\t"x; x++;}' |\
   cat $kwsdatadir/words.txt - > $kwsdatadir/tmp/words.txt
 

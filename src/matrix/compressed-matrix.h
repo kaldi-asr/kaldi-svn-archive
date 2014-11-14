@@ -1,7 +1,7 @@
 // matrix/compressed-matrix.h
 
 // Copyright 2012  Johns Hopkins University (author: Daniel Povey)
-//                 Frantisek Skala
+//                 Frantisek Skala, Wei Shi
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -49,6 +49,17 @@ class CompressedMatrix {
   template<typename Real>
   CompressedMatrix(const MatrixBase<Real> &mat): data_(NULL) { CopyFromMat(mat); }
 
+  /// Initializer that can be used to select part of an existing
+  /// CompressedMatrix without un-compressing and re-compressing (note: unlike
+  /// similar initializers for class Matrix, it doesn't point to the same memory
+  /// location).
+  CompressedMatrix(const CompressedMatrix &mat,
+                   const MatrixIndexT row_offset,
+                   const MatrixIndexT num_rows,
+                   const MatrixIndexT col_offset,
+                   const MatrixIndexT num_cols);
+
+  void *Data() const { return this->data_; }
 
   /// This will resize *this and copy the contents of mat to *this.
   template<typename Real>

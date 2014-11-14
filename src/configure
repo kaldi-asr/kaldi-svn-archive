@@ -665,6 +665,9 @@ if [ "`uname`" == "Darwin"  ]; then
   elif [ "$osx_ver" == "10.9" ]; then
     check_exists makefiles/darwin_10_9.mk
     cat makefiles/darwin_10_9.mk >> kaldi.mk 
+  elif [ "$osx_ver" == "10.10" ]; then
+    check_exists makefiles/darwin_10_10.mk
+    cat makefiles/darwin_10_10.mk >> kaldi.mk 
   else 
     failure "OS X version '$osx_ver' not supported"
   fi
@@ -835,8 +838,6 @@ if [ "`uname`" == "Linux" ]; then
       failure "Expected to find the file $OPENBLASROOT/lib/libopenblas.so"
     fi
     echo "Your math library seems to be OpenBLAS.  Configuring appropriately."
-    cat makefiles/linux_openblas.mk >> kaldi.mk
-    fix_cxx_flag
     if $static_math; then
       echo "Configuring static OpenBlas since --static-math=yes"
       OPENBLASLIBS="$OPENBLASROOT/lib/libopenblas.a -lgfortran"
@@ -846,7 +847,8 @@ if [ "`uname`" == "Linux" ]; then
     fi
     echo "OPENBLASLIBS = $OPENBLASLIBS" >> kaldi.mk
     echo "OPENBLASROOT = $OPENBLASROOT" >> kaldi.mk
-    echo "Warning (OPENBLAS): this part of the configure process is not properly tested and will not work."
+    cat makefiles/linux_openblas.mk >> kaldi.mk
+    fix_cxx_flag
     $use_cuda && linux_configure_cuda
     linux_configure_speex
     echo "Successfully configured OpenBLAS from $OPENBLASROOT."

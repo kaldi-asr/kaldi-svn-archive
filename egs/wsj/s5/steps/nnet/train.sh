@@ -22,7 +22,8 @@ dbn=               # select DBN to prepend to the MLP initialization
 init_opts=         # options, passed to the initialization script
 
 # FEATURE PROCESSING
-copy_feats=true  # resave the train features in the re-shuffled order to tmpdir
+copy_feats=true # resave the train/cv features into /tmp (disabled by default)
+ copy_feats_tmproot= # tmproot for copy-feats (optional)
 # feature config (applies always)
 apply_cmvn=false # apply normalization to input features?
  norm_vars=false # use variance normalization?
@@ -40,7 +41,7 @@ splice_after_transf=5
 lda_dim=300        # LDA dimension (applies to `lda` feat_type)
 
 # LABELS
-labels=            # use these labels to train (override deafault pdf alignments) 
+labels=            # use these labels to train (override deafault pdf alignments, has to be in 'Posterior' format, see ali-to-post) 
 num_tgt=           # force to use number of outputs in the MLP (default is autodetect)
 
 # TRAINING SCHEDULER
@@ -51,6 +52,7 @@ frame_weights=     # per-frame weights for gradient weighting
 
 # OTHER
 seed=777    # seed value used for training data shuffling and initialization
+skip_cuda_check=false
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -120,6 +122,11 @@ mkdir -p $dir/{log,nnet}
 # skip when already trained
 [ -e $dir/final.nnet ] && printf "\nSKIPPING TRAINING... ($0)\nnnet already trained : $dir/final.nnet ($(readlink $dir/final.nnet))\n\n" && exit 0
 
+# check if CUDA is compiled in,
+if ! $skip_cuda_check; then
+  cuda-compiled || { echo 'CUDA was not compiled in, skipping! Check src/kaldi.mk and src/configure' && exit 1; }
+fi
+
 ###### PREPARE ALIGNMENTS ######
 echo
 echo "# PREPARING ALIGNMENTS"
@@ -157,17 +164,16 @@ cp $data_cv/feats.scp $dir/cv.scp
 # print the list sizes
 wc -l $dir/train.scp $dir/cv.scp
 
-# re-save the shuffled features, so they are stored sequentially on the disk in /tmp/
+# re-save the train/cv features to /tmp, reduces LAN traffic, avoids disk-seeks due to shuffled features
 if [ "$copy_feats" == "true" ]; then
-  tmpdir=$(mktemp -d kaldi.XXXX); mv $dir/train.scp $dir/train.scp_non_local
-  utils/nnet/copy_feats.sh $dir/train.scp_non_local $tmpdir $dir/train.scp
-  #remove data on exit...
-  trap "echo \"Removing features tmpdir $tmpdir @ $(hostname)\"; rm -r $tmpdir" EXIT
+  tmpdir=$(mktemp -d $copy_feats_tmproot); mv $dir/train.scp{,_non_local}; mv $dir/cv.scp{,_non_local}
+  copy-feats scp:$dir/train.scp_non_local ark,scp:$tmpdir/train.ark,$dir/train.scp || exit 1
+  copy-feats scp:$dir/cv.scp_non_local ark,scp:$tmpdir/cv.ark,$dir/cv.scp || exit 1
+  trap "echo \"Removing features tmpdir $tmpdir @ $(hostname)\"; ls $tmpdir; rm -r $tmpdir" EXIT
 fi
 
 #create a 10k utt subset for global cmvn estimates
 head -n 10000 $dir/train.scp > $dir/train.scp.10k
-
 
 
 ###### PREPARE FEATURE PIPELINE ######
@@ -201,6 +207,8 @@ else
 fi
 
 # optionally add deltas
+delta_order_file=$(dirname $feature_transform)/delta_order
+[ -e $delta_order_file ] && delta_order=$(cat $delta_order_file)
 if [ "$delta_order" != "" ]; then
   feats_tr="$feats_tr add-deltas --delta-order=$delta_order ark:- ark:- |"
   feats_cv="$feats_cv add-deltas --delta-order=$delta_order ark:- ark:- |"
