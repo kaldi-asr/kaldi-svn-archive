@@ -125,3 +125,7 @@ cp IBM/scoring/ar2009.utf8.glm  data/tune/glm.utf8
 cp -f data/tune/glm.utf8 data/dev/glm.utf8
 cp -f data/tune/glm.utf8 data/test/glm.utf8
 
+cp IBM/scoring/ar2009.glm  data/tune/glm
+cp -f data/tune/glm data/dev/glm
+cp -f data/tune/glm data/test/glm
+

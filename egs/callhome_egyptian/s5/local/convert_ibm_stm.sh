@@ -2,7 +2,7 @@
 
 cat -  | \
   sed 's/[A-Z][A-Z]*_LDC2014E86_ar_/ar_/g' |\
-  sed 's/^\([A-Z][A-Z_0-9]*\)_[AB][0-9]* /\1 /g' | \
+  sed 's/^\([a-z][a-z_0-9]*\)_[AB][0-9]* /\1 /g' | \
   perl -ane 'if ($_ =~ /;/) {print $_; next;} 
              @F=split;
              die "Unknown format of the line $_" unless @F >= 5;

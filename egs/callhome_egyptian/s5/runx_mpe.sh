@@ -23,7 +23,6 @@ dnn_gpu_mpe_parallel_opts=(
                         --cmd "queue.pl -l arch=*64 -l mem_free=2G,ram_free=1G"
                         )
 set -u
-if false; then
 # Generate denominator lattices.
 steps/nnet2/make_denlats.sh "${dnn_denlats_extra_opts[@]}" \
   --nj $train_nj --sub-split $train_nj \
@@ -60,7 +59,6 @@ for epoch in 1 2 3 4; do
     exp/tri5b/graph data/tune $decode | tee $decode/decode.log
 done
 
-fi
 
 steps/nnet2/train_discriminative.sh \
   --cmd "$decode_cmd" \
