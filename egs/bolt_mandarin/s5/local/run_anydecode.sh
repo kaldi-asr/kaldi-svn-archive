@@ -43,8 +43,13 @@ if [ -f exp/tri6_nnet_mpe/.done ]; then
       steps/nnet2/decode.sh  \
         --cmd "$decode_cmd" --nj $decode_nj --iter epoch$epoch \
         "${decode_extra_opts[@]}" \
-        --transform-dir exp/tri5a/decode_${dataset_dir} \
+        --transform-dir exp/tri5a/decode_${dataset_id} \
         $graph $data $decode | tee $decode/decode.log
+      # rescore with large LM
+      steps/lmrescore_const_arpa.sh \
+          --cmd "$decode_cmd" data/lang_test data/lang_test_large \
+          $data exp/tri6_nnet_mpe/decode_${dataset_id}_epoch$iter \
+                exp/tri6_nnet_mpe/decode_${dataset_id}_epoch${iter}_large
       touch $decode/.done
       # local/score.sh --cmd "$train_cmd" $data $graph $decode
     fi

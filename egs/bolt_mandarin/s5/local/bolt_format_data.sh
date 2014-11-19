@@ -9,7 +9,7 @@ silprob=0.5
 mkdir -p data/lang_test data/train
 
 
-arpa_lm=data/local/lm/srilm/mixed_lm.gz 
+arpa_lm=data/local/lm/srilm/mixed_lm_pr.gz 
 #arpa_lm=data/local/lm/srilm/srilm.o3g.kn.gz
 #arpa_lm=data/local/lm/3gram-mincount/lm_unpruned.gz
 

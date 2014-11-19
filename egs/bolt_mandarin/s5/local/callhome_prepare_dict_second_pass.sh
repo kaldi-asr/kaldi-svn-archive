@@ -5,7 +5,12 @@
 # for OOVs, while all englist phone set will concert to Chinese
 # phone set at the end. For Chinese, we use an online dictionary,
 # for OOV, we just produce pronunciation using Charactrt Mapping.
-  
+
+# This scripts is needed when we adding new data for LM training
+# These new text may have unusual words and generate new phones 
+# which are incompatible with current acoustic model
+# We need to filter these unusual phones from the new lexicon based on old lexicon
+
 . path.sh
 
 set -e
@@ -13,10 +18,12 @@ set -o pipefail
 
 [ $# != 0 ] && echo "Usage: local/callhome_prepare_dict.sh" && exit 1;
 corpora="callhome,hkust,rt04f,hub5"
+train_lm=data/local/train.lm
+train_add=data/local/train.add
 train_dir=data/local/train
 dict_dir=data/local/dict
-mkdir -p $dict_dir
 
+mkdir -p $dict_dir
 rm -rf data/local/train.old*
 eval utils/combine_data.sh data/local/train.old data/local/train.{$corpora}
 cat data/local/train.new/text | cut -f1 -d'-' | sort -u > conf/new_train.list
@@ -26,9 +33,19 @@ mv data/local/train.old/text.tmp data/local/train.old/text
 utils/fix_data_dir.sh data/local/train.old
 eval utils/combine_data.sh $train_dir data/local/train.{new,old}
 
-# extract full vocabulary
+mkdir -p $train_add
+gawk 'NR==FNR{utts[$1]; next;} !($1 in utts)' \
+  data/local/train.old.bk/text data/local/train.new/text > $train_add/text
+
+mkdir -p $train_lm
+cat data/local/train.uw/text $train_dir/text > $train_lm/text
+
+# extract full vocabulary (Containing new text data for LM)
+cat data/local/train.lm/text | cut -f 2- -d ' '|\
+  sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full-alldata.txt
+# extract vocabulary (not including new text data for LM)  
 cat data/local/train/text | cut -f 2- -d ' '|\
-  sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full.txt  
+  sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full.txt
 
 # prepare the non-speech phones"
 (
@@ -50,7 +67,7 @@ cat data/local/train/text | cut -f 2- -d ' '|\
 # split into English and Chinese
 cat $dict_dir/vocab-full.txt | \
   perl -CIOED -ne 'if (! /\p{Block=CJK_Unified_Ideographs}/) {print;}'> $dict_dir/vocab-en.txt
-cat $dict_dir/vocab-full.txt | \
+cat $dict_dir/vocab-full-alldata.txt | \
   perl -CIOED -ne 'if ( /\p{Block=CJK_Unified_Ideographs}/) {print;}' > $dict_dir/vocab-ch.txt
 
 
@@ -205,10 +222,13 @@ cat $dict_dir/vocab-ch-oov.txt |\
 
   }
   ' $dict_dir/ch-dict.txt | sort -u > $dict_dir/lexicon-ch-oov.txt
-
-
 cat $dict_dir/lexicon-ch-oov.txt $dict_dir/lexicon-ch-iv.txt |\
-  awk '{if (NF > 1) print $0;}' > $dict_dir/lexicon-ch.txt 
+  awk '{if (NF > 1) print $0;}' > $dict_dir/lexicon-ch-tmp.txt 
+
+# remove abnormal character in lexicon-ch-tmp.txt
+# otherwise utils/pinyin_map.pl could not work  
+python local/filter_messy_code.py < $dict_dir/lexicon-ch-tmp.txt > $dict_dir/lexicon-ch.txt 
+rm $dict_dir/lexicon-ch-tmp.txt
 
 cat $dict_dir/lexicon-ch.txt | \
   sed -e 's/U:/V/g' | \
@@ -275,6 +295,34 @@ cat $dict_dir/lexicon-en-phn.txt | \
 ' $dict_dir/cmu-cmu > $dict_dir/lexicon-en.txt 
 
 cat $dict_dir/lexicon-en.txt $dict_dir/lexicon-ch-cmu.txt |\
+  sort -u > $dict_dir/lexicon1_tmp.txt
+
+# after adding new data for LM, we would have some new phone in the lexicon
+# since we don't want to retrain the acoustic model
+# we need to filter these new phones according to the previous system
+
+# generate phone list used in our system before adding new LM data
+cat $dict_dir/lexicon_old.txt | cut -f 2- -d ' ' | sed -e 's/ /\n/g' |\
+  awk '{ if (a[$1]++ == 0) print $0; }' > $dict_dir/phones_ori.list
+# generate list for all phones appeared after adding new LM data
+cat $dict_dir/lexicon1_tmp.txt | cut -f 2- -d ' ' | sed -e 's/ /\n/g' |\
+  awk '{ if (a[$1]++ == 0) print $0; }' > $dict_dir/phones_all.list
+
+# new introduced phones we want to discard  
+gawk 'NR==FNR{utts[$1]; next;} !($1 in utts)' \
+  $dict_dir/phones_ori.list $dict_dir/phones_all.list > $dict_dir/phones_filter.list
+
+# filter lexicons containing new introduced phones  
+grep -v -F -f $dict_dir/phones_filter.list $dict_dir/lexicon-ch-cmu.txt \
+  > $dict_dir/lexicon-ch-cmu-filtered.txt
+
+# find words results in these new introduced phones
+# this word list will be used to filter sentences containing these words 
+# before langauge model training using the new text
+grep -F -f $dict_dir/phones_filter.list $dict_dir/lexicon-ch-cmu.txt |\ 
+  awk '{print $1}' | sort -u > $dict_dir/words_filter.txt 
+
+cat $dict_dir/lexicon-en.txt $dict_dir/lexicon-ch-cmu-filtered.txt |\
   sort -u > $dict_dir/lexicon1.txt
 
 cat $dict_dir/lexicon1.txt | awk '{ for(n=2;n<=NF;n++){ phones[$n] = 1; }} END{for (p in phones) print p;}'| \
@@ -311,6 +359,6 @@ cat $dict_dir/nonsilence_phones.txt | perl -e 'while(<>){$line=$_; foreach $p (s
 
 
 cat $dict_dir/lexicon_extra.txt  $dict_dir/lexicon1.txt | sort -u > $dict_dir/lexicon.txt || exit 1;
-cp $dict_dir/lexicon.txt $dict_dir/lexicon_old.txt
+#rm $dict_dir/lexicon1_tmp.txt
 
-echo "Done preparing the CALLHOME Mandarin dictionary..."
+echo "Done preparing the CALLHOME Mandarin dictionary (second pass)..."

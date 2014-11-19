@@ -21,9 +21,10 @@ set -o pipefail
  local/hub5_data_prep.sh --corpus-id "hub5" "$HUB5_MA_CORPUS_A" "$HUB5_MA_CORPUS_T" data/local || exit 1;
  local/rt04f_data_prep.sh --corpus-id "rt04f"  "$RT04F_MA_TRAIN_CORPUS_A" "$RT04F_MA_TRAIN_CORPUS_T" \
    "$RT04F_MA_DEV_CORPUS_A" "$RT04F_MA_DEV_CORPUS_T" data/local || exit 1;
-
+ local/uw_data_prep.sh data/local/train.uw
 # Lexicon Preparation,
  local/callhome_prepare_dict.sh || exit 1;
+ local/callhome_prepare_dict_second_pass.sh || exit 1;
 
 # Phone Sets, questions, L compilation 
  utils/prepare_lang.sh data/local/dict "<UNK>" data/local/lang data/lang
@@ -31,8 +32,12 @@ set -o pipefail
 # LM training
 local/bolt_train_lms_interpolate.sh
 
-# G compilation, check LG composition
+# G compilation (with large LM pruned), check LG composition
 local/bolt_format_data.sh
+
+# build G.carpa with LM not pruned. (used when rescoring)
+utils/build_const_arpa_lm.sh \
+      data/local/lm/srilm/mixed_lm_full.gz data/lang data/lang_test_large
     
 # Now make MFCC features.
 # mfccdir should be some place with a largish disk where you

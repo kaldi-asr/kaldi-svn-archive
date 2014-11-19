@@ -59,6 +59,15 @@ SortingProgram=`which hubscr.pl` || SortingProgram=$KALDI_ROOT/tools/sctk/bin/hu
 [ ! -x $ScoringProgram ] && echo "Cannot find scoring program at $ScoringProgram." && \
                             echo "You might need to go to $KALDI_ROOT/tools and call 'make sclite' " && exit 1;
 
+# check if it necessary to install tranfilt
+tranfiltdir=tools/tranfilt-1.14
+if [ ! -d $tranfiltdir || ! -f $tranfiltdir/rfilter1 ] ; then
+  cd tools
+  tar zxvf tranfilt-1.14.tgz
+  cd tranfilt-1.14
+  make
+  cd ../..
+fi
 
 for f in $data/stm  ; do
   [ ! -f $f ] && echo "$0: expecting file $f to exist" && exit 1;
