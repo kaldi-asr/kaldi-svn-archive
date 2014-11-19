@@ -5,8 +5,13 @@
 set -e 
 set -o pipefail
 
-corpora=/export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/corpora/
+# corpora=/export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/corpora/
+corpora=./corpora
+mkdir -p $corpora
+ln -s /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/corpora/LDC* $corpora
+
 target=./data/local/
+
 if true; then
 find -L $corpora -ipath "*LDC*" \( -iname "*sph" -o -name "*.flac" \) -iname "MA_*" > $corpora/audio.txt
 find -L $corpora -ipath "*LDC*" \( -iname "*scr" -o -name "*.xml" -o -iname "*.txt" \) -iname "MA_*">  $corpora/texts.txt
@@ -45,9 +50,9 @@ done
 
 
 for dataset in dev tune test; do
-  cp /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/CU-BOLT-Mandarin-dev14-scoring-20141029/stms/dev-${dataset}.stm data/local/bolt_${dataset}/stm 
+  cp /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/CU-BOLT-Mandarin-dev14-scoring-20141029/stms/dev-${dataset}.stm data/local/${dataset}/stm 
   # local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $target/$dataset
-  cp conf/glm data/local/bolt_${dataset}
+  cp conf/glm data/local/${dataset}
 done
 
 (
