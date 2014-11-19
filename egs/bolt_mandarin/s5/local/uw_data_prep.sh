@@ -4,7 +4,7 @@
 # convert UW data to standard text form for language model training
 
 TRANS_DIR=$1
-mkidr -p $TRANS_DIR
+mkdir -p $TRANS_DIR
 
 echo 'download and decode uw data to utf-8 transcripts'
 wget --no-check-certificate -P $TRANS_DIR \
