@@ -44,7 +44,7 @@ cleantrain_uw=$sdir/train_uw.no_oov
 cleantrain_add=$sdir/train_add.no_oov
 cleanheldout=$sdir/heldout.no_oov
 
-rm $sdir/*.no_oov
+rm -f $sdir/*.no_oov
 echo "Preparing clean LM training data for each corpus as well as clean heldout set"
 echo "Prepare clean LM data for callhome: $cleantrain_callhome ..."
 cut -f 2- -d ' ' $sdir/train_callhome | awk -v lex=$lexicon 'BEGIN{while((getline<lex) >0){ seen[$1]=1; } } 
@@ -85,7 +85,7 @@ echo "Prepare wordlist for lm training: $sdir/wordlist ..."
 cat $lexicon | grep -w -v '!SIL' $lexicon | awk '{print $1}' | \
   cat - <(echo "<s>"; echo "</s>"; echo "<UNK>") | sort -u > $sdir/wordlist || exit 1;
 
-rm $sdir/srilm.*.gz
+rm -f $sdir/srilm.*.gz
 corpus=( callhome hkust hub5 rt04f add uw )
 echo "Train individual LM for each corpus"
 for c in ${corpus[@]} ; do
@@ -99,7 +99,7 @@ echo "prune uw LM ..."
 pr_thres=0.0000005
 ngram -lm $sdir/srilm.uw.o3g.kn.gz -write-lm $sdir/srilm.pr_uw.o3g.kn.gz -prune $pr_thres 
 
-rm $sdir/*.lm.ppl
+rm -f $sdir/*.lm.ppl
 corpus=( callhome hkust hub5 rt04f add uw pr_uw )
 echo "Calculate perplexity of each LM on the heldout set"
 for c in ${corpus[@]} ; do

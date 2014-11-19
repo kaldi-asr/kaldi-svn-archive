@@ -24,26 +24,19 @@ train_dir=data/local/train
 dict_dir=data/local/dict
 
 mkdir -p $dict_dir
-rm -rf data/local/train.old*
-eval utils/combine_data.sh data/local/train.old data/local/train.{$corpora}
-cat data/local/train.new/text | cut -f1 -d'-' | sort -u > conf/new_train.list
-cp -r data/local/train.old data/local/train.old.bk
-grep -v -F -f conf/new_train.list data/local/train.old/text > data/local/train.old/text.tmp
-mv data/local/train.old/text.tmp data/local/train.old/text
-utils/fix_data_dir.sh data/local/train.old
-eval utils/combine_data.sh $train_dir data/local/train.{new,old}
-
 mkdir -p $train_add
+
 gawk 'NR==FNR{utts[$1]; next;} !($1 in utts)' \
   data/local/train.old.bk/text data/local/train.new/text > $train_add/text
 
+echo "prepare all text for lm training ..."
 mkdir -p $train_lm
 cat data/local/train.uw/text $train_dir/text > $train_lm/text
 
-# extract full vocabulary (Containing new text data for LM)
+echo "extract full vocabulary (Containing new text data for LM)"
 cat data/local/train.lm/text | cut -f 2- -d ' '|\
   sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full-alldata.txt
-# extract vocabulary (not including new text data for LM)  
+echo "extract vocabulary (not including new text data for LM)"  
 cat data/local/train/text | cut -f 2- -d ' '|\
   sed -e 's/ /\n/g' | sort -u | grep -v "<.*>"  > $dict_dir/vocab-full.txt
 
@@ -319,7 +312,7 @@ grep -v -F -f $dict_dir/phones_filter.list $dict_dir/lexicon-ch-cmu.txt \
 # find words results in these new introduced phones
 # this word list will be used to filter sentences containing these words 
 # before langauge model training using the new text
-grep -F -f $dict_dir/phones_filter.list $dict_dir/lexicon-ch-cmu.txt |\ 
+grep -F -f $dict_dir/phones_filter.list $dict_dir/lexicon-ch-cmu.txt |\
   awk '{print $1}' | sort -u > $dict_dir/words_filter.txt 
 
 cat $dict_dir/lexicon-en.txt $dict_dir/lexicon-ch-cmu-filtered.txt |\
