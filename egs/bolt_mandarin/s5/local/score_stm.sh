@@ -118,4 +118,3 @@ fi
 
 echo "Finished scoring on" `date`
 exit 0
-BL
