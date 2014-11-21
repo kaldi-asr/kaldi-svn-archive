@@ -61,7 +61,8 @@ SortingProgram=`which hubscr.pl` || SortingProgram=$KALDI_ROOT/tools/sctk/bin/hu
 
 # check if it necessary to install tranfilt
 tranfiltdir=tools/tranfilt-1.14
-if [ ! -d $tranfiltdir || ! -f $tranfiltdir/rfilter1 ] ; then
+if [ ! -d $tranfiltdir ] || [ ! -f $tranfiltdir/rfilter1 ] ; then
+  echo "installing $tranfiltdir"
   cd tools
   tar zxvf tranfilt-1.14.tgz
   cd tranfilt-1.14
@@ -117,4 +118,4 @@ fi
 
 echo "Finished scoring on" `date`
 exit 0
-
+BL
