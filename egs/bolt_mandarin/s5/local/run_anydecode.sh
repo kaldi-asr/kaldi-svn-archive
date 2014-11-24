@@ -5,7 +5,7 @@ set -o pipefail
 . ./path.sh
 . ./conf.sh
 
-# dataset_id should be like: dolt_dev
+# dataset_id should be like: bolt_dev
 dataset_id=$1
 data=data/$dataset_id
 decode_nj=30

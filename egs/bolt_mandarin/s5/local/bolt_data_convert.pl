@@ -228,8 +228,8 @@ while (my $filename=<STDIN>) {
     die "Unknow format (extension) of $audio -- flac or sph expected!"
   }
 
-  print $reco "$rec_id-A ", lc($rec_id), " 1\n";
-  print $reco "$rec_id-B ", lc($rec_id), " 2\n";
+  print $reco "$rec_id-A ", lc($rec_id), " A\n";
+  print $reco "$rec_id-B ", lc($rec_id), " B\n";
 
 
   my $p1 = new XML::Parser(Style => 'Subs');
