@@ -1,5 +1,4 @@
 #!/bin/bash
-#/usr/bin/bash -v 
 
 # Copyright 2012-2014  Johns Hopkins University (Author: Daniel Povey). 
 #           2013  Xiaohui Zhang
@@ -7,7 +6,6 @@
 #           2014  Vimal Manohar
 #           2014  Vijayaditya Peddinti
 # Apache 2.0.
-
 
 # train_pnorm_multisplice.sh is a modified version of train_pnorm_simple.sh.
 # Like train_pnorm_fast.sh, it uses the `online' preconditioning,
@@ -63,10 +61,11 @@ num_hidden_layers=3
 stage=-4
 
 io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time.   These don't
-splice_indexes="layer0/-4:-3:-2:-1:0:1:2:3:4" # meaning +- 4 frames on each side for second LDA
-                                         # Format : layer<hidden_layer>/<frame_indices>....layer<hidden_layer>/<frame_indices> "
-                                         # note: hidden layers which are composed of one or more components,
-                                         # so hidden layer indexing is different from component count
+splice_indexes="layer0/-4:-3:-2:-1:0:1:2:3:4 layer2/-5:-1:3"
+# Format : layer<hidden_layer>/<frame_indices>....layer<hidden_layer>/<frame_indices> "
+# note: hidden layers which are composed of one or more components,
+# so hidden layer indexing is different from component count
+
 randprune=4.0 # speeds up LDA.
 alpha=4.0 # relates to preconditioning.
 update_period=4 # relates to online preconditioning: says how often we update the subspace.
@@ -219,7 +218,7 @@ if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   steps/nnet2/get_egs.sh $egs_opts "${extra_opts[@]}" \
       --samples-per-iter $samples_per_iter \
       --num-jobs-nnet $num_jobs_nnet --stage $get_egs_stage \
-      --cmd "$cmd" $egs_opts --io-opts "$io_opts" \
+      --cmd "$cmd" $egs_opts \
       $data $lang $alidir $dir || exit 1;
 fi
 
@@ -339,22 +338,22 @@ while [ $x -lt $num_iters ]; do
 
       echo "Getting average posterior for purposes of adjusting the priors."
       # Note: this just uses CPUs, using a smallish subset of data.
-      rm $dir/post.*.vec 2>/dev/null
-      $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.JOB.log \
+      rm $dir/post.$x.*.vec 2>/dev/null
+      $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.$x.JOB.log \
         nnet-subset-egs --n=$prior_subset_size ark:$prev_egs_dir/egs.JOB.0.ark ark:- \| \
         nnet-compute-from-egs "nnet-to-raw-nnet $dir/$x.mdl -|" ark:- ark:- \| \
-        matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.JOB.vec || exit 1;
+        matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.$x.JOB.vec || exit 1;
 
-      sleep 3;  # make sure there is time for $dir/post.*.vec to appear.
+      sleep 3;  # make sure there is time for $dir/post.$x.*.vec to appear.
 
-      $cmd $dir/log/vector_sum.log \
-        vector-sum $dir/post.*.vec $dir/post.vec || exit 1;
+      $cmd $dir/log/vector_sum.$x.log \
+        vector-sum $dir/post.$x.*.vec $dir/post.$x.vec || exit 1;
 
-      rm $dir/post.*.vec;
+      rm $dir/post.$x.*.vec;
 
       echo "Re-adjusting priors based on computed posteriors"
       $cmd $dir/log/adjust_priors.$x.log \
-        nnet-adjust-priors $dir/$x.mdl $dir/post.vec $dir/$x.mdl || exit 1;
+        nnet-adjust-priors $dir/$x.mdl $dir/post.$x.vec $dir/$x.mdl || exit 1;
 
       sleep 2
 
@@ -525,22 +524,22 @@ fi
 if [ $stage -le $[$num_iters+1] ]; then
   echo "Getting average posterior for purposes of adjusting the priors."
   # Note: this just uses CPUs, using a smallish subset of data.
-  rm $dir/post.*.vec 2>/dev/null
-  $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.JOB.log \
+  rm $dir/post.$x.*.vec 2>/dev/null
+  $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.$x.JOB.log \
     nnet-subset-egs --n=$prior_subset_size ark:$cur_egs_dir/egs.JOB.0.ark ark:- \| \
     nnet-compute-from-egs "nnet-to-raw-nnet $dir/final.mdl -|" ark:- ark:- \| \
-    matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.JOB.vec || exit 1;
+    matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.$x.JOB.vec || exit 1;
 
-  sleep 3;  # make sure there is time for $dir/post.*.vec to appear.
+  sleep 3;  # make sure there is time for $dir/post.$x.*.vec to appear.
 
-  $cmd $dir/log/vector_sum.log \
-   vector-sum $dir/post.*.vec $dir/post.vec || exit 1;
+  $cmd $dir/log/vector_sum.$x.log \
+    vector-sum $dir/post.$x.*.vec $dir/post.$x.vec || exit 1;
 
-  rm $dir/post.*.vec;
+  rm $dir/post.$x.*.vec;
 
   echo "Re-adjusting priors based on computed posteriors"
   $cmd $dir/log/adjust_priors.final.log \
-    nnet-adjust-priors $dir/final.mdl $dir/post.vec $dir/final.mdl || exit 1;
+    nnet-adjust-priors $dir/final.mdl $dir/post.$x.vec $dir/final.mdl || exit 1;
 fi
 
 
