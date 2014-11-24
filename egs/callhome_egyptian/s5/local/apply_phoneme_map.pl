@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use diagnostics;
 
 use Data::Dumper;
 open(MAP, $ARGV[0]) or die "Cannot open the char map: $!";
@@ -22,10 +23,17 @@ while ( my $line=<STDIN> ) {
   #print STDERR $line;
   chomp $line;
   (my $phone, my $pron_str) = split " ", $line, 2;
+  if ( not defined($pron_str)  ) {
+    die "Cannot parse \"$line\"\n";
+  }
+
   my @pron = split " ", $pron_str;
   my @out_prons = ("") ;
   foreach $phone (@pron) {
     #print STDERR Dumper(\@out_prons, \@pron, $pron_str);
+    if (not defined($MAPPING{$phone})) {
+      die "Undefined phoneme \"$phone\"\n";
+    }
     my @replacements = @{$MAPPING{$phone}};
     my @tmp;
     foreach my $repl (@replacements) {
