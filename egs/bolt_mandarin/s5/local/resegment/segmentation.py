@@ -1106,7 +1106,7 @@ class JointResegmenter:
     for start, end in segments:
       if self.original_segments != None:
         if self.file_id not in self.original_segments:
-          sys.stderr.write ("Utterance id %s not found in original segments file\n");
+          sys.stderr.write ("Utterance id %s not found in original segments file\n" % self.file_id);
           sys.exit(1)
         (file_id,orig_start,orig_end) = self.original_segments[self.file_id]
         start = int(orig_start / self.frame_shift) + start
