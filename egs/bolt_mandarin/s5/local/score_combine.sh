@@ -131,7 +131,7 @@ if [ $stage -le 0 ]; then
     lattice-to-ctm-conf --decode-mbr=true ark:- - \| \
     utils/int2sym.pl -f 5 $lang/words.txt  \| \
     tee $dir/score_LMWT/${ctm_name}.utt.ctm \| \
-    utils/convert_ctm.pl $data/segments $data/reco2file_and_channel \
+    local/convert_ctm.pl $data/segments $data/reco2file_and_channel \
     '>' $dir/score_LMWT/${ctm_name}.ctm || exit 1;
 fi
 
