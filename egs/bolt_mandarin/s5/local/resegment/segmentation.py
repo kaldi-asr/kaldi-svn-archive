@@ -1109,6 +1109,11 @@ class JointResegmenter:
           sys.stderr.write ("Utterance id %s not found in original segments file\n" % self.file_id);
           sys.exit(1)
         (file_id,orig_start,orig_end) = self.original_segments[self.file_id]
+        splits = self.file_id.split('-')
+        if (len(splits) < 2):
+          sys.stderr.write ("Unable to parse file_id out of utterance id %s. Expected utterance id to be of the form <id>-<speaker_id>-<...>\n" % self.file_id);
+          sys.exit(1)
+        file_id = '-'.join(splits[0:2])
         start = int(orig_start / self.frame_shift) + start
         end = int(orig_start / self.frame_shift) + end
         assert( end <= int(orig_end / self.frame_shift) )
@@ -1121,7 +1126,11 @@ class JointResegmenter:
       end_str = format_str % (end * self.frame_shift * 100.0)
       utterance_id = "%s%s%s%s%s" % (file_id, self.options.first_separator, start_str, self.options.second_separator, end_str)
       # Output:
-      out_file_handle.write("%s %s %s %s\n" % (utterance_id, file_id, start_seconds, end_seconds))
+      if self.original_segments != None:
+        (reco_id,orig_start,orig_end) = self.original_segments[self.file_id]
+      else:
+        reco_id = file_id
+      out_file_handle.write("%s %s %s %s\n" % (utterance_id, reco_id, start_seconds, end_seconds))
 
   # Some intermediate stage analysis of the segmentation
   def segmentation_analysis(self, title = "Analysis"):
