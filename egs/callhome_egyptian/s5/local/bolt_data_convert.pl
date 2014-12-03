@@ -32,6 +32,7 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 
+my $EMPTY_TRANS = 0;
 my $NUMERIC_CHANNEL = 0;
 
 my %PARAMS;
@@ -40,14 +41,16 @@ my $SEQ=0;
 my $ERR=0;
 my $REC_ID;
 my $UTT_ID;
+my $FILE_ID;
 
 my $TEXT;
 my $UTT2SPK;
 my $SEGMENTS;
 my $total_seconds=0.0;
+my $filename;
 
-
-GetOptions("numeric-channel-id" => \$NUMERIC_CHANNEL);
+GetOptions("numeric-channel-id" => \$NUMERIC_CHANNEL,
+           "empty-transcriptions" => \$EMPTY_TRANS);
 
 sub conversation {
   $CONVERSTATIONID=$_[3];
@@ -119,10 +122,15 @@ sub char_handler
 sub printout {
   my $begin=sprintf("%.2f",$PARAMS{'begin'}); 
   my $end=sprintf("%.2f",$PARAMS{'end'}); 
+  my $ref_channel=$PARAMS{'channel'};
   my $id=$PARAMS{'id'};
   my $utterance=$PARAMS{'text'};
 
-  return if (($end - $begin) * 100 le 1);
+  if (($end - $begin) * 100 le 1) {
+    print STDERR "Segment $id is too short: begin=$begin end=$end\n";
+    $SEQ=$id;
+    return;
+  }
 
   $utterance=~ s/  */ /g;
   $utterance=~ s/^\s+|\s+$//g;
@@ -133,11 +141,16 @@ sub printout {
   my $chan_id=$spk_id;
   $chan_id=~s/^([AB]).*/$1/;
 
+  if ((($chan_id eq "A" ) and ( $ref_channel ne "0" )) || 
+      (($chan_id eq "B" ) and ( $ref_channel ne "1" )) ) {
+    print STDERR "Speaker $spk_id found on a different channel: $ref_channel\n";
+  }
+
   my $utt_id=sprintf "%s-%s-%06.0f-%06.0f", $REC_ID, $spk_id, 100*$begin, 100*$end;
   print $TEXT "$utt_id ";
   print $TEXT "$utterance\n";
 
-  if ( ! $PARAMS{'text'} ) {
+  if (( ! $PARAMS{'text'} ) && (not $EMPTY_TRANS)) {
     print STDERR "Empty text for conversation $CONVERSTATIONID-$id\n";
     $ERR+=1;
   }
@@ -146,10 +159,9 @@ sub printout {
     $ERR+=1;
   }
   $SEQ=$id;
-  
   $total_seconds+=$end - $begin;
   print $UTT2SPK "$utt_id $REC_ID-$spk_id\n";
-  print $SEGMENTS "$utt_id $REC_ID-$chan_id $begin $end\n";
+  print $SEGMENTS "$utt_id $FILE_ID-$chan_id $begin $end\n";
 }
 
 if ( @ARGV != 2 ) {
@@ -181,11 +193,11 @@ while(my $line=<$sph>) {
   $rec_id=~ s/\.flac//i;
   $rec_id=uc($rec_id);
 
-  if (exists $UTT2SPH{$rec_id} ) {
+  if( (exists $UTT2SPH{$rec_id} ) && ($UTT2SPH{$rec_id} ne $line) ){
     print STDERR "The utterance id $rec_id maps to multiple audio files:\n";
     print STDERR ">>file A: $line\n";
     print STDERR ">>file B: $UTT2SPH{$rec_id}\n";
-    die "Will not continue...";
+    #die "Will not continue...";
   }
   $UTT2SPH{$rec_id}=$line;
 }
@@ -211,27 +223,32 @@ my $sox=`which sox`
   or die "Could not find the sox binary on PATH: $!";
 chomp $sox;
 
-while (my $filename=<STDIN>) {
+while ($filename=<STDIN>) {
   print $filename;
   chomp $filename;
 
   my $rec_id=`basename $filename`;
   chomp $rec_id;
-  $rec_id=~ s/\..*$//i;
+  #$rec_id=~ s/\..*$//i;
+  $rec_id=~ s/\.eng.su.xml$//i;
   my $file_id= $rec_id;
   $rec_id=uc($rec_id);
   $REC_ID=$rec_id;
+  $rec_id=~s/\..*$//g;
+  $FILE_ID=$rec_id;
   
-  die "Could not remap the utterance id x${rec_id}x into audio recording filename\n"
+  die "Could not remap the utterance id \"${rec_id}\" into audio recording filename\n"
     unless exists $UTT2SPH{$rec_id};
   my $audio=$UTT2SPH{$rec_id};
 
+  my $abspath=`readlink -f  $audio`;
+  chomp $abspath;
   if ( $audio =~ /.*\.flac$/i ) {
-    print $wav "$rec_id-A $sox " . $UTT2SPH{$rec_id} . " -r 8000 -c 1 -t wav - remix 1|\n";
-    print $wav "$rec_id-B $sox " . $UTT2SPH{$rec_id} . " -r 8000 -c 1 -t wav - remix 2|\n";
+    print $wav "$rec_id-A $sox $abspath  -r 8000 -c 1 -t wav - remix 1|\n";
+    print $wav "$rec_id-B $sox $abspath  -r 8000 -c 1 -t wav - remix 2|\n";
   } elsif ( $audio =~ /.*\.sph$/i ) { 
-    print $wav "$rec_id-A $sph2pipe -f wav -p -c 1 " . $UTT2SPH{$rec_id} . "|\n";
-    print $wav "$rec_id-B $sph2pipe -f wav -p -c 2 " . $UTT2SPH{$rec_id} . "|\n";
+    print $wav "$rec_id-A $sph2pipe -f wav -p -c 1 $abspath|\n";
+    print $wav "$rec_id-B $sph2pipe -f wav -p -c 2 $abspath|\n";
   } else {
     die "Unknow format (extension) of $audio -- flac or sph expected!"
   }
@@ -243,7 +260,6 @@ while (my $filename=<STDIN>) {
     print $reco "$rec_id-A $file_id A\n";
     print $reco "$rec_id-B $file_id B\n";
   }
-
   my $p1 = new XML::Parser(Style => 'Subs');
   $p1->setHandlers(Char => \&char_handler);
   my $x=$p1->parsefile($filename);

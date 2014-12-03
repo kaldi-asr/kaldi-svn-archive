@@ -8,8 +8,8 @@ for x in "$@"; do orig_args="$orig_args '$x'"; done
 # score_basic.sh might need, or parse_options.sh will die.
 cmd=run.pl
 stage=0
-min_lmwt=9
-max_lmwt=20
+min_lmwt=7
+max_lmwt=17
 #end configuration section.
 
 [ -f ./path.sh ] && . ./path.sh
@@ -29,16 +29,19 @@ data=$1
 graph=$2
 decode=$3
 
+if [ $stage -le 0 ] ; then
+  eval local/lattice_to_ctm.sh $orig_args
+fi
+
 if [ -f $data/stm ]; then # use sclite scoring.
   echo "$data/stm exists: using local/score_sclite.sh"
 
   [ -f $data/glm ] && glm=" --glm $data/glm "
-  eval local/lattice_to_ctm.sh $orig_args
   eval local/score_stm.sh --cer 1 $glm  $orig_args
   
-  if [ -f $data/stm.utf8.sorted ] ; then
+  if [ -f $data/stm.utf8 ] ; then
     for seqid in `seq $min_lmwt $max_lmwt` ; do
-      ./IBM/scoring/score.py  $decode/score_$seqid/`basename $data`.ctm $data/stm.utf8.sorted
+      ./IBM/scoring/score.py  $decode/score_$seqid/`basename $data`.ctm $data/stm.utf8 > $decode/log/ibm.$seqid.log
     done
   fi
 

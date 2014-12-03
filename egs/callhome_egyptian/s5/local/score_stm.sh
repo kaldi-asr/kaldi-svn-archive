@@ -87,8 +87,9 @@ if [ $stage -le 0 ]; then
     cp $x $x.bkup1;
     cat $x.bkup1 |  \
       grep -v "(*%[a-zA-Z]*)*"  |\
-      grep -v "[^ ]*-_bw" \
-    > $x;
+      grep -v "[^ ]*-_bw" |\
+      grep -v "[^ ]*-_en" \
+   |sort +0 -1 +1 -2 +2nb -3 > $x;
   done
 fi
 

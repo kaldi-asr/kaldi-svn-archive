@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Author : Gaurav Kumar, Johns Hopkins University 
+# Author : Gaurav Kumar, Jan Trmal (Johns Hopkins University)
 # Creates n-best lists from Kaldi lattices
 # This script needs to be run from one level above this directory
 
@@ -77,22 +77,33 @@ if [ $stage -le 2 ]; then
     gzip -c \> $out/JOB.ref.gz || exit 1
   echo "Done"
 fi
-
+      
+#hubscr.pl sortSTM \| \
 if [ $stage -le 3 ]; then
-  $cmd JOB=$min_lmwt:$max_lmwt $out/log/makeref.JOB.log \
+  $cmd JOB=$min_lmwt:$max_lmwt $out/log/apply_glm.text.JOB.log \
     gunzip -c $out/JOB.text.gz  \|\
       IBM/training/mbw2utf.pl \|\
       sed 's/_en / /g' \|\
-      perl -ane 'print "$F[0] 1 A  0.0 1.0 " . join(" ", @F[1...$#F]) . "\n";' | \
-      hubscr.pl sortSTM \| \
+      perl -ane 'print "$F[0] 1 A  0.0 1.0 " . join(" ", @F[1...$#F]) . "\n";' \| \
       hamzaNorm.pl -i stm -- - - \| \
       tanweenFilt.pl -a -i stm -- - - \| \
-      csrfilt.sh -s -i stm -t hyp  IBM/scoring/ar2009.glm \|\
+      csrfilt.sh -s -i stm -t hyp IBM/scoring/ar2009.utf8.glm \|\
       cut -f 1,6- -d ' ' \|\
       gzip -c - \> $out/JOB.text.filt.gz
 fi
 
+#hubscr.pl sortSTM \| \
 if [ $stage -le 4 ]; then
+  $cmd JOB=$min_lmwt:$max_lmwt $out/log/apply_glm.ref.JOB.log \
+    gunzip -c $out/JOB.ref.gz  \|\
+      IBM/training/mbw2utf.pl \|\
+      sed 's/_en / /g' \|\
+      perl -ane 'print "$F[0] 1 A  0.0 1.0 " . join(" ", @F[1...$#F]) . "\n";' \| \
+      hamzaNorm.pl -i stm -- - - \| \
+      tanweenFilt.pl -a -i stm -- - - \| \
+      csrfilt.sh -s -i stm -t ref  IBM/scoring/ar2009.utf8.glm \|\
+      cut -f 1,6- -d ' ' \|\
+      gzip -c - \> $out/JOB.ref.filt.gz
 fi
 exit 0;
 
