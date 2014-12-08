@@ -1,14 +1,20 @@
 #!/bin/bash
 
+# Copyright 2014 Xiaohui Zhang, Jan Trmal
+# Apache 2.0
+
 . ./path.sh
 
 set -e 
 set -o pipefail
 
-# corpora=/export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/corpora/
 corpora=./corpora
 mkdir -p $corpora
-ln -s /export/a12/xzhang/kaldi-bolt/egs/bolt/20141103/corpora/LDC* $corpora
+
+for dir in `cat conf/list.train | cut -f1 -d' '`; do
+echo $dir
+for i in $(find -L /export/corpora/LDC/$dir -iname "ma_*" | grep "`cat conf/list.train | grep $dir | cut -f2 -d' '`");do ln -s $i corpora/$dir; done;
+done
 
 target=./data/local/
 
@@ -23,6 +29,7 @@ grep -i -F -f conf/list.tune corpora/map.txt > $corpora/map.tune.txt
 grep -i -F -f conf/list.test corpora/map.txt > $corpora/map.test.txt
 grep -i -v -F -f <(cat conf/list.dev conf/list.tune conf/list.test) $corpora/map.txt > $corpora/map.train.txt
 fi
+
 mkdir -p $target
 for dataset in dev tune test train ; do
   output=$target/$dataset.xml
