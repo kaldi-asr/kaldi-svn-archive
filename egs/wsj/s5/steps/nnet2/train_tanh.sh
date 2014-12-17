@@ -37,7 +37,6 @@ samples_per_iter=200000 # each iteration of training, see this many samples
 num_jobs_nnet=16   # Number of neural net jobs to run in parallel.  This option
                    # is passed to get_egs.sh.
 get_egs_stage=0
-spk_vecs_dir=
 
 shuffle_buffer_size=5000 # This "buffer_size" variable controls randomization of the samples
                 # on each iter.  You could set it to 0 or to a large value for complete
@@ -67,6 +66,9 @@ egs_dir=
 lda_opts=
 egs_opts=
 transform_dir=
+cmvn_opts=  # will be passed to get_lda.sh and get_egs.sh, if supplied.  
+            # only relevant for "raw" features, not lda.
+feat_type=  # can be used to force "raw" feature type.
 prior_subset_size=10000 # 10k samples per job, for computing priors.  Should be
                         # more than enough.
 # End configuration section.
@@ -145,17 +147,19 @@ sdata=$data/split$nj
 utils/split_data.sh $data $nj
 
 mkdir -p $dir/log
-splice_opts=`cat $alidir/splice_opts 2>/dev/null`
-cp $alidir/splice_opts $dir 2>/dev/null
-cp $alidir/cmvn_opts $dir 2>/dev/null
 cp $alidir/tree $dir
 
-
+extra_opts=()
+[ ! -z "$cmvn_opts" ] && extra_opts+=(--cmvn-opts "$cmvn_opts")
+[ ! -z "$feat_type" ] && extra_opts+=(--feat-type $feat_type)
+[ ! -z "$online_ivector_dir" ] && extra_opts+=(--online-ivector-dir $online_ivector_dir)
 [ -z "$transform_dir" ] && transform_dir=$alidir
+extra_opts+=(--transform-dir $transform_dir)
+extra_opts+=(--splice-width $splice_width)
 
 if [ $stage -le -4 ]; then
   echo "$0: calling get_lda.sh"
-  steps/nnet2/get_lda.sh $lda_opts --transform-dir $transform_dir --splice-width $splice_width --cmd "$cmd" $data $lang $alidir $dir || exit 1;
+  steps/nnet2/get_lda.sh $lda_opts "${extra_opts[@]}" --cmd "$cmd" $data $lang $alidir $dir || exit 1;
 fi
 
 # these files will have been written by get_lda.sh
@@ -164,9 +168,9 @@ lda_dim=`cat $dir/lda_dim` || exit 1;
 
 if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   echo "$0: calling get_egs.sh"
-  [ ! -z $spk_vecs_dir ] && spk_vecs_opt="--spk-vecs-dir $spk_vecs_dir";
-  steps/nnet2/get_egs.sh $spk_vecs_opt --transform-dir $transform_dir --samples-per-iter $samples_per_iter \
-      --num-jobs-nnet $num_jobs_nnet --splice-width $splice_width --stage $get_egs_stage \
+  steps/nnet2/get_egs.sh $egs_opts "${extra_opts[@]}" \
+      --samples-per-iter $samples_per_iter \
+      --num-jobs-nnet $num_jobs_nnet --stage $get_egs_stage \
       --cmd "$cmd" $egs_opts --io-opts "$io_opts" \
       $data $lang $alidir $dir || exit 1;
 fi
@@ -189,24 +193,13 @@ fi
 if [ $stage -le -2 ]; then
   echo "$0: initializing neural net";
 
-  # Get spk-vec dim (in case we're using them).
-  if [ ! -z "$spk_vecs_dir" ]; then
-    spk_vec_dim=$[$(copy-vector --print-args=false "ark:cat $spk_vecs_dir/vecs.1|" ark,t:- | head -n 1 | wc -w) - 3];
-    ! [ $spk_vec_dim -gt 0 ] && echo "Error getting spk-vec dim" && exit 1;
-    ext_lda_dim=$[$lda_dim + $spk_vec_dim]
-    extend-transform-dim --new-dimension=$ext_lda_dim $dir/lda.mat $dir/lda_ext.mat || exit 1;
-    lda_mat=$dir/lda_ext.mat
-    ext_feat_dim=$[$feat_dim + $spk_vec_dim]
-  else
-    spk_vec_dim=0
-    lda_mat=$dir/lda.mat
-    ext_lda_dim=$lda_dim
-    ext_feat_dim=$feat_dim
-  fi
+  lda_mat=$dir/lda.mat
+  ext_lda_dim=$lda_dim
+  ext_feat_dim=$feat_dim
 
   stddev=`perl -e "print 1.0/sqrt($hidden_layer_dim);"`
   cat >$dir/nnet.config <<EOF
-SpliceComponent input-dim=$ext_feat_dim left-context=$splice_width right-context=$splice_width const-component-dim=$spk_vec_dim
+SpliceComponent input-dim=$ext_feat_dim left-context=$splice_width right-context=$splice_width
 FixedAffineComponent matrix=$lda_mat
 AffineComponentPreconditioned input-dim=$ext_lda_dim output-dim=$hidden_layer_dim alpha=$alpha max-change=$max_change learning-rate=$initial_learning_rate param-stddev=$stddev bias-stddev=$bias_stddev
 TanhComponent dim=$hidden_layer_dim

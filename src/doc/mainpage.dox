@@ -33,7 +33,8 @@
    Please see the \ref install_warning "instructions" on upgrading your repository to the
    new location, following our upgrade to the "new" Sourceforge.
 
-   (see also Kaldi's <a href=http://sourceforge.net/projects/kaldi/> project page on Sourceforge </a>)
+   (see also Kaldi's <a href=http://sourceforge.net/projects/kaldi/> project page on Sourceforge </a>,
+    and <a href=http://kaldi-asr.org>kaldi-asr.org</a>  where you can download pre-built models.
 
   <p>
    - \subpage about 
@@ -66,14 +67,13 @@
    - \subpage fst_algo 
    - \subpage decoders 
    - \subpage lattices
-   - \subpage feat
    - \subpage model
-   - \subpage transform
    - \subpage feat
+   - \subpage transform
    - \subpage dnn
      - \ref dnn1
      - \ref dnn2
-   - \subpage online_programs
+   - \subpage online_decoding
    - \subpage kws
    - \subpage tools
 

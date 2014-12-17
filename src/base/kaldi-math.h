@@ -90,7 +90,7 @@ int Rand(struct RandomState* state=NULL);
 
 // State for thread-safe random number generator
 struct RandomState {
-  RandomState() {  seed = Rand(); }
+  RandomState();
   unsigned seed;
 };
 
@@ -222,35 +222,24 @@ inline float LogSub(float x, float y) {
   return res;
 }
 
-// return (a == b)
+/// return abs(a - b) <= relative_tolerance * (abs(a)+abs(b)).
 static inline bool ApproxEqual(float a, float b,
                                float relative_tolerance = 0.001) {
   // a==b handles infinities.
   if (a==b) return true;
   float diff = std::abs(a-b);
   if (diff == std::numeric_limits<float>::infinity()
-      || diff!=diff) return false; // diff is +inf or nan.
+      || diff != diff) return false; // diff is +inf or nan.
   return (diff <= relative_tolerance*(std::abs(a)+std::abs(b))); 
 }
 
-// assert (a == b)
+/// assert abs(a - b) <= relative_tolerance * (abs(a)+abs(b))
 static inline void AssertEqual(float a, float b,
                                float relative_tolerance = 0.001) {
   // a==b handles infinities.
   KALDI_ASSERT(ApproxEqual(a, b, relative_tolerance));
 }
 
-// assert (a>=b)
-static inline void AssertGeq(float a, float b,
-                             float relative_tolerance = 0.001) {
-  KALDI_ASSERT(a-b >= -relative_tolerance * (std::abs(a)+std::abs(b)));
-}
-
-// assert (a<=b)
-static inline void AssertLeq(float a, float b,
-                             float relative_tolerance = 0.001) {
-  KALDI_ASSERT(a-b <= -relative_tolerance * (std::abs(a)+std::abs(b)));
-}
 
 // RoundUpToNearestPowerOfTwo does the obvious thing. It crashes if n <= 0.
 int32 RoundUpToNearestPowerOfTwo(int32 n);
@@ -273,6 +262,15 @@ template<class I> I  Gcd(I m, I n) {
     if (n == 0) return (m > 0 ? m : -m);
   }
 }
+
+/// Returns the least common multiple of two integers.  Will
+/// crash unless the inputs are positive.
+template<class I> I  Lcm(I m, I n) {
+  KALDI_ASSERT(m > 0 && n > 0);
+  I gcd = Gcd(m, n);
+  return gcd * (m/gcd) * (n/gcd);
+}
+
 
 template<class I> void Factorize(I m, std::vector<I> *factors) {
   // Splits a number into its prime factors, in sorted order from
@@ -307,13 +305,35 @@ inline double Hypot(double x, double y) {  return hypot(x, y); }
 
 inline float Hypot(float x, float y) {  return hypotf(x, y); }
 
+#if !defined(_MSC_VER) || (_MSC_VER >= 1800)
 inline double Log1p(double x) {  return log1p(x); }
 
 inline float Log1p(float x) {  return log1pf(x); }
+#else
+inline double Log1p(double x) {
+    const double cutoff = 1.0e-08;
+    if (x < cutoff)
+        return x - 2 * x * x;
+    else 
+        return log(1.0 + x);
+}
+
+inline float Log1p(float x) {
+    const float cutoff = 1.0e-07;
+    if (x < cutoff)
+        return x - 2 * x * x;
+    else 
+        return log(1.0 + x);
+}
+#endif
 
 inline double Exp(double x) { return exp(x); }
 
+#ifndef KALDI_NO_EXPF
 inline float Exp(float x) { return expf(x); }
+#else
+inline float Exp(float x) { return exp(x); }
+#endif
 
 inline double Log(double x) { return log(x); }
 

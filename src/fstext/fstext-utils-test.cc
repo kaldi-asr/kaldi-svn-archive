@@ -143,7 +143,11 @@ template<class Arc>  void TestSafeDeterminizeWrapper() {  // also tests SafeDete
 
   std::cout <<" printing before trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   // Trim resulting FST.
@@ -151,7 +155,11 @@ template<class Arc>  void TestSafeDeterminizeWrapper() {  // also tests SafeDete
 
   std::cout <<" printing after trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -172,7 +180,7 @@ template<class Arc>  void TestSafeDeterminizeWrapper() {  // also tests SafeDete
 
     // no because does shortest-dist on weights even if not pushing on them.
     // PushInLog<REWEIGHT_TO_INITIAL>(fst_det, kPushLabels);  // will always succeed.
-	KALDI_LOG << "Num states [orig]: " << fst->NumStates() << "[det]" << fst_det->NumStates();
+    KALDI_LOG << "Num states [orig]: " << fst->NumStates() << "[det]" << fst_det->NumStates();
     assert(RandEquivalent(*fst, *fst_det, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
   }
   delete fst;
@@ -366,7 +374,11 @@ void TestEqualAlign() {
 
 template<class Arc> void Print(const Fst<Arc> &fst, std::string message) {
   std::cout << message << "\n";
+#ifdef HAVE_OPENFST_GE_10400
+  FstPrinter<Arc> fstprinter(fst, NULL, NULL, NULL, false, true, "\t");
+#else
   FstPrinter<Arc> fstprinter(fst, NULL, NULL, NULL, false, true);
+#endif
   fstprinter.Print(&std::cout, "standard output");
 }
 

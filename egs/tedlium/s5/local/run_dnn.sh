@@ -73,10 +73,8 @@ if [ $stage -le 2 ]; then
     $data_fmllr/train_tr90 $data_fmllr/train_cv10 data/lang $ali $ali $dir || exit 1;
   # Decode (reuse HCLG graph)
   steps/nnet/decode.sh --nj $decode_nj --cmd "$decode_cmd" --config conf/decode_dnn.config --acwt 0.1 \
-    --num-threads 3 --parallel-opts "-pe smp 4" \
     $gmmdir/graph $data_fmllr/dev $dir/decode_dev || exit 1;
   steps/nnet/decode.sh --nj $decode_nj --cmd "$decode_cmd" --config conf/decode_dnn.config --acwt 0.1 \
-    --num-threads 3 --parallel-opts "-pe smp 4" \
     $gmmdir/graph $data_fmllr/test $dir/decode_test || exit 1;
 fi
 
@@ -103,11 +101,9 @@ if [ $stage -le 4 ]; then
   # Decode (reuse HCLG graph)
   for ITER in 1; do
     steps/nnet/decode.sh --nj $decode_nj --cmd "$decode_cmd" --config conf/decode_dnn.config \
-      --num-threads 3 --parallel-opts "-pe smp 4" \
       --nnet $dir/${ITER}.nnet --acwt $acwt \
       $gmmdir/graph $data_fmllr/dev $dir/decode_dev || exit 1;
     steps/nnet/decode.sh --nj $decode_nj --cmd "$decode_cmd" --config conf/decode_dnn.config \
-      --num-threads 3 --parallel-opts "-pe smp 4" \
       --nnet $dir/${ITER}.nnet --acwt $acwt \
       $gmmdir/graph $data_fmllr/test $dir/decode_test || exit 1;
   done 
@@ -133,13 +129,11 @@ if [ $stage -le 6 ]; then
   # Decode (reuse HCLG graph)
   for ITER in 1 2 3 4; do
     steps/nnet/decode.sh --nj $decode_nj --cmd "$decode_cmd" --config conf/decode_dnn.config \
-      --num-threads 3 --parallel-opts "-pe smp 4" \
       --nnet $dir/${ITER}.nnet --acwt $acwt \
-      $gmmdir/graph $data_fmllr/dev $dir/decode_dev || exit 1;
+      $gmmdir/graph $data_fmllr/dev $dir/decode_dev_it$ITER || exit 1;
     steps/nnet/decode.sh --nj $decode_nj --cmd "$decode_cmd" --config conf/decode_dnn.config \
-      --num-threads 3 --parallel-opts "-pe smp 4" \
       --nnet $dir/${ITER}.nnet --acwt $acwt \
-      $gmmdir/graph $data_fmllr/test $dir/decode_test || exit 1;
+      $gmmdir/graph $data_fmllr/test $dir/decode_test_it$ITER || exit 1;
   done 
 fi
 

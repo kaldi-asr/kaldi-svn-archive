@@ -21,7 +21,7 @@
 #include "nnet/nnet-randomizer.h"
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
-#include "util/timer.h"
+#include "base/timer.h"
 #include "cudamatrix/cu-device.h"
 
 int main(int argc, char *argv[]) {
@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
 #endif
       // fill the randomizer
       for ( ; !feature_reader.Done(); feature_reader.Next()) {
+        if (feature_randomizer.IsFull()) break; // suspend, keep utt for next loop
         std::string utt = feature_reader.Key();
         KALDI_VLOG(3) << "Reading " << utt;
         // check that we have targets
@@ -199,8 +200,6 @@ int main(int argc, char *argv[]) {
         targets_randomizer.AddData(targets);
         weights_randomizer.AddData(weights);
         num_done++;
-        // end when randomizer full
-        if (feature_randomizer.IsFull()) break;
       
         // report the speed
         if (num_done % 5000 == 0) {

@@ -21,8 +21,13 @@ num_jobs_nnet=16    # Number of neural net jobs to run in parallel
 stage=0
 io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time. 
 splice_width=4 # meaning +- 4 frames on each side for second LDA
-spk_vecs_dir=
+left_context=
+right_context=
 random_copy=false
+online_ivector_dir=
+ivector_randomize_prob=0.0 # if >0.0, randomizes iVectors during training with
+                           # this prob per iVector.
+cmvn_opts=  # can be used for specifying CMVN options, if feature type is not lda.
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -46,7 +51,8 @@ if [ $# != 4 ]; then
   echo "  --feat-type <lda|raw>                            # (by default it tries to guess).  The feature type you want"
   echo "                                                   # to use as input to the neural net."
   echo "  --splice-width <width;4>                         # Number of frames on each side to append for feature input"
-  echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
+  echo "  --left-context <width;4>                         # Number of frames on left side to append for feature input, overrides splice-width"
+  echo "  --right-context <width;4>                        # Number of frames on right side to append for feature input, overrides splice-width"
   echo "  --num-frames-diagnostic <#frames;4000>           # Number of frames used in computing (train,valid) diagnostics"
   echo "  --num-valid-frames-combine <#frames;10000>       # Number of frames used in getting combination weights at the"
   echo "                                                   # very end."
@@ -57,23 +63,25 @@ if [ $# != 4 ]; then
 fi
 
 data=$1
-lang=$2
+lang=$2  # kept for historical reasons, but never used.
 alidir=$3
 dir=$4
 
+[ -z "$left_context" ] && left_context=$splice_width
+[ -z "$right_context" ] && right_context=$splice_width
+
+
 # Check some files.
-for f in $data/feats.scp $lang/L.fst $alidir/ali.1.gz $alidir/final.mdl $alidir/tree; do
+[ ! -z "$online_ivector_dir" ] && \
+  extra_files="$online_ivector_dir/ivector_online.scp $online_ivector_dir/ivector_period"
+
+for f in $data/feats.scp $lang/L.fst $alidir/ali.1.gz $alidir/final.mdl $alidir/tree $extra_files; do
   [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
 done
 
 
-# Set some variables.
-oov=`cat $lang/oov.int`
-num_leaves=`gmm-info $alidir/final.mdl 2>/dev/null | awk '/number of pdfs/{print $NF}'` || exit 1;
-silphonelist=`cat $lang/phones/silence.csl` || exit 1;
-
 nj=`cat $alidir/num_jobs` || exit 1;  # number of jobs in alignment dir...
-# in this dir we'll have just one job.
+
 sdata=$data/split$nj
 utils/split_data.sh $data $nj
 
@@ -97,11 +105,9 @@ if [ -f $data/utt2uniq ]; then
 fi
 
 awk '{print $1}' $data/utt2spk | utils/filter_scp.pl --exclude $dir/valid_uttlist | \
-     head -$num_utts_subset > $dir/train_subset_uttlist || exit 1;
+   utils/shuffle_list.pl | head -$num_utts_subset > $dir/train_subset_uttlist || exit 1;
 
 [ -z "$transform_dir" ] && transform_dir=$alidir
-cmvn_opts=`cat $alidir/cmvn_opts 2>/dev/null`
-cp $alidir/cmvn_opts $dir 2>/dev/null
 
 ## Set up features. 
 if [ -z $feat_type ]; then
@@ -113,14 +119,17 @@ case $feat_type in
   raw) feats="ark,s,cs:utils/filter_scp.pl --exclude $dir/valid_uttlist $sdata/JOB/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:- ark:- |"
     valid_feats="ark,s,cs:utils/filter_scp.pl $dir/valid_uttlist $data/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:- ark:- |"
     train_subset_feats="ark,s,cs:utils/filter_scp.pl $dir/train_subset_uttlist $data/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:- ark:- |"
+    echo $cmvn_opts >$dir/cmvn_opts
    ;;
   lda) 
     splice_opts=`cat $alidir/splice_opts 2>/dev/null`
-    cp $alidir/splice_opts $dir 2>/dev/null
-    cp $alidir/final.mat $dir    
+    cp $alidir/{splice_opts,cmvn_opts,final.mat} $dir || exit 1;
+    [ ! -z "$cmvn_opts" ] && \
+       echo "You cannot supply --cmvn-opts option if feature type is LDA." && exit 1;
+    cmvn_opts=$(cat $dir/cmvn_opts)
     feats="ark,s,cs:utils/filter_scp.pl --exclude $dir/valid_uttlist $sdata/JOB/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:- ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
-      valid_feats="ark,s,cs:utils/filter_scp.pl $dir/valid_uttlist $data/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:- ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
-      train_subset_feats="ark,s,cs:utils/filter_scp.pl $dir/train_subset_uttlist $data/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:- ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+    valid_feats="ark,s,cs:utils/filter_scp.pl $dir/valid_uttlist $data/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:- ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+    train_subset_feats="ark,s,cs:utils/filter_scp.pl $dir/train_subset_uttlist $data/feats.scp | apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:- ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
     ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
 esac
@@ -136,6 +145,15 @@ if [ -f $transform_dir/raw_trans.1 ] && [ $feat_type == "raw" ]; then
   feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$transform_dir/raw_trans.JOB ark:- ark:- |"
   valid_feats="$valid_feats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $transform_dir/raw_trans.*|' ark:- ark:- |"
   train_subset_feats="$train_subset_feats transform-feats --utt2spk=ark:$data/utt2spk 'ark:cat $transform_dir/raw_trans.*|' ark:- ark:- |"
+fi
+if [ ! -z "$online_ivector_dir" ]; then
+  feats_one="$(echo "$feats" | sed s:JOB:1:g)"
+  ivector_dim=$(feat-to-dim scp:$online_ivector_dir/ivector_online.scp -) || exit 1;
+  ivectors_opt="--const-feat-dim=$ivector_dim"
+  ivector_period=$(cat $online_ivector_dir/ivector_period) || exit 1;
+  feats="$feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $sdata/JOB/utt2spk $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- | ivector-randomize --randomize-prob=$ivector_randomize_prob ark:- ark:- |' ark:- |"
+  valid_feats="$valid_feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $dir/valid_uttlist $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- | ivector-randomize --randomize-prob=$ivector_randomize_prob ark:- ark:- |' ark:- |"
+  train_subset_feats="$train_subset_feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $dir/train_subset_uttlist $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- | ivector-randomize --randomize-prob=$ivector_randomize_prob ark:- ark:- |' ark:- |"
 fi
 
 if [ $stage -le 0 ]; then
@@ -154,7 +172,7 @@ echo "$0: Every epoch, splitting the data up into $iters_per_epoch iterations,"
 echo "$0: giving samples-per-iteration of $samples_per_iter_real (you requested $samples_per_iter)."
 
 # Making soft links to storage directories.  This is a no-up unless
-# the subdirectory $dir/egs/storage/ exists.
+# the subdirectory $dir/egs/storage/ exists.  See utils/create_split_dir.pl
 for x in `seq 1 $num_jobs_nnet`; do
   for y in `seq 0 $[$iters_per_epoch-1]`; do
     utils/create_data_link.pl $dir/egs/egs.$x.$y.ark
@@ -167,30 +185,31 @@ done
 
 remove () { for x in $*; do [ -L $x ] && rm $(readlink -f $x); rm $x; done }
 
-nnet_context_opts="--left-context=$splice_width --right-context=$splice_width"
+nnet_context_opts="--left-context=$left_context --right-context=$right_context"
 mkdir -p $dir/egs
-
-if [ ! -z $spk_vecs_dir ]; then
-  [ ! -f $spk_vecs_dir/vecs.1 ] && echo "No such file $spk_vecs_dir/vecs.1" && exit 1;
-  spk_vecs_opt=("--spk-vecs=ark:cat $spk_vecs_dir/vecs.*|" "--utt2spk=ark:$data/utt2spk")
-else
-  spk_vecs_opt=()
-fi
 
 if [ $stage -le 2 ]; then
   echo "Getting validation and training subset examples."
   rm $dir/.error 2>/dev/null
+  echo "$0: extracting validation and training-subset alignments."
+  set -o pipefail;
+  for id in $(seq $nj); do gunzip -c $alidir/ali.$id.gz; done | \
+    copy-int-vector ark:- ark,t:- | \
+    utils/filter_scp.pl <(cat $dir/valid_uttlist $dir/train_subset_uttlist) | \
+    gzip -c >$dir/ali_special.gz || exit 1;
+  set +o pipefail; # unset the pipefail option.
+
   all_ids=$(seq -s, $nj)  # e.g. 1,2,...39,40
   $cmd $dir/log/create_valid_subset.log \
-    nnet-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$valid_feats" \
-     "ark,s,cs:gunzip -c $alidir/ali.{$all_ids}.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
+    nnet-get-egs $ivectors_opt $nnet_context_opts "$valid_feats" \
+    "ark,s,cs:gunzip -c $dir/ali_special.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
      "ark:$dir/egs/valid_all.egs" || touch $dir/.error &
   $cmd $dir/log/create_train_subset.log \
-    nnet-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$train_subset_feats" \
-     "ark,s,cs:gunzip -c $alidir/ali.{$all_ids}.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
+    nnet-get-egs $ivectors_opt $nnet_context_opts "$train_subset_feats" \
+     "ark,s,cs:gunzip -c $dir/ali_special.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
      "ark:$dir/egs/train_subset_all.egs" || touch $dir/.error &
   wait;
-  [ -f $dir/.error ] && exit 1;
+  [ -f $dir/.error ] && echo "Error detected while creating train/valid egs" && exit 1
   echo "Getting subsets of validation examples for diagnostics and combination."
   $cmd $dir/log/create_valid_subset_combine.log \
     nnet-subset-egs --n=$num_valid_frames_combine ark:$dir/egs/valid_all.egs \
@@ -211,12 +230,10 @@ if [ $stage -le 2 ]; then
   for f in $dir/egs/{combine,train_diagnostic,valid_diagnostic}.egs; do
     [ ! -s $f ] && echo "No examples in file $f" && exit 1;
   done
-  rm $dir/egs/valid_all.egs $dir/egs/train_subset_all.egs $dir/egs/{train,valid}_combine.egs
+  rm $dir/egs/valid_all.egs $dir/egs/train_subset_all.egs $dir/egs/{train,valid}_combine.egs $dir/ali_special.gz
 fi
 
 if [ $stage -le 3 ]; then
-  mkdir -p $dir/temp
-
   # Other scripts might need to know the following info:
   echo $num_jobs_nnet >$dir/egs/num_jobs_nnet
   echo $iters_per_epoch >$dir/egs/iters_per_epoch
@@ -233,7 +250,7 @@ if [ $stage -le 3 ]; then
   echo "Generating training examples on disk"
   # The examples will go round-robin to egs_list.
   $cmd $io_opts JOB=1:$nj $dir/log/get_egs.JOB.log \
-    nnet-get-egs $nnet_context_opts "${spk_vecs_opt[@]}" "$feats" \
+    nnet-get-egs $ivectors_opt $nnet_context_opts "$feats" \
     "ark,s,cs:gunzip -c $alidir/ali.JOB.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" ark:- \| \
     nnet-copy-egs ark:- $egs_list || exit 1;
 fi
@@ -270,9 +287,6 @@ if [ $stage -le 5 ]; then
   echo "Shuffling the order of training examples"
   echo "(in order to avoid stressing the disk, these won't all run at once)."
 
-
-  # note, the "|| true" below is a workaround for NFS bugs
-  # we encountered running this script with Debian-7, NFS-v4.
   for n in `seq 0 $[$iters_per_epoch-1]`; do
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/shuffle.$n.JOB.log \
       nnet-shuffle-egs "--srand=\$[JOB+($num_jobs_nnet*$n)]" \

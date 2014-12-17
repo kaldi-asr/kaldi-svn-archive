@@ -176,8 +176,8 @@ void MatrixBase<Real>::AddMatMat(const Real alpha,
 
 template<typename Real>
 void MatrixBase<Real>::AddMatMatDivMat(const MatrixBase<Real>& A,
-             	     		       const MatrixBase<Real>& B,
-                    		       const MatrixBase<Real>& C) {
+                                     const MatrixBase<Real>& B,
+                                   const MatrixBase<Real>& C) {
   KALDI_ASSERT(A.NumRows() == B.NumRows() && A.NumCols() == B.NumCols());
   KALDI_ASSERT(A.NumRows() == C.NumRows() && A.NumCols() == C.NumCols());
   for (int32 r = 0; r < A.NumRows(); r++) { // each frame...
@@ -1047,7 +1047,7 @@ void MatrixBase<Real>::GroupPnormDeriv(const MatrixBase<Real> &input,
         if (output_val == 0) 
           (*this)(i, j) = 0;
          else
-      	  (*this)(i, j) = pow(std::abs(input_val), power - 1) * 
+            (*this)(i, j) = pow(std::abs(input_val), power - 1) * 
               pow(output_val, 1 - power) * (input_val >= 0 ? 1 : -1) ;
       }
     }
@@ -1423,7 +1423,7 @@ Real MatrixBase<Real>::Cond() const {
     min = std::min((Real)std::abs(singular_values(i)), min); max = std::max((Real)std::abs(singular_values(i)), max);
   }
   if (min > 0) return max/min;
-  else return 1.0e+100;
+  else return std::numeric_limits<Real>::infinity();
 }
 
 template<typename Real>
@@ -1610,7 +1610,6 @@ void MatrixBase<Real>::TestUninitialized() const {
 template<typename Real>
 bool MatrixBase<Real>::IsUnit(Real cutoff) const {
   MatrixIndexT R = num_rows_, C = num_cols_;
-  // if (R != C) return false;
   Real bad_max = 0.0;
   for (MatrixIndexT i = 0; i < R;i++)
     for (MatrixIndexT j = 0; j < C;j++)

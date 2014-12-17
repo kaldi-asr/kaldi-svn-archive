@@ -82,7 +82,11 @@ template<class Arc> static void TestRemoveEpsLocal() {
 
   std::cout <<" printing after trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -95,7 +99,11 @@ template<class Arc> static void TestRemoveEpsLocal() {
 
   {
     std::cout << "copy1 = \n";
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(fst_copy1, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(fst_copy1, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -134,13 +142,17 @@ static void TestRemoveEpsLocalSpecial() {
         }
       }
     }
-  }        
+  }
 #ifndef _MSC_VER
   assert(IsStochasticFst(*logfst, kDelta*10));
 #endif
   {
     std::cout << "logfst = \n";
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<LogArc> fstprinter(*logfst, NULL, NULL, NULL, false, true, "\t");
+#else
     FstPrinter<LogArc> fstprinter(*logfst, NULL, NULL, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -155,12 +167,19 @@ static void TestRemoveEpsLocalSpecial() {
 
   {
     std::cout << "logfst2 = \n";
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<LogArc> fstprinter(logfst2, NULL, NULL, NULL, false, true, "\t");
+#else
     FstPrinter<LogArc> fstprinter(logfst2, NULL, NULL, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
-#ifndef _MSC_VER
-  assert(IsStochasticFst(logfst2, kDelta*10));
-#endif
+  if (ApproxEqual(ShortestDistance(*logfst), ShortestDistance(logfst2))) {
+    // make sure we preserved stochasticity in cases where doing so was
+    // possible... if the log-semiring total weight changed, then it is
+    // not possible so don't assert this.
+    assert(IsStochasticFst(logfst2, kDelta*10));
+  }
   delete logfst;
 }
 
@@ -168,7 +187,7 @@ static void TestRemoveEpsLocalSpecial() {
 
 int main() {
   using namespace fst;
-  for (int i = 0;i < 10;i++) {
+  for (int i = 0; i < 10; i++) {
     TestRemoveEpsLocal<fst::StdArc>();
     TestRemoveEpsLocalSpecial();
   }

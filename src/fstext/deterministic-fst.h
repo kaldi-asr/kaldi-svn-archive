@@ -48,20 +48,12 @@
 */
 
 #include <algorithm>
-#ifdef _MSC_VER
-#include <unordered_map>
-#else
-#include <tr1/unordered_map>
-#endif
-using std::tr1::unordered_map;
-
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <fst/fstlib.h>
 #include <fst/fst-decl.h>
-#include <fst/slist.h>
 
 #include "util/stl-utils.h"
 
@@ -235,6 +227,7 @@ class LmExampleDeterministicOnDemandFst: public DeterministicOnDemandFst<Arc> {
                                     Label bos_symbol,
                                     Label eos_symbol);
   
+
   virtual StateId Start() { return start_state_; }
 
   /// We don't bother caching the final-probs, just the arcs.

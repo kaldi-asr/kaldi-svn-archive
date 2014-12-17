@@ -372,7 +372,8 @@ class MatrixBase {
   void TestUninitialized() const; // This function is designed so that if any element
   // if the matrix is uninitialized memory, valgrind will complain.
   
-  /// returns condition number by computing Svd.  Works even if cols > rows.
+  /// Returns condition number by computing Svd.  Works even if cols > rows.
+  /// Returns infinity if all singular values are zero.
   Real Cond() const;
 
   /// Returns true if matrix is Symmetric.
@@ -381,8 +382,10 @@ class MatrixBase {
   /// Returns true if matrix is Diagonal.
   bool IsDiagonal(Real cutoff = 1.0e-05) const;  // replace magic number
 
-  /// returns true if matrix is all zeros, but ones on diagonal
-  /// (not necessarily square).
+  /// Returns true if the matrix is all zeros, except for ones on diagonal.  (it
+  /// does not have to be square).  More specifically, this function returns
+  /// false if for any i, j, (*this)(i, j) differs by more than cutoff from the
+  /// expression (i == j ? 1 : 0).
   bool IsUnit(Real cutoff = 1.0e-05) const;     // replace magic number
 
   /// Returns true if matrix is all zeros.
@@ -509,7 +512,7 @@ class MatrixBase {
  
   /// *this = a * b / c (by element; when c = 0, *this = a)
   void AddMatMatDivMat(const MatrixBase<Real>& A,
-             	       const MatrixBase<Real>& B,
+                        const MatrixBase<Real>& B,
                        const MatrixBase<Real>& C);
 
   /// A version of AddMatMat specialized for when the second argument
