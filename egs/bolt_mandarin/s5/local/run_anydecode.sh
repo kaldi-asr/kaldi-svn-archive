@@ -16,13 +16,15 @@ decode_extra_opts=(--num-threads 6 --parallel-opts "-pe smp 6 -l mem_free=4G,ram
 # SAT decode
 if [ -f exp/tri5a/.done ]; then
   decode=exp/tri5a/decode_${dataset_id}
-  if [ ! -f $decode/.done ]; then
+  #By default, tri5a system finished decoding at an earlier stage.
+  if false; then
     echo "Decoding SAT system"
     steps/decode_fmllr_extra.sh --nj $decode_nj --cmd "$decode_cmd" "${extra_decoding_opts[@]}"\
        --config conf/decode.config  --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
        $graph $data $decode || exit 1;
     touch $decode/.done
   fi
+  local/score.sh --cmd "$train_cmd" $data $graph $decode
 fi
 
 # DNN decode
@@ -40,7 +42,7 @@ fi
 
 # DNN mpe decode
 if [ -f exp/tri6_nnet_mpe/.done ]; then
-  for epoch in 5 6; do
+  for epoch in 4 5 6; do
     decode=exp/tri6_nnet_mpe/decode_${dataset_id}_epoch$epoch
     if [ ! -f $decode/.done ]; then
       echo "decoding DNN mpe systems"
@@ -59,7 +61,7 @@ if [ -f exp/tri6_nnet_mpe/.done ]; then
           $data $decode ${decode}_large
       touch ${decode}_large/.done
     fi
-    # local/score.sh --cmd "$train_cmd" $data $graph $decode
+    # local/score.sh --cmd "$train_cmd" $data $graph ${decode}_large
   done 
 fi
 

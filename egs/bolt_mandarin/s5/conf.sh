@@ -2,7 +2,7 @@ extra_decoding_opts=(--num-threads 4 --parallel-opts '-pe smp 4' )
 train_nj=32
 decode_nj=12
 
-# The path to training corpora:
+# The path to training corpora (Part I):
 CALLHOME_MA_CORPUS_A=/export/corpora/LDC/LDC96S34/CALLHOME/
 CALLHOME_MA_CORPUS_T=/export/corpora/LDC/LDC96T16/
 

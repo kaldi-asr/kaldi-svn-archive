@@ -6,7 +6,7 @@
 # phone set at the end. For Chinese, we use an online dictionary,
 # for OOV, we just produce pronunciation using Charactrt Mapping.
 
-# This scripts is needed when we adding new data for LM training
+# This scripts is needed when we add new data for LM training
 # These new text may have unusual words and generate new phones 
 # which are incompatible with current acoustic model
 # We need to filter these unusual phones from the new lexicon based on old lexicon
@@ -27,7 +27,7 @@ mkdir -p $dict_dir
 mkdir -p $train_add
 
 gawk 'NR==FNR{utts[$1]; next;} !($1 in utts)' \
-  data/local/train.old.bk/text data/local/train.new/text > $train_add/text
+  data/local/train.part1.bk/text data/local/train.part2/text > $train_add/text
 
 echo "prepare all text for lm training ..."
 mkdir -p $train_lm

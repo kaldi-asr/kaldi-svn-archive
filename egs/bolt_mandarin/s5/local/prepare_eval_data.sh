@@ -48,7 +48,7 @@ if [ $stage -le 0 ]; then
   
     mkdir -p data/$evlname
     cat $evaldir/${evlname}.texts.list |\
-    	perl /export/a09/jtrmal/bolt/callhome_azr15_no_gale2/local/bolt_data_convert.pl --empty-trans --numeric-channel-id $evaldir/$evlname.audio.list data/$evlname 
+    	perl local/bolt_data_convert.pl --empty-trans --numeric-channel-id $evaldir/$evlname.audio.list data/$evlname 
       	# perl local/bolt_data_convert.pl $evaldir/$evlname.audio.list data/$evlname
       # text and stm files only contain segmentation infomation. 
       utils/utt2spk_to_spk2utt.pl < data/$evlname/utt2spk >data/$evlname/spk2utt

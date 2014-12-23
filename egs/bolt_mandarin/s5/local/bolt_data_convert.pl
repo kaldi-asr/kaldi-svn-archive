@@ -231,6 +231,7 @@ while ($filename=<STDIN>) {
   chomp $rec_id;
   #$rec_id=~ s/\..*$//i;
   $rec_id=~ s/\.eng.su.xml$//i;
+  $rec_id=~ s/\.su.xml$//i;
   my $file_id= $rec_id;
   $rec_id=uc($rec_id);
   $REC_ID=$rec_id;

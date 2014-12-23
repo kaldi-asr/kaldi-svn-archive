@@ -1,0 +1,9 @@
+# WERs on bolt_dev/tune/test after SAT training:
+%WER 43.5 | 2102 21178 | 60.3 28.1 11.5 3.8 43.5 75.6 | -0.216 | exp/tri5a/decode_bolt_tune/score_13/bolt_tune.ctm.filt.sys
+%WER 49.4 | 3458 31042 | 56.4 30.6 13.0 5.7 49.4 79.7 | -0.462 | exp/tri5a/decode_bolt_test/score_16/bolt_test.ctm.filt.sys
+%WER 49.6 | 1567 17873 | 61.0 27.0 11.9 10.6 49.6 79.4 | -0.552 | exp/tri5a/decode_bolt_dev/score_16/bolt_dev.ctm.filt.sys
+
+# WERs on bolt_dev/tune/test after DNN sequence training and large LM rescoring:
+%WER 29.7 | 2102 21178 | 73.9 18.7 7.4 3.6 29.7 67.8 | -0.099 | exp/tri6_nnet_mpe/decode_bolt_tune_epoch6_large/score_14/bolt_tune.ctm.filt.sys
+%WER 37.0 | 3458 31042 | 68.9 22.3 8.8 6.0 37.0 75.8 | -0.327 | exp/tri6_nnet_mpe/decode_bolt_test_epoch5_large/score_17/bolt_test.ctm.filt.sys
+%WER 38.6 | 1567 17873 | 73.2 19.5 7.4 11.8 38.6 76.3 | -0.570 | exp/tri6_nnet_mpe/decode_bolt_dev_epoch4_large/score_15/bolt_dev.ctm.filt.sys

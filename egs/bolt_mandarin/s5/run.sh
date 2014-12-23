@@ -15,12 +15,12 @@ set -o pipefail
 . ./cmd.sh
 . ./conf.sh
 # Data Preparation, 
- local/pair_data_files.sh  
  local/callhome_data_prep.sh "$CALLHOME_MA_CORPUS_A" "$CALLHOME_MA_CORPUS_T" data/local || exit 1;
  local/hkust_data_prep.sh --corpus-id "hkust" "$HKUST_MA_CORPUS_A" "$HKUST_MA_CORPUS_T" data/local || exit 1;
  local/hub5_data_prep.sh --corpus-id "hub5" "$HUB5_MA_CORPUS_A" "$HUB5_MA_CORPUS_T" data/local || exit 1;
  local/rt04f_data_prep.sh --corpus-id "rt04f"  "$RT04F_MA_TRAIN_CORPUS_A" "$RT04F_MA_TRAIN_CORPUS_T" \
    "$RT04F_MA_DEV_CORPUS_A" "$RT04F_MA_DEV_CORPUS_T" data/local || exit 1;
+ local/pair_data_files.sh  
  local/uw_data_prep.sh data/local/train.uw
 # Lexicon Preparation,
  local/callhome_prepare_dict.sh || exit 1;
@@ -178,6 +178,7 @@ steps/align_fmllr.sh --nj $train_nj --cmd "$train_cmd"\
 
 steps/train_sat.sh --cmd "$train_cmd" \
   12000 216000 data/train data/lang exp/tri4a_ali exp/tri5a || exit 1;
+touch exp/tri5a/.done
 
 (utils/mkgraph.sh data/lang_test exp/tri5a exp/tri5a/graph || exit 1;
 

@@ -50,9 +50,10 @@ print "Resolving the duplicities in annotations\n";
 #as a rule of thumb, we should always prefer .su.xml over .scr
 #and we should always prefer later BOLT release over the previous
 my %LDC_CORPORA_WEIGHTS =  (
-  "LDC2014E86" => 7, 
-  "LDC2014E79" => 6, 
-  "LDC2014E70" => 5, 
+  "LDC2014E86" => 8, 
+  "LDC2014E79" => 7, 
+  "LDC2014E70" => 6, 
+  "LDC2014E58" => 5, 
   "LDC2014E39" => 4,
   "LDC97T19" => 1, 
   "LDC2002T39" => 1, 

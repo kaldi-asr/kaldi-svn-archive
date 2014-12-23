@@ -17,14 +17,15 @@ train_dir=data/local/train
 dict_dir=data/local/dict
 mkdir -p $dict_dir
 
-rm -rf data/local/train.old*
-eval utils/combine_data.sh data/local/train.old data/local/train.{$corpora}
-cat data/local/train.new/text | cut -f1 -d'-' | sort -u > conf/new_train.list
-cp -r data/local/train.old data/local/train.old.bk
-grep -v -F -f conf/new_train.list data/local/train.old/text > data/local/train.old/text.tmp
-mv data/local/train.old/text.tmp data/local/train.old/text
-utils/fix_data_dir.sh data/local/train.old
-eval utils/combine_data.sh $train_dir data/local/train.{new,old}
+# Here we combine Part I and Part II of training data. If there are duplications, we will trust Part II.
+rm -rf data/local/train.part1*
+eval utils/combine_data.sh data/local/train.part1 data/local/train.{$corpora}
+cat data/local/train.part2/text | cut -f1 -d'-' | sort -u > conf/train.part2.conversations.list
+cp -r data/local/train.part1 data/local/train.part1.bk
+grep -v -F -f conf/train.part2.conversations.list data/local/train.part1/text > data/local/train.part1/text.tmp
+mv data/local/train.part1/text.tmp data/local/train.part1/text
+utils/fix_data_dir.sh data/local/train.part1
+eval utils/combine_data.sh $train_dir data/local/train.{part1,part2}
 
 # extract full vocabulary
 cat data/local/train/text | cut -f 2- -d ' '|\
