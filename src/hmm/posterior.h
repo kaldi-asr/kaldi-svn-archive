@@ -179,6 +179,11 @@ void ConvertPosteriorToPdfs(const TransitionModel &tmodel,
                             const Posterior &post_in,
                             Posterior *post_out);
 
+/// Converts a posterior over pdf-ids from the source system to be 
+/// compatible with the destination system by applying a stochastic mapping.
+void ApplyPdfMap(const Posterior &pdf_map, const Posterior &src_post,
+                 Posterior *dest_post);
+
 /// Converts a posterior over transition-ids to be a posterior
 /// over phones.
 void ConvertPosteriorToPhones(const TransitionModel &tmodel,
@@ -204,6 +209,12 @@ void WeightSilencePostDistributed(const TransitionModel &trans_model,
                                   const ConstIntegerSet<int32> &silence_set,
                                   BaseFloat silence_scale,
                                   Posterior *post);
+
+/// Write a single posterior, called by PosteriorHolder
+bool WritePosterior(std::ostream &os, bool binary, const Posterior &post);
+
+/// Read a single posterior, called by PosteriorHolder
+bool ReadPosterior(std::istream &is, Posterior *post);
 
 /// @} end "addtogroup posterior_group"
 

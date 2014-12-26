@@ -92,6 +92,7 @@ double NnetUpdater::ComputeObjfAndDeriv(
   sv_labels.reserve(num_chunks_); // We must have at least this many labels.
   for (int32 m = 0; m < num_chunks_; m++) {
     for (size_t i = 0; i < data[m].labels.size(); i++) {
+      // MatrixElement : {row, col, weight} = {example_ind, pdf_id, value}
       MatrixElement<BaseFloat> 
          tmp = {m, data[m].labels[i].first, data[m].labels[i].second};
       sv_labels.push_back(tmp);

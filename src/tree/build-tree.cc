@@ -243,7 +243,7 @@ EventMap *BuildTree(Questions &qopts,
 // It only works of all leaves of the big tree have stats-- but they should have
 // stats, or there would have been an error in tree building.
 
-static void ComputeTreeMapping(const EventMap &small_tree,
+void ComputeTreeMapping(const EventMap &small_tree,
                                const EventMap &big_tree,
                                const BuildTreeStatsType &stats,
                                std::vector<int32> *leaf_map) {

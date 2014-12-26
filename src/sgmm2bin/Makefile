@@ -8,7 +8,7 @@ BINFILES = sgmm2-init sgmm2-gselect sgmm2-acc-stats sgmm2-est sgmm2-sum-accs \
          sgmm2-acc-stats-gpost sgmm2-latgen-faster sgmm2-est-spkvecs-gpost \
          sgmm2-rescore-lattice sgmm2-copy sgmm2-info sgmm2-est-ebw \
          sgmm2-acc-stats2 sgmm2-comp-prexform sgmm2-est-fmllr sgmm2-project \
-         sgmm2-latgen-faster-parallel
+         sgmm2-latgen-faster-parallel sgmm2-compute
 
 OBJFILES =
 

@@ -8,7 +8,7 @@ BINFILES = gmm-init-mono gmm-est gmm-acc-stats-ali gmm-align \
            gmm-decode-faster gmm-decode-simple gmm-decode-nbest gmm-align-compiled \
            gmm-sum-accs gmm-init-trans gmm-est-regtree-fmllr gmm-acc-stats-twofeats \
            gmm-acc-stats gmm-init-lvtln gmm-est-lvtln-trans gmm-train-lvtln-special \
-           gmm-acc-mllt gmm-mixup gmm-init-model \
+           gmm-acc-mllt gmm-mixup gmm-init-model gmm-train-trans \
            gmm-acc-hlda gmm-est-hlda gmm-transform-means \
            gmm-make-regtree gmm-decode-faster-regtree-fmllr gmm-post-to-gpost \
            gmm-est-fmllr-gpost gmm-est-fmllr gmm-est-regtree-fmllr-ali \

@@ -72,10 +72,11 @@ class DecodableAmSgmm2 : public DecodableInterface {
     KALDI_ASSERT(frame < NumFrames());
     return (frame == NumFrames() - 1);
   }
+  // We have to make it public since we need to use it to compute likelihoods in sgmm2-compute.
+  virtual BaseFloat LogLikelihoodForPdf(int32 frame, int32 pdf_id);
 
   virtual ~DecodableAmSgmm2();
  protected:
-  virtual BaseFloat LogLikelihoodForPdf(int32 frame, int32 pdf_id);
 
   const AmSgmm2 &sgmm_;
   Sgmm2PerSpkDerivedVars *spk_;

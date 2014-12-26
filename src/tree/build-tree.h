@@ -26,7 +26,10 @@
 #include "tree/build-tree-utils.h"
 #include "tree/context-dep.h"
 namespace kaldi {
-
+void ComputeTreeMapping(const EventMap &small_tree,
+                        const EventMap &big_tree,
+                        const BuildTreeStatsType &stats,
+                        std::vector<int32> *leaf_map);
 /// \defgroup tree_group_top Top-level tree-building functions
 /// See \ref tree_internals for context.
 /// \ingroup tree_group

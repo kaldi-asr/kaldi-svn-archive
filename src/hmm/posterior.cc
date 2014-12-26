@@ -30,111 +30,12 @@ namespace kaldi {
 
 // static
 bool PosteriorHolder::Write(std::ostream &os, bool binary, const T &t) {
-  InitKaldiOutputStream(os, binary);  // Puts binary header if binary mode.
-  try {
-    if (binary) {
-      int32 sz = t.size();
-      WriteBasicType(os, binary, sz);
-      for (Posterior::const_iterator iter = t.begin(); iter != t.end(); ++iter) {
-        int32 sz2 = iter->size();
-        WriteBasicType(os, binary, sz2);
-        for (std::vector<std::pair<int32, BaseFloat> >::const_iterator iter2=iter->begin();
-             iter2 != iter->end();
-             iter2++) {
-          WriteBasicType(os, binary, iter2->first);
-          WriteBasicType(os, binary, iter2->second);
-        }
-      }
-    } else {  // In text-mode, choose a human-friendly, script-friendly format.
-      // format is [ 1235 0.6 12 0.4 ] [ 34 1.0 ] ...
-      // We could have used the same code as in the binary case above,
-      // but this would have resulted in less readable output.
-      for (Posterior::const_iterator iter = t.begin(); iter != t.end(); ++iter) {
-        os << "[ ";
-        for (std::vector<std::pair<int32, BaseFloat> >::const_iterator iter2=iter->begin();
-             iter2 != iter->end();
-             iter2++) {
-          os << iter2->first << ' ' << iter2->second << ' ';
-        }
-        os << "] ";
-      }
-      os << '\n';  // newline terminate the record.
-    }
-    return os.good();
-  } catch(const std::exception &e) {
-    KALDI_WARN << "Exception caught writing table of posteriors";
-    if (!IsKaldiError(e.what())) { std::cerr << e.what(); }
-    return false;  // Write failure.
-  }
+  return WritePosterior(os, binary, t);
 }
 
 bool PosteriorHolder::Read(std::istream &is) {
   t_.clear();
-
-  bool is_binary;
-  if (!InitKaldiInputStream(is, &is_binary)) {
-    KALDI_WARN << "Reading Table object, failed reading binary header";
-    return false;
-  }
-  try {
-    if (is_binary) {
-      int32 sz;
-      ReadBasicType(is, true, &sz);
-      if (sz < 0)
-        KALDI_ERR << "Reading posteriors: got negative size";
-      t_.resize(sz);
-      for (Posterior::iterator iter = t_.begin(); iter != t_.end(); ++iter) {
-        int32 sz2;
-        ReadBasicType(is, true, &sz2);
-        if (sz2 < 0)
-          KALDI_ERR << "Reading posteriors: got negative size";
-        iter->resize(sz2);
-        for (std::vector<std::pair<int32, BaseFloat> >::iterator iter2=iter->begin();
-             iter2 != iter->end();
-             iter2++) {
-          ReadBasicType(is, true, &(iter2->first));
-          ReadBasicType(is, true, &(iter2->second));
-        }
-      }
-    } else {
-      std::string line;
-      getline(is, line);  // this will discard the \n, if present.
-      if (is.fail()) {
-        KALDI_WARN << "holder of Posterior: error reading line " << (is.eof() ? "[eof]" : "");
-        return false;  // probably eof.  fail in any case.
-      }
-      std::istringstream line_is(line);
-      while (1) {
-        std::string str;
-        line_is >> std::ws;  // eat up whitespace.
-        if (line_is.eof()) break;
-        line_is >> str;
-        if (str != "[") KALDI_ERR << "Reading Posterior object: expecting [, got "
-                                  << str << " (if this is an integer, possibly "
-                            "you gave alignments in place of posteriors?)";
-        std::vector<std::pair<int32, BaseFloat> > this_vec;
-        while (1) {
-          line_is >> std::ws;
-          if (line_is.peek() == ']') {
-            line_is.get();
-            break;
-          }
-          int32 i; BaseFloat p;
-          line_is >> i >> p;
-          if (line_is.fail())
-            KALDI_ERR << "Error reading Posterior object (could not get data after \"[\");";
-          this_vec.push_back(std::make_pair(i, p));
-        }
-        t_.push_back(this_vec);
-      }
-    }
-    return true;
-  } catch (std::exception &e) {
-    KALDI_WARN << "Exception caught reading table of posteriors";
-    if (!IsKaldiError(e.what())) { std::cerr << e.what(); }
-    t_.clear();
-    return false;
-  }
+  return ReadPosterior(is, &t_);
 }
 
 // static
@@ -331,6 +232,34 @@ void ConvertPosteriorToPdfs(const TransitionModel &tmodel,
   }
 }
 
+void ApplyPdfMap(const Posterior &pdf_map, const Posterior &src_post,
+                 Posterior *dest_post) {
+  dest_post->clear();
+  dest_post->resize(src_post.size());
+  for (int32 i = 0; i < src_post.size(); i++) {
+    unordered_map<int32, BaseFloat> post_merged;
+    for (size_t j = 0; j < src_post[i].size(); j++) {
+       KALDI_ASSERT(static_cast<size_t>(src_post[i][j].first) < pdf_map.size() &&
+                    "Input pdf-id out of range of pdf-map.");
+       std::vector<std::pair<int32, BaseFloat> > post_mapped =
+                                pdf_map[src_post[i][j].first];
+       for (size_t k = 0; k < post_mapped.size(); k++) {
+         std::pair<unordered_map<int32, BaseFloat>::iterator,bool> ret;
+         ret = post_merged.insert(std::make_pair<int32, BaseFloat>(
+                                  post_mapped[k].first, post_mapped[k].second));
+         if (ret.second == false) 
+           post_merged[post_mapped[k].first] += post_mapped[k].second;
+       }
+    }  
+    (*dest_post)[i].reserve(post_merged.size());
+    for (unordered_map<int32,BaseFloat>::iterator iter = post_merged.begin();
+       iter != post_merged.end(); ++iter) {
+       if (iter->second != 0.0)
+         (*dest_post)[i].push_back(std::make_pair(iter->first, iter->second));
+    }
+  }
+}
+
 void ConvertPosteriorToPhones(const TransitionModel &tmodel,
                               const Posterior &post_in,
                               Posterior *post_out) {
@@ -467,5 +396,110 @@ BaseFloat VectorToPosteriorEntry(
   return ans;
 }
 
+bool WritePosterior(std::ostream &os, bool binary, const Posterior &post) {
+  InitKaldiOutputStream(os, binary);  // Puts binary header if binary mode.
+  try {
+    if (binary) {
+      int32 sz = post.size();
+      WriteBasicType(os, binary, sz);
+      for (Posterior::const_iterator iter = post.begin(); iter != post.end(); ++iter) {
+        int32 sz2 = iter->size();
+        WriteBasicType(os, binary, sz2);
+        for (std::vector<std::pair<int32, BaseFloat> >::const_iterator iter2=iter->begin();
+             iter2 != iter->end();
+             iter2++) {
+          WriteBasicType(os, binary, iter2->first);
+          WriteBasicType(os, binary, iter2->second);
+        }
+      }
+    } else {  // In text-mode, choose a human-friendly, script-friendly formapost.
+      // format is [ 1235 0.6 12 0.4 ] [ 34 1.0 ] ...
+      // We could have used the same code as in the binary case above,
+      // but this would have resulted in less readable outpupost.
+      for (Posterior::const_iterator iter = post.begin(); iter != post.end(); ++iter) {
+        os << "[ ";
+        for (std::vector<std::pair<int32, BaseFloat> >::const_iterator iter2=iter->begin();
+             iter2 != iter->end();
+             iter2++) {
+          os << iter2->first << ' ' << iter2->second << ' ';
+        }
+        os << "] ";
+      }
+      os << '\n';  // newline terminate the record.
+    }
+    return os.good();
+  } catch(const std::exception &e) {
+    KALDI_WARN << "Exception caught writing table of posteriors";
+    if (!IsKaldiError(e.what())) { std::cerr << e.what(); }
+    return false;  // Write failure.
+  }
+}
+
+bool ReadPosterior(std::istream &is, Posterior *post) {
+  bool is_binary;
+  if (!InitKaldiInputStream(is, &is_binary)) {
+    KALDI_WARN << "Reading Table object, failed reading binary header";
+    return false;
+  }
+  try {
+    if (is_binary) {
+      int32 sz;
+      ReadBasicType(is, true, &sz);
+      if (sz < 0)
+        KALDI_ERR << "Reading posteriors: got negative size";
+      post->resize(sz);
+      for (Posterior::iterator iter = post->begin(); iter != post->end(); ++iter) {
+        int32 sz2;
+        ReadBasicType(is, true, &sz2);
+        if (sz2 < 0)
+          KALDI_ERR << "Reading posteriors: got negative size";
+        iter->resize(sz2);
+        for (std::vector<std::pair<int32, BaseFloat> >::iterator iter2=iter->begin();
+             iter2 != iter->end();
+             iter2++) {
+          ReadBasicType(is, true, &(iter2->first));
+          ReadBasicType(is, true, &(iter2->second));
+        }
+      }
+    } else {
+      std::string line;
+      getline(is, line);  // this will discard the \n, if present.
+      if (is.fail()) {
+        KALDI_WARN << "holder of Posterior: error reading line " << (is.eof() ? "[eof]" : "");
+        return false;  // probably eof.  fail in any case.
+      }
+      std::istringstream line_is(line);
+      while (1) {
+        std::string str;
+        line_is >> std::ws;  // eat up whitespace.
+        if (line_is.eof()) break;
+        line_is >> str;
+        if (str != "[") KALDI_ERR << "Reading Posterior object: expecting [, got "
+                                  << str << " (if this is an integer, possibly "
+                            "you gave alignments in place of posteriors?)";
+        std::vector<std::pair<int32, BaseFloat> > this_vec;
+        while (1) {
+          line_is >> std::ws;
+          if (line_is.peek() == ']') {
+            line_is.get();
+            break;
+          }
+          int32 i; BaseFloat p;
+          line_is >> i >> p;
+          if (line_is.fail())
+            KALDI_ERR << "Error reading Posterior object (could not get data after \"[\");";
+          this_vec.push_back(std::make_pair(i, p));
+        }
+        post->push_back(this_vec);
+      }
+    }
+    return true;
+  } catch (std::exception &e) {
+    KALDI_WARN << "Exception caught reading table of posteriors";
+    if (!IsKaldiError(e.what())) { std::cerr << e.what(); }
+    post->clear();
+    return false;
+  }
+}
 
 } // End namespace kaldi
