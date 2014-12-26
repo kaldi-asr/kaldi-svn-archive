@@ -79,6 +79,8 @@ int main(int argc, char *argv[]) {
       Posterior post(logprobs.NumRows());
       for (int32 i = 0; i < logprobs.NumRows(); i++) {
         SubVector<BaseFloat> row(logprobs, i);
+        // normalize each row to make sure each row sum up to one.
+        row.Add(-row.LogSumExp());
         for (int32 j = 0; j < row.Dim(); j++) {
           BaseFloat p = exp(row(j));
           if (p >= min_post) {
