@@ -59,7 +59,7 @@ for d in $src_list; do rm -f $d/spk2gender 2>/dev/null; done
 utils/combine_data.sh data/train_unsplit_all $src_list
 
 utils/apply_map.pl -f 2 --permissive local/lang_map.txt \
-  < data/train_unsplit/utt2lang  2>/dev/null > foo
+  < data/train_unsplit_all/utt2lang  2>/dev/null > foo
 
 cp foo data/train_unsplit_all/utt2lang
 cp -r data/train_unsplit_all data/train_unsplit
@@ -72,7 +72,6 @@ rm foo
 
 echo "**Language count in training:**"
 awk '{print $2}' data/train_unsplit/utt2lang | sort | uniq -c | sort -nr
-
 
 local/split_long_utts.sh --max-utt-len 30 data/train_unsplit data/train
 
@@ -174,20 +173,57 @@ rm -f data/lang/phones/word_boundary.txt 2>/dev/null
 
 utils/mkgraph.sh data/lang exp/tri5a exp/tri5a/graph || exit 1;
 
-steps/get_fmllr_basis.sh --cmd "$train_cmd" data/train_phonotactics_100k data/lang exp/tri5a
+steps/get_fmllr_basis.sh --cmd "$train_cmd" data/train_phonotactics_30k data/lang exp/tri5a
 
-local/decode_basis_fmllr.sh --nj 25 --acwt 0.075 --num-threads 8 --parallel-opts "-pe smp 8" --cmd "$decode_cmd" \
+steps/decode_basis_fmllr.sh --nj 25 --acwt 0.075 --num-threads 8 --parallel-opts "-pe smp 8" --cmd "$decode_cmd" \
    --skip-scoring true --config conf/decode.config \
    exp/tri5a/graph data/lre07 exp/tri5a/lre07_basis_fmllr
 
-local/decode_basis_fmllr.sh  --nj 50 --acwt 0.075 --num-threads 8 --parallel-opts "-pe smp 8" --cmd "$decode_cmd" \
+steps/decode_basis_fmllr.sh  --nj 50 --acwt 0.075 --num-threads 8 --parallel-opts "-pe smp 8" --cmd "$decode_cmd" \
    --skip-scoring true --config conf/decode.config \
    exp/tri5a/graph data/train exp/tri5a/train_basis_fmllr
 
 local/make_softcount_feats.sh
 
-local/run_logistic_regression_phonotactics.sh
+local/run_logistic_regression_phonotactics.sh --apply-log false
 
 # General LR 2007 closed-set eval
-local/lre07_eval/lre07_eval.sh exp/ivectors_lre07 \
-  local/general_lr_closed_set_langs.txt
+local/lre07_eval/lre07_eval.sh exp/phonotactics $languages
+
+
+# If the i-Vector-based example in ../v1 has been run, then we can combine that model
+# and this one, to produce better accuracy. 
+if [ -f ../v1/exp/ivectors_lre07/posteriors -a -f ../v1/exp/ivectors_lre07/output ]; then
+
+  mkdir -p exp/ivector_phonotactic_lre07
+
+  # Combine posteriors from phonotactic and i-Vector systems.
+  vector-sum ark:"vector-scale --scale=0.88 ark:../v1/exp/ivectors_lre07/posteriors ark:- |" \
+    ark:"vector-scale --scale=0.12 ark:exp/phonotactics/posteriors ark:- |" \
+    ark,t:exp/ivector_phonotactic_lre07/posteriors
+
+  cat exp/ivector_phonotactic_lre07/posteriors | \
+    awk '{max=$3; argmax=3; for(f=3;f<NF;f++) { if ($f>max) 
+                            { max=$f; argmax=f; }}  
+                            print $1, (argmax - 3); }' | \
+    utils/int2sym.pl -f 2 $languages \
+      >exp/ivector_phonotactic_lre07/output
+
+  echo "Overall i-Vector ER:"
+  # %ER 25.06
+  compute-wer --mode=present --text ark:<(lid/remove_dialect.pl data/lre07/utt2lang) \
+    ark:../v1/exp/ivectors_lre07/output
+
+  echo "Overall Phonotactics ER:"
+  # %ER 36.02
+  compute-wer --mode=present --text ark:<(lid/remove_dialect.pl data/lre07/utt2lang) \
+    ark:exp/phonotactics/output
+
+  echo "Combined ER:"
+  # Duration (sec):    avg      3     10     30
+  #        ER (%):  21.94  41.77  17.71   6.35
+  #     C_avg (%):  13.82  25.89  11.29   4.30
+  local/lre07_eval/lre07_eval.sh exp/ivector_phonotactic_lre07 \
+    $languages
+
+fi

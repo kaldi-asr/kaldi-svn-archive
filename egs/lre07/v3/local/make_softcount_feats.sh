@@ -83,7 +83,7 @@ rm $base/train_feats*txt
 
 # Create new utt2lang files; some of the utterances have been lost if
 # we were unable to create features for them.
-utils/filter_scp.pl -f 0 $base/train_feats.scp data/train/utt2lang \
+utils/filter_scp.pl -f 1 $base/train_feats.scp data/train/utt2lang \
   > $base/utt2lang_train
-utils/filter_scp.pl -f 0 $base/test_feats.scp data/lre07/utt2lang \
+utils/filter_scp.pl -f 1 $base/test_feats.scp data/lre07/utt2lang \
   > $base/utt2lang_test

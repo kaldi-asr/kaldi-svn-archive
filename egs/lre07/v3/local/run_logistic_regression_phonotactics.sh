@@ -11,6 +11,8 @@ set -e
 
 base=exp/phonotactics
 config=conf/logistic-regression.conf
+apply_log=true # If true, the output of the binary
+               # logistitic-regression-eval are log-posteriors.
 
 awk '{print $2}' <(lid/remove_dialect.pl $base/utt2lang_train) | sort -u | \
   awk '{print $1, NR-1}' >  $base/languages.txt
@@ -46,7 +48,7 @@ trials="lid/remove_dialect.pl $base/utt2lang_train \
 scores="|utils/int2sym.pl -f 2 $base/languages.txt  \
         >$base/train_scores"
 
-logistic-regression-eval $model "$train_vectors" \
+logistic-regression-eval --apply-log=$apply_log $model "$train_vectors" \
   ark,t:$base/posteriors
 
 cat $base/posteriors | \
@@ -61,14 +63,14 @@ cat $base/posteriors | \
 compute-wer --mode=present --text ark:<(lid/remove_dialect.pl $base/utt2lang_train) \
   ark:$base/output_train
 
-logistic-regression-eval $model_rebalanced $test_vectors ark,t:$base/posteriors
+logistic-regression-eval --apply-log=$apply_log $model_rebalanced $test_vectors ark,t:$base/posteriors
 
-logistic-regression-eval $model_rebalanced $test_vectors ark,t:- | \
+logistic-regression-eval --apply-log=$apply_log $model_rebalanced $test_vectors ark,t:- | \
   awk '{max=$3; argmax=3; for(f=3;f<NF;f++) { if ($f>max) 
                           { max=$f; argmax=f; }}  
                           print $1, (argmax - 3); }' | \
-  utils/int2sym.pl -f 2 $base/languages.txt >$base/output_test
+  utils/int2sym.pl -f 2 $base/languages.txt >$base/output
 
 compute-wer --text ark:<(lid/remove_dialect.pl $base//utt2lang_test) \
-  ark:$base/output_test
+  ark:$base/output
 
