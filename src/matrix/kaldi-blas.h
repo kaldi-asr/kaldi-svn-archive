@@ -55,6 +55,11 @@
   }
 #elif defined(HAVE_CLAPACK)
   #ifdef __APPLE__
+    #ifndef __has_extension
+    #define __has_extension(x) 0
+    #endif
+    #define vImage_Utilities_h
+    #define vImage_CVUtilities_h
     #include <Accelerate/Accelerate.h>
     typedef __CLPK_integer          integer;
     typedef __CLPK_logical          logical;
@@ -88,7 +93,6 @@
     #include <mkl.h>
   }
 #elif defined(HAVE_OPENBLAS)
-extern "C" {
   // getting cblas.h and lapacke.h from <openblas-install-dir>/.
   // putting in "" not <> to search -I before system libraries.
   #include "cblas.h"
@@ -105,7 +109,6 @@ extern "C" {
   #undef bit_test
   #undef bit_clear
   #undef bit_set
-}
 #else
   #error "You need to define (using the preprocessor) either HAVE_CLAPACK or HAVE_ATLAS or HAVE_MKL (but not more than one)"  
 #endif

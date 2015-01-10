@@ -163,7 +163,7 @@ done
 
 
 # Set some variables.
-num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+num_leaves=`tree-info $alidir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1
 [ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
 [ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 
@@ -264,12 +264,6 @@ if [ $stage -le -2 ]; then
     nnet-am-init $alidir/tree $lang/topo "nnet-init $dir/nnet.config -|" \
     $dir/0.mdl || exit 1;
 fi
-
-cur_num_hidden_layer=1  # counts the number of hidden layers in the network
-                        # this is different from the number of components in
-                        # in the network, each hidden layer is composed of 
-                        # affine comp. + pnorm comp. + normalization comp.
-                        # optionally a splice component is also added
 
 
 if [ $stage -le -1 ]; then
@@ -395,9 +389,9 @@ while [ $x -lt $num_iters ]; do
 
     if [ $x -gt 0 ] && \
       [ $x -le $[($num_hidden_layers-1)*$add_layers_period] ] && \
-      [ $[($x-1) % $add_layers_period] -eq 0 ]; then
-      mdl="nnet-init --srand=$x $dir/hidden_${cur_num_hidden_layer}.config - | nnet-insert $dir/$x.mdl - - |"
-      cur_num_hidden_layer=$((cur_num_hidden_layer + 1))
+      [ $[$x%$add_layers_period] -eq 0 ]; then
+      cur_num_hidden_layers=$[$x/$add_layers_period];
+      mdl="nnet-init --srand=$x $dir/hidden_${cur_num_hidden_layers}.config - | nnet-insert $dir/$x.mdl - - |"
     else
       mdl=$dir/$x.mdl
     fi

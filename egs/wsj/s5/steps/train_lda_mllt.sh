@@ -15,6 +15,7 @@ max_iter_inc=25  # Last iter to increase #Gauss on.
 dim=40
 beam=10
 retry_beam=40
+careful=false
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
 power=0.25 # Exponent for number of gaussians according to occurrence counts
 randprune=4.0 # This is approximately the ratio by which we will speed up the
@@ -23,6 +24,7 @@ splice_opts=
 cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
 norm_vars=false # deprecated.  Prefer --cmvn-opts "--norm-vars=false"
 cmvn_opts=
+context_opts=   # use "--context-width=5 --central-position=2" for quinphone.
 # End configuration.
 train_tree=true  # if false, don't actually train the tree.
 use_lda_mat=  # If supplied, use this LDA[+MLLT] matrix.
@@ -106,8 +108,9 @@ cur_lda_iter=0
 if [ $stage -le -4 ] && $train_tree; then
   echo "Accumulating tree stats"
   $cmd JOB=1:$nj $dir/log/acc_tree.JOB.log \
-   acc-tree-stats  --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
-     "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
+    acc-tree-stats $context_opts \
+    --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
+    "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
   [ `ls $dir/*.treeacc | wc -w` -ne "$nj" ] && echo "Wrong #tree-accs" && exit 1;
   $cmd $dir/log/sum_tree_acc.log \
     sum-tree-stats $dir/treeacc $dir/*.treeacc || exit 1;
@@ -118,13 +121,15 @@ fi
 if [ $stage -le -3 ] && $train_tree; then
   echo "Getting questions for tree clustering."
   # preparing questions, roots file...
-  cluster-phones $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
+  cluster-phones $context_opts $dir/treeacc $lang/phones/sets.int \
+    $dir/questions.int 2> $dir/log/questions.log || exit 1;
   cat $lang/phones/extra_questions.int >> $dir/questions.int
-  compile-questions $lang/topo $dir/questions.int $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
+  compile-questions $context_opts $lang/topo $dir/questions.int \
+    $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
 
   echo "Building the tree"
   $cmd $dir/log/build_tree.log \
-    build-tree --verbose=1 --max-leaves=$numleaves \
+    build-tree $context_opts --verbose=1 --max-leaves=$numleaves \
     --cluster-thresh=$cluster_thresh $dir/treeacc $lang/phones/roots.int \
     $dir/questions.qst $lang/topo $dir/tree || exit 1;
 fi
@@ -169,7 +174,7 @@ while [ $x -lt $num_iters ]; do
     echo Aligning data
     mdl="gmm-boost-silence --boost=$boost_silence `cat $lang/phones/optional_silence.csl` $dir/$x.mdl - |"
     $cmd JOB=1:$nj $dir/log/align.$x.JOB.log \
-      gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" \
+      gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
       "ark:gunzip -c $dir/fsts.JOB.gz|" "$feats" \
       "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
   fi

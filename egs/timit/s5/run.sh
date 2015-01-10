@@ -141,7 +141,7 @@ echo ===========================================================================
 steps/align_fmllr.sh --nj "$train_nj" --cmd "$train_cmd" \
  data/train data/lang exp/tri3 exp/tri3_ali
 
-#exit 0 # From this point you can run Karel's DNN : local/run_dnn.sh 
+#exit 0 # From this point you can run Karel's DNN : local/nnet/run_dnn.sh 
 
 steps/train_ubm.sh --cmd "$train_cmd" \
  $numGaussUBM data/train data/lang exp/tri3_ali exp/ubm4
@@ -191,7 +191,7 @@ echo "                    DNN Hybrid Training & Decoding                        
 echo ============================================================================
 
 # DNN hybrid system training parameters
-dnn_mem_reqs="mem_free=1.0G,ram_free=0.2G"
+dnn_mem_reqs="mem_free=1.0G,ram_free=1.0G"
 dnn_extra_opts="--num_epochs 20 --num-epochs-extra 10 --add-layers-period 1 --shrink-interval 3"
 
 steps/nnet2/train_tanh.sh --mix-up 5000 --initial-learning-rate 0.015 \
@@ -200,7 +200,7 @@ steps/nnet2/train_tanh.sh --mix-up 5000 --initial-learning-rate 0.015 \
   data/train data/lang exp/tri3_ali exp/tri4_nnet
 
 [ ! -d exp/tri4_nnet/decode_dev ] && mkdir -p exp/tri4_nnet/decode_dev
-decode_extra_opts=(--num-threads 6 --parallel-opts "-pe smp 6 -l mem_free=4G,ram_free=0.7G")
+decode_extra_opts=(--num-threads 6 --parallel-opts "-pe smp 6 -l mem_free=4G,ram_free=4.0G")
 steps/nnet2/decode.sh --cmd "$decode_cmd" --nj "$decode_nj" "${decode_extra_opts[@]}" \
   --transform-dir exp/tri3/decode_dev exp/tri3/graph data/dev \
   exp/tri4_nnet/decode_dev | tee exp/tri4_nnet/decode_dev/decode.log
@@ -228,7 +228,8 @@ echo ===========================================================================
 echo "               DNN Hybrid Training & Decoding (Karel's recipe)            "
 echo ============================================================================
 
-local/run_dnn.sh
+local/nnet/run_dnn.sh
+#local/nnet/run_autoencoder.sh : an example, not used to build any system,
 
 echo ============================================================================
 echo "                    Getting Results [see RESULTS file]                    "

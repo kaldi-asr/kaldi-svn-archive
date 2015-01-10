@@ -102,6 +102,7 @@ mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 splice_opts=`cat $srcdir/splice_opts 2>/dev/null` # frame-splicing options.
 cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
+delta_opts=`cat $srcdir/delta_opts 2>/dev/null`
 
 silphonelist=`cat $graphdir/phones/silence.csl` || exit 1;
 
@@ -148,7 +149,7 @@ done
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type";
 case $feat_type in
-  delta) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  delta) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |";;
   lda) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
   *) echo "Invalid feature type $feat_type" && exit 1;
 esac
@@ -173,11 +174,11 @@ pass1feats="$sifeats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$dir/t
 ## Do the first adapted lattice generation pass. 
 if [ $stage -le 2 ]; then
   echo "$0: doing first adapted lattice generation phase"
+  if [ -f "$graphdir/num_pdfs" ]; then
+    [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $adapt_model | grep pdfs | awk '{print $NF}'` ] || \
+      { echo "Mismatch in number of pdfs with $adapt_model" exit 1; }
+  fi
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode1.JOB.log\
-    if [ -f "$graphdir/num_pdfs" ]; then
-      [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $adapt_model | grep pdfs | awk '{print $NF}'` ] || \
-        { echo "Mismatch in number of pdfs with $adapt_model" exit 1; }
-    fi
     gmm-latgen-faster$thread_string --max-active=$first_max_active --max-mem=$max_mem --beam=$first_beam --lattice-beam=$first_lattice_beam \
     --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \
     $adapt_model $graphdir/HCLG.fst "$pass1feats" "ark:|gzip -c > $dir/lat1.JOB.gz" \
