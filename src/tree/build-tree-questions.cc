@@ -20,6 +20,7 @@
 
 #include <string>
 
+#include "base/kaldi-math.h"
 #include "util/stl-utils.h"
 #include "util/text-utils.h"
 #include "tree/build-tree-questions.h"

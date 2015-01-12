@@ -20,6 +20,7 @@
 #include "fstext/determinize-lattice.h"
 #include "fstext/lattice-utils.h"
 #include "fstext/fst-test-utils.h"
+#include "base/kaldi-math.h"
 
 namespace fst {
 
@@ -30,24 +31,24 @@ void TestLatticeStringRepository() {
   typedef LatticeStringRepository<IntType>::Entry Entry;
 
   for(int i = 0; i < 100; i++) {
-    int len = rand() % 5;
-    vector<IntType> str(len), str2(rand() % 4);
+    int len = kaldi::Rand() % 5;
+    vector<IntType> str(len), str2(kaldi::Rand() % 4);
     const Entry *e = NULL;
     for(int i = 0; i < len; i++) {
-      str[i] = rand() % 5;
+      str[i] = kaldi::Rand() % 5;
       e = sr.Successor(e, str[i]);
     }
     sr.ConvertToVector(e, &str2);
     assert(str == str2);
 
-    int len2 = rand() % 5;
+    int len2 = kaldi::Rand() % 5;
     str2.resize(len2);
     const Entry *f = sr.EmptyString(); // NULL
     for(int i = 0; i < len2; i++) {
-      str2[i] = rand() % 5;
+      str2[i] = kaldi::Rand() % 5;
       f = sr.Successor(f, str2[i]);
     }
-    vector<IntType> prefix, prefix2(rand() % 10),
+    vector<IntType> prefix, prefix2(kaldi::Rand() % 10),
         prefix3;
     for(int i = 0; i < len && i < len2; i++) {
       if (str[i] == str2[i]) prefix.push_back(str[i]);
@@ -90,7 +91,11 @@ template<class Arc> void TestDeterminizeLattice() {
     VectorFst<Arc> *fst = RandFst<Arc>();
     std::cout << "FST before lattice-determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     VectorFst<Arc> det_fst;
@@ -102,7 +107,11 @@ template<class Arc> void TestDeterminizeLattice() {
         throw std::runtime_error("could not determinize");
       std::cout << "FST after lattice-determinizing is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<Arc> fstprinter(det_fst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<Arc> fstprinter(det_fst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
       assert(det_fst.Properties(kIDeterministic, true) & kIDeterministic);
@@ -113,10 +122,14 @@ template<class Arc> void TestDeterminizeLattice() {
       ConvertLattice<Weight, Int>(*fst, &compact_fst, false);
       std::cout << "Compact FST is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<CompactArc> fstprinter(compact_fst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<CompactArc> fstprinter(compact_fst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
-      if (rand() % 2 == 1)
+      if (kaldi::Rand() % 2 == 1)
         ConvertLattice<Weight, Int>(det_fst, &compact_det_fst, false);
       else
         if (!DeterminizeLattice<TropicalWeight, int32>(*fst, &compact_det_fst, lat_opts, NULL))
@@ -124,11 +137,15 @@ template<class Arc> void TestDeterminizeLattice() {
       
       std::cout << "Compact version of determinized FST is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<CompactArc> fstprinter(compact_det_fst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<CompactArc> fstprinter(compact_det_fst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
       
-      assert(RandEquivalent(compact_det_fst, compact_fst, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length, max*/));
+      assert(RandEquivalent(compact_det_fst, compact_fst, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length, max*/));
     } catch (...) {
       std::cout << "Failed to lattice-determinize this FST (probably not determinizable)\n";
     }
@@ -145,14 +162,22 @@ template<class Arc> void TestDeterminizeLattice2() {
     VectorFst<Arc> *fst = RandFst<Arc>(opts);
     std::cout << "FST before lattice-determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     VectorFst<Arc> ofst;
     DeterminizeLattice<TropicalWeight, int32>(*fst, &ofst);
     std::cout << "FST after lattice-determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(ofst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(ofst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     delete fst;

@@ -3,6 +3,7 @@
 // Copyright 2009-2012   Saarland University (author: Arnab Ghoshal)
 //           2012-2013   Johns Hopkins University (Author: Daniel Povey);
 //                       Bagher BabaAli
+//                2014   Guoguo Chen
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -35,11 +36,11 @@
 
 namespace kaldi {
 
-/// This function iterates over the states of a topologically sorted lattice
-/// and counts the time instance corresponding to each state. The times are
-/// returned in a vector of integers 'times' which is resized to have a size
-/// equal to the number of states in the lattice. The function also returns
-/// the maximum time in the lattice (this will equal the #frames in the file).
+/// This function iterates over the states of a topologically sorted lattice and
+/// counts the time instance corresponding to each state. The times are returned
+/// in a vector of integers 'times' which is resized to have a size equal to the
+/// number of states in the lattice. The function also returns the maximum time
+/// in the lattice (this will equal the number of frames in the file).
 int32 LatticeStateTimes(const Lattice &lat, std::vector<int32> *times);
 
 /// As LatticeStateTimes, but in the CompactLattice format.  Note: must
@@ -125,8 +126,8 @@ bool PruneLattice(BaseFloat beam, LatticeType *lat);
 void ConvertCompactLatticeToPhones(const TransitionModel &trans_model,
                                    CompactLattice *clat);
 
-/// Boosts LM probabilities by b * [#frame errors]; equivalently, adds
-/// -b*[#frame errors] to the graph-component of the cost of each arc/path.
+/// Boosts LM probabilities by b * [number of frame errors]; equivalently, adds
+/// -b*[number of frame errors] to the graph-component of the cost of each arc/path.
 /// There is a frame error if a particular transition-id on a particular frame
 /// corresponds to a phone not matching transcription's alignment for that frame.
 /// This is used in "margin-inspired" discriminative training, esp. Boosted MMI.
@@ -183,14 +184,14 @@ BaseFloat LatticeForwardBackwardMmi(
     Posterior *arc_post);
 
 
-/// This function takes a CompactLattice that should only contain
-/// a single linear sequence (e.g. derived from lattice-1best), and
-/// that should have been processed so that the arcs in the CompactLattice
-/// align correctly with the word boundaries (e.g. by lattice-align-words).
-/// It outputs 3 vectors of the same size, which give, for each word
-/// in the lattice (in sequence), the word label and the begin time and
-/// end time.  This is done even for zero words-- if you don't want them,
-/// just ignore them in the output.
+/// This function takes a CompactLattice that should only contain a single
+/// linear sequence (e.g. derived from lattice-1best), and that should have been
+/// processed so that the arcs in the CompactLattice align correctly with the
+/// word boundaries (e.g. by lattice-align-words).  It outputs 3 vectors of the
+/// same size, which give, for each word in the lattice (in sequence), the word
+/// label and the begin time and length in frames.  This is done even for zero
+/// (epsilon) words, generally corresponding to optional silence-- if you don't
+/// want them, just ignore them in the output.
 /// This function will print a warning and return false, if the lattice
 /// did not have the correct format (e.g. if it is empty or it is not
 /// linear).
@@ -199,8 +200,29 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
                                    std::vector<int32> *begin_times,
                                    std::vector<int32> *lengths);
 
-/// A form of the shortest-path algorithm that's specially coded for
-/// CompactLattice.   Requires that clat be acyclic.
+/// This function takes a CompactLattice that should only contain a single
+/// linear sequence (e.g. derived from lattice-1best), and that should have been
+/// processed so that the arcs in the CompactLattice align correctly with the
+/// word boundaries (e.g. by lattice-align-words).  It outputs 4 vectors of the
+/// same size, which give, for each word in the lattice (in sequence), the word
+/// label, the begin time and length in frames, and the pronunciation (sequence
+/// of phones).  This is done even for zero words, corresponding to optional
+/// silences -- if you don't want them, just ignore them in the output.
+/// This function will print a warning and return false, if the lattice
+/// did not have the correct format (e.g. if it is empty or it is not
+/// linear).
+bool CompactLatticeToWordProns(
+    const TransitionModel &tmodel,
+    const CompactLattice &clat,
+    std::vector<int32> *words,
+    std::vector<int32> *begin_times,
+    std::vector<int32> *lengths,
+    std::vector<std::vector<int32> > *prons,
+    std::vector<std::vector<int32> > *phone_lengths);
+
+
+/// A form of the shortest-path/best-path algorithm that's specially coded for
+/// CompactLattice.  Requires that clat be acyclic.
 void CompactLatticeShortestPath(const CompactLattice &clat,
                                 CompactLattice *shortest_path);
 
@@ -215,6 +237,19 @@ void AddWordInsPenToCompactLattice(BaseFloat word_ins_penalty,
 /// true on success, false on error (typically some kind of mismatched inputs).
 bool RescoreCompactLattice(DecodableInterface *decodable,
                            CompactLattice *clat);
+
+
+/// This function returns the number of words in the longest sentence in a
+/// CompactLattice (i.e. the the maximum of any path, of the count of
+/// olabels on that path).
+int32 LongestSentenceLength(const Lattice &lat);
+
+/// This function returns the number of words in the longest sentence in a
+/// CompactLattice, i.e. the the maximum of any path, of the count of
+/// labels on that path... note, in CompactLattice, the ilabels and olabels
+/// are identical because it is an acceptor.
+int32 LongestSentenceLength(const CompactLattice &lat);
+
 
 /// This function is like RescoreCompactLattice, but it is modified to avoid
 /// computing probabilities on most frames where all the pdf-ids are the same.
@@ -244,6 +279,17 @@ bool RescoreCompactLatticeSpeedup(
 bool RescoreLattice(DecodableInterface *decodable,
                     Lattice *lat);
 
+/// This function Composes a CompactLattice format lattice with a
+/// DeterministicOnDemandFst<fst::StdFst> format fst, and outputs another
+/// CompactLattice format lattice. The first element (the one that corresponds
+/// to LM weight) in CompactLatticeWeight is used for composition.
+///
+/// Note that the DeterministicOnDemandFst interface is not "const", therefore
+/// we cannot use "const" for <det_fst>.
+void ComposeCompactLatticeDeterministic(
+    const CompactLattice& clat,
+    fst::DeterministicOnDemandFst<fst::StdArc>* det_fst,
+    CompactLattice* composed_clat);
 
 }  // namespace kaldi
 

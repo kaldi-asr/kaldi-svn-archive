@@ -57,25 +57,33 @@ template<class Arc> void TestDeterminizeLatticePruned() {
     KALDI_ASSERT(sorted);
 
     ILabelCompare<Arc> ilabel_comp;
-    if (rand() % 2 == 0)
+    if (kaldi::Rand() % 2 == 0)
       ArcSort(fst, ilabel_comp);
     
     std::cout << "FST before lattice-determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     VectorFst<Arc> det_fst;
     try {
       DeterminizeLatticePrunedOptions lat_opts;
-      lat_opts.max_mem = ((rand() % 2 == 0) ? 100 : 1000);
-      lat_opts.max_states = ((rand() % 2 == 0) ? -1 : 20);
-      lat_opts.max_arcs = ((rand() % 2 == 0) ? -1 : 30);
-      bool ans = DeterminizeLatticePruned<Weight, Int>(*fst, 10.0, &det_fst, lat_opts);
+      lat_opts.max_mem = ((kaldi::Rand() % 2 == 0) ? 100 : 1000);
+      lat_opts.max_states = ((kaldi::Rand() % 2 == 0) ? -1 : 20);
+      lat_opts.max_arcs = ((kaldi::Rand() % 2 == 0) ? -1 : 30);
+      bool ans = DeterminizeLatticePruned<Weight>(*fst, 10.0, &det_fst, lat_opts);
 
       std::cout << "FST after lattice-determinizing is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<Arc> fstprinter(det_fst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<Arc> fstprinter(det_fst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
       KALDI_ASSERT(det_fst.Properties(kIDeterministic, true) & kIDeterministic);
@@ -92,19 +100,27 @@ template<class Arc> void TestDeterminizeLatticePruned() {
       ConvertLattice<Weight, Int>(pruned_fst, &compact_pruned_fst, false);
       std::cout << "Compact pruned FST is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<CompactArc> fstprinter(compact_pruned_fst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<CompactArc> fstprinter(compact_pruned_fst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
       ConvertLattice<Weight, Int>(det_fst, &compact_pruned_det_fst, false);
       
       std::cout << "Compact version of determinized FST is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<CompactArc> fstprinter(compact_pruned_det_fst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<CompactArc> fstprinter(compact_pruned_det_fst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
 
       if (ans)
-        KALDI_ASSERT(RandEquivalent(compact_pruned_det_fst, compact_pruned_fst, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length, max*/));
+        KALDI_ASSERT(RandEquivalent(compact_pruned_det_fst, compact_pruned_fst, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length, max*/));
     } catch (...) {
       std::cout << "Failed to lattice-determinize this FST (probably not determinizable)\n";
     }
@@ -122,14 +138,22 @@ template<class Arc> void TestDeterminizeLatticePruned2() {
     VectorFst<Arc> *fst = RandPairFst<Arc>(opts);
     std::cout << "FST before lattice-determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     VectorFst<Arc> ofst;
-    DeterminizeLatticePruned<Weight, int32>(*fst, 10.0, &ofst);
+    DeterminizeLatticePruned<Weight>(*fst, 10.0, &ofst);
     std::cout << "FST after lattice-determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(ofst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(ofst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     delete fst;

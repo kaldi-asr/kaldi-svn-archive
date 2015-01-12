@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
     } else if (match_side == "right") {
       opts.table_match_type = MATCH_INPUT;
     } else {
-      KALDI_ERR << "Invalid match-side option: " << match_side << '\n';
+      KALDI_ERR << "Invalid match-side option: " << match_side;
     }
 
     if (compose_filter == "alt_sequence") {
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     } else  if (compose_filter == "sequence") {
       opts.filter_type = SEQUENCE_FILTER;
     } else {
-      KALDI_ERR << "Invalid compose-filter option: " << compose_filter << '\n';
+      KALDI_ERR << "Invalid compose-filter option: " << compose_filter;
     }
 
     if (po.NumArgs() < 2 || po.NumArgs() > 3) {
@@ -122,6 +122,14 @@ int main(int argc, char *argv[]) {
       VectorFst<StdArc> *fst1 = ReadFstKaldi(fst1_in_str);
       
       VectorFst<StdArc> *fst2 = ReadFstKaldi(fst2_in_str);
+
+      // Checks if <fst1> is olabel sorted and <fst2> is ilabel sorted.
+      if (fst1->Properties(fst::kOLabelSorted, true) == 0) {
+        KALDI_WARN << "The first FST is not olabel sorted.";
+      }
+      if (fst2->Properties(fst::kILabelSorted, true) == 0) {
+        KALDI_WARN << "The second FST is not ilabel sorted.";
+      }
       
       VectorFst<StdArc> composed_fst;
 
@@ -140,6 +148,11 @@ int main(int argc, char *argv[]) {
       SequentialTableReader<VectorFstHolder> fst2_reader(fst2_in_str);
       TableWriter<VectorFstHolder> fst_writer(fst_out_str);
       int32 n_done = 0;
+
+      // Checks if <fst1> is olabel sorted.
+      if (fst1->Properties(fst::kOLabelSorted, true) == 0) {
+        KALDI_WARN << "The first FST is not olabel sorted.";
+      }
       for (; !fst2_reader.Done(); fst2_reader.Next(), n_done++) {
         VectorFst<StdArc> fst2(fst2_reader.Value());
         VectorFst<StdArc> fst_out;

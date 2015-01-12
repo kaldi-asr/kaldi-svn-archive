@@ -17,6 +17,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include "base/kaldi-math.h"
 #include "fstext/pre-determinize.h"
 #include "fstext/determinize-star.h"
 #include "fstext/trivial-factor-weight.h"
@@ -35,7 +36,11 @@ template<class Arc> void TestDeterminizeGeneral() {
     VectorFst<Arc> *fst = RandFst<Arc>();
     std::cout << "FST before determinizing is:\n";
     {
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
     VectorFst<Arc> ofst;
@@ -43,10 +48,14 @@ template<class Arc> void TestDeterminizeGeneral() {
       DeterminizeStar<Arc>(*fst, &ofst, kDelta, NULL, max_states);
       std::cout << "FST after determinizing is:\n";
       {
+#ifdef HAVE_OPENFST_GE_10400
+        FstPrinter<Arc> fstprinter(ofst, NULL, NULL, NULL, false, true, "\t");
+#else
         FstPrinter<Arc> fstprinter(ofst, NULL, NULL, NULL, false, true);
+#endif
         fstprinter.Print(&std::cout, "standard output");
       }
-      assert(RandEquivalent(*fst, ofst, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length, max*/));      
+      assert(RandEquivalent(*fst, ofst, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length, max*/));      
     } catch (...) {
       std::cout << "Failed to determinize *this FST (probably not determinizable)\n";
     }
@@ -62,7 +71,7 @@ template<class Arc>  void TestDeterminize() {
   typedef typename Arc::Weight Weight;
 
   VectorFst<Arc> *fst = new VectorFst<Arc>();
-  int n_syms = 2 + rand() % 5, n_states = 3 + rand() % 10, n_arcs = 5 + rand() % 30, n_final = 1 + rand()%3;  // Up to 2 unique symbols.
+  int n_syms = 2 + kaldi::Rand() % 5, n_states = 3 + kaldi::Rand() % 10, n_arcs = 5 + kaldi::Rand() % 30, n_final = 1 + kaldi::Rand()%3;  // Up to 2 unique symbols.
   cout << "Testing pre-determinize with "<<n_syms<<" symbols, "<<n_states<<" states and "<<n_arcs<<" arcs and "<<n_final<<" final states.\n";
   SymbolTable *sptr = NULL;
 
@@ -80,25 +89,29 @@ template<class Arc>  void TestDeterminize() {
   }
   // Set final states.
   for (size_t j = 0;j < (size_t)n_final;j++) {
-    StateId id = all_states[rand() % n_states];
-    Weight weight = (Weight)(0.33*(rand() % 5) );
+    StateId id = all_states[kaldi::Rand() % n_states];
+    Weight weight = (Weight)(0.33*(kaldi::Rand() % 5) );
     printf("calling SetFinal with %d and %f\n", id, weight.Value());
     fst->SetFinal(id, weight);
   }
   // Create arcs.
   for (size_t i = 0;i < (size_t)n_arcs;i++) {
     Arc a;
-    a.nextstate = all_states[rand() % n_states];
-    a.ilabel = all_syms[rand() % n_syms];
-    a.olabel = all_syms[rand() % n_syms];  // same input+output vocab.
-    a.weight = (Weight) (0.33*(rand() % 2));
-    StateId start_state = all_states[rand() % n_states];
+    a.nextstate = all_states[kaldi::Rand() % n_states];
+    a.ilabel = all_syms[kaldi::Rand() % n_syms];
+    a.olabel = all_syms[kaldi::Rand() % n_syms];  // same input+output vocab.
+    a.weight = (Weight) (0.33*(kaldi::Rand() % 2));
+    StateId start_state = all_states[kaldi::Rand() % n_states];
     fst->AddArc(start_state, a);
   }
 
   std::cout <<" printing before trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   // Trim resulting FST.
@@ -106,7 +119,11 @@ template<class Arc>  void TestDeterminize() {
 
   std::cout <<" printing after trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -119,7 +136,11 @@ template<class Arc>  void TestDeterminize() {
 
   std::cout <<" printing after predeterminization\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -135,7 +156,11 @@ template<class Arc>  void TestDeterminize() {
 
   std::cout <<" printing after epsilon removal\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   VectorFst<Arc> ofst_orig;
@@ -154,31 +179,43 @@ template<class Arc>  void TestDeterminize() {
 
   {
     std::cout <<" printing after determinization [baseline]\n";
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst_orig, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(ofst_orig, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
     assert(ofst_orig.Properties(kIDeterministic, true) == kIDeterministic);
   }
 
   {
     std::cout <<" printing after determinization [star]\n";
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
     assert(ofst_star.Properties(kIDeterministic, true) == kIDeterministic);
   }
 
-  assert(RandEquivalent(ofst_orig, ofst_star, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+  assert(RandEquivalent(ofst_orig, ofst_star, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
 
   int64 num_removed = DeleteISymbols(&ofst_star, extra_syms);
   std::cout <<" printing after removing "<<num_removed<<" instances of extra symbols\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
   std::cout <<" Checking equivalent to original FST.\n";
-  // giving rand() as a seed stops the random number generator from always being reset to
+  // giving Rand() as a seed stops the random number generator from always being reset to
   // the same point each time, while maintaining determinism of the test.
-  assert(RandEquivalent(ofst_star, *fst_copy_orig, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+  assert(RandEquivalent(ofst_star, *fst_copy_orig, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
 
   delete fst;
   delete fst_copy_orig;
@@ -192,7 +229,7 @@ template<class Arc>  void TestDeterminize2() {
     VectorFst<Arc> *ifst = RandFst<Arc>(opts);
     VectorFst<Arc> ofst;
     Determinize(*ifst, &ofst);
-    assert(RandEquivalent(*ifst, ofst, 5, 0.01, rand(), 100));
+    assert(RandEquivalent(*ifst, ofst, 5, 0.01, kaldi::Rand(), 100));
     delete ifst;
   }
 }
@@ -203,7 +240,7 @@ template<class Arc>  void TestPush() {
   typedef typename Arc::Weight Weight;
 
   VectorFst<Arc> *fst = new VectorFst<Arc>();
-  int n_syms = 2 + rand() % 5, n_states = 3 + rand() % 10, n_arcs = 5 + rand() % 30, n_final = 1 + rand()%3;  // Up to 2 unique symbols.
+  int n_syms = 2 + kaldi::Rand() % 5, n_states = 3 + kaldi::Rand() % 10, n_arcs = 5 + kaldi::Rand() % 30, n_final = 1 + kaldi::Rand()%3;  // Up to 2 unique symbols.
   cout << "Testing pre-determinize with "<<n_syms<<" symbols, "<<n_states<<" states and "<<n_arcs<<" arcs and "<<n_final<<" final states.\n";
   SymbolTable *sptr = NULL;
 
@@ -221,25 +258,29 @@ template<class Arc>  void TestPush() {
   }
   // Set final states.
   for (size_t j = 0;j < (size_t)n_final;j++) {
-    StateId id = all_states[rand() % n_states];
-    Weight weight = (Weight)(0.33*(rand() % 5) );
+    StateId id = all_states[kaldi::Rand() % n_states];
+    Weight weight = (Weight)(0.33*(kaldi::Rand() % 5) );
     printf("calling SetFinal with %d and %f\n", id, weight.Value());
     fst->SetFinal(id, weight);
   }
   // Create arcs.
   for (size_t i = 0;i < (size_t)n_arcs;i++) {
     Arc a;
-    a.nextstate = all_states[rand() % n_states];
-    a.ilabel = all_syms[rand() % n_syms];
-    a.olabel = all_syms[rand() % n_syms];  // same input+output vocab.
-    a.weight = (Weight) (0.33*(rand() % 2));
-    StateId start_state = all_states[rand() % n_states];
+    a.nextstate = all_states[kaldi::Rand() % n_states];
+    a.ilabel = all_syms[kaldi::Rand() % n_syms];
+    a.olabel = all_syms[kaldi::Rand() % n_syms];  // same input+output vocab.
+    a.weight = (Weight) (0.33*(kaldi::Rand() % 2));
+    StateId start_state = all_states[kaldi::Rand() % n_states];
     fst->AddArc(start_state, a);
   }
 
   std::cout <<" printing before trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   // Trim resulting FST.
@@ -247,7 +288,11 @@ template<class Arc>  void TestPush() {
 
   std::cout <<" printing after trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -264,11 +309,15 @@ template<class Arc>  void TestPush() {
 
   std::cout <<" printing after pushing\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(fst_pushed, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(fst_pushed, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
-  assert(RandEquivalent(*fst, fst_pushed, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+  assert(RandEquivalent(*fst, fst_pushed, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
 
   delete fst;
   delete fst_copy_orig;
@@ -281,7 +330,7 @@ template<class Arc>  void TestMinimize() {
   typedef typename Arc::Weight Weight;
 
   VectorFst<Arc> *fst = new VectorFst<Arc>();
-  int n_syms = 2 + rand() % 5, n_states = 3 + rand() % 10, n_arcs = 5 + rand() % 30, n_final = 1 + rand()%3;  // Up to 2 unique symbols.
+  int n_syms = 2 + kaldi::Rand() % 5, n_states = 3 + kaldi::Rand() % 10, n_arcs = 5 + kaldi::Rand() % 30, n_final = 1 + kaldi::Rand()%3;  // Up to 2 unique symbols.
   cout << "Testing pre-determinize with "<<n_syms<<" symbols, "<<n_states<<" states and "<<n_arcs<<" arcs and "<<n_final<<" final states.\n";
   SymbolTable *sptr =NULL;
 
@@ -299,25 +348,29 @@ template<class Arc>  void TestMinimize() {
   }
   // Set final states.
   for (size_t j = 0;j < (size_t)n_final;j++) {
-    StateId id = all_states[rand() % n_states];
-    Weight weight = (Weight)(0.33*(rand() % 5) );
+    StateId id = all_states[kaldi::Rand() % n_states];
+    Weight weight = (Weight)(0.33*(kaldi::Rand() % 5) );
     printf("calling SetFinal with %d and %f\n", id, weight.Value());
     fst->SetFinal(id, weight);
   }
   // Create arcs.
   for (size_t i = 0;i < (size_t)n_arcs;i++) {
     Arc a;
-    a.nextstate = all_states[rand() % n_states];
-    a.ilabel = all_syms[rand() % n_syms];
-    a.olabel = all_syms[rand() % n_syms];  // same input+output vocab.
-    a.weight = (Weight) (0.33*(rand() % 2));
-    StateId start_state = all_states[rand() % n_states];
+    a.nextstate = all_states[kaldi::Rand() % n_states];
+    a.ilabel = all_syms[kaldi::Rand() % n_syms];
+    a.olabel = all_syms[kaldi::Rand() % n_syms];  // same input+output vocab.
+    a.weight = (Weight) (0.33*(kaldi::Rand() % 2));
+    StateId start_state = all_states[kaldi::Rand() % n_states];
     fst->AddArc(start_state, a);
   }
 
   std::cout <<" printing before trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   // Trim resulting FST.
@@ -325,7 +378,11 @@ template<class Arc>  void TestMinimize() {
 
   std::cout <<" printing after trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -338,7 +395,11 @@ template<class Arc>  void TestMinimize() {
 
   std::cout <<" printing after predeterminization\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -354,7 +415,11 @@ template<class Arc>  void TestMinimize() {
 
   std::cout <<" printing after epsilon removal\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   VectorFst<Arc> ofst_orig;
@@ -367,7 +432,11 @@ template<class Arc>  void TestMinimize() {
   }
   {
     std::cout <<" printing after determinization [baseline]\n";
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst_orig, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(ofst_orig, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -379,7 +448,11 @@ template<class Arc>  void TestMinimize() {
     DeterminizeStar(*fst, &gallic_fst);
     {
       std::cout <<" printing after determinization by DeterminizeStar [in gallic]\n";
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<GallicArc< Arc> > fstprinter(gallic_fst, sptr, sptr, NULL, false, true, "\t");
+#else
       FstPrinter<GallicArc< Arc> > fstprinter(gallic_fst, sptr, sptr, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
 
@@ -389,7 +462,11 @@ template<class Arc>  void TestMinimize() {
 
     {
       std::cout <<" printing after pushing weights [in gallic]\n";
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<GallicArc< Arc> > fstprinter(gallic_fst, sptr, sptr, NULL, false, true, "\t");
+#else
       FstPrinter<GallicArc< Arc> > fstprinter(gallic_fst, sptr, sptr, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
 
@@ -398,44 +475,69 @@ template<class Arc>  void TestMinimize() {
     Minimize(&gallic_fst);
     {
       std::cout <<" printing after  minimization [in gallic]\n";
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<GallicArc< Arc> > fstprinter(gallic_fst, sptr, sptr, NULL, false, true, "\t");
+#else
       FstPrinter<GallicArc< Arc> > fstprinter(gallic_fst, sptr, sptr, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
 
     printf("Converting gallic back to regular [my approach]\n");
+#ifdef HAVE_OPENFST_GE_10400
+    TrivialFactorWeightFst< GallicArc<Arc, GALLIC_LEFT>, GallicFactor<typename Arc::Label,
+        typename Arc::Weight, GALLIC_LEFT> > fwfst(gallic_fst);
+#else
     TrivialFactorWeightFst< GallicArc<Arc, STRING_LEFT>, GallicFactor<typename Arc::Label,
         typename Arc::Weight, STRING_LEFT> > fwfst(gallic_fst);
+#endif
     {
       std::cout <<" printing factor-weight FST\n";
-      FstPrinter<GallicArc<Arc> >  fstprinter(fwfst, sptr, sptr, NULL, false, true);
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<GallicArc< Arc> > fstprinter(fwfst, sptr, sptr, NULL, false, true, "\t");
+#else
+      FstPrinter<GallicArc< Arc> > fstprinter(fwfst, sptr, sptr, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
 
+#ifdef HAVE_OPENFST_GE_10400
+    Map(fwfst, &ofst_star, FromGallicMapper<Arc, GALLIC_LEFT>());
+#else
     Map(fwfst, &ofst_star, FromGallicMapper<Arc, STRING_LEFT>());
+#endif
 
     {
       std::cout <<" printing after converting back to regular FST\n";
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true, "\t");
+#else
       FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true);
+#endif
       fstprinter.Print(&std::cout, "standard output");
     }
 
   }
 
 
-  assert(RandEquivalent(ofst_orig, ofst_star, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+  assert(RandEquivalent(ofst_orig, ofst_star, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
 
 
   int64 num_removed = DeleteISymbols(&ofst_star, extra_syms);
   std::cout <<" printing after removing "<<num_removed<<" instances of extra symbols\n";
   {
-     FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true);
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true, "\t");
+#else
+    FstPrinter<Arc> fstprinter(ofst_star, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
   std::cout <<" Checking equivalent to original FST.\n";
-  // giving rand() as a seed stops the random number generator from always being reset to
+  // giving Rand() as a seed stops the random number generator from always being reset to
   // the same point each time, while maintaining determinism of the test.
-  assert(RandEquivalent(ofst_star, *fst_copy_orig, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+  assert(RandEquivalent(ofst_star, *fst_copy_orig, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
 
   delete fst;
   delete fst_copy_orig;
@@ -453,9 +555,9 @@ template<class Arc, class inttype> void TestStringRepository() {
   vector<inttype> ids(N);
 
   for (int i = 0;i < N;i++) {
-    size_t len = rand() % 4;
+    size_t len = kaldi::Rand() % 4;
     vector<Label> vec;
-    for (size_t j = 0;j < len;j++) vec.push_back( (rand()%10) + 150*(rand()%2));  // make it have reasonable range.
+    for (size_t j = 0;j < len;j++) vec.push_back( (kaldi::Rand()%10) + 150*(kaldi::Rand()%2));  // make it have reasonable range.
     if (i < 500 && vec.size() == 0) ids[i] = sr.IdOfEmpty();
     else if (i < 500 && vec.size() == 1) ids[i] = sr.IdOfLabel(vec[0]);
     else ids[i] = sr.IdOfSeq(vec);
@@ -473,7 +575,7 @@ template<class Arc, class inttype> void TestStringRepository() {
     if (strings[i].size() == 1) assert(ids[i] == sr.IdOfLabel(strings[i][0]));
 
     if (sizeof(inttype) != 1) {
-      size_t prefix_len = rand() % (strings[i].size() + 1);
+      size_t prefix_len = kaldi::Rand() % (strings[i].size() + 1);
       inttype s2 = sr.RemovePrefix(ids[i], prefix_len);
       vector<Label> vec2;
       sr.SeqOfId(s2, &vec2);

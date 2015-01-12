@@ -12,12 +12,16 @@ realign_iters="10 20 30";
 num_iters=35    # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
 beam=10
+careful=false
 retry_beam=40
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
 power=0.25 # Exponent for number of gaussians according to occurrence counts
 cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
-norm_vars=false # false : cmn, true : cmvn.  To turn off CMN completely,
-                # supply the --fake option to compute_cmvn_stats.sh
+norm_vars=false # deprecated.  Prefer --cmvn-opts "--norm-vars=true"
+                # use the option --cmvn-opts "--norm-means=false"
+cmvn_opts=
+delta_opts=
+context_opts=   # use"--context-width=5 --central-position=2" for quinphone
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -62,9 +66,14 @@ centralpos=$((contextwidth/2))
 sdata=$data/split$nj;
 split_data.sh $data $nj || exit 1;
 
-echo $norm_vars > $dir/norm_vars # keep track of feature normalization type for decoding, alignment
 
-feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |"
+[ $(cat $alidir/cmvn_opts 2>/dev/null | wc -c) -gt 1 ] && [ -z "$cmvn_opts" ] && \
+  echo "$0: warning: ignoring CMVN options from source directory $alidir"
+$norm_vars && cmvn_opts="--norm-vars=true $cmvn_opts"
+echo $cmvn_opts  > $dir/cmvn_opts # keep track of options to CMVN.
+[ ! -z $delta_opts ] && echo $delta_opts > $dir/delta_opts
+
+feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
 
 rm $dir/.error 2>/dev/null
 
@@ -90,14 +99,21 @@ if [ $stage -le -2 ]; then
 
   echo "$0: building the tree"
   $cmd $dir/log/build_tree.log \
-    build-tree --verbose=1 --max-leaves=$numleaves \
+    build-tree $context_opts --verbose=1 --max-leaves=$numleaves \
     --context-width=$contextwidth --central-position=$centralpos \
     --cluster-thresh=$cluster_thresh $dir/treeacc $lang/phones/roots.int \
     $dir/questions.qst $lang/topo $dir/tree || exit 1;
 
-  gmm-init-model  --write-occs=$dir/1.occs  \
-    $dir/tree $dir/treeacc $lang/topo $dir/1.mdl 2> $dir/log/init_model.log || exit 1;
-  grep 'no stats' $dir/log/init_model.log && echo "This is a bad warning.";
+  $cmd $dir/log/init_model.log \
+    gmm-init-model  --write-occs=$dir/1.occs  \
+      $dir/tree $dir/treeacc $lang/topo $dir/1.mdl || exit 1;
+  if grep 'no stats' $dir/log/init_model.log; then
+     echo "** The warnings above about 'no stats' generally mean you have phones **"
+     echo "** (or groups of phones) in your phone set that had no corresponding data. **"
+     echo "** You should probably figure out whether something went wrong, **"
+     echo "** or whether your data just doesn't happen to have examples of those **"
+     echo "** phones. **"
+  fi
 
   gmm-mixup --mix-up=$numgauss $dir/1.mdl $dir/1.occs $dir/1.mdl 2>$dir/log/mixup.log || exit 1;
   rm $dir/treeacc
@@ -115,7 +131,7 @@ if [ $stage -le 0 ]; then
   echo "$0: compiling graphs of transcripts"
   $cmd JOB=1:$nj $dir/log/compile_graphs.JOB.log \
     compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst  \
-     "ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt < $data/split$nj/JOB/text |" \
+     "ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt < $sdata/JOB/text |" \
       "ark:|gzip -c >$dir/fsts.JOB.gz" || exit 1;
 fi
 
@@ -127,7 +143,7 @@ while [ $x -lt $num_iters ]; do
       echo "$0: aligning data"
       mdl="gmm-boost-silence --boost=$boost_silence `cat $lang/phones/optional_silence.csl` $dir/$x.mdl - |"
       $cmd JOB=1:$nj $dir/log/align.$x.JOB.log \
-        gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" \
+        gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
          "ark:gunzip -c $dir/fsts.JOB.gz|" "$feats" \
          "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
     fi

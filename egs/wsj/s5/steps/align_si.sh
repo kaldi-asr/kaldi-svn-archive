@@ -18,6 +18,7 @@ use_graphs=false
 scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
 beam=10
 retry_beam=40
+careful=false
 boost_silence=1.0 # Factor by which to boost silence during alignment.
 # End configuration options.
 
@@ -42,14 +43,19 @@ lang=$2
 srcdir=$3
 dir=$4
 
+
+for f in $data/text $lang/oov.int $srcdir/tree $srcdir/final.mdl; do
+  [ ! -f $f ] && echo "$0: expected file $f to exist" && exit 1;
+done
+
 oov=`cat $lang/oov.int` || exit 1;
 mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 sdata=$data/split$nj
 splice_opts=`cat $srcdir/splice_opts 2>/dev/null` # frame-splicing options.
 cp $srcdir/splice_opts $dir 2>/dev/null # frame-splicing options.
-norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
-cp $srcdir/norm_vars $dir 2>/dev/null # cmn/cmvn option.
+cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
+cp $srcdir/cmvn_opts $dir 2>/dev/null # cmn/cmvn option.
 
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
@@ -57,12 +63,13 @@ cp $srcdir/{tree,final.mdl} $dir || exit 1;
 cp $srcdir/final.occs $dir;
 
 
+
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
     cp $srcdir/final.mat $srcdir/full.mat $dir    
    ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
@@ -77,7 +84,7 @@ if $use_graphs; then
   [ ! -f $srcdir/fsts.1.gz ] && echo "$0: no such file $srcdir/fsts.1.gz" && exit 1;
 
   $cmd JOB=1:$nj $dir/log/align.JOB.log \
-    gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" \
+    gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
       "ark:gunzip -c $srcdir/fsts.JOB.gz|" "$feats" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
 else
   tra="ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt $sdata/JOB/text|";
@@ -85,7 +92,7 @@ else
   # training graphs one by one.
   $cmd JOB=1:$nj $dir/log/align.JOB.log \
     compile-train-graphs $dir/tree $dir/final.mdl  $lang/L.fst "$tra" ark:- \| \
-    gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" ark:- \
+    gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" ark:- \
       "$feats" "ark,t:|gzip -c >$dir/ali.JOB.gz" || exit 1;
 fi
 

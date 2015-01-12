@@ -5,16 +5,29 @@
 
 stage=0
 
+calldata=
+while test $# -gt 0
+do
+    case "$1" in
+        --calldata) calldata=1
+            ;;
+        *) break;
+            ;;
+    esac
+    shift
+done
+
 . utils/parse_options.sh
 
 if [ $# -eq 0 ]; then
-  echo "$0 <fisher-dir-1> [<fisher-dir-2> ...]"
+  echo "$0 [--calldata] <fisher-dir-1> [<fisher-dir-2> ...]"
   echo " e.g.: $0 /export/corpora3/LDC/LDC2004T19 /export/corpora3/LDC/LDC2005T19\\"
   echo " /export/corpora3/LDC/LDC2004S13 /export/corpora3/LDC/LDC2005S13"
   echo " (We also support a single directory that has the contents of all of them)"
+  echo " If specified, --calldata will be used to map Kaldi speaker ID to real"
+  echo " speaker PIN released with the Fisher corpus."
   exit 1;
 fi
-
 
 # Check that the arguments are all absolute pathnames.
 
@@ -152,8 +165,12 @@ if [ $stage -le 2 ]; then
 fi
 
 if [ $stage -le 3 ]; then
-  cat $tmpdir/sph.flist | perl -ane 'm:/([^/]+)\.sph$: || die "bad line $_; ";  print "$1 $_"; ' > $tmpdir/sph.scp
-
+  for f in `cat $tmpdir/sph.flist`; do
+    # convert to absolute path
+    readlink -e $f
+  done > $tmpdir/sph_abs.flist
+  
+  cat $tmpdir/sph_abs.flist | perl -ane 'm:/([^/]+)\.sph$: || die "bad line $_; ";  print "$1 $_"; ' > $tmpdir/sph.scp
   cat $tmpdir/sph.scp | awk -v sph2pipe=$sph2pipe '{printf("%s-A %s -f wav -p -c 1 %s |\n", $1, sph2pipe, $2); 
     printf("%s-B %s -f wav -p -c 2 %s |\n", $1, sph2pipe, $2);}' | \
     sort -k1,1 -u  > data/train_all/wav.scp || exit 1;
@@ -176,6 +193,18 @@ if [ $stage -le 4 ]; then
                 print "fe_03_$1-A $2\n", "fe_03_$1-B $3\n"; ' | \
          sort | uniq | utils/filter_scp.pl data/train_all/spk2utt > data/train_all/spk2gender
   fi
+fi
+
+if [ ! -z "$calldata" ]; then # fix speaker IDs
+  cat $links/fe_03_p{1,2}_tran/doc/*calldata.tbl > $tmpdir/combined-calldata.tbl
+  local/fisher_fix_speakerid.pl $tmpdir/combined-calldata.tbl data/train_all
+  utils/utt2spk_to_spk2utt.pl data/train_all/utt2spk.new > data/train_all/spk2utt.new
+  # patch files
+  for f in spk2utt utt2spk text segments spk2gender; do
+    cp data/train_all/$f data/train_all/$f.old || exit 1;
+    cp data/train_all/$f.new data/train_all/$f || exit 1;
+  done
+  rm $tmpdir/combined-calldata.tbl
 fi
 
 echo "Data preparation succeeded"

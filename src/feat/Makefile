@@ -5,13 +5,14 @@ all:
 include ../kaldi.mk
 
 TESTFILES = feature-mfcc-test feature-plp-test feature-fbank-test \
-	feature-functions-test feature-aperiodic-test \
-	pitch-functions-test feature-sdc-test
+        feature-functions-test  feature-aperiodic-test \
+	pitch-functions-test feature-sdc-test \
+        resample-test online-feature-test
 
 OBJFILES = feature-functions.o feature-mfcc.o feature-plp.o feature-fbank.o \
 	feature-spectrogram.o mel-computations.o wave-reader.o \
 	signal-process.o feature-lpc.o feature-aperiodic.o \
-        pitch-functions.o feature-sdc-test.o
+        pitch-functions.o feature-sdc-test.o resample.o online-feature.o
 
 LIBNAME = kaldi-feat
 

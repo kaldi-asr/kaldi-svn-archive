@@ -1,6 +1,6 @@
 # This is the top-level Makefile for Kaldi.
 # Also see kaldi.mk which supplies options and some rules
-# used by the Makefiles in the subdirectories. 
+# used by the Makefiles in the subdirectories.
 
 SHELL := /bin/bash
 
@@ -9,13 +9,14 @@ SUBDIRS = base matrix util feat tree thread gmm transform sgmm \
           fstext hmm lm decoder lat cudamatrix nnet \
           bin fstbin gmmbin fgmmbin sgmmbin featbin \
           nnetbin latbin sgmm2 sgmm2bin nnet2 nnet2bin kwsbin \
-          ivectorbin idlaktxp idlaktxpbin
+          ivector ivectorbin online2 online2bin lmbin idlaktxp idlaktxpbin
 
 MEMTESTDIRS = base matrix util feat tree thread gmm transform sgmm \
           fstext hmm lm decoder lat nnet \
           bin fstbin gmmbin fgmmbin sgmmbin featbin \
           nnetbin latbin sgmm2 nnet2 nnet2bin sgmm2bin kwsbin \
-          ivectorbin idlaktxp idlaktxpbin
+          idlaktxp idlaktxpbin \
+          ivector ivectorbin online2 online2bin lmbin
 
 CUDAMEMTESTDIR = cudamatrix
 SUBDIRS_LIB = $(filter-out %bin, $(SUBDIRS))
@@ -38,7 +39,7 @@ mklibdir:
 #I don't want to call rm -rf
 rmlibdir:
 ifneq ($(KALDILIBDIR), )
-	-rm $(KALDILIBDIR)/*{.so,.a,.o} 
+	-rm $(KALDILIBDIR)/*{.so,.a,.o}
 	-rmdir $(KALDILIBDIR)
 else
 	@true
@@ -52,7 +53,7 @@ else
 	$(error The kaldi.mk file was generated using a different version of configure script. Run the configure script again.)
 endif
 
-biglib: $(SUBDIRS_LIB) 
+biglib: $(SUBDIRS_LIB)
 ifeq ($(KALDI_FLAVOR), dynamic)
 ifeq ($(shell uname), Darwin)
 	$(CXX) -dynamiclib -o $(KALDILIBDIR)/libkaldi.dylib -install_name @rpath/libkaldi.dylib -framework Accelerate $(LDFLAGS) $(SUBDIRS_LIB:=/*.dylib)
@@ -83,15 +84,19 @@ endif
 kaldi.mk:
 	@[ -f kaldi.mk ] || { echo "kaldi.mk does not exist; you have to run ./configure"; exit 1; }
 
-# Compile optional stuff 
+# Compile optional stuff
 ext: test_dependencies ext_depend $(SUBDIRS) $(EXT_SUBDIRS)
 	-echo Done
 
-# Note: if you have put the OpenFst installation somewhere else, you can just
-# delete or comment out the lines below.
-# OPENFST_VER = $(shell grep 'PACKAGE_VERSION' $(FSTROOT)/Makefile | sed -e 's:.*= ::')
+ifndef OPENFST_VER
+$(error Please rerun configure: OPENFST_VER is not defined, likely kaldi.mk was produced by older configure script.)
+endif
+# Note: OPENFST_VER is determined by configure and added to kaldi.mk
+OPENFST_VER_NUM := $(shell echo $(OPENFST_VER) | sed 's/\./ /g' | xargs printf "%d%02d%02d")
 test_dependencies:
-#	@[ "$(OPENFST_VER)" == '1.2.10' ] || [ "$(OPENFST_VER)" == '1.3.2' ] || [ "$(OPENFST_VER)" == '1.3.4' ] || { echo "You now need openfst-1.2.10.  Do: cd ../tools; svn update; ./install.sh; cd ../src; make depend; make"; exit 1; };
+ifeq ("$(shell expr $(OPENFST_VER_NUM) \< 10302)","1")
+	$(error OpenFst $(OPENFST_VER) is not supported. You now need OpenFst >= 1.3.2.)
+endif
 
 check_portaudio:
 	@[ -d ../tools/portaudio ] || ( cd ../tools;  ./install_portaudio.sh )
@@ -140,7 +145,7 @@ $(EXT_SUBDIRS) : mklibdir
 # this is necessary for correct parallel compilation
 #1)The tools depend on all the libraries
 
-bin fstbin gmmbin fgmmbin sgmmbin sgmm2bin featbin nnetbin nnet2bin latbin ivectorbin: \
+bin fstbin gmmbin fgmmbin sgmmbin sgmm2bin featbin nnetbin nnet2bin latbin ivectorbin lmbin: \
  base matrix util feat tree optimization thread gmm transform sgmm sgmm2 fstext hmm \
  lm decoder lat cudamatrix nnet nnet2 ivector
 
@@ -158,7 +163,7 @@ sgmm: base util matrix gmm tree transform thread hmm
 sgmm2: base util matrix gmm tree transform thread hmm
 fstext: base util matrix tree
 hmm: base tree matrix 
-lm: base util
+lm: base util fstext
 decoder: base util matrix gmm sgmm hmm tree transform lat
 lat: base util hmm
 cudamatrix: base util matrix	
@@ -167,8 +172,10 @@ nnet2: base util matrix thread lat
 ivector: base util matrix thread transform tree gmm 
 #3)Dependencies for optional parts of Kaldi
 onlinebin: base matrix util feat tree optimization gmm transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet2 online
+online2bin: base matrix util feat tree optimization gmm transform sgmm sgmm2 fstext hmm lm decoder lat cudamatrix nnet nnet2 online2
 # python-kaldi-decoding: base matrix util feat tree optimization thread gmm transform sgmm sgmm2 fstext hmm decoder lat online
 online: decoder
+online2: decoder
 kwsbin: fstext lat base util
 #4) Dependencies for IDLAK
 idlaktxp: base matrix util

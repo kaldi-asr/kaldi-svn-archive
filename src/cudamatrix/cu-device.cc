@@ -35,6 +35,7 @@
 
 #include "cudamatrix/cu-common.h"
 #include "cudamatrix/cu-device.h"
+#include "cudamatrix/cu-matrix.h"
 #include "base/kaldi-error.h"
 #include "util/common-utils.h"
 
@@ -80,7 +81,7 @@ void CuDevice::SelectGpuId(std::string use_gpu) {
   // Check that we have a gpu available
   int32 n_gpu = 0;
   cudaGetDeviceCount(&n_gpu);
-  if(n_gpu == 0) {
+  if (n_gpu == 0) {
     if (use_gpu == "yes") {
       KALDI_ERR << "No CUDA GPU detected!";
     }
@@ -320,13 +321,21 @@ void CuDevice::PrintProfile() {
     os << "-----\n[cudevice profile]\n";
     std::map<std::string, double>::iterator it;
     std::vector<std::pair<double, std::string> > pairs;
-    for(it = profile_map_.begin(); it != profile_map_.end(); ++it)
-      pairs.push_back(std::make_pair(it->second, it->first));
+    double total_time = 0.0;
+    for(it = profile_map_.begin(); it != profile_map_.end(); ++it) {
+      std::string function_name = it->first;
+      double elapsed_time = it->second;
+      total_time += elapsed_time;
+      pairs.push_back(std::make_pair(elapsed_time, function_name));
+    }
+    // display from shortest to longest time, so tail will show the longest
+    // times at the end.
     std::sort(pairs.begin(), pairs.end());
     size_t max_print = 15, start_pos = (pairs.size() <= max_print ?
                                         0 : pairs.size() - max_print);
     for (size_t i = start_pos; i < pairs.size(); i++) 
       os << pairs[i].second << "\t" << pairs[i].first << "s\n";
+    os << "Total GPU time:\t" << total_time << "s (may involve some double-counting)\n";
     os << "-----";
     KALDI_LOG << os.str();
     PrintMemoryUsage();
@@ -405,6 +414,27 @@ void CuDevice::DeviceGetName(char* name, int32 len, int32 dev) {
     //close the library
     dlclose(libcuda);
   }
+}
+
+
+void CuDevice::CheckGpuHealth() {
+  if(!Enabled()) return;
+  Timer t;
+  // prepare small matrices for a quick test
+  Matrix<BaseFloat> a(50, 100);
+  Matrix<BaseFloat> b(100 ,50);
+  a.SetRandn();
+  b.SetRandUniform();
+  // multiply 2 small matrices in CPU:
+  Matrix<BaseFloat> c(50, 50);
+  c.AddMatMat(1.0, a, kNoTrans, b, kNoTrans, 0.0);
+  // multiply same matrices in GPU:
+  CuMatrix<BaseFloat> c1(50, 50);
+  c1.AddMatMat(1.0, CuMatrix<BaseFloat>(a), kNoTrans, CuMatrix<BaseFloat>(b), kNoTrans, 0.0);
+  // check that relative differnence is <1%
+  AssertEqual(c, Matrix<BaseFloat>(c1), 0.01);
+  // measure time spent in this check
+  AccuProfile(__func__, t.Elapsed());
 }
 
 
@@ -651,6 +681,26 @@ void CuAllocator::Free(void *addr) {
     info->freed.push_back(addr);
   } else { // Actually free the address, and decrease "countdown".
     info->countdown--;
+    /*
+      If you get an "unspecified launch error" after the cudaFree call below, it
+      may not be an error with the immediate call, but it could reflect an error
+      that happened earlier.  We encountered the CUBLAS bug described at
+      https://devtalk.nvidia.com/default/topic/758598/cublas-gemm-leads-to-invalid-reads-for-some-matrix-dimensions/
+      which causes sgemm to access invalid memory.  After reproducibly getting
+      "unspecified launch failure" at the location below, we ran the program in
+      cuda-memcheck and got the following:
+      ========= Invalid __global__ read of size 4
+      =========     at 0x00000180 in sgemm_sm_heavy_nt_ldg
+      =========     by thread (223,0,0) in block (0,0,0)
+      =========     Address 0x4a0052607c is out of bounds
+      (and lots more stuff like that).  It appears to only happen for certain
+      matrix sizes, usually encountered for partial minibatches at the end of a
+      training job.  It happened on K20s but not on K10s. We know this happened
+      with CUDA toolkit version 5.5, and the link above says the bug has been
+      resolved in version 6.5 of the toolkit.  Our fix was to just not run the
+      affected training runs on our K20s, since this bug seemed to show up quite
+      rarely.
+     */
     CU_SAFE_CALL(cudaFree(addr)); // This is how we free, even if allocated with
                                   // cudaMallocPitch().
   }

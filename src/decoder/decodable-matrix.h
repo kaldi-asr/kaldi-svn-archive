@@ -57,11 +57,11 @@ class DecodableMatrixScaledMapped: public DecodableInterface {
                 << tm.NumPdfs() << " pdf-ids.";
   }  
 
-  virtual int32 NumFrames() { return likes_->NumRows(); }
+  virtual int32 NumFramesReady() const { return likes_->NumRows(); }
 
-  virtual bool IsLastFrame(int32 frame) {
-    KALDI_ASSERT(frame < NumFrames());
-    return (frame == NumFrames() - 1);
+  virtual bool IsLastFrame(int32 frame) const {
+    KALDI_ASSERT(frame < NumFramesReady());
+    return (frame == NumFramesReady() - 1);
   }
 
   // Note, frames are numbered from zero.
@@ -70,7 +70,7 @@ class DecodableMatrixScaledMapped: public DecodableInterface {
   }
 
   // Indices are one-based!  This is for compatibility with OpenFst.
-  virtual int32 NumIndices() { return trans_model_.NumTransitionIds(); }
+  virtual int32 NumIndices() const { return trans_model_.NumTransitionIds(); }
 
   virtual ~DecodableMatrixScaledMapped() {
     if (delete_likes_) delete likes_;
@@ -90,11 +90,11 @@ class DecodableMatrixScaled: public DecodableInterface {
                         BaseFloat scale): likes_(likes),
                                           scale_(scale) { }
   
-  virtual int32 NumFrames() { return likes_.NumRows(); }
+  virtual int32 NumFramesReady() const { return likes_.NumRows(); }
   
-  virtual bool IsLastFrame(int32 frame) {
-    KALDI_ASSERT(frame < NumFrames());
-    return (frame == NumFrames() - 1);
+  virtual bool IsLastFrame(int32 frame) const {
+    KALDI_ASSERT(frame < NumFramesReady());
+    return (frame == NumFramesReady() - 1);
   }
   
   // Note, frames are numbered from zero.
@@ -103,7 +103,7 @@ class DecodableMatrixScaled: public DecodableInterface {
   }
 
   // Indices are one-based!  This is for compatibility with OpenFst.
-  virtual int32 NumIndices() { return likes_.NumCols(); }
+  virtual int32 NumIndices() const { return likes_.NumCols(); }
 
  private:
   const Matrix<BaseFloat> &likes_;

@@ -22,7 +22,7 @@ first_pass_gselect=3 # Use a smaller number of Gaussian-selection indices in
             # the 1st pass of decoding (lattice generation).
 max_active=7000
 
-#WARNING: This option is renamed lat_beam (it was renamed to follow the naming 
+#WARNING: This option is renamed lattice_beam (it was renamed to follow the naming 
 #         in the other scripts
 lattice_beam=6.0 # Beam we use in lattice generation.
 vecs_beam=4.0 # Beam we use to prune lattices while getting posteriors for 
@@ -66,7 +66,7 @@ done
 sdata=$data/split$nj;
 silphonelist=`cat $graphdir/phones/silence.csl` || exit 1
 splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
-norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
+cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
 gselect_opt="--gselect=ark,s,cs:gunzip -c $dir/gselect.JOB.gz|"
 gselect_opt_1stpass="$gselect_opt copy-gselect --n=$first_pass_gselect ark:- ark:- |"
 
@@ -80,8 +80,8 @@ if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
     ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
 esac
@@ -125,6 +125,10 @@ fi
 # Generate state-level lattice which we can rescore.  This is done with the 
 # alignment model and no speaker-vectors.
 if [ $stage -le 2 ]; then
+  if [ -f "$graphdir/num_pdfs" ]; then
+    [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $alignment_model | grep pdfs | awk '{print $NF}'` ] || \
+      { echo "Mismatch in number of pdfs with $alignment_model"; exit 1; }
+  fi
   $cmd JOB=1:$nj $dir/log/decode_pass1.JOB.log \
     sgmm-latgen-faster --max-active=$max_active --beam=$beam --lattice-beam=$lattice_beam \
     --acoustic-scale=$acwt --determinize-lattice=false --allow-partial=true \

@@ -60,12 +60,14 @@ pem=$sdir/english/hub5e_00.pem
 # pem file has lines like: 
 # en_4156 A unknown_speaker 301.85 302.48
 
+# we ignore the warnings below for now, although they seem to indicate some problems
+# with the data.
 grep -v ';;' $pem \
   | awk '{
            spk=$1"-"$2;
            utt=sprintf("%s_%06d-%06d",spk,$4*100,$5*100);
            print utt,spk,$4,$5;}' \
-  | sort -u > $dir/segments
+  | sort -u | local/extend_segments.pl 0.1 > $dir/segments
 
 # stm file has lines like:
 # en_4156 A en_4156_A 357.64 359.64 <O,en,F,en-F>  HE IS A POLICE OFFICER 
@@ -115,3 +117,8 @@ echo Data preparation and formatting completed for Eval 2000
 echo "(but not MFCC extraction)"
 
 utils/fix_data_dir.sh $dest
+
+if [ $(wc -l < $dest/wav.scp) -ne 80 ]; then
+  echo "$0: error: expected 80 lines in wav.scp, got $(wc -l < $dest/wav.scp)"
+  exit 1;
+fi

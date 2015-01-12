@@ -35,7 +35,6 @@ class NnetComputer {
      and last frames.) */
   NnetComputer(const Nnet &nnet,
                const CuMatrixBase<BaseFloat> &input_feats,
-               const CuVectorBase<BaseFloat> &spk_info,
                bool pad, 
                Nnet *nnet_to_update = NULL);
   
@@ -55,42 +54,39 @@ class NnetComputer {
   
  private:  
   const Nnet &nnet_;
-  CuVector<BaseFloat> spk_info_;
   std::vector<CuMatrix<BaseFloat> > forward_data_;
   Nnet *nnet_to_update_; // May be NULL, if just want objective function
   // but no gradient info or SGD.
+  std::vector <ChunkInfo> chunk_info_;
 };
 
 NnetComputer::NnetComputer(const Nnet &nnet,
                            const CuMatrixBase<BaseFloat> &input_feats,
-                           const CuVectorBase<BaseFloat> &spk_info,
                            bool pad,
                            Nnet *nnet_to_update):
-    nnet_(nnet), spk_info_(spk_info), nnet_to_update_(nnet_to_update) {
-  int32 feature_dim = input_feats.NumCols(),
-            spk_dim = spk_info.Dim(),
-            tot_dim = feature_dim + spk_dim;  
-  KALDI_ASSERT(tot_dim == nnet.InputDim());
-
+    nnet_(nnet), nnet_to_update_(nnet_to_update) {
+  int32 dim = input_feats.NumCols();
+  if (dim != nnet.InputDim()) {
+    KALDI_ERR << "Feature dimension is " << dim << " but network expects "
+              << nnet.InputDim();
+  }
   forward_data_.resize(nnet.NumComponents() + 1);
 
   int32 left_context = (pad ? nnet_.LeftContext() : 0),
        right_context = (pad ? nnet_.RightContext() : 0);
 
   int32 num_rows = left_context + input_feats.NumRows() + right_context;
+  nnet.ComputeChunkInfo(num_rows, 1, &chunk_info_);
+
   CuMatrix<BaseFloat> &input(forward_data_[0]);
-  input.Resize(num_rows, tot_dim);
+  input.Resize(num_rows, dim);
   input.Range(left_context, input_feats.NumRows(),
-              0, feature_dim).CopyFromMat(input_feats);
+              0, dim).CopyFromMat(input_feats);
   for (int32 i = 0; i < left_context; i++)
-    input.Row(i).Range(0, feature_dim).CopyFromVec(input_feats.Row(0));
+    input.Row(i).CopyFromVec(input_feats.Row(0));
   int32 last_row = input_feats.NumRows() - 1;
   for (int32 i = 0; i < right_context; i++)
-    input.Row(num_rows - i - 1).
-        Range(0, feature_dim).CopyFromVec(input_feats.Row(last_row));
-  if (spk_dim != 0)
-    input.Range(0, input.NumRows(),
-                feature_dim, spk_dim).CopyRowsFromVec(spk_info);
+    input.Row(num_rows - i - 1).CopyFromVec(input_feats.Row(last_row));
 }
 
 
@@ -100,8 +96,7 @@ void NnetComputer::Propagate() {
     const Component &component = nnet_.GetComponent(c);
     CuMatrix<BaseFloat> &input = forward_data_[c],
                      &output = forward_data_[c+1];
-        
-    component.Propagate(input, 1, &output);
+    component.Propagate(chunk_info_[c], chunk_info_[c+1], input, &output);
     const Component *prev_component = (c == 0 ? NULL : &(nnet_.GetComponent(c-1)));
     bool will_do_backprop = (nnet_to_update_ != NULL),
          keep_last_output = will_do_backprop &&
@@ -147,7 +142,6 @@ void NnetComputer::Backprop(CuMatrix<BaseFloat> *tmp_deriv) {
   // If later this reasoning changes, we can change this
   // statement and add logic to make component_to_update, below,
   // NULL if necessary.
-  int32 num_chunks = 1;
   
   for (int32 c = nnet_.NumComponents() - 1; c >= 0; c--) {
     const Component &component = nnet_.GetComponent(c);
@@ -156,7 +150,7 @@ void NnetComputer::Backprop(CuMatrix<BaseFloat> *tmp_deriv) {
                             &output = forward_data_[c+1],
                       &output_deriv = *tmp_deriv;
     CuMatrix<BaseFloat> input_deriv;
-    component.Backprop(input, output, output_deriv, num_chunks,
+    component.Backprop(chunk_info_[c], chunk_info_[c+1], input, output, output_deriv, 
                        component_to_update, &input_deriv);
     *tmp_deriv = input_deriv;
   }
@@ -164,21 +158,19 @@ void NnetComputer::Backprop(CuMatrix<BaseFloat> *tmp_deriv) {
 
 void NnetComputation(const Nnet &nnet,
                      const CuMatrixBase<BaseFloat> &input,  // features
-                     const CuVectorBase<BaseFloat> &spk_info,
                      bool pad_input,
                      CuMatrixBase<BaseFloat> *output) {
-  NnetComputer nnet_computer(nnet, input, spk_info, pad_input, NULL);
+  NnetComputer nnet_computer(nnet, input, pad_input, NULL);
   nnet_computer.Propagate();
   output->CopyFromMat(nnet_computer.GetOutput());
 }
 
 BaseFloat NnetGradientComputation(const Nnet &nnet,
                                   const CuMatrixBase<BaseFloat> &input,
-                                  const CuVectorBase<BaseFloat> &spk_info,
                                   bool pad_input,
                                   const Posterior &pdf_post,
                                   Nnet *nnet_to_update) {
-  NnetComputer nnet_computer(nnet, input, spk_info, pad_input, nnet_to_update);
+  NnetComputer nnet_computer(nnet, input, pad_input, nnet_to_update);
   nnet_computer.Propagate();
   CuMatrix<BaseFloat> deriv;
   BaseFloat ans;

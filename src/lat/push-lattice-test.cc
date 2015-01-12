@@ -40,7 +40,7 @@ void TestPushCompactLatticeStrings() {
   CompactLattice *clat = RandCompactLattice();
   CompactLattice clat2(*clat);
   PushCompactLatticeStrings(&clat2);
-  KALDI_ASSERT(fst::RandEquivalent(*clat, clat2, 5, 0.001, rand(), 10));
+  KALDI_ASSERT(fst::RandEquivalent(*clat, clat2, 5, 0.001, Rand(), 10));
   for (CompactLatticeArc::StateId s = 0; s < clat2.NumStates(); s++) {
     if (s == 0)
       continue; // We don't check state zero, as the "leftover string" stays
@@ -78,7 +78,7 @@ void TestPushCompactLatticeWeights() {
   CompactLattice *clat = RandCompactLattice();
   CompactLattice clat2(*clat);
   PushCompactLatticeWeights(&clat2);
-  KALDI_ASSERT(fst::RandEquivalent(*clat, clat2, 5, 0.001, rand(), 10));
+  KALDI_ASSERT(fst::RandEquivalent(*clat, clat2, 5, 0.001, Rand(), 10));
   for (CompactLatticeArc::StateId s = 0; s < clat2.NumStates(); s++) {
     if (s == 0)
       continue; // We don't check state zero, as the "leftover string" stays
@@ -90,13 +90,23 @@ void TestPushCompactLatticeWeights() {
     }
     if (!ApproxEqual(sum, LatticeWeight::One())) {
       {
+#ifdef HAVE_OPENFST_GE_10400
+        fst::FstPrinter<CompactLatticeArc> printer(clat2, NULL, NULL,
+                                                   NULL, true, true, "\t");
+#else
         fst::FstPrinter<CompactLatticeArc> printer(clat2, NULL, NULL,
                                                    NULL, true, true);
+#endif
         printer.Print(&std::cerr, "<unknown>");
       }
       {
-        fst::FstPrinter<CompactLatticeArc> printer(*clat, NULL, NULL, 
+#ifdef HAVE_OPENFST_GE_10400
+        fst::FstPrinter<CompactLatticeArc> printer(*clat, NULL, NULL,
+                                                   NULL, true, true, "\t");
+#else
+        fst::FstPrinter<CompactLatticeArc> printer(*clat, NULL, NULL,
                                                    NULL, true, true);
+#endif
         printer.Print(&std::cerr, "<unknown>");
       }
       KALDI_ERR << "Bad lattice being pushed.";

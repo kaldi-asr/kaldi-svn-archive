@@ -51,12 +51,12 @@ class DecodableAmSgmm : public DecodableInterface {
   virtual BaseFloat LogLikelihood(int32 frame, int32 tid) {
     return LogLikelihoodZeroBased(frame, trans_model_.TransitionIdToPdf(tid));
   }
-  int32 NumFrames() { return feature_matrix_.NumRows(); }
-  virtual int32 NumIndices() { return trans_model_.NumTransitionIds(); }
+  int32 NumFramesReady() const { return feature_matrix_.NumRows(); }
+  virtual int32 NumIndices() const { return trans_model_.NumTransitionIds(); }
 
-  virtual bool IsLastFrame(int32 frame) {
-    KALDI_ASSERT(frame < NumFrames());
-    return (frame == NumFrames() - 1);
+  virtual bool IsLastFrame(int32 frame) const {
+    KALDI_ASSERT(frame < NumFramesReady());
+    return (frame == NumFramesReady() - 1);
   }
 
  protected:

@@ -23,6 +23,7 @@ drop_frames=true
 verbose=1
 
 seed=777    # seed value used for training data shuffling
+skip_cuda_check=false
 # End configuration section
 
 echo "$0 $@"  # Print the command line for logging
@@ -52,18 +53,21 @@ srcdir=$3
 alidir=$4
 denlatdir=$5
 dir=$6
-mkdir -p $dir/log
 
 for f in $data/feats.scp $alidir/{tree,final.mdl,ali.1.gz} $denlatdir/lat.scp $srcdir/{final.nnet,final.feature_transform}; do
   [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
 done
+
+# check if CUDA is compiled in,
+if ! $skip_cuda_check; then
+  cuda-compiled || { echo 'CUDA was not compiled in, skipping! Check src/kaldi.mk and src/configure' && exit 1; }
+fi
 
 mkdir -p $dir/log
 
 cp $alidir/{final.mdl,tree} $dir
 
 silphonelist=`cat $lang/phones/silence.csl` || exit 1;
-
 
 
 #Get the files we will need

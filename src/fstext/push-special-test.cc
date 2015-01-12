@@ -21,6 +21,7 @@
 #include "fstext/push-special.h"
 #include "fstext/rand-fst.h"
 #include "fstext/fstext-utils.h"
+#include "base/kaldi-math.h"
 
 namespace fst
 {
@@ -36,7 +37,11 @@ static void TestPushSpecial() {
   VectorFst<Arc> *fst = RandFst<StdArc>();
 
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, NULL, NULL, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   
@@ -54,7 +59,11 @@ static void TestPushSpecial() {
 
 
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(fst_copy, NULL, NULL, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(fst_copy, NULL, NULL, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   KALDI_LOG << "Min value is " << min.Value() << ", max value is " << max.Value();
@@ -64,7 +73,7 @@ static void TestPushSpecial() {
   KALDI_ASSERT(std::abs(min.Value() - max.Value()) <=  1.2 * delta);
   
   KALDI_ASSERT(RandEquivalent(*fst, fst_copy,
-                              5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+                              5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
   delete fst;
 }
 

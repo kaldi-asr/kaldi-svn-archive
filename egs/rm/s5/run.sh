@@ -1,7 +1,8 @@
 #!/bin/bash
 
 . cmd.sh
-set -e # exit on error.
+set -e # exit on error
+
 
 # call the next line with the directory where the RM data is
 # (the argument below is just an example).  This should contain
@@ -16,19 +17,18 @@ local/rm_data_prep.sh /export/corpora5/LDC/LDC93S3A/rm_comp
 
 utils/prepare_lang.sh data/local/dict '!SIL' data/local/lang data/lang
 
-local/rm_prepare_grammar.sh  # Traditional RM grammar (bigram word-pair)
-local/rm_prepare_grammar_ug.sh || exit 1; # Unigram grammar (gives worse results, but
-                                          # changes in WER will be more significant.)
+local/rm_prepare_grammar.sh      # Traditional RM grammar (bigram word-pair)
+local/rm_prepare_grammar_ug.sh   # Unigram grammar (gives worse results, but
+                                 # changes in WER will be more significant.)
 
 # mfccdir should be some place with a largish disk where you
-# want to store MFCC features.
+# want to store MFCC features.   You can make a soft link if you want.
 featdir=mfcc
 
-
 for x in test_mar87 test_oct87 test_feb89 test_oct89 test_feb91 test_sep92 train; do
-  steps/make_mfcc.sh --nj 8 --cmd "run.pl" data/$x exp/make_mfcc/$x $featdir
-  steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $featdir
-  #steps/make_plp.sh data/$x exp/make_plp/$x $featdir
+  steps/make_mfcc.sh --nj 8 --cmd "run.pl" data/$x exp/make_feat/$x $featdir
+  #steps/make_plp.sh --nj 8 --cmd "run.pl" data/$x exp/make_feat/$x $featdir
+  steps/compute_cmvn_stats.sh data/$x exp/make_feat/$x $featdir
 done
 
 # Make a combined data dir where the data from all the test sets goes-- we do
@@ -36,9 +36,9 @@ done
 # regenerate the CMVN stats as one of the speakers appears in two of the
 # test sets; otherwise tools complain as the archive has 2 entries.
 utils/combine_data.sh data/test data/test_{mar87,oct87,feb89,oct89,feb91,sep92}
-steps/compute_cmvn_stats.sh data/test exp/make_mfcc/test $featdir
+steps/compute_cmvn_stats.sh data/test exp/make_feat/test $featdir
 
-utils/subset_data_dir.sh data/train 1000 data/train.1k
+utils/subset_data_dir.sh data/train 1000 data/train.1k 
 
 
 steps/train_mono.sh --nj 4 --cmd "$train_cmd" data/train.1k data/lang exp/mono
@@ -69,6 +69,9 @@ utils/mkgraph.sh data/lang exp/tri1 exp/tri1/graph
 steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
   exp/tri1/graph data/test exp/tri1/decode
 
+local/test_decoders.sh # This is a test program that we run only in the
+                       # RM setup, it does some comparison tests on decoders
+                       # to help validate the code.
 #draw-tree data/lang/phones.txt exp/tri1/tree | dot -Tps -Gsize=8,10.5 | ps2pdf - tree.pdf
 
 # align tri1
@@ -92,6 +95,10 @@ utils/mkgraph.sh data/lang exp/tri2b exp/tri2b/graph
 
 steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
    exp/tri2b/graph data/test exp/tri2b/decode
+
+# you could run these scripts at this point, that use VTLN.
+# local/run_vtln.sh
+# local/run_vtln2.sh
 
 # Align all data with LDA+MLLT system (tri2b)
 steps/align_si.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
@@ -139,6 +146,15 @@ steps/decode_fmllr.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 steps/align_fmllr.sh --nj 8 --cmd "$train_cmd" --use-graphs true \
   data/train data/lang exp/tri3b exp/tri3b_ali
 
+
+# # We have now added a script that will help you find portions of your data that
+# # has bad transcripts, so you can filter it out.  Below we demonstrate how to
+# # run this script.
+# steps/cleanup/find_bad_utts.sh --nj 20 --cmd "$train_cmd" data/train data/lang \
+#   exp/tri3b_ali exp/tri3b_cleanup 
+# # The following command will show you some of the hardest-to-align utterances in the data.
+# head  exp/tri3b_cleanup/all_info.sorted.txt 
+
 ## MMI on top of tri3b (i.e. LDA+MLLT+SAT+MMI)
 steps/make_denlats.sh --config conf/decode.config \
    --nj 8 --cmd "$train_cmd" --transform-dir exp/tri3b_ali \
@@ -152,6 +168,31 @@ steps/decode_fmllr.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 # Do a decoding that uses the exp/tri3b/decode directory to get transforms from.
 steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
   --transform-dir exp/tri3b/decode  exp/tri3b/graph data/test exp/tri3b_mmi/decode2
+
+# demonstration scripts for online decoding.
+# local/online/run_gmm.sh
+# local/online/run_nnet2.sh
+# local/online/run_baseline.sh
+# Note: for online decoding with pitch, look at local/run_pitch.sh, 
+# which calls local/online/run_gmm_pitch.sh
+
+#
+# local/online/run_nnet2_multisplice.sh
+# local/online/run_nnet2_multisplice_disc.sh
+
+# ##some older scripts:
+# # local/run_nnet2.sh
+# # local/online/run_nnet2_baseline.sh
+
+# ## if you have a WSJ setup, you can use the following script to do joint
+# ## RM/WSJ training; this doesn't require that the phone set be the same, it's
+# ## a demonstration of a multilingual script.
+# local/online/run_nnet2_wsj_joint.sh
+
+# ## The following is an older way to do multilingual training, from an
+# ## already-trained system.
+# #local/online/run_nnet2_wsj.sh
+
 
 
 #first, train UBM for fMMI experiments.
@@ -190,6 +231,7 @@ done
 # Demo of "raw fMLLR"
 # local/run_raw_fmllr.sh
 
+
 # You don't have to run all 3 of the below, e.g. you can just run the run_sgmm2.sh
 #local/run_sgmm.sh
 local/run_sgmm2.sh
@@ -198,3 +240,9 @@ local/run_sgmm2.sh
 # The following script depends on local/run_raw_fmllr.sh having been run.
 #
 # local/run_nnet2.sh
+
+# Karel's neural net recipe.                                                                                                                                        
+# local/nnet/run_dnn.sh                                                                                                                                                  
+
+# Karel's CNN recipe.
+# local/nnet/run_cnn.sh

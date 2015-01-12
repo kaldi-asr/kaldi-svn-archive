@@ -17,15 +17,11 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include "base/kaldi-math.h"
 #include "fstext/pre-determinize.h"
 #include "fstext/fst-test-utils.h"
 #include "fstext/fstext-utils.h"
 
-#ifdef _MSC_VER
-#include <unordered_map>
-#else
-#include <tr1/unordered_map>
-#endif
 // Just check that it compiles, for now.
 
 namespace fst
@@ -37,7 +33,7 @@ template<class Arc>  void TestPreDeterminize() {
   typedef typename Arc::Weight Weight;
 
   VectorFst<Arc> *fst = new VectorFst<Arc>();
-  int n_syms = 2 + rand() % 5, n_states = 3 + rand() % 10, n_arcs = 5 + rand() % 30, n_final = 1 + rand()%3;  // Up to 2 unique symbols.
+  int n_syms = 2 + kaldi::Rand() % 5, n_states = 3 + kaldi::Rand() % 10, n_arcs = 5 + kaldi::Rand() % 30, n_final = 1 + kaldi::Rand()%3;  // Up to 2 unique symbols.
   cout << "Testing pre-determinize with "<<n_syms<<" symbols, "<<n_states<<" states and "<<n_arcs<<" arcs and "<<n_final<<" final states.\n";
   SymbolTable *sptr = NULL;
   
@@ -55,25 +51,29 @@ template<class Arc>  void TestPreDeterminize() {
   }
   // Set final states.
   for (size_t j = 0;j < (size_t)n_final;j++) {
-    StateId id = all_states[rand() % n_states];
-    Weight weight = (Weight)(0.33*(rand() % 5) );
+    StateId id = all_states[kaldi::Rand() % n_states];
+    Weight weight = (Weight)(0.33*(kaldi::Rand() % 5) );
     printf("calling SetFinal with %d and %f\n", id, weight.Value());
     fst->SetFinal(id, weight);
   }
   // Create arcs.
   for (size_t i = 0;i < (size_t)n_arcs;i++) {
     Arc a;
-    a.nextstate = all_states[rand() % n_states];
-    a.ilabel = all_syms[rand() % n_syms];
-    a.olabel = all_syms[rand() % n_syms];  // same input+output vocab.
-    a.weight = (Weight) (0.33*(rand() % 2));
-    StateId start_state = all_states[rand() % n_states];
+    a.nextstate = all_states[kaldi::Rand() % n_states];
+    a.ilabel = all_syms[kaldi::Rand() % n_syms];
+    a.olabel = all_syms[kaldi::Rand() % n_syms];  // same input+output vocab.
+    a.weight = (Weight) (0.33*(kaldi::Rand() % 2));
+    StateId start_state = all_states[kaldi::Rand() % n_states];
     fst->AddArc(start_state, a);
   }
 
   std::cout <<" printing before trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
   // Trim resulting FST.
@@ -81,7 +81,11 @@ template<class Arc>  void TestPreDeterminize() {
 
   std::cout <<" printing after trimming\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -95,7 +99,11 @@ template<class Arc>  void TestPreDeterminize() {
 
   std::cout <<" printing after predeterminization\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -111,7 +119,11 @@ template<class Arc>  void TestPreDeterminize() {
 
   std::cout <<" printing after epsilon removal\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
@@ -121,21 +133,29 @@ template<class Arc>  void TestPreDeterminize() {
   Determinize(*fst, &ofst, opts);
   std::cout <<" printing after determinization\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(ofst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
   int64 num_removed = DeleteISymbols(&ofst, extra_syms);
   std::cout <<" printing after removing "<<num_removed<<" instances of extra symbols\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(ofst, sptr, sptr, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(ofst, sptr, sptr, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
   std::cout <<" Checking equivalent to original FST.\n";
-  // giving rand() as a seed stops the random number generator from always being reset to
+  // giving Rand() as a seed stops the random number generator from always being reset to
   // the same point each time, while maintaining determinism of the test.
-  assert(RandEquivalent(ofst, *fst_copy_orig, 5/*paths*/, 0.01/*delta*/, rand()/*seed*/, 100/*path length-- max?*/));
+  assert(RandEquivalent(ofst, *fst_copy_orig, 5/*paths*/, 0.01/*delta*/, kaldi::Rand()/*seed*/, 100/*path length-- max?*/));
 
   delete fst;
   delete fst_copy_orig;
@@ -180,13 +200,17 @@ template<class Arc>  void TestAddSelfLoops() {
   }
   std::cout <<" printing before adding self-loops\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, ilabels, olabels, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, ilabels, olabels, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
 
   // So states 1 and 2 should have self-loops on.
-  size_t num_extra = rand() % 5;
+  size_t num_extra = kaldi::Rand() % 5;
   vector<Label> extra_ilabels, extra_olabels;
   CreateNewSymbols(ilabels,  num_extra, "in#", &extra_ilabels);
   CreateNewSymbols(olabels,  num_extra, "out#", &extra_olabels);
@@ -199,7 +223,11 @@ template<class Arc>  void TestAddSelfLoops() {
 
   std::cout <<" printing after adding self-loops\n";
   {
+#ifdef HAVE_OPENFST_GE_10400
+    FstPrinter<Arc> fstprinter(*fst, ilabels, olabels, NULL, false, true, "\t");
+#else
     FstPrinter<Arc> fstprinter(*fst, ilabels, olabels, NULL, false, true);
+#endif
     fstprinter.Print(&std::cout, "standard output");
   }
 
