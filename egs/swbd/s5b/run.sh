@@ -14,6 +14,10 @@
 . cmd.sh
 . path.sh
 set -e # exit on error
+# mfccdir should be some place with a largish disk where you
+# want to store MFCC features. 
+mfccdir=mfcc
+
 
 # Prepare Switchboard data. This command can also take a second optional argument
 # which specifies the directory to Switchboard documentations. Specifically, if
@@ -38,35 +42,37 @@ utils/prepare_lang.sh data/local/dict "<unk>" data/local/lang data/lang
 # LM trained on the Fisher transcripts (part 2 disk is currently missing; so 
 # only part 1 transcripts ~700hr are used)
 
-# If you have the Fisher data, you can set this "fisher_opt" variable.
-fisher_opt="--fisher /export/corpora3/LDC/LDC2004T19/fe_03_p1_tran/"
-#fisher_opt="--fisher /home/dpovey/data/LDC2004T19/fe_03_p1_tran/"
-#fisher_opt="--fisher /data/corpora0/LDC2004T19/fe_03_p1_tran/"
+# If you have the Fisher data, you can set this "fisher_dir" variable.
+fisher_dirs="/export/corpora3/LDC/LDC2004T19/fe_03_p1_tran/ /export/corpora3/LDC/LDC2005T19/fe_03_p2_tran/"
+#fisher_dirs="/home/dpovey/data/LDC2004T19/fe_03_p1_tran/"
+#fisher_dirs="/data/corpora0/LDC2004T19/fe_03_p1_tran/"
 # edinburgh:
-# fisher_opt="--fisher /exports/work/inf_hcrc_cstr_general/corpora/fisher/transcripts"
+# fisher_dirs="/exports/work/inf_hcrc_cstr_general/corpora/fisher/transcripts"
 # brno:
-# fisher_opt="--fisher /mnt/matylda2/data/FISHER/fe_03_p1_tran" # BUT
-local/swbd1_train_lms.sh $fisher_opt \
-  data/local/train/text data/local/dict/lexicon.txt data/local/lm
+# fisher_dirs="/mnt/matylda2/data/FISHER/fe_03_p1_tran" # BUT
+local/swbd1_train_lms.sh data/local/train/text \
+  data/local/dict/lexicon.txt data/local/lm $fisher_dirs
 # We don't really need all these options for SRILM, since the LM training script
 # does some of the same processings (e.g. -subset -tolower)
-srilm_opts="-subset -prune-lowprobs -unk -tolower -order 3"
-LM=data/local/lm/sw1.o3g.kn.gz
-utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
-  data/lang $LM data/local/dict/lexicon.txt data/lang_sw1_tg
-
-LM=data/local/lm/sw1_fsh.o3g.kn.gz
-utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
-  data/lang $LM data/local/dict/lexicon.txt data/lang_sw1_fsh_tg
-
-# For some funny reason we are still using IRSTLM for doing LM pruning :)
-export PATH=$PATH:../../../tools/irstlm/bin/
-prune-lm --threshold=1e-7 data/local/lm/sw1_fsh.o3g.kn.gz /dev/stdout \
-  | gzip -c > data/local/lm/sw1_fsh.o3g.pr1-7.kn.gz || exit 1
-LM=data/local/lm/sw1_fsh.o3g.pr1-7.kn.gz
-utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
-  data/lang $LM data/local/dict/lexicon.txt data/lang_sw1_fsh_tgpr
-
+for order in 3 4; do
+  lm_suffix="tg"
+  [ $order -eq 3 ] || lm_suffix="fg"
+  srilm_opts="-subset -prune-lowprobs -unk -tolower -order $order"
+  LM=data/local/lm/sw1.o${order}g.kn.gz
+  utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
+    data/lang $LM data/local/dict/lexicon.txt data/lang_sw1_$lm_suffix
+  
+  LM=data/local/lm/sw1_fsh.o${order}g.kn.gz
+  utils/build_const_arpa_lm.sh $LM data/lang data/lang_sw1_fsh_$lm_suffix
+  
+  # For some funny reason we are still using IRSTLM for doing LM pruning :)
+  export PATH=$PATH:../../../tools/irstlm/bin/
+  prune-lm --threshold=1e-7 data/local/lm/sw1_fsh.o${order}g.kn.gz /dev/stdout \
+    | gzip -c > data/local/lm/sw1_fsh.o${order}g.pr1-7.kn.gz || exit 1
+  LM=data/local/lm/sw1_fsh.o${order}g.pr1-7.kn.gz
+  utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
+    data/lang $LM data/local/dict/lexicon.txt data/lang_sw1_fsh_${lm_suffix}pr
+done
 
 # Data preparation and formatting for eval2000 (note: the "text" file
 # is not very much preprocessed; for actual WER reporting we'll use
@@ -78,16 +84,12 @@ utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
 # local/eval2000_data_prep.sh /home/dpovey/data/LDC2002S09/hub5e_00 /home/dpovey/data/LDC2002T43
 local/eval2000_data_prep.sh /export/corpora2/LDC/LDC2002S09/hub5e_00 /export/corpora2/LDC/LDC2002T43
 
-# mfccdir should be some place with a largish disk where you
-# want to store MFCC features. 
-mfccdir=mfcc
-
-steps/make_mfcc.sh --compress true --nj 20 --cmd "$train_cmd" data/train exp/make_mfcc/train $mfccdir
+steps/make_mfcc.sh --nj 50 --cmd "$train_cmd" data/train exp/make_mfcc/train $mfccdir
 steps/compute_cmvn_stats.sh data/train exp/make_mfcc/train $mfccdir 
 
 # Remove the small number of utterances that couldn't be extracted for some 
 # reason (e.g. too short; no such file).
-utils/fix_data_dir.sh data/train 
+utils/fix_data_dir.sh data/train
 
 # Create MFCCs for the eval set
 steps/make_mfcc.sh --cmd "$train_cmd" --nj 10 data/eval2000 exp/make_mfcc/eval2000 $mfccdir
@@ -207,7 +209,9 @@ for lm_suffix in tg fsh_tgpr; do
 done
 
 
-#local/run_resegment.sh
+# The following script demonstrates a scenario where we run automatic segmentation on
+# both train and test data.
+# local/run_resegment.sh
 
 # Now train a LDA+MLLT+SAT model on the entire training data (train_nodup; 
 # 286 hours)
@@ -231,9 +235,14 @@ for lm_suffix in tg fsh_tgpr; do
   ) &
 done
 wait
-steps/lmrescore.sh --mode 3 --cmd "$mkgraph_cmd" data/lang_sw1_fsh_tgpr data/lang_sw1_fsh_tg data/eval2000 \
-  exp/tri4b/decode_eval2000_sw1_fsh_tgpr exp/tri4b/decode_eval2000_sw1_fsh_tg.3 || exit 1
 
+# steps/lmrescore.sh --mode 3 --cmd "$decode_cmd" \
+#   data/lang_sw1_fsh_tgpr data/lang_sw1_fsh_tg \
+#   data/eval2000 exp/tri4b/decode_eval2000_sw1_fsh_tgpr \
+#   exp/tri4b/decode_eval2000_sw1_fsh_tg.3 || exit 1
+steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
+  data/lang_sw1_fsh_{tgpr,fg} data/eval2000 \
+  exp/tri4b/decode_eval2000_sw1_fsh_{tgpr,fg} || exit 1;
 
 # MMI training starting from the LDA+MLLT+SAT systems on both the 
 # train_100k_nodup (110hr) and train_nodup (286hr) sets
@@ -269,10 +278,11 @@ for iter in 1 2 3 4; do
     (
       graph_dir=exp/tri4a/graph_sw1_${lm_suffix}
       decode_dir=exp/tri4a_mmi_b0.1/decode_eval2000_${iter}.mdl_sw1_${lm_suffix}
-    steps/decode.sh --nj 30 --cmd "$decode_cmd" --config conf/decode.config \
-    --iter $iter --transform-dir exp/tri4a/decode_eval2000_sw1_${lm_suffix} \
-            $graph_dir data/eval2000 $decode_dir
-  ) &
+      steps/decode.sh --nj 30 --cmd "$decode_cmd" \
+        --config conf/decode.config --iter $iter \
+        --transform-dir exp/tri4a/decode_eval2000_sw1_${lm_suffix} \
+        $graph_dir data/eval2000 $decode_dir
+    ) &
   done
 done
 
@@ -281,11 +291,24 @@ for iter in 1 2 3 4; do
     (
       graph_dir=exp/tri4b/graph_sw1_${lm_suffix}
       decode_dir=exp/tri4b_mmi_b0.1/decode_eval2000_${iter}.mdl_sw1_${lm_suffix}
-      steps/decode.sh --nj 30 --cmd "$decode_cmd" --config conf/decode.config \
-    --iter $iter --transform-dir exp/tri4b/decode_eval2000_sw1_${lm_suffix} \
-    $graph_dir data/eval2000 $decode_dir   
-  ) &
+      steps/decode.sh --nj 30 --cmd "$decode_cmd" \
+        --config conf/decode.config --iter $iter \
+        --transform-dir exp/tri4b/decode_eval2000_sw1_${lm_suffix} \
+        $graph_dir data/eval2000 $decode_dir
+    ) &
   done
+done
+wait
+
+for iter in 1 2 3 4;do
+  (
+    steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
+      data/lang_sw1_fsh_{tgpr,fg} data/eval2000 \
+      exp/tri4a_mmi_b0.1/decode_eval2000_${iter}.mdl_sw1_fsh_{tgpr,fg}
+    steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
+      data/lang_sw1_fsh_{tgpr,fg} data/eval2000 \
+      exp/tri4b_mmi_b0.1/decode_eval2000_${iter}.mdl_sw1_fsh_{tgpr,fg}
+  ) &
 done
 
 #TODO(arnab): add lmrescore here
@@ -312,8 +335,8 @@ for iter in 4 5 6 7 8; do
       graph_dir=exp/tri4a/graph_sw1_${lm_suffix}
       decode_dir=exp/tri4a_fmmi_b0.1/decode_eval2000_it${iter}_sw1_${lm_suffix}
       steps/decode_fmmi.sh --nj 30 --cmd "$decode_cmd" --iter $iter \
-	--transform-dir exp/tri4a/decode_eval2000_sw1_${lm_suffix} \
-	--config conf/decode.config $graph_dir data/eval2000 $decode_dir
+        --transform-dir exp/tri4a/decode_eval2000_sw1_${lm_suffix} \
+        --config conf/decode.config $graph_dir data/eval2000 $decode_dir
     ) &
   done
 done
@@ -324,12 +347,28 @@ for iter in 4 5 6 7 8; do
       graph_dir=exp/tri4b/graph_sw1_${lm_suffix}
       decode_dir=exp/tri4b_fmmi_b0.1/decode_eval2000_it${iter}_sw1_${lm_suffix}
       steps/decode_fmmi.sh --nj 30 --cmd "$decode_cmd" --iter $iter \
-	--transform-dir exp/tri4b/decode_eval2000_sw1_${lm_suffix} \
-	--config conf/decode.config $graph_dir data/eval2000 $decode_dir
+        --transform-dir exp/tri4b/decode_eval2000_sw1_${lm_suffix} \
+        --config conf/decode.config $graph_dir data/eval2000 $decode_dir
     ) &
   done
 done
+wait
 
+for iter in 4 5 6 7 8; do
+  (
+    steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
+      data/lang_sw1_fsh_{tgpr,fg} data/eval2000 \
+      exp/tri4a_fmmi_b0.1/decode_eval2000_it${iter}_sw1_fsh_{tgpr,fg}
+    steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
+      data/lang_sw1_fsh_{tgpr,fg} data/eval2000 \
+      exp/tri4b_fmmi_b0.1/decode_eval2000_it${iter}_sw1_fsh_{tgpr,fg}
+  ) &
+done
+
+# this will help find issues with the lexicon.
+# steps/cleanup/debug_lexicon.sh --nj 300 --cmd "$train_cmd" data/train_nodev data/lang exp/tri4b data/local/dict/lexicon.txt exp/debug_lexicon
+
+# steps/cleanup/find_bad_utts.sh  --nj 150 --cmd "$train_cmd" data/train_nodup data/lang exp/tri4b exp/tri4b_debug
 
 # local/run_sgmm2.sh
 
@@ -338,7 +377,7 @@ done
 
 
 # # Karel's DNN recipe on top of fMLLR features
-# local/run_dnn.sh
+# local/nnet/run_dnn.sh
 
 
 # # Dan's nnet recipe

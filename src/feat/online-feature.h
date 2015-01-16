@@ -226,11 +226,39 @@ struct OnlineCmvnState {
 
   // Copy constructor
   OnlineCmvnState(const OnlineCmvnState &other); 
+
+  void Write(std::ostream &os, bool binary) const;
+  void Read(std::istream &is, bool binary);
   
   // Use the default assignment operator.
 };
 
+/**
+   This class does an online version of the cepstral mean and [optionally]
+   variance, but note that this is not equivalent to the offline version.  This
+   is necessarily so, as the offline computation involves looking into the
+   future.  If you plan to use features normalized with this type of CMVN then
+   you need to train in a `matched' way, i.e. with the same type of features.
+   We normally only do so in the "online" GMM-based decoding, e.g.  in
+   online2bin/online2-wav-gmm-latgen-faster.cc; see also the script
+   steps/online/prepare_online_decoding.sh and steps/online/decode.sh.
+   
+   In the steady state (in the middle of a long utterance), this class
+   accumulates CMVN statistics from the previous "cmn_window" frames (default 600
+   frames, or 6 seconds), and uses these to normalize the mean and possibly
+   variance of the current frame.
 
+   The config variables "speaker_frames" and "global_frames" relate to what
+   happens at the beginning of the utterance when we have seen fewer than
+   "cmn_window" frames of context, and so might not have very good stats to
+   normalize with.  Basically, we first augment any existing stats with up
+   to "speaker_frames" frames of stats from previous utterances of the current
+   speaker, and if this doesn't take us up to the required "cmn_window" frame
+   count, we further augment with up to "global_frames" frames of global
+   stats.  The global stats are CMVN stats accumulated from training or testing
+   data, that give us a reasonable source of mean and variance for "typical"
+   data.
+ */
 class OnlineCmvn: public OnlineFeatureInterface {
  public:
 
@@ -253,7 +281,14 @@ class OnlineCmvn: public OnlineFeatureInterface {
   // Next, functions that are not in the interface.
   //
 
-  /// Initializer that sets the cmvn state.
+  /// Initializer that sets the cmvn state.  If you don't have previous
+  /// utterances from the same speaker you are supposed to initialize the CMVN
+  /// state from some global CMVN stats, which you can get from summing all cmvn
+  /// stats you have in your training data using "sum-matrix".  This just gives
+  /// it a reasonable starting point at the start of the file.
+  /// If you do have previous utterances from the same speaker or at least a
+  /// similar environment, you are supposed to initialize it by calling GetState
+  /// from the previous utterance
   OnlineCmvn(const OnlineCmvnOptions &opts,
              const OnlineCmvnState &cmvn_state,
              OnlineFeatureInterface *src);

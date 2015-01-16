@@ -3,6 +3,7 @@
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey). 
 #           2013  Xiaohui Zhang
 #           2013  Guoguo Chen
+#           2014  Vimal Manohar
 # Apache 2.0.
 
 
@@ -10,6 +11,10 @@
 # The difference with train_tanh.sh is that, instead of setting 
 # hidden_layer_size, you should set pnorm_input_dim and pnorm_output_dim.
 # Also the P value (the order of the p-norm) should be set.
+# 
+# [Vimal Manohar - Oct 2014]
+# The script now supports realignment during training, which can be done by 
+# specifying realign_epochs.
 
 # Begin configuration section.
 cmd=run.pl
@@ -51,7 +56,7 @@ add_layers_period=2 # by default, add new layers every 2 iterations.
 num_hidden_layers=3
 stage=-5
 
-io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time.   These don't
+io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time. 
 splice_width=4 # meaning +- 4 frames on each side for second LDA
 randprune=4.0 # speeds up LDA.
 alpha=4.0
@@ -72,9 +77,12 @@ cmvn_opts=  # will be passed to get_lda.sh and get_egs.sh, if supplied.
 feat_type=  # Can be used to force "raw" features.
 prior_subset_size=10000 # 10k samples per job, for computing priors.  Should be
                         # more than enough.
+align_cmd=              # The cmd that is passed to steps/nnet2/align.sh
+align_use_gpu=          # Passed to use_gpu in steps/nnet2/align.sh [yes/no]
+realign_epochs=         # List of epochs, the beginning of which realignment is done
+num_jobs_align=30       # Number of jobs for realignment
 
 # End configuration section.
-
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -121,10 +129,13 @@ if [ $# != 4 ]; then
   echo "  --lda-dim <dim|250>                              # Dimension to reduce spliced features to with LDA"
   echo "  --num-iters-final <#iters|20>                    # Number of final iterations to give to nnet-combine-fast to "
   echo "                                                   # interpolate parameters (the weights are learned with a validation set)"
-  echo "  --first-component-power <power|1.0>              # Power applied to output of first p-norm layer... setting this to"
-  echo "                                                   # 0.5 seems to help under some circumstances."
   echo "  --egs-opts <opts>                                # Extra options to pass to get_egs.sh"
   echo "  --lda-opts <opts>                                # Extra options to pass to get_lda.sh"
+  echo "  --realign-epochs <list-of-epochs|\"\">           # A list of space-separated epoch indices the beginning of which"
+  echo "                                                   # realignment is to be done"
+  echo "  --align-cmd (utils/run.pl|utils/queue.pl <queue opts>) # passed to align.sh"
+  echo "  --align-use-gpu (yes/no)                         # specify is gpu is to be used for realignment"
+  echo "  --num-jobs-align <#njobs|30>                     # Number of jobs to perform realignment"
   echo "  --stage <stage|-9>                               # Used to run a partially-completed training process from somewhere in"
   echo "                                                   # the middle."
   
@@ -136,6 +147,11 @@ lang=$2
 alidir=$3
 dir=$4
 
+if [ ! -z "$realign_epochs" ]; then
+  [ -z "$align_cmd" ] && echo "$0: realign_epochs specified but align_cmd not specified" && exit 1
+  [ -z "$align_use_gpu" ] && echo "$0: realign_epochs specified but align_use_gpu not specified" && exit 1
+fi
+
 # Check some files.
 for f in $data/feats.scp $lang/L.fst $alidir/ali.1.gz $alidir/final.mdl $alidir/tree; do
   [ ! -f $f ] && echo "$0: no such file $f" && exit 1;
@@ -143,7 +159,7 @@ done
 
 
 # Set some variables.
-num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+num_leaves=`tree-info $alidir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1
 [ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
 [ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 
@@ -260,16 +276,68 @@ fi
 
 x=0
 
+for realign_epoch in $realign_epochs; do
+  realign_iter=`perl -e 'print int($ARGV[0] * $ARGV[1]);' $realign_epoch $iters_per_epoch`
+  realign_this_iter[$realign_iter]=$realign_epoch
+done
+
+cur_egs_dir=$egs_dir
+
 while [ $x -lt $num_iters ]; do
+    
+  if [ ! -z "${realign_this_iter[$x]}" ]; then
+    prev_egs_dir=$cur_egs_dir
+    cur_egs_dir=$dir/egs_${realign_this_iter[$x]}
+  fi
+
   if [ $x -ge 0 ] && [ $stage -le $x ]; then
+    if [ ! -z "${realign_this_iter[$x]}" ]; then
+      epoch=${realign_this_iter[$x]}
+
+      echo "Getting average posterior for purposes of adjusting the priors."
+      # Note: this just uses CPUs, using a smallish subset of data.
+      rm $dir/post.*.vec 2>/dev/null
+      $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.JOB.log \
+        nnet-subset-egs --n=$prior_subset_size ark:$prev_egs_dir/egs.JOB.0.ark ark:- \| \
+        nnet-compute-from-egs "nnet-to-raw-nnet $dir/$x.mdl -|" ark:- ark:- \| \
+        matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.JOB.vec || exit 1;
+
+      sleep 3;  # make sure there is time for $dir/post.*.vec to appear.
+
+      $cmd $dir/log/vector_sum.log \
+        vector-sum $dir/post.*.vec $dir/post.vec || exit 1;
+
+      rm $dir/post.*.vec;
+
+      echo "Re-adjusting priors based on computed posteriors"
+      $cmd $dir/log/adjust_priors.$x.log \
+        nnet-adjust-priors $dir/$x.mdl $dir/post.vec $dir/$x.mdl || exit 1;
+
+      sleep 2
+
+      steps/nnet2/align.sh --nj $num_jobs_align --cmd "$align_cmd" --use-gpu $align_use_gpu \
+        --transform-dir "$transform_dir" \
+        --iter $x $data $lang $dir $dir/ali_$epoch || exit 1
+
+      steps/nnet2/relabel_egs.sh --cmd "$cmd" --iter $x $dir/ali_$epoch \
+        $prev_egs_dir $cur_egs_dir || exit 1
+
+      if $cleanup && [[ $prev_egs_dir =~ $dir/egs* ]]; then
+        steps/nnet2/remove_egs.sh $prev_egs_dir
+      fi
+    fi
+    
     # Set off jobs doing some diagnostics, in the background.
+    # Use the egs dir from the previous iteration for the diagnostics
     $cmd $dir/log/compute_prob_valid.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/valid_diagnostic.egs &
+      nnet-compute-prob $dir/$x.mdl ark:$cur_egs_dir/valid_diagnostic.egs &
     $cmd $dir/log/compute_prob_train.$x.log \
-      nnet-compute-prob $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+      nnet-compute-prob $dir/$x.mdl ark:$cur_egs_dir/train_diagnostic.egs &
     if [ $x -gt 0 ] && [ ! -f $dir/log/mix_up.$[$x-1].log ]; then
       $cmd $dir/log/progress.$x.log \
-        nnet-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl ark:$egs_dir/train_diagnostic.egs &
+        nnet-show-progress --use-gpu=no $dir/$[$x-1].mdl $dir/$x.mdl \
+        ark:$cur_egs_dir/train_diagnostic.egs '&&' \
+        nnet-am-info $dir/$x.mdl &
     fi
     
     echo "Training neural net (pass $x)"
@@ -284,7 +352,7 @@ while [ $x -lt $num_iters ]; do
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
       nnet-shuffle-egs --buffer-size=$shuffle_buffer_size --srand=$x \
-      ark:$egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
+      ark:$cur_egs_dir/egs.JOB.$[$x%$iters_per_epoch].ark ark:- \| \
       nnet-train$train_suffix \
          --minibatch-size=$minibatch_size --srand=$x "$mdl" \
         ark:- $dir/$[$x+1].JOB.mdl \
@@ -346,7 +414,7 @@ if [ $stage -le $num_iters ]; then
   # to speed it up (this isn't ideal...)
   this_num_threads=$num_threads
   [ $this_num_threads -lt 8 ] && this_num_threads=8
-  num_egs=`nnet-copy-egs ark:$egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
+  num_egs=`nnet-copy-egs ark:$cur_egs_dir/combine.egs ark:/dev/null 2>&1 | tail -n 1 | awk '{print $NF}'`
   mb=$[($num_egs+$this_num_threads-1)/$this_num_threads]
   [ $mb -gt 512 ] && mb=512
   # Setting --initial-model to a large value makes it initialize the combination
@@ -359,7 +427,7 @@ if [ $stage -le $num_iters ]; then
   $cmd $parallel_opts $dir/log/combine.log \
     nnet-combine-fast --initial-model=100000 --num-lbfgs-iters=40 --use-gpu=no \
       --num-threads=$this_num_threads --regularizer=$combine_regularizer \
-      --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$egs_dir/combine.egs \
+      --verbose=3 --minibatch-size=$mb "${nnets_list[@]}" ark:$cur_egs_dir/combine.egs \
       $dir/final.mdl || exit 1;
 
   # Normalize stddev for affine or block affine layers that are followed by a
@@ -371,9 +439,9 @@ if [ $stage -le $num_iters ]; then
   # the same subset we used for the previous compute_probs, as the
   # different subsets will lead to different probs.
   $cmd $dir/log/compute_prob_valid.final.log \
-    nnet-compute-prob $dir/final.mdl ark:$egs_dir/valid_diagnostic.egs &
+    nnet-compute-prob $dir/final.mdl ark:$cur_egs_dir/valid_diagnostic.egs &
   $cmd $dir/log/compute_prob_train.final.log \
-    nnet-compute-prob $dir/final.mdl ark:$egs_dir/train_diagnostic.egs &
+    nnet-compute-prob $dir/final.mdl ark:$cur_egs_dir/train_diagnostic.egs &
 fi
 
 if [ $stage -le $[$num_iters+1] ]; then
@@ -381,7 +449,7 @@ if [ $stage -le $[$num_iters+1] ]; then
   # Note: this just uses CPUs, using a smallish subset of data.
   rm $dir/post.*.vec 2>/dev/null
   $cmd JOB=1:$num_jobs_nnet $dir/log/get_post.JOB.log \
-    nnet-subset-egs --n=$prior_subset_size ark:$egs_dir/egs.JOB.0.ark ark:- \| \
+    nnet-subset-egs --n=$prior_subset_size ark:$cur_egs_dir/egs.JOB.0.ark ark:- \| \
     nnet-compute-from-egs "nnet-to-raw-nnet $dir/final.mdl -|" ark:- ark:- \| \
     matrix-sum-rows ark:- ark:- \| vector-sum ark:- $dir/post.JOB.vec || exit 1;
 
@@ -393,7 +461,7 @@ if [ $stage -le $[$num_iters+1] ]; then
   rm $dir/post.*.vec;
 
   echo "Re-adjusting priors based on computed posteriors"
-  $cmd $dir/log/adjust_priors.log \
+  $cmd $dir/log/adjust_priors.final.log \
     nnet-adjust-priors $dir/final.mdl $dir/post.vec $dir/final.mdl || exit 1;
 fi
 
@@ -404,8 +472,8 @@ echo Done
 
 if $cleanup; then
   echo Cleaning up data
-  if [ $egs_dir == "$dir/egs" ]; then
-    steps/nnet2/remove_egs.sh $dir/egs
+  if [[ $cur_egs_dir =~ $dir/egs* ]]; then
+    steps/nnet2/remove_egs.sh $cur_egs_dir
   fi
   echo Removing most of the models
   for x in `seq 0 $num_iters`; do

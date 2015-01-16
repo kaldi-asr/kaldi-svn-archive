@@ -132,7 +132,7 @@ done
 
 
 # Set some variables.
-num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+num_leaves=`tree-info $alidir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1
 [ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
 [ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 
@@ -149,7 +149,7 @@ cp $alidir/tree $dir
 if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   echo "$0: calling get_egs.sh"
   steps/nnet2/get_egs.sh --feat-type raw --cmvn-opts "--norm-means=false --norm-vars=false" \
-      --samples-per-iter $samples_per_iter \
+      --samples-per-iter $samples_per_iter --left-context 0 --right-context 0 \
       --num-jobs-nnet $num_jobs_nnet --stage $get_egs_stage \
       --cmd "$cmd" $egs_opts --io-opts "$io_opts" \
       $data $lang $alidir $dir || exit 1;
@@ -392,7 +392,6 @@ echo Done
 if $cleanup; then
   echo Cleaning up data
   if [ $egs_dir == "$dir/egs" ]; then
-    echo Removing training examples
-    rm $dir/egs/egs*
+    steps/nnet2/remove_egs.sh $dir/egs
   fi
 fi

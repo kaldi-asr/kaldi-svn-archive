@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Extract segments from a large audio file in WAV format.\n"
         "Usage:  extract-segments [options] <wav-rspecifier> <segments-file> <wav-wspecifier>\n"
-        "e.g. extract-segments wav.scp segments ark:- | <some other program>\n"
+        "e.g. extract-segments scp:wav.scp segments ark:- | <some other program>\n"
         " segments-file format: segment_id wav_file_name start_time end_time [channel]\n"
         " e.g.: spkabc_seg1 spkabc_recording1 1.10 2.36 1\n"
         " If channel is not provided as last element, expects mono.\n"
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
       }
       int32 channel = -1;  // means channel info is unspecified.
       // if each line has 5 elements then 5th element must be channel identifier
-      if(split_line.size() == 5) {
+      if (split_line.size() == 5) {
         if (!ConvertStringToInteger(split_line[4], &channel) || channel < 0) {
           KALDI_WARN << "Invalid line in segments file [bad channel]: " << line;
           continue;

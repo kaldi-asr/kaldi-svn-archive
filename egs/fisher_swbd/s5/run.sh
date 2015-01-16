@@ -11,6 +11,9 @@ set -e
 local/fisher_data_prep.sh /export/corpora3/LDC/LDC2004T19 /export/corpora3/LDC/LDC2005T19 \
    /export/corpora3/LDC/LDC2004S13 /export/corpora3/LDC/LDC2005S13
 
+hours=$(awk '{x += $4 - $3;} END{print x/3600;}' <data/train_fisher/segments)
+! [ $hours == 1915 ] && echo "$0: expected 1915 hours of data, got $hours hours, please check." && exit 1;
+
 # at BUT:
 ####local/fisher_data_prep.sh /mnt/matylda6/jhu09/qpovey/FISHER/LDC2005T19 /mnt/matylda2/data/FISHER/
 
@@ -42,9 +45,11 @@ local/fisher_create_test_lang.sh
 
 # Prepare Eval2000 and RT-03 test sets
 
-local/eval2000_data_prep.sh /scail/group/deeplearning/speech/datasets/LDC2002S09/hub5e_00/ /scail/group/deeplearning/speech/datasets/LDC2002T43 || exit 1
-
-local/rt03_data_prep.sh /scail/group/deeplearning/speech/datasets/rt_03 || exit 1
+#local/eval2000_data_prep.sh /scail/group/deeplearning/speech/datasets/LDC2002S09/hub5e_00/ /scail/group/deeplearning/speech/datasets/LDC2002T43 || exit 1
+local/eval2000_data_prep.sh /export/corpora/LDC/LDC2002S09/hub5e_00 /export/corpora/LDC/LDC2002T43 || exit 1
+ 
+#local/rt03_data_prep.sh /scail/group/deeplearning/speech/datasets/rt_03 || exit 1
+local/rt03_data_prep.sh /export/corpora/LDC/LDC2007S10 || exit 1
 
 utils/fix_data_dir.sh data/train_all
 
@@ -127,8 +132,7 @@ steps/align_si.sh --nj 10 --cmd "$train_cmd" \
 
 steps/train_deltas.sh --cmd "$train_cmd" \
     3200 30000 data/train_30k_nodup data/lang exp/mono0a_ali exp/tri1a || exit 1;
-used to be 2500 20000
-
+#used to be 2500 20000
 (utils/mkgraph.sh data/lang_test exp/tri1a exp/tri1a/graph
  steps/decode.sh --nj 25 --cmd "$decode_cmd" --config conf/decode.config \
    exp/tri1a/graph data/eval2000 exp/tri1a/decode_dev
@@ -140,7 +144,7 @@ steps/align_si.sh --nj 10 --cmd "$train_cmd" \
 
 steps/train_deltas.sh --cmd "$train_cmd" \
     3200 30000 data/train_30k_nodup data/lang exp/tri1a_ali exp/tri1b || exit 1;
-used to be 2500 20000
+#used to be 2500 20000
 
 (utils/mkgraph.sh data/lang_test exp/tri1b exp/tri1b/graph
  steps/decode.sh --nj 25 --cmd "$decode_cmd" --config conf/decode.config \
@@ -153,7 +157,7 @@ steps/align_si.sh --nj 50 --cmd "$train_cmd" \
 
 steps/train_deltas.sh --cmd "$train_cmd" \
     5500 90000 data/train_100k_nodup data/lang exp/tri1b_ali exp/tri2 || exit 1;
- used to be 2500 20000 on 30k
+ #used to be 2500 20000 on 30k
 (  utils/mkgraph.sh data/lang_test exp/tri2 exp/tri2/graph || exit 1;
   steps/decode.sh --nj 25 --cmd "$decode_cmd" --config conf/decode.config \
    exp/tri2/graph data/eval2000 exp/tri2/decode_dev || exit 1;
@@ -168,7 +172,7 @@ steps/align_si.sh --nj 100 --cmd "$train_cmd" \
 
 steps/train_deltas.sh --cmd "$train_cmd" \
     11500 200000 data/train_swbd data/lang exp/tri2_ali exp/tri3a || exit 1;
- used to be 2500 20000
+ #used to be 2500 20000
 (  utils/mkgraph.sh data/lang_test exp/tri3a exp/tri3a/graph || exit 1;
   steps/decode.sh --nj 25 --cmd "$decode_cmd" --config conf/decode.config \
    exp/tri3a/graph data/eval2000 exp/tri3a/decode_dev || exit 1;

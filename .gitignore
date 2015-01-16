@@ -3,6 +3,10 @@
 *.lo
 *.o
 
+# emacs saves
+[#]*[#]
+*~
+
 # Compiled Dynamic libraries
 *.so
 *.dylib
@@ -32,6 +36,8 @@
 /tools/sph2pipe_v2.5/
 /tools/kaldi_lm.tar.gz
 /tools/sctk-2.4.8-20130429-2145.tar.bz2
+/tools/sctk-2.4.9-20141015-1634Z.tar.bz2
+/tools/sctk-2.4.9/
 /tools/OpenBLAS
 /tools/sctk
 /tools/sctk-2.4.8
@@ -381,6 +387,7 @@
 
 # /src/latbin/
 /src/latbin/.depend.mk
+/src/latbin/lattice-lmrescore-const-arpa
 /src/latbin/lattice-prune
 /src/latbin/lattice-rmali
 /src/latbin/lattice-compose
@@ -433,6 +440,10 @@
 # /src/lm/
 /src/lm/.depend.mk
 /src/lm/lm-lib-test
+
+# /src/lmbin/
+/src/lmbin/arpa-to-const-arpa
+/src/lmbin/.depend.mk
 
 # /src/matrix/
 /src/matrix/.depend.mk
@@ -532,6 +543,7 @@
 /src/nnet2bin/nnet-train-parallel
 /src/nnet2bin/nnet-train-simple
 /src/nnet2bin/nnet-train-transitions
+/src/nnet2bin/nnet-relabel-egs
 /src/nnet2bin/raw-nnet-concat
 /src/nnet2bin/raw-nnet-info
 
@@ -821,6 +833,7 @@
 /src/nnet2bin/nnet1-to-raw-nnet
 /src/nnet2bin/raw-nnet-copy
 /src/online2bin/apply-cmvn-online
+/src/online2bin/online2-wav-nnet2-am-compute
 /src/online2bin/compress-uncompress-speex
 /src/online2bin/extend-wav-with-silence
 /src/online2bin/ivector-extract-online2
@@ -849,3 +862,6 @@
 /src/online2bin/.depend.mk
 /src/online2/.depend.mk
 /src/ivector/.depend.mk
+/egs/librispeech/s5/data
+/egs/librispeech/s5/mfcc
+/egs/librispeech/s5/exp

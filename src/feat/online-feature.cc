@@ -107,6 +107,30 @@ OnlineCmvnState::OnlineCmvnState(const OnlineCmvnState &other):
     global_cmvn_stats(other.global_cmvn_stats),
     frozen_state(other.frozen_state) { }
 
+void OnlineCmvnState::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<OnlineCmvnState>");  // magic string.
+  WriteToken(os, binary, "<SpeakerCmvnStats>");
+  speaker_cmvn_stats.Write(os, binary);
+  WriteToken(os, binary, "<GlobalCmvnStats>");
+  global_cmvn_stats.Write(os, binary);
+  WriteToken(os, binary, "<FrozenState>");
+  frozen_state.Write(os, binary);
+  WriteToken(os, binary, "</OnlineCmvnState>");
+}
+
+void OnlineCmvnState::Read(std::istream &is, bool binary) {
+  ExpectToken(is, binary, "<OnlineCmvnState>");  // magic string.
+  ExpectToken(is, binary, "<SpeakerCmvnStats>");
+  speaker_cmvn_stats.Read(is, binary);
+  ExpectToken(is, binary, "<GlobalCmvnStats>");
+  global_cmvn_stats.Read(is, binary);
+  ExpectToken(is, binary, "<FrozenState>");
+  frozen_state.Read(is, binary);
+  ExpectToken(is, binary, "</OnlineCmvnState>");
+}
+
+
+
 OnlineCmvn::OnlineCmvn(const OnlineCmvnOptions &opts,
                        const OnlineCmvnState &cmvn_state,
                        OnlineFeatureInterface *src):
@@ -267,7 +291,7 @@ void OnlineCmvn::SmoothOnlineCmvnStats(const MatrixBase<double> &speaker_stats,
       count_from_global = opts.global_frames;
     if (count_from_global > 0.0)
       stats->AddMat(count_from_global / global_count,
-                             global_stats);
+                    global_stats);
   } else {
     KALDI_ERR << "Global CMN stats are required";
   }

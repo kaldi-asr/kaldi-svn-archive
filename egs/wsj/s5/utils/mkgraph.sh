@@ -16,12 +16,17 @@
 
 N=3
 P=1
+tscale=1.0
+loopscale=0.1
+
 reverse=false
 
-for x in `seq 2`; do 
+for x in `seq 5`; do 
   [ "$1" == "--mono" ] && N=1 && P=0 && shift;
   [ "$1" == "--quinphone" ] && N=5 && P=2 && shift;
   [ "$1" == "--reverse" ] && reverse=true && shift;
+  [ "$1" == "--transition-scale" ] && tscale=$2 && shift 2;
+  [ "$1" == "--self-loop-scale" ] && loopscale=$2 && shift 2;
 done
 
 if [ $# != 3 ]; then
@@ -42,9 +47,6 @@ dir=$3
 
 mkdir -p $dir
 
-tscale=1.0
-loopscale=0.1
-
 # If $lang/tmp/LG.fst does not exist or is older than its sources, make it...
 # (note: the [[ ]] brackets make the || type operators work (inside [ ], we
 # would have to use -o instead),  -f means file exists, and -ot means older than).
@@ -60,7 +62,7 @@ mkdir -p $lang/tmp
 if [[ ! -s $lang/tmp/LG.fst || $lang/tmp/LG.fst -ot $lang/G.fst || \
       $lang/tmp/LG.fst -ot $lang/L_disambig.fst ]]; then
   fsttablecompose $lang/L_disambig.fst $lang/G.fst | fstdeterminizestar --use-log=true | \
-    fstminimizeencoded  > $lang/tmp/LG.fst || exit 1;
+    fstminimizeencoded | fstarcsort --sort_type=ilabel > $lang/tmp/LG.fst || exit 1;
   fstisstochastic $lang/tmp/LG.fst || echo "[info]: LG not stochastic."
 fi
 
@@ -71,7 +73,8 @@ if [[ ! -s $clg || $clg -ot $lang/tmp/LG.fst ]]; then
   fstcomposecontext --context-size=$N --central-position=$P \
    --read-disambig-syms=$lang/phones/disambig.int \
    --write-disambig-syms=$lang/tmp/disambig_ilabels_${N}_${P}.int \
-    $lang/tmp/ilabels_${N}_${P} < $lang/tmp/LG.fst >$clg
+    $lang/tmp/ilabels_${N}_${P} < $lang/tmp/LG.fst |\
+    fstarcsort --sort_type=ilabel > $clg
   fstisstochastic $clg  || echo "[info]: CLG not stochastic."
 fi
 
@@ -123,4 +126,4 @@ cp $lang/phones.txt $dir/ 2> /dev/null # ignore the error if it's not there.
 
 # to make const fst:
 # fstconvert --fst_type=const $dir/HCLG.fst $dir/HCLG_c.fst
-
+am-info --print-args=false $model | grep pdfs | awk '{print $NF}' > $dir/num_pdfs

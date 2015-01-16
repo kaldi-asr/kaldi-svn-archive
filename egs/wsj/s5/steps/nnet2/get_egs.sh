@@ -21,6 +21,8 @@ num_jobs_nnet=16    # Number of neural net jobs to run in parallel
 stage=0
 io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time. 
 splice_width=4 # meaning +- 4 frames on each side for second LDA
+left_context=
+right_context=
 random_copy=false
 online_ivector_dir=
 ivector_randomize_prob=0.0 # if >0.0, randomizes iVectors during training with
@@ -49,7 +51,8 @@ if [ $# != 4 ]; then
   echo "  --feat-type <lda|raw>                            # (by default it tries to guess).  The feature type you want"
   echo "                                                   # to use as input to the neural net."
   echo "  --splice-width <width;4>                         # Number of frames on each side to append for feature input"
-  echo "                                                   # (note: we splice processed, typically 40-dimensional frames"
+  echo "  --left-context <width;4>                         # Number of frames on left side to append for feature input, overrides splice-width"
+  echo "  --right-context <width;4>                        # Number of frames on right side to append for feature input, overrides splice-width"
   echo "  --num-frames-diagnostic <#frames;4000>           # Number of frames used in computing (train,valid) diagnostics"
   echo "  --num-valid-frames-combine <#frames;10000>       # Number of frames used in getting combination weights at the"
   echo "                                                   # very end."
@@ -60,9 +63,13 @@ if [ $# != 4 ]; then
 fi
 
 data=$1
-lang=$2
+lang=$2  # kept for historical reasons, but never used.
 alidir=$3
 dir=$4
+
+[ -z "$left_context" ] && left_context=$splice_width
+[ -z "$right_context" ] && right_context=$splice_width
+
 
 # Check some files.
 [ ! -z "$online_ivector_dir" ] && \
@@ -73,13 +80,8 @@ for f in $data/feats.scp $lang/L.fst $alidir/ali.1.gz $alidir/final.mdl $alidir/
 done
 
 
-# Set some variables.
-oov=`cat $lang/oov.int`
-num_leaves=`gmm-info $alidir/final.mdl 2>/dev/null | awk '/number of pdfs/{print $NF}'` || exit 1;
-silphonelist=`cat $lang/phones/silence.csl` || exit 1;
-
 nj=`cat $alidir/num_jobs` || exit 1;  # number of jobs in alignment dir...
-# in this dir we'll have just one job.
+
 sdata=$data/split$nj
 utils/split_data.sh $data $nj
 
@@ -103,7 +105,7 @@ if [ -f $data/utt2uniq ]; then
 fi
 
 awk '{print $1}' $data/utt2spk | utils/filter_scp.pl --exclude $dir/valid_uttlist | \
-     head -$num_utts_subset > $dir/train_subset_uttlist || exit 1;
+   utils/shuffle_list.pl | head -$num_utts_subset > $dir/train_subset_uttlist || exit 1;
 
 [ -z "$transform_dir" ] && transform_dir=$alidir
 
@@ -183,23 +185,31 @@ done
 
 remove () { for x in $*; do [ -L $x ] && rm $(readlink -f $x); rm $x; done }
 
-nnet_context_opts="--left-context=$splice_width --right-context=$splice_width"
+nnet_context_opts="--left-context=$left_context --right-context=$right_context"
 mkdir -p $dir/egs
 
 if [ $stage -le 2 ]; then
   echo "Getting validation and training subset examples."
   rm $dir/.error 2>/dev/null
+  echo "$0: extracting validation and training-subset alignments."
+  set -o pipefail;
+  for id in $(seq $nj); do gunzip -c $alidir/ali.$id.gz; done | \
+    copy-int-vector ark:- ark,t:- | \
+    utils/filter_scp.pl <(cat $dir/valid_uttlist $dir/train_subset_uttlist) | \
+    gzip -c >$dir/ali_special.gz || exit 1;
+  set +o pipefail; # unset the pipefail option.
+
   all_ids=$(seq -s, $nj)  # e.g. 1,2,...39,40
   $cmd $dir/log/create_valid_subset.log \
     nnet-get-egs $ivectors_opt $nnet_context_opts "$valid_feats" \
-     "ark,s,cs:gunzip -c $alidir/ali.{$all_ids}.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
+    "ark,s,cs:gunzip -c $dir/ali_special.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
      "ark:$dir/egs/valid_all.egs" || touch $dir/.error &
   $cmd $dir/log/create_train_subset.log \
     nnet-get-egs $ivectors_opt $nnet_context_opts "$train_subset_feats" \
-     "ark,s,cs:gunzip -c $alidir/ali.{$all_ids}.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
+     "ark,s,cs:gunzip -c $dir/ali_special.gz | ali-to-pdf $alidir/final.mdl ark:- ark:- | ali-to-post ark:- ark:- |" \
      "ark:$dir/egs/train_subset_all.egs" || touch $dir/.error &
   wait;
-  [ -f $dir/.error ] && exit 1;
+  [ -f $dir/.error ] && echo "Error detected while creating train/valid egs" && exit 1
   echo "Getting subsets of validation examples for diagnostics and combination."
   $cmd $dir/log/create_valid_subset_combine.log \
     nnet-subset-egs --n=$num_valid_frames_combine ark:$dir/egs/valid_all.egs \
@@ -220,12 +230,10 @@ if [ $stage -le 2 ]; then
   for f in $dir/egs/{combine,train_diagnostic,valid_diagnostic}.egs; do
     [ ! -s $f ] && echo "No examples in file $f" && exit 1;
   done
-  rm $dir/egs/valid_all.egs $dir/egs/train_subset_all.egs $dir/egs/{train,valid}_combine.egs
+  rm $dir/egs/valid_all.egs $dir/egs/train_subset_all.egs $dir/egs/{train,valid}_combine.egs $dir/ali_special.gz
 fi
 
 if [ $stage -le 3 ]; then
-  mkdir -p $dir/temp
-
   # Other scripts might need to know the following info:
   echo $num_jobs_nnet >$dir/egs/num_jobs_nnet
   echo $iters_per_epoch >$dir/egs/iters_per_epoch
@@ -279,9 +287,6 @@ if [ $stage -le 5 ]; then
   echo "Shuffling the order of training examples"
   echo "(in order to avoid stressing the disk, these won't all run at once)."
 
-
-  # note, the "|| true" below is a workaround for NFS bugs
-  # we encountered running this script with Debian-7, NFS-v4.
   for n in `seq 0 $[$iters_per_epoch-1]`; do
     $cmd $io_opts JOB=1:$num_jobs_nnet $dir/log/shuffle.$n.JOB.log \
       nnet-shuffle-egs "--srand=\$[JOB+($num_jobs_nnet*$n)]" \

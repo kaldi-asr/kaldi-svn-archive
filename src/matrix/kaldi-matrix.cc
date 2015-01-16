@@ -1423,7 +1423,7 @@ Real MatrixBase<Real>::Cond() const {
     min = std::min((Real)std::abs(singular_values(i)), min); max = std::max((Real)std::abs(singular_values(i)), max);
   }
   if (min > 0) return max/min;
-  else return 1.0e+100;
+  else return std::numeric_limits<Real>::infinity();
 }
 
 template<typename Real>
@@ -1610,7 +1610,6 @@ void MatrixBase<Real>::TestUninitialized() const {
 template<typename Real>
 bool MatrixBase<Real>::IsUnit(Real cutoff) const {
   MatrixIndexT R = num_rows_, C = num_cols_;
-  // if (R != C) return false;
   Real bad_max = 0.0;
   for (MatrixIndexT i = 0; i < R;i++)
     for (MatrixIndexT j = 0; j < C;j++)

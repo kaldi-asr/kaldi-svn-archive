@@ -114,6 +114,24 @@ void OnlineIvectorExtractorAdaptationState::LimitFrames(
   }  
 }
 
+void OnlineIvectorExtractorAdaptationState::Write(std::ostream &os, bool binary) const {
+  WriteToken(os, binary, "<OnlineIvectorExtractorAdaptationState>");  // magic string.
+  WriteToken(os, binary, "<CmvnState>");
+  cmvn_state.Write(os, binary);
+  WriteToken(os, binary, "<IvectorStats>");
+  ivector_stats.Write(os, binary);
+  WriteToken(os, binary, "</OnlineIvectorExtractorAdaptationState>");
+}
+
+void OnlineIvectorExtractorAdaptationState::Read(std::istream &is, bool binary) {
+  ExpectToken(is, binary, "<OnlineIvectorExtractorAdaptationState>");  // magic string.
+  ExpectToken(is, binary, "<CmvnState>");
+  cmvn_state.Read(is, binary);
+  ExpectToken(is, binary, "<IvectorStats>");
+  ivector_stats.Read(is, binary);
+  ExpectToken(is, binary, "</OnlineIvectorExtractorAdaptationState>");
+}
+
 int32 OnlineIvectorFeature::Dim() const {
   return info_.extractor.IvectorDim();
 }
@@ -202,11 +220,15 @@ void OnlineIvectorFeature::PrintDiagnostics() const {
                   << (tot_ubm_loglike_ / num_frames_stats_)
                   << " per frame, over " << num_frames_stats_
                   << " frames.";
+
+    Vector<BaseFloat> temp_ivector(current_ivector_);
+    temp_ivector(0) -= info_.extractor.PriorOffset();
+    
     KALDI_VLOG(3) << "By the end of the utterance, objf change/frame "
                   << "from estimating iVector (vs. default) was "
                   << ivector_stats_.ObjfChange(current_ivector_)
                   << " and iVector length was "
-                  << current_ivector_.Norm(2.0);
+                  << temp_ivector.Norm(2.0);
   }
 }
 

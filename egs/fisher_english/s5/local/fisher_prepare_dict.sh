@@ -42,7 +42,8 @@ cat $dir/silence_phones.txt| awk '{printf("%s ", $1);} END{printf "\n";}' > $dir
 
 grep -v ';;;' $dir/cmudict/cmudict.0.7a |  tr '[A-Z]' '[a-z]' | \
  perl -ane 'if(!m:^;;;:){ s:(\S+)\(\d+\) :$1 :; s:  : :; print; }' | \
-   sed s/[0-9]//g | sort | uniq > $dir/lexicon1_raw_nosil.txt || exit 1;
+ perl -ane '@A = split(" ", $_); for ($n = 1; $n<@A;$n++) { $A[$n] =~ s/[0-9]//g; } print join(" ", @A) . "\n";' | \
+ sort | uniq > $dir/lexicon1_raw_nosil.txt || exit 1;
 
 # Add prons for laughter, noise, oov
 for w in `grep -v sil $dir/silence_phones.txt`; do
@@ -55,17 +56,21 @@ cat data/train_all/text  | \
   awk '{for (n=2;n<=NF;n++){ count[$n]++; } } END { for(n in count) { print count[n], n; }}' | \
   sort -nr > $dir/word_counts
 
+cat $dir/word_counts | awk '{print $2}' > $dir/word_list
+
 # between lexicon2_raw and lexicon3_expand we limit it to the words seen in
-# the Fisher data, and also expand the vocab for acronyms like c._n._n. and other
-# underscore-containing things.
+# the Fisher data.
+utils/filter_scp.pl $dir/word_list $dir/lexicon2_raw.txt > $dir/lexicon3_expand.txt
+
+# From lexicon2_raw to lexicon3_expand, we also expand the vocab for acronyms 
+# like c._n._n. and other underscore-containing things as long as the new vocab
+# could be divided into finite parts contained in lexicon2_raw
 cat $dir/lexicon2_raw.txt | \
   perl -e 'while(<STDIN>) { @A=split; $w = shift @A; $pron{$w} = join(" ", @A); }
      ($w) = @ARGV;  open(W, "<$w") || die "Error opening word-counts from $w";
      while(<W>) { # reading in words we saw in training data..
        ($c, $w) = split;
-       if (defined $pron{$w}) { 
-         print "$w $pron{$w}\n";
-       } else {
+       if (!defined $pron{$w}) { 
          @A = split("_", $w);
          if (@A > 1) {
            $this_pron = "";
@@ -74,9 +79,13 @@ cat $dir/lexicon2_raw.txt | \
              if (defined($pron{$a})) { $this_pron = $this_pron . "$pron{$a} "; }
              else { $pron_ok = 0; print STDERR "Not handling word $w, count is $c\n"; last; } 
            }
-           if ($pron_ok) { $new_pron{$w} = $this_pron;  } }}}
-    foreach $w (keys %new_pron) { print "$w $new_pron{$w}\n"; } ' \
-   $dir/word_counts > $dir/lexicon3_expand.txt || exit 1;
+           if ($pron_ok) { $new_pron{$w} = $this_pron;   }
+         }
+       }
+     }
+     foreach $w (keys %new_pron) { print "$w $new_pron{$w}\n"; }' \
+   $dir/word_counts >> $dir/lexicon3_expand.txt || exit 1;
+
 
 cat $dir/lexicon3_expand.txt  \
    <( echo "mm m"
@@ -84,6 +93,7 @@ cat $dir/lexicon3_expand.txt  \
 
 
 cp $dir/lexicon4_extra.txt $dir/lexicon.txt
+rm $dir/lexiconp.txt 2>/dev/null; # can confuse later script if this exists.
 
 awk '{print $1}' $dir/lexicon.txt | \
   perl -e '($word_counts)=@ARGV;
@@ -170,4 +180,3 @@ local/swbd_map_words.pl -f 1 $dir/lexicon2.txt | sort | uniq > $dir/lexicon3.txt
 cp $dir/lexicon3.txt $dir/lexicon.txt # This is the final lexicon.
 
 echo Prepared input dictionary and phone-sets for Switchboard phase 1.
-

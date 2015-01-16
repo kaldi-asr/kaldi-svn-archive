@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # This is to be run after run_nnet2.sh
-# THIS IS NOT TESTED YET.
-
 
 . cmd.sh
 
@@ -43,7 +41,6 @@ set -e
 nj=40
 
 if [ $stage -le 1 ]; then
- 
   # the make_denlats job is always done on CPU not GPU, since in any case
   # the graph search and lattice determinization takes quite a bit of CPU.
   # note: it's the sub-split option that determinies how many jobs actually
@@ -51,7 +48,7 @@ if [ $stage -le 1 ]; then
   steps/nnet2/make_denlats.sh --cmd "$decode_cmd -l mem_free=1G,ram_free=1G" \
       --nj $nj --sub-split 40 --num-threads 6 --parallel-opts "-pe smp 6" \
       --online-ivector-dir exp/nnet2_online/ivectors_train \
-      data/train data/lang $srcdir ${srcdir}_denlats
+      data/train_hires data/lang $srcdir ${srcdir}_denlats
 fi
 
 if [ $stage -le 2 ]; then
@@ -59,7 +56,7 @@ if [ $stage -le 2 ]; then
   steps/nnet2/align.sh  --cmd "$decode_cmd $gpu_opts" \
       --online-ivector-dir exp/nnet2_online/ivectors_train \
       --use-gpu $use_gpu_opt \
-      --nj $nj data/train data/lang ${srcdir} ${srcdir}_ali
+      --nj $nj data/train_hires data/lang ${srcdir} ${srcdir}_ali
 fi
 
 if [ $stage -le 3 ]; then
@@ -68,29 +65,33 @@ if [ $stage -le 3 ]; then
   fi
   # decreasing the learning rate by a factor of 2, due to having so much data, 
   # and decreasing the number of epochs for the same reason.
+  # the io-opts option is to have more get_egs (and similar) jobs running at a time,
+  # since we're using 4 disks.
   steps/nnet2/train_discriminative.sh --cmd "$decode_cmd" --learning-rate 0.00001 \
-    --num-epochs 2 \
+    --io-opts "-pe smp 10" \
+    --num-epochs 4 \
     --use-preconditioning $use_preconditioning \
     --online-ivector-dir exp/nnet2_online/ivectors_train \
     --num-jobs-nnet 4  --num-threads $num_threads --parallel-opts "$gpu_opts" \
-      data/train data/lang \
+      data/train_hires data/lang \
     ${srcdir}_ali ${srcdir}_denlats ${srcdir}/final.mdl ${srcdir}_smbr
 fi
 
 if [ $stage -le 4 ]; then
   # we'll do the decoding as 'online' decoding by using the existing
   # _online directory but with extra models copied to it.
-  for epoch in 1 2; do
-    cp ${srcdir}_smbr/${epoch}.mdl ${srcdir}_online/smbr_epoch${epoch}.mdl
+  for epoch in 1 2 3 4; do
+    cp ${srcdir}_smbr/epoch${epoch}.mdl ${srcdir}_online/smbr_epoch${epoch}.mdl
   done
 
-  for epoch in 1 2; do
+  for epoch in 1 2 3 4; do
     # do the actual online decoding with iVectors, carrying info forward from 
     # previous utterances of the same speaker.
-    steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 8 --iter smbr_epoch${epoch} \
-       exp/tri5a/graph data/dev ${dir}_online/decode_dev || exit 1;
-    done
+    steps/online/nnet2/decode.sh --cmd "$decode_cmd" --nj 30 --iter smbr_epoch${epoch} \
+       exp/tri5a/graph data/dev ${srcdir}_online/decode_dev_smbr_epoch${epoch} || exit 1;
   done
 fi
 
+wait
 
+# for results, see the end of run_nnet2.sh

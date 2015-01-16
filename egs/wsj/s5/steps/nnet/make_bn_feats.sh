@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-# Copyright 2012  Karel Vesely, Daniel Povey
+# Copyright 2012-2014 Brno University of Technology (author: Karel Vesely)
 # Apache 2.0
 # To be run from .. (one directory up from here)
 # see ../run.sh for example
@@ -111,7 +111,7 @@ done
 echo "Succeeded creating MLP-BN features for $name ($data)"
 
 # optionally resave in as HTK features:
-if [ $htk_save ]; then
+if [ $htk_save == true ]; then
   echo -n "Resaving as HTK features into $bnfeadir/htk ... "
   mkdir -p $bnfeadir/htk
   $cmd JOB=1:$nj $logdir/htk_copy_bnfeats.JOB.log \

@@ -118,8 +118,8 @@ exit 0
 %WER 1.80 [ 226 / 12533, 29 ins, 44 del, 153 sub ] exp/nnet4c/decode/wer_4
 %WER 8.49 [ 1064 / 12533, 80 ins, 175 del, 809 sub ] exp/nnet4c/decode_ug/wer_11
 
-%WER 1.68 [ 211 / 12533, 29 ins, 39 del, 143 sub ] exp/nnet4d/decode/wer_4
-%WER 8.40 [ 1053 / 12533, 101 ins, 153 del, 799 sub ] exp/nnet4d/decode_ug/wer_10
+%WER 1.70 [ 213 / 12533, 28 ins, 44 del, 141 sub ] exp/nnet4d3/decode/wer_4
+%WER 8.51 [ 1066 / 12533, 97 ins, 176 del, 793 sub ] exp/nnet4d3/decode_ug/wer_9
 
 %WER 1.74 [ 218 / 12533, 25 ins, 48 del, 145 sub ] exp/nnet4d_gpu/decode/wer_6
 %WER 8.39 [ 1051 / 12533, 106 ins, 149 del, 796 sub ] exp/nnet4d_gpu/decode_ug/wer_10
@@ -163,20 +163,21 @@ exit 0
 %WER 1.36 [ 170 / 12533, 15 ins, 34 del, 121 sub ] exp/nnet5e_mpe_gpu/decode_epoch2/wer_3
 %WER 7.73 [ 969 / 12533, 74 ins, 157 del, 738 sub ] exp/nnet5e_mpe_gpu/decode_ug_epoch4/wer_9
 
-# DNN systems (Karel)
-# note from Dan-- these are from an older RESULTS file as I did not rerun these
-# last time I created this.
-# Per-frame cross-entropy training
-%WER 1.66 [ 208 / 12533, 27 ins, 49 del, 132 sub ] exp/dnn4b_pretrain-dbn_dnn/decode/wer_3
-%WER 7.80 [ 978 / 12533, 83 ins, 151 del, 744 sub ] exp/dnn4b_pretrain-dbn_dnn/decode_ug/wer_6
 
+# DNN systems (Karel - 25.9.2014)
+# Per-frame cross-entropy training
+%WER 1.63 [ 204 / 12533, 32 ins, 42 del, 130 sub ] exp/dnn4b_pretrain-dbn_dnn/decode/wer_3
+%WER 7.77 [ 974 / 12533, 81 ins, 158 del, 735 sub ] exp/dnn4b_pretrain-dbn_dnn/decode_ug/wer_7
 # Sequence-based sMBR training
-%WER 1.64 [ 206 / 12533, 24 ins, 49 del, 133 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it1/wer_4
-%WER 1.62 [ 203 / 12533, 25 ins, 46 del, 132 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it2/wer_4
-%WER 1.59 [ 199 / 12533, 25 ins, 42 del, 132 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it3/wer_4
-%WER 1.60 [ 201 / 12533, 35 ins, 33 del, 133 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it4/wer_3
-%WER 1.58 [ 198 / 12533, 31 ins, 37 del, 130 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it5/wer_4
-%WER 1.59 [ 199 / 12533, 31 ins, 37 del, 131 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it6/wer_4
+%WER 1.61 [ 202 / 12533, 32 ins, 42 del, 128 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it1/wer_3
+%WER 1.62 [ 203 / 12533, 33 ins, 42 del, 128 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it2/wer_3
+%WER 1.63 [ 204 / 12533, 32 ins, 42 del, 130 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it3/wer_3
+%WER 1.64 [ 206 / 12533, 32 ins, 42 del, 132 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it4/wer_3
+%WER 1.63 [ 204 / 12533, 32 ins, 41 del, 131 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it5/wer_3
+%WER 1.64 [ 206 / 12533, 20 ins, 58 del, 128 sub ] exp/dnn4b_pretrain-dbn_dnn_smbr/decode_it6/wer_5
+
+# CNN systems (Karel - 25.9.2014)
+%WER 1.89 [ 237 / 12533, 30 ins, 47 del, 160 sub ] exp/cnn4c/decode/wer_3 # per-frame training
 
 
 # Some system combination experiments.
@@ -200,4 +201,37 @@ for x in exp/nnet2_online/nnet*/decode*; do grep WER $x/wer_* | utils/best_wer.s
 %WER 2.30 [ 288 / 12533, 44 ins, 51 del, 193 sub ] exp/nnet2_online/nnet_baseline/decode/wer_4
 %WER 10.70 [ 1341 / 12533, 122 ins, 221 del, 998 sub ] exp/nnet2_online/nnet_baseline/decode_ug/wer_10
 
+
+# normal recipe:
+%WER 2.27 [ 285 / 12533, 42 ins, 62 del, 181 sub ] exp/nnet2_online/nnet_a_online/decode/wer_5
+%WER 2.28 [ 286 / 12533, 66 ins, 39 del, 181 sub ] exp/nnet2_online/nnet_a_online/decode_per_utt/wer_2
+%WER 10.26 [ 1286 / 12533, 140 ins, 188 del, 958 sub ] exp/nnet2_online/nnet_a_online/decode_ug/wer_10
+%WER 10.45 [ 1310 / 12533, 106 ins, 241 del, 963 sub ] exp/nnet2_online/nnet_a_online/decode_ug_per_utt/wer_12
+
+# multi-splice recipe:
+%WER 2.31 [ 290 / 12533, 59 ins, 50 del, 181 sub ] exp/nnet2_online/nnet_ms_a_online/decode/wer_7
+%WER 2.36 [ 296 / 12533, 63 ins, 54 del, 179 sub ] exp/nnet2_online/nnet_ms_a_online/decode_per_utt/wer_6
+%WER 10.19 [ 1277 / 12533, 155 ins, 186 del, 936 sub ] exp/nnet2_online/nnet_ms_a_online/decode_ug/wer_13
+%WER 10.18 [ 1276 / 12533, 150 ins, 183 del, 943 sub ] exp/nnet2_online/nnet_ms_a_online/decode_ug_per_utt/wer_13
+
+# Joint training with WSJ data (call this recipe "multilingual" because it doesn't use
+# a shared phone set).'
+# Note, I didn't tune the settings of this at all, it was just the first try.
+#for x in exp/nnet2_online_wsj/nnet_ms_a_rm_online/decode*; do grep WER $x/wer_* | utils/best_wer.sh ; done
+%WER 1.56 [ 196 / 12533, 30 ins, 36 del, 130 sub ] exp/nnet2_online_wsj/nnet_ms_a_rm_online/decode/wer_5
+%WER 7.51 [ 941 / 12533, 90 ins, 162 del, 689 sub ] exp/nnet2_online_wsj/nnet_ms_a_rm_online/decode_ug/wer_12
+
+# Discriminative training on top of the previous system (the joint system, with WSJ)... we don't get
+# too much from it on this particular setup.
+for x in exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_*; do grep WER $x/wer* | utils/best_wer.sh ; done
+%WER 1.56 [ 196 / 12533, 30 ins, 36 del, 130 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_epoch0/wer_5
+%WER 1.57 [ 197 / 12533, 29 ins, 35 del, 133 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_epoch1/wer_6
+%WER 1.55 [ 194 / 12533, 29 ins, 35 del, 130 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_epoch2/wer_6
+%WER 1.53 [ 192 / 12533, 32 ins, 30 del, 130 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_epoch3/wer_5
+%WER 1.51 [ 189 / 12533, 33 ins, 28 del, 128 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_epoch4/wer_5
+%WER 7.51 [ 941 / 12533, 90 ins, 162 del, 689 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_ug_epoch0/wer_12
+%WER 7.49 [ 939 / 12533, 89 ins, 150 del, 700 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_ug_epoch1/wer_12
+%WER 7.37 [ 924 / 12533, 80 ins, 156 del, 688 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_ug_epoch2/wer_13
+%WER 7.33 [ 919 / 12533, 80 ins, 153 del, 686 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_ug_epoch3/wer_13
+%WER 7.36 [ 923 / 12533, 85 ins, 148 del, 690 sub ] exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_ug_epoch4/wer_13
 

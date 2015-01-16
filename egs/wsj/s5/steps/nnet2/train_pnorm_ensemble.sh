@@ -143,7 +143,7 @@ done
 
 
 # Set some variables.
-num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+num_leaves=`tree-info $alidir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1
 [ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
 [ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 
@@ -240,6 +240,15 @@ echo "$0: (while reducing learning rate) + (with constant learning rate)."
 # adding the hidden layers and the end of training.
 finish_add_layers_iter=$[$num_hidden_layers*$add_layers_period]
 mix_up_iter=$[($num_iters + $finish_add_layers_iter)/2]
+
+if [ $num_threads -eq 1 ]; then
+  if ! cuda-compiled; then
+    echo "$0: WARNING: you are running with one thread but you have not compiled"
+    echo "   for CUDA.  You may be running a setup optimized for GPUs.  If you have"
+    echo "   GPUs and have nvcc installed, go to src/ and do ./configure; make"
+    exit
+  fi
+fi
 
 x=0
 
