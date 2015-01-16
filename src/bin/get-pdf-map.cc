@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
         "See also: apply-pdf-map. \n"
         "Usage:  get-pdf-map <src-alignments-rspecifier> <dest-alignments-rspecifier> <pdf-map-wxfilename> \n"
         "e.g.: \n"
-        " get-pdf-map ark:1_src.ali ark:1_dest.ali pdf_map \n";
+        " get-pdf-map ark:1_src.ali ark:1_dest.ali pdf.map \n";
     ParseOptions po(usage);
 
     int32 src_num_pdfs;    

@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
         "See also: map-pdf-post which applys a deterministic mapping to pdf posteriors.\n"
         "Usage:  apply-pdf-map <pdf-map-rxfilename> <src-alignments-rspecifier> <dest-alignments-rspecifier>  \n"
         "e.g.: \n"
-        " apply-pdf-map pdf_map ark:1_src.ali ark:1_dest.ali \n";
+        " apply-pdf-map pdf.map ark:1_src.ali ark:1_dest.ali \n";
     
     ParseOptions po(usage);
 

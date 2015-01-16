@@ -58,9 +58,9 @@ int main(int argc, char *argv[]) {
     std::string gselect_rspecifier, spkvecs_rspecifier, utt2spk_rspecifier;
     
     po.Register("binary", &binary, "Write output in binary mode");
-    po.Register("num-pdfs", &num_pdfs, "Number of pdfs in the sgmm system");
     po.Register("log-prune", &log_prune, "Pruning beam used to reduce number "
                 "of exp() evaluations.");
+    po.Register("num-pdfs", &num_pdfs, "Number of pdfs in the sgmm system");
     po.Register("spk-vecs", &spkvecs_rspecifier, "Speaker vectors (rspecifier)");
     po.Register("utt2spk", &utt2spk_rspecifier,
                 "rspecifier for utterance to speaker map");
@@ -79,6 +79,8 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
+    if (num_pdfs <= 0)
+      KALDI_ERR << "You must specify a positive integer num_pdfs.";
     if (gselect_rspecifier == "")
       KALDI_ERR << "--gselect option is mandatory.";
     
@@ -164,7 +166,7 @@ int main(int argc, char *argv[]) {
         DecodableAmSgmm2Scaled sgmm_decodable(am_sgmm, trans_model, features, gselect,
                                               log_prune, 1.0, &spk_vars);
 
-        Matrix<BaseFloat> loglike(num_pdfs, features.NumRows());
+        Matrix<BaseFloat> loglike(features.NumRows(), num_pdfs);
         for (int32 i = 0; i < features.NumRows(); i++) {
           for (int32 j = 0; j < num_pdfs; j++) {
             loglike(i, j) = sgmm_decodable.LogLikelihoodForPdf(i, j);

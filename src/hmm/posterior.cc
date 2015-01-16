@@ -241,14 +241,14 @@ void ApplyPdfMap(const Posterior &pdf_map, const Posterior &src_post,
     for (size_t j = 0; j < src_post[i].size(); j++) {
        KALDI_ASSERT(static_cast<size_t>(src_post[i][j].first) < pdf_map.size() &&
                     "Input pdf-id out of range of pdf-map.");
-       std::vector<std::pair<int32, BaseFloat> > post_mapped =
+       std::vector<std::pair<int32, BaseFloat> > post_mapping =
                                 pdf_map[src_post[i][j].first];
-       for (size_t k = 0; k < post_mapped.size(); k++) {
+       for (size_t k = 0; k < post_mapping.size(); k++) {
          std::pair<unordered_map<int32, BaseFloat>::iterator,bool> ret;
          ret = post_merged.insert(std::make_pair<int32, BaseFloat>(
-                                  post_mapped[k].first, post_mapped[k].second));
+                                  post_mapping[k].first, src_post[i][j].second * post_mapping[k].second));
          if (ret.second == false) 
-           post_merged[post_mapped[k].first] += post_mapped[k].second;
+           post_merged[post_mapping[k].first] += src_post[i][j].second * post_mapping[k].second;
        }
     }  
     (*dest_post)[i].reserve(post_merged.size());
