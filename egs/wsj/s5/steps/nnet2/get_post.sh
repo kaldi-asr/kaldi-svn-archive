@@ -6,7 +6,7 @@
 
 # Begin configuration section.  
 cmd="queue.pl -l arch=*64"
-parallel_opts="-l gpu=1" # This is suitable for the CLSP network, you'll likely have to change it.
+parallel_opts=
 # Begin configuration.
 transform_dir=
 nj=50
@@ -63,6 +63,7 @@ echo $nj > $nnetdir/num_jobs
 nnet_plice_opts=`cat $nnetdir/nnet_splice_opts 2>/dev/null`
 splice_opts=`cat $nnetdir/splice_opts 2>/dev/null`
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
+if [ $use_gpu == "yes" ]; then parallel_opts="-l gpu=1"; fi # This is suitable for the CLSP network, you'll likely have to change it.
 
 ## Set up input features of nnet
 if [ -f $nnetdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
