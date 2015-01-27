@@ -968,9 +968,9 @@
 				1952
 				<ws> </ws>
 			</tk>
-			<tk norm="act" lc="true" pos="NN" posset="1" wordid="17" pron="ae1 k t">
-				act
-				<ws col="72">
+			<tk norm="act" pstpunc="." lc="true" pos="NN" posset="1" wordid="17" pron="ae1 k t">
+				act.
+				<ws col="73">
 </ws>
 			</tk>
 			<break type="4" time="0.2" />

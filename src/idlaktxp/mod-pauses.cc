@@ -33,8 +33,8 @@ bool TxpPauses::Init(const TxpParseOptions &opts) {
   tpdb_ = opts.GetTpdb();
   pbreak_.Init(opts, std::string(GetOptValue("arch")));
   hzone_ = GetOptValueBool("hzone");
-  hzone_start_ = atoi(GetOptValue("hzone_start"));
-  hzone_end_ = atoi(GetOptValue("hzone_end"));
+  hzone_start_ = atoi(GetOptValue("hzone-start"));
+  hzone_end_ = atoi(GetOptValue("hzone-end"));
   return pbreak_.Parse(tpdb_);
 }
 

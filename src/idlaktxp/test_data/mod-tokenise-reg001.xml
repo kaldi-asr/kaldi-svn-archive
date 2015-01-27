@@ -865,9 +865,9 @@
 		1952
 		<ws> </ws>
 	</tk>
-	<tk norm="act" lc="true">
-		act
-		<ws col="72">
+	<tk norm="act" pstpunc="." lc="true">
+		act.
+		<ws col="73">
 </ws>
 	</tk>
 	<tk norm="at" lc="true" uc="true">

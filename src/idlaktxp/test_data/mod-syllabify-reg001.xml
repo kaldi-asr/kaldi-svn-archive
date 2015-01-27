@@ -2407,9 +2407,9 @@
 					<phon val="uw" type="nucleus" phonid="2" />
 				</syl>
 			</tk>
-			<tk norm="act" lc="true" pos="NN" posset="1" wordid="17" pron="ae1 k t" spron="ae1_k_t|" nosyl="1">
-				act
-				<ws col="72">
+			<tk norm="act" pstpunc="." lc="true" pos="NN" posset="1" wordid="17" pron="ae1 k t" spron="ae1_k_t|" nosyl="1">
+				act.
+				<ws col="73">
 </ws>
 				<syl val="ae1_k_t" stress="1" sylid="1" nophons="3">
 					<phon val="ae" type="nucleus" phonid="1" />
