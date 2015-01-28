@@ -66,7 +66,7 @@ bool TxpPauses::ProcessFile(pugi::xml_node* file) {
   pugi::xml_node *breakitem = NULL, *ptk = NULL, pretk;
   const TxpPbreakInfo* pbreak;
   TxpPbreakInfo pbreakpunc;
-  bool prebreak, pstbreak, newline, newline2;
+  bool prebreak, pstbreak, newline = false, newline2 = false;
   pugi::xpath_node_set files;
   pugi::xpath_node_set tks =
       file->select_nodes(".//tk|.//break|.//ws");

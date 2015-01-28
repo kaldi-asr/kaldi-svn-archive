@@ -103,6 +103,7 @@ class TxpSylmax: public TxpXmlData {
 /// Structure to hold a phone together with its syllabic information
 struct TxpSylItem {
  public:
+  TxpSylItem () {}
   void Clear() {
     name = "";
     stress = "";
