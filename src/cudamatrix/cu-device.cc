@@ -63,8 +63,8 @@ namespace kaldi {
  */
 void CuDevice::SelectGpuId(std::string use_gpu) {
   // Possible modes  
-  if (use_gpu != "yes" && use_gpu != "no" && use_gpu != "optional") {
-    KALDI_ERR << "Please choose : --use-gpu=yes|no|optional, passed '" << use_gpu << "'";
+  if (use_gpu != "yes" && use_gpu != "no" && use_gpu != "optional" && use_gpu != "wait") {
+    KALDI_ERR << "Please choose : --use-gpu=yes|no|optional|wait, passed '" << use_gpu << "'";
   }
  
   // Make sure this function is not called twice!
@@ -82,7 +82,7 @@ void CuDevice::SelectGpuId(std::string use_gpu) {
   int32 n_gpu = 0;
   cudaGetDeviceCount(&n_gpu);
   if (n_gpu == 0) {
-    if (use_gpu == "yes") {
+    if (use_gpu == "yes" || use_gpu == "wait") {
       KALDI_ERR << "No CUDA GPU detected!";
     }
     if (use_gpu == "optional") {
@@ -98,23 +98,43 @@ void CuDevice::SelectGpuId(std::string use_gpu) {
   //
   cudaError_t e;
   e = cudaThreadSynchronize(); //<< CUDA context gets created here.
-  if (e != cudaSuccess) {
-    // So far no we don't have context, sleep a bit and retry.
-    int32 sec_sleep = (use_gpu == "yes" ? 20 : 2);
-    KALDI_WARN << "Will try again to get a GPU after " << sec_sleep 
-               << " seconds.";
-    sleep(sec_sleep);
-    cudaGetLastError(); // reset the error state    
-    e = cudaThreadSynchronize(); //<< 2nd trial to get CUDA context.
+
+  if (use_gpu != "wait") {
     if (e != cudaSuccess) {
-      if (use_gpu == "yes") {
-        KALDI_ERR << "Failed to create CUDA context, no more unused GPUs?";
-      }
-      if (use_gpu == "optional") {
-        KALDI_WARN << "Running on CPU!!! No more unused CUDA GPUs?";
-        return;
+      // So far no we don't have context, sleep a bit and retry.
+      int32 sec_sleep = (use_gpu == "yes" ? 20 : 2);
+      KALDI_WARN << "Will try again to get a GPU after " << sec_sleep 
+        << " seconds.";
+      sleep(sec_sleep);
+      cudaGetLastError(); // reset the error state    
+      e = cudaThreadSynchronize(); //<< 2nd trial to get CUDA context.
+      if (e != cudaSuccess) {
+        if (use_gpu == "yes") {
+          KALDI_ERR << "Failed to create CUDA context, no more unused GPUs?";
+        }
+        if (use_gpu == "optional") {
+          KALDI_WARN << "Running on CPU!!! No more unused CUDA GPUs?";
+          return;
+        }
       }
     }
+  } else {
+    int32 num_times = 0;
+    BaseFloat wait_time = 0.0;
+    while (e != cudaSuccess) {
+      int32 sec_sleep = 5;
+      if (num_times == 0)
+        KALDI_WARN << "Will try again indefinitely every " << sec_sleep 
+                   << " seconds to get a GPU.";
+      num_times++;
+      wait_time += sec_sleep;
+      sleep(sec_sleep);
+      cudaGetLastError(); // reset the error state    
+      e = cudaThreadSynchronize();
+    }
+
+    KALDI_WARN << "Waited " << wait_time
+               << " seconds before creating CUDA context";
   }
 
   // Re-assure we have the context
@@ -681,6 +701,26 @@ void CuAllocator::Free(void *addr) {
     info->freed.push_back(addr);
   } else { // Actually free the address, and decrease "countdown".
     info->countdown--;
+    /*
+      If you get an "unspecified launch error" after the cudaFree call below, it
+      may not be an error with the immediate call, but it could reflect an error
+      that happened earlier.  We encountered the CUBLAS bug described at
+      https://devtalk.nvidia.com/default/topic/758598/cublas-gemm-leads-to-invalid-reads-for-some-matrix-dimensions/
+      which causes sgemm to access invalid memory.  After reproducibly getting
+      "unspecified launch failure" at the location below, we ran the program in
+      cuda-memcheck and got the following:
+      ========= Invalid __global__ read of size 4
+      =========     at 0x00000180 in sgemm_sm_heavy_nt_ldg
+      =========     by thread (223,0,0) in block (0,0,0)
+      =========     Address 0x4a0052607c is out of bounds
+      (and lots more stuff like that).  It appears to only happen for certain
+      matrix sizes, usually encountered for partial minibatches at the end of a
+      training job.  It happened on K20s but not on K10s. We know this happened
+      with CUDA toolkit version 5.5, and the link above says the bug has been
+      resolved in version 6.5 of the toolkit.  Our fix was to just not run the
+      affected training runs on our K20s, since this bug seemed to show up quite
+      rarely.
+     */
     CU_SAFE_CALL(cudaFree(addr)); // This is how we free, even if allocated with
                                   // cudaMallocPitch().
   }

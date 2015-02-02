@@ -88,7 +88,8 @@ int main(int argc, char *argv[]) {
         "<spk2utt-rspecifier> <wav-rspecifier> <lattice-wspecifier>\n"
         "The spk2utt-rspecifier can just be <utterance-id> <utterance-id> if\n"
         "you want to decode utterance by utterance.\n"
-        "See egs/rm/s5/local/run_online_decoding_nnet2.sh for example\n";
+        "See egs/rm/s5/local/run_online_decoding_nnet2.sh for example\n"
+        "See also online2-wav-nnet2-latgen-threaded\n";
     
     ParseOptions po(usage);
     
@@ -230,6 +231,8 @@ int main(int argc, char *argv[]) {
           if (do_endpointing && decoder.EndpointDetected(endpoint_config))
             break;
         }
+        decoder.FinalizeDecoding();
+
         CompactLattice clat;
         bool end_of_utterance = true;
         decoder.GetLattice(end_of_utterance, &clat);
