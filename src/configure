@@ -384,7 +384,7 @@ function fix_cxx_flag {
 
 function linux_atlas_failure { # function we use when we couldn't find
    # ATLAS libs.
-   echo ATLASINC = [somewhere]/include >> kaldi.mk
+   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
    echo ATLASLIBS = [somewhere]/liblapack.a [somewhere]/libcblas.a [somewhere]/libatlas.a [somewhere]/libf77blas.a $ATLASLIBDIR >> kaldi.mk
    cat makefiles/linux_atlas.mk >> kaldi.mk
    fix_cxx_flag
@@ -428,6 +428,29 @@ function linux_configure_debian_ubuntu {
   for f in $ATLASLIBS; do 
     [ ! -f $f ] && return 1;
   done
+  lapacklib=$(echo $ATLASLIBS | awk '{print $NF}')
+  if ! nm --dynamic $lapacklib | grep ATL_cgetrf >/dev/null; then 
+    exit 1;
+  fi
+  echo ATLASINC = $ATLASROOT/include >> kaldi.mk
+  echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
+  cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
+  echo "Successfully configured for Debian/Ubuntu Linux [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
+  $use_cuda && linux_configure_cuda
+  linux_configure_speex
+  exit_success;
+}
+
+function linux_configure_debian_ubuntu3 {
+  ATLASLIBS="/usr/lib/libatlas.so.3  /usr/lib/libf77blas.so.3 /usr/lib/libcblas.so.3  /usr/lib/liblapack_atlas.so.3"
+  for f in $ATLASLIBS; do 
+    [ ! -f $f ] && return 1;
+  done
+  lapacklib=$(echo $ATLASLIBS | awk '{print $NF}')
+  if ! nm --dynamic $lapacklib | grep ATL_cgetrf >/dev/null; then 
+    exit 1;
+  fi
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
@@ -443,6 +466,10 @@ function linux_configure_debian7 {
   for f in $ATLASLIBS; do 
     [ ! -f $f ] && return 1;
   done
+  lapacklib=$(echo $ATLASLIBS | awk '{print $NF}')
+  if ! nm --dynamic $lapacklib | grep ATL_cgetrf >/dev/null; then 
+    exit 1;
+  fi
   libdir=$(dirname $(echo $ATLASLIBS | awk '{print $1}'))
   [ -z "$libdir" ] && echo "Error getting libdir in linux_configure_debian7" && exit 1;
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
@@ -470,6 +497,27 @@ function linux_configure_redhat {
   cat makefiles/linux_atlas.mk >> kaldi.mk
   fix_cxx_flag
   echo "Successfully configured for red hat [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
+  $use_cuda && linux_configure_cuda
+  exit_success;
+}
+
+function linux_configure_redhat_fat {
+  # This is for when only two so-called 'fat' ATLAS libs are provided:
+  # libsatlas.so.3 and libtatlas.so.3.
+  # See http://stackoverflow.com/questions/13439296/build-shared-libraries-in-atlas.
+  m=$1  # 64 or empty.
+  ATLASLIBS="/usr/lib$m/atlas/libsatlas.so.3 /usr/lib$m/atlas/libtatlas.so.3"
+  for f in $ATLASLIBS; do 
+    [ ! -f $f ] && return 1;
+  done
+  libdir=$(dirname $(echo $ATLASLIBS | awk '{print $1}'))
+  [ -z "$libdir" ] && echo "Error getting libdir in linux_configure_redhat_fat" && exit 1;
+  echo ATLASINC = $ATLASROOT/include >> kaldi.mk
+  echo ATLASLIBS = $ATLASLIBS -Wl,-rpath=$libdir >> kaldi.mk
+  echo 
+  cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
+  echo "Successfully configured for red hat [dynamic libraries, fat] with ATLASLIBS =$ATLASLIBS"
   $use_cuda && linux_configure_cuda
   exit_success;
 }
@@ -568,7 +616,7 @@ function linux_configure_dynamic {
   for libname in lapack lapack_atlas  clapack; do
     if [ -f $ATLASLIBDIR/lib${libname}.so -a "$ATLASLIBS" == "" ]; then
       if nm  --dynamic $ATLASLIBDIR/lib${libname}.so  | grep ATL_cgetrf >/dev/null; then
-         ATLASLIBS="-L$ATLASLIBDIR -l${libname}"
+         ATLASLIBS="$ATLASLIBDIR/lib${libname}.so"
          echo "Using library $ATLASLIBS as ATLAS's CLAPACK library."
       fi
     fi
@@ -583,7 +631,7 @@ function linux_configure_dynamic {
       echo "Configuring dynamic ATLAS libraries failed: Could not find library $x in directory $ATLASLIBDIR"
       return 1;
     fi
-    ATLASLIBS="$ATLASLIBS -l$x"
+    ATLASLIBS="$ATLASLIBS $ATLASLIBDIR/lib${x}.so"
   done
   if $threaded_atlas; then ATLASLIBS="$ATLASLIBS"; fi
 
@@ -736,22 +784,28 @@ if [ "`uname`" == "Linux" ]; then
     if $static_math; then
       # Prefer static to dynamic math.
       linux_configure_static || \
+        linux_configure_debian_ubuntu3 || \
         linux_configure_dynamic || \
         linux_configure_debian_ubuntu 64 || \
         linux_configure_debian_ubuntu || \
         linux_configure_debian7 || \
         linux_configure_redhat 64 || \
         linux_configure_redhat || \
+        linux_configure_redhat_fat 64 || \
+        linux_configure_redhat_fat || \
         linux_atlas_failure "Failed to configure ATLAS lbiraries";
     else
       # Prefer dynamic to static math.
-      linux_configure_dynamic || \
+      linux_configure_debian_ubuntu3 || \
+        linux_configure_dynamic || \
         linux_configure_static || \
         linux_configure_debian_ubuntu 64 || \
         linux_configure_debian_ubuntu || \
         linux_configure_debian7 || \
         linux_configure_redhat 64 || \
         linux_configure_redhat || \
+        linux_configure_redhat_fat 64 || \
+        linux_configure_redhat_fat || \
         linux_atlas_failure "Failed to configure ATLAS lbiraries";
     fi
 

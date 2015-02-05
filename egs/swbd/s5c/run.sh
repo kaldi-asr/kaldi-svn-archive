@@ -10,7 +10,7 @@
 # 4. mapped swbd transcription to fisher style, instead of the other way around 
 
 set -e # exit on error
-
+has_fisher=true
 local/swbd1_data_download.sh /export/corpora3/LDC/LDC97S62
 # prepare SWBD dictionary first since we want to find acronyms according to pronunciations
 # before mapping lexicon and transcripts
@@ -56,10 +56,9 @@ utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
   data/lang_nopp $LM data/local/dict/lexicon.txt data/lang_nopp_sw1_tg
 
 # Compiles const G for swbd+fisher 4gram LM, if it exists.
-has_fisher=true
 LM=data/local/lm/sw1_fsh.o4g.kn.gz
 [ -f $LM ] || has_fisher=false
-if [ $has_fisher ]; then
+if $has_fisher; then
   utils/build_const_arpa_lm.sh $LM data/lang_nopp data/lang_nopp_sw1_fsh_fg
 fi
 
@@ -175,7 +174,7 @@ srilm_opts="-subset -prune-lowprobs -unk -tolower -order 3"
 utils/format_lm_sri.sh --srilm-opts "$srilm_opts" \
   data/lang $LM data/local/dict_pp/lexicon.txt data/lang_sw1_tg
 LM=data/local/lm/sw1_fsh.o4g.kn.gz
-if [ $has_fisher ]; then
+if $has_fisher; then
   utils/build_const_arpa_lm.sh $LM data/lang data/lang_sw1_fsh_fg
 fi
 
@@ -205,7 +204,7 @@ steps/train_sat.sh  --cmd "$train_cmd" \
 ) &
 wait
 
-if [ $has_fisher ]; then
+if $has_fisher; then
   steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
     data/lang_sw1_{tg,fsh_fg} data/eval2000 \
     exp/tri4/decode_eval2000_sw1_{tg,fsh_fg}
@@ -239,7 +238,7 @@ for iter in 1 2 3 4; do
 done
 wait
 
-if [ $has_fisher ]; then
+if $has_fisher; then
   for iter in 1 2 3 4;do
     (
       steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
@@ -269,7 +268,7 @@ for iter in 4 5 6 7 8; do
 done
 wait
 
-if [ $has_fisher ]; then
+if $has_fisher; then
   for iter in 4 5 6 7 8; do
     (
       steps/lmrescore_const_arpa.sh --cmd "$decode_cmd" \
@@ -289,7 +288,7 @@ fi
 # local/nnet/run_dnn.sh --has-fisher $has_fisher
 
 # Dan's nnet recipe
-# local/nnet2/run_nnet2_gpu.sh --has-fisher $has_fisher
+# local/nnet2/run_nnet2.sh --has-fisher $has_fisher
 
 # Dan's nnet recipe with online decoding.
 # local/online/run_nnet2_ms.sh --has-fisher $has_fisher
