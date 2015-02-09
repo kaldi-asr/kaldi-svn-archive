@@ -42,7 +42,7 @@ sub print_line {
   my $TEXT=$_[3];
   
   my @words = split(" ", $TEXT);
-  if (@words > $text_max_len ) {
+  if ((@words > $text_max_len ) && ($text_max_len > 0) ){
     Warning($FILENAME, $SYNC, "text too long to be usefull: \"$TEXT\"");
   }
   $TEXT =~ s/   */ /g;
