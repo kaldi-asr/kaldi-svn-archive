@@ -26,6 +26,7 @@
 #include "tree/build-tree-utils.h"
 #include "tree/clusterable-classes.h"
 #include "util/text-utils.h"
+#include "hmm/posterior.h" 
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
@@ -39,7 +40,7 @@ int main(int argc, char *argv[]) {
         "See also: build-tree-two-level\n"
         "Usage:  shrink-tree [options] <tree-stats-in> <tree-in> <map-out> <tree-out>\n"
         "e.g.: \n"
-        " shrink-tree treeacc roots.txt 1.qst topo tree_map tree_in tree_out\n";
+        " shrink-tree treeacc roots.txt tree_in pdf.map tree_out\n";
 
     bool binary = true;
     int32 P = 1, N = 3;
@@ -92,11 +93,20 @@ int main(int argc, char *argv[]) {
 
     ComputeTreeMapping(*renumbered_map, ctx_dep_in.ToPdfMap(), stats, &leaves_mapping);
 
-    {
-      Output ko(map_out_filename, binary);
-      WriteIntegerVector(ko.Stream(), binary, leaves_mapping);
-    }
+//    {
+//      Output ko(map_out_filename, binary);
+//      WriteIntegerVector(ko.Stream(), binary, leaves_mapping);
+//    }
 
+    Posterior pdf_map(leaves_mapping.size());
+    for (int i = 0; i < leaves_mapping.size(); i++) {
+      pdf_map[i].push_back(std::make_pair(leaves_mapping[i], 1.0));
+    }
+    {
+      Output ko(map_out_filename, false);
+      WritePosterior(ko.Stream(), false, pdf_map);
+    }
+    
     { // This block is to warn about low counts.
       std::vector<BuildTreeStatsType> split_stats;
       SplitStatsByMap(stats, *renumbered_map,
