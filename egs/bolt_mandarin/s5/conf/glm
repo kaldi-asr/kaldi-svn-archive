@@ -7,11 +7,19 @@
 ;;         - initial creation 
 ;;
 ;;  Hesitation mappings
-%诶%        =>  %HESITATION     / [ ] __ [ ]
-%呃%        =>  %HESITATION     / [ ] __ [ ]
-%嗯%        =>  %HESITATION     / [ ] __ [ ]
+%诶%        =>  (%HESITATION)     / [ ] __ [ ]
+%呃%        =>  (%HESITATION)     / [ ] __ [ ]
+%嗯%        =>  (%HESITATION)     / [ ] __ [ ]
 ;;
-诶        =>  %HESITATION     / [ ] __ [ ]
-呃        =>  %HESITATION     / [ ] __ [ ]
-嗯        =>  %HESITATION     / [ ] __ [ ]
+诶        =>  (%HESITATION)     / [ ] __ [ ]
+呃        =>  (%HESITATION)     / [ ] __ [ ]
+嗯        =>  (%HESITATION)     / [ ] __ [ ]
+
+<LAUGHTER>      => / [ ] __ [ ] 
+<HES>           => / [ ] __ [ ] 
+<NOISE>        => / [ ] __ [ ]    
+<SIL>          => / [ ] __ [ ]
+<UNK>          => / [ ] __ [ ]
+<V-NOISE>      => / [ ] __ [ ] 
+
 

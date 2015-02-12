@@ -31,6 +31,12 @@ use Data::Dumper;
 
 LINE: while (<STDIN>) {
   $line=$_;
+  $line=~s/\{/ \{/g;
+  $line=~s/\}/\} /g;
+  $line=~s/\</ \</g;
+  $line=~s/\>/\> /g;
+  $line=~s/\(\(/ \(\(/g;
+  $line=~s/\)\)/\)\) /g;
   @A = split(" ", $line);
   print "$A[0] ";
 
@@ -111,8 +117,9 @@ LINE: while (<STDIN>) {
       #**text**    idiosyncratic word, not in common use, not necessarily 
       #            included in lexicon
       #            Example: **poodle-ish**
-
-      print "<UNK> ";
+      $a =~ s/-//g; 
+      print "$a ";
+      #print "<UNK> ";
       next;
     }
 

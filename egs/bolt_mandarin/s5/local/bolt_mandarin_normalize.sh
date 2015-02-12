@@ -43,7 +43,7 @@ cat $f |\
   sed -e 's/((\([^)]\{1,\}\)))/\1/g' |\
   sed '/^\s*$/d' |\
   uconv -f utf-8 -t utf-8 -x "Any-Upper" |\
-  local/callhome_normalize.pl |\
+  local/bolt_mandarin_normalize.pl |\
   python local/callhome_mmseg_segment.py |\
   awk '{if (NF > 1) print $0;}' | sort -u > $out
 

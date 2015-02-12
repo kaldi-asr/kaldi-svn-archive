@@ -44,15 +44,13 @@ utils/build_const_arpa_lm.sh \
 # want to store MFCC features.
 
  mfccdir=param
-for x in train bolt_dev bolt_tune bolt_test; do 
+for x in train bolt_dev; do 
    steps/make_mfcc_pitch.sh --nj $train_nj --cmd "$train_cmd" data/$x exp/make_mfcc/$x $mfccdir || exit 1;
    steps/compute_cmvn_stats.sh data/$x exp/make_mfcc/$x $mfccdir || exit 1;
  done
 # after this, the next command will remove the small number of utterances
 # that couldn't be extracted for some reason (e.g. too short; no such file).
 utils/fix_data_dir.sh data/bolt_dev || exit 1;
-utils/fix_data_dir.sh data/bolt_tune || exit 1;
-utils/fix_data_dir.sh data/bolt_test || exit 1;
 utils/fix_data_dir.sh data/train || exit 1;
 
 #Subset the train dir as the first stages do not 
@@ -71,14 +69,7 @@ utils/mkgraph.sh --mono data/lang_test exp/mono0a exp/mono0a/graph || exit 1
 (
 steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/mono0a/graph data/bolt_dev exp/mono0a/decode_bolt_dev
-
-steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/mono0a/graph data/bolt_tune exp/mono0a/decode_bolt_tune
-steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/mono0a/graph data/bolt_test exp/mono0a/decode_bolt_test ) &
+  exp/mono0a/graph data/bolt_dev exp/mono0a/decode_bolt_dev) &
 
 # Get alignments from monophone system.
 steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
@@ -93,15 +84,7 @@ steps/train_deltas.sh --cmd "$train_cmd"\
 
 steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri1/graph data/bolt_dev exp/tri1/decode_bolt_dev
-
-steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri1/graph data/bolt_tune exp/tri1/decode_bolt_tune
-
-steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri1/graph data/bolt_test exp/tri1/decode_bolt_test ) &
+  exp/tri1/graph data/bolt_dev exp/tri1/decode_bolt_dev) &
 
 # align tri1
 steps/align_si.sh --nj $train_nj --cmd "$train_cmd"\
@@ -116,15 +99,7 @@ steps/train_deltas.sh --cmd "$train_cmd"\
 
 steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri2/graph data/bolt_tune exp/tri2/decode_bolt_tune
-
-steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri2/graph data/bolt_dev exp/tri2/decode_bolt_dev
-
-steps/decode.sh --config conf/decode.config --nj $decode_nj "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri2/graph data/bolt_test exp/tri2/decode_bolt_test ) &
+  exp/tri2/graph data/bolt_dev exp/tri2/decode_bolt_dev ) &
 
 # train and decode tri2b [LDA+MLLT]
 
@@ -139,15 +114,7 @@ steps/train_lda_mllt.sh --cmd "$train_cmd"\
 
 steps/decode.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri3a/graph data/bolt_dev exp/tri3a/decode_bolt_dev
-
-steps/decode.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri3a/graph data/bolt_test exp/tri3a/decode_bolt_test
-
-steps/decode.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri3a/graph data/bolt_tune exp/tri3a/decode_bolt_tune ) &
+  exp/tri3a/graph data/bolt_dev exp/tri3a/decode_bolt_dev ) &
 # From now, we start building a more serious system (with SAT), and we'll
 # do the alignment with fMLLR.
 
@@ -161,16 +128,8 @@ steps/train_sat.sh --cmd "$train_cmd"\
   
 steps/decode_fmllr.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
   --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri4a/graph data/bolt_dev exp/tri4a/decode_bolt_dev 
+  exp/tri4a/graph data/bolt_dev exp/tri4a/decode_bolt_dev ) & 
   
-steps/decode_fmllr.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri4a/graph data/bolt_test exp/tri4a/decode_bolt_test
-  
-steps/decode_fmllr.sh --nj $decode_nj --config conf/decode.config "${extra_decoding_opts[@]}"\
-  --cmd "$decode_cmd" --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-  exp/tri4a/graph data/bolt_tune exp/tri4a/decode_bolt_tune ) &
-
 steps/align_fmllr.sh --nj $train_nj --cmd "$train_cmd"\
   data/train data/lang exp/tri4a exp/tri4a_ali
 
@@ -184,13 +143,7 @@ touch exp/tri5a/.done
 
 steps/decode_fmllr_extra.sh --nj $decode_nj --cmd "$decode_cmd" "${extra_decoding_opts[@]}"\
    --config conf/decode.config  --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-   exp/tri5a/graph data/bolt_dev exp/tri5a/decode_bolt_dev || exit 1;
-steps/decode_fmllr_extra.sh --nj $decode_nj --cmd "$decode_cmd" "${extra_decoding_opts[@]}"\
-   --config conf/decode.config  --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-   exp/tri5a/graph data/bolt_tune exp/tri5a/decode_bolt_tune || exit 1;
-steps/decode_fmllr_extra.sh --nj $decode_nj --cmd "$decode_cmd" "${extra_decoding_opts[@]}"\
-   --config conf/decode.config  --scoring_opts "--min_lmwt 8 --max_lmwt 14 "\
-   exp/tri5a/graph data/bolt_test exp/tri5a/decode_bolt_test || exit 1; ) &
+   exp/tri5a/graph data/bolt_dev exp/tri5a/decode_bolt_dev || exit 1; ) &
 
 ./local/run_dnn.sh
 ./local/run_dnn_mpe.sh

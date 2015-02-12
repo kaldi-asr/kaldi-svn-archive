@@ -50,9 +50,5 @@ parallel_opts="-l gpu=1"  # This is suitable for the CLSP network, you'll likely
     --config conf/decode.config --transform-dir exp/tri5a/decode_bolt_dev \
     exp/tri5a/graph data/bolt_dev exp/$dir/decode_bolt_dev &
 
-  steps/nnet2/decode.sh --cmd "$decode_cmd" --nj 12 \
-    --config conf/decode.config --transform-dir exp/tri5a/decode_bolt_tune \
-    exp/tri5a/graph data/bolt_tune exp/$dir/decode_bolt_tune &
-  
 )
 

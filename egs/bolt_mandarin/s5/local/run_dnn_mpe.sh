@@ -56,4 +56,3 @@ if [ ! -f exp/${nnet_dir}_mpe/.done ]; then
 fi
 
 ./local/run_anydecode.sh bolt_dev &
-./local/run_anydecode.sh bolt_tune &

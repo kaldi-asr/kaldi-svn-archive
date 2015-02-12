@@ -46,6 +46,4 @@ parallel_opts="-l gpu=1"  # This is suitable for the CLSP network, you'll likely
   fi
 
   ./local/run_anydecode.sh bolt_dev &
-  ./local/run_anydecode.sh bolt_tune &
-  ./local/run_anydecode.sh bolt_test &
 )

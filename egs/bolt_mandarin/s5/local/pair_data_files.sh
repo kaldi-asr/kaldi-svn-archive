@@ -18,7 +18,6 @@ mkdir -p $corpora
 # The reason why there are two subsets of training data is that, The correspondance between Audio/Text files is very clear 
 # for Part I, while for Part II it's quite complicated (Only selected conversations in each corpus are counted in, 
 # which are specifed in conf/list.train.part2). 
-
 for dir in `cat conf/list.train.part2 | cut -f1 -d' '`; do
 mkdir -p $corpora/$dir
 for i in $(find -L /export/corpora/LDC/$dir -iname "ma_*" | grep "`cat conf/list.train.part2 | grep "$dir " | cut -f2 -d' '`");do ln -s $i corpora/$dir; done;
@@ -65,19 +64,14 @@ done
 
 for dataset in dev tune test; do
   cp conf/glm data/local/${dataset}
-  # using Cambridge provided stms
-  cp conf/dev-${dataset}.stm data/local/${dataset}/stm
-  # You can also try to prepare stms yourself, rather than using the stm provided by Cambridge. However different scoring results are expected. 
-  # local/prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $target/$dataset
-  # paste -d' ' <(cat $target/$dataset/stm | cut -f1-5 -d' ' |\
-  # awk '{split($3, a, "-");split(a[2],b,""); c=b[1]; s=b[2];if(s=="")s="0";sub(/A/,"1",c);sub(/B/,"2",c); printf tolower($1)"_"s; printf " "c" "; printf ("%s_%d%d "$4" "$5" <O>\n", tolower(a[1]),s,c);}') <(cat $target/$dataset/stm | cut -f6- -d' ')  |\
-  # sed 1'i;; CATEGORY "0" "" ""' | sed 1'i;; LABEL "O" "Overall" "All Segments in the test set"' > tmp
-  # mv tmp $target/$dataset/stm
+   local/bolt_prepare_stm.pl --fragmentMarkers "-" --hesitationToken "<HES>" --oovToken "<UNK>" $target/$dataset
+   paste -d' ' <(cat $target/$dataset/stm | cut -f1-5 -d' ' |\
+   awk '{split($3, a, "-");split(a[2],b,""); c=b[1]; s=b[2];if(s=="")s="0";sub(/A/,"1",c);sub(/B/,"2",c); printf tolower($1)"_"s; printf " "c" "; printf ("%s_%d%d "$4" "$5"\n", tolower(a[1]),s,c);}') <(cat $target/$dataset/stm | cut -f6- -d' ')  |\
+   sed 1'i;; CATEGORY "0" "" ""' | sed 1'i;; LABEL "O" "Overall" "All Segments in the test set"' > tmp
+   cp tmp $target/$dataset/stm
 done
-
+eval utils/combine_data.sh data/local/bolt_dev data/local/{dev,tune,test}
 (
 set -x 
-cp -R data/local/dev/* data/bolt_dev
-cp -R data/local/tune/* data/bolt_tune
-cp -R data/local/test/* data/bolt_test
+cp -R data/local/bolt_dev/* data/bolt_dev
 )
