@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+# Copyright 2015  Johns Hopkins University (Author: Jan Trmal).  Apache 2.0.
+
 
 #Parses the transcription files and generate the basic kaldi 
 #files:
@@ -84,9 +86,7 @@ while (my $audio=<$A>) {
 }
 close($WAV);
 
-my $prev_file;
-my $prev_spk;
-my $prev_time;
+my @UNK_END_TIME;
 
 while (my $line=<$T>) {
   chomp $line;
@@ -95,26 +95,61 @@ while (my $line=<$T>) {
     print STDERR "$line\n";
     next;
   }
-  (my $file, my $time, my $spk)  = ($header=~ /\[(.*?)\]\[(.*?)\]\[(.*?)\]/g);
+  (my $file, my $time_start, my $time_end, my $spk)  = ($header=~ /\[(.*?)\]\[(.*?)\]\[(.*?)\]\[(.*?)\]/g);
   #my @matches = ($header=~ /\[(.*?)\]\[(.*?)\]\[(.*?)\]/g);
   #print Dumper(\@matches);
+  
+  if ( $time_end eq "???" ) {
+    if ( @UNK_END_TIME) {
 
-  if (defined  $prev_file) {
-    foreach my $chan ( ("A", "B") ) {
-      my $time_id=sprintf("%06d", ($prev_time) * 100);
-      my $segment_id="$file-$chan-". uc($prev_spk) . "-$time_id";
-      if ($file eq $prev_file ) {
-        print $SEGMENTS "$segment_id $file-$chan $prev_time $time\n";
-      } else {
-        print $SEGMENTS "$segment_id $file-$chan $prev_time " . ($prev_time + 100) . "\n";
+      if ( ($UNK_END_TIME[0]->[0] ne $file ) || 
+           ($UNK_END_TIME[0]->[1] ne $time_start ) ) {
+
+        undef @UNK_END_TIME;
+
       }
-      print $TEXT "$segment_id $text\n";
-      print $UTT2SPK "$segment_id $file-$chan-" . uc($prev_spk) . "\n";
     }
+    push @UNK_END_TIME, [$file, $time_start, $spk, $text];
+    next;
   }
-  $prev_time=$time;
-  $prev_spk=$spk;
-  $prev_file=$file;
+  
+  if ( @UNK_END_TIME ) {
+    if ( ($UNK_END_TIME[0]->[0] eq $file ) &&
+         ($UNK_END_TIME[0]->[1] eq $time_start ) ) {
+      
+      foreach my $entry (@UNK_END_TIME) {
+        my $spk = $entry->[2];
+        my $text = $entry->[3];
+        foreach my $chan ( ("A", "B") ) {
+          my $time_id=sprintf("%08d", ($time_start) * 1000);
+          my $segment_id="$file-$chan-". uc($spk) . "-$time_id";
+          print $SEGMENTS "$segment_id $file-$chan $time_start $time_end\n";
+          print $TEXT "$segment_id $text\n";
+          print $UTT2SPK "$segment_id $file-$chan-" . uc($spk) . "\n";
+        }
+      }
+      undef @UNK_END_TIME;
+    } else {
+      print STDERR "Could not deduce the ending time before this line: \n\t$line\n";
+      print STDERR "The previous line: \n";
+      foreach my $entry (@UNK_END_TIME) {
+        my $file = $entry->[0];
+        my $time_start = $entry->[1];
+        my $spk = $entry->[2];
+        my $text = $entry->[3];
+        print STDERR "\t[$file][$time_start][???][$spk] $text\"\n";
+      }
+    }
+    undef @UNK_END_TIME;
+  }
+
+  foreach my $chan ( ("A", "B") ) {
+    my $time_id=sprintf("%08d", ($time_start) * 1000);
+    my $segment_id="$file-$chan-". uc($spk) . "-$time_id";
+    print $SEGMENTS "$segment_id $file-$chan $time_start $time_end\n";
+    print $TEXT "$segment_id $text\n";
+    print $UTT2SPK "$segment_id $file-$chan-" . uc($spk) . "\n";
+  }
 }
 
 close($TEXT);
@@ -122,3 +157,4 @@ close($SEGMENTS);
 close($UTT2SPK);
 close($RECO);
 
+print STDERR "Done...\n";

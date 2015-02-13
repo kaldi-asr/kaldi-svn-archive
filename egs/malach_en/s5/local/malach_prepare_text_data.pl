@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+# Copyright 2015  Johns Hopkins University (Author: Jan Trmal).  Apache 2.0.
+
 use strict;
 use warnings;
 use XML::Parser;
@@ -15,6 +17,7 @@ my @SPK;
 my $FILENAME;
 my $SYNC;
 my $WHO;
+my $TURNENDTIME;
 
 my $print_unks;
 my $print_crosstalks;
@@ -37,9 +40,10 @@ sub Warning {
 
 sub print_line {
   my $FILENAME=$_[0];
-  my $SYNC=$_[1];
-  my $SPK=$_[2];
-  my $TEXT=$_[3];
+  my $SYNC_A=$_[1];
+  my $SYNC_B=$_[2];
+  my $SPK=$_[3];
+  my $TEXT=$_[4];
   
   my @words = split(" ", $TEXT);
   if ((@words > $text_max_len ) && ($text_max_len > 0) ){
@@ -47,10 +51,11 @@ sub print_line {
   }
   $TEXT =~ s/   */ /g;
   $TEXT =~ s/^\s+|\s+$//g ;
-  print "[$FILENAME][$SYNC][$SPK] $TEXT\n" if $TEXT;
+  print "[$FILENAME][$SYNC_A][$SYNC_B][$SPK] $TEXT\n" if $TEXT;
 }
 
 sub produce_text {
+  my $endSync=$_[0];
   my $text=join("", @TEXT);
   $text =~ s/\< */ </g;
   $text =~ s/ *\>/> /g;
@@ -81,7 +86,7 @@ sub produce_text {
         Warning($FILENAME, $SYNC, "inline speaker info in \"$text\"");
       }
       $text =~s/ *\<spkr?[0-9]\> */ /; 
-      print_line $FILENAME, $SYNC, $SPK[0], $text; 
+      print_line $FILENAME, $SYNC, $endSync, $SPK[0], $text; 
     }else {
       if (defined $WHO) {
         if (@SPK eq 1) {
@@ -90,12 +95,12 @@ sub produce_text {
         }
         if ( $print_crosstalks ) {
           #print STDERR Dumper( [$FILENAME,$SYNC,\@SPK, $WHO,] );
-          print_line $FILENAME, $SYNC, $SPK[$WHO-1], $text; 
+          print_line $FILENAME, $SYNC, $endSync, $SPK[$WHO-1], $text; 
         } else {
           Warning($FILENAME, $SYNC, "cross-talk info detected, ignoring text \"$text\"");
         }
       } else {
-        print_line $FILENAME, $SYNC, $SPK[0], $text; 
+        print_line $FILENAME, $SYNC, $endSync, $SPK[0], $text; 
       }
     }
   } else {
@@ -116,10 +121,10 @@ sub produce_text {
         Warning($FILENAME, $SYNC, "inline speaker info in \"$text\"");
       }
       $text =~s/ *\<spkr?[0-9]\> */ /; 
-      print_line  $FILENAME, $SYNC, $SPK[0], $text; 
+      print_line  $FILENAME, $SYNC, $endSync, $SPK[0], $text; 
     }else {
       if ( $print_unks ) {
-        print_line $FILENAME, $SYNC, "unk", $text;
+        print_line $FILENAME, $SYNC, $endSync, "unk", $text;
       } else {
         Warning($FILENAME, $SYNC, "unknown speaker in string \"$text\"");
       }
@@ -139,7 +144,7 @@ sub Who {
     return
   };
 
-  produce_text;
+  produce_text("???");
 
   my( $index )= grep { $P[$_] eq "nb" } 0..$#P;
   $WHO=$P[$index+1] if defined $index;
@@ -151,6 +156,19 @@ sub Turn  {
   #print Dumper(\@P);
   my( $index )= grep { $P[$_] eq "speaker" } 0..$#P;
   @SPK=split(" ",$P[$index+1]) if defined $index;
+  ( $index )= grep { $P[$_] eq "startTime" } 0..$#P;
+  my $startTime;
+  if( defined $index) {
+    $startTime=$P[$index+1];
+  } else {
+    Warning($FILENAME, "???", "Turn with no startTime attribute found!");
+  }
+  ( $index )= grep { $P[$_] eq "endTime" } 0..$#P;
+  if (defined $index) {
+    $TURNENDTIME=$P[$index+1];
+  } else {
+    Warning($FILENAME, "$startTime", "Turn with no endTime attribute found!");
+  }
   #print "Speaker defined: " . join(" ", @SPK)\n" if defined @SPK;
 }
 
@@ -177,7 +195,7 @@ sub Turn_  {
     return
   
   };
-  produce_text;
+  produce_text($TURNENDTIME);
 
   undef @TEXT;
   undef @SPK;
@@ -205,7 +223,7 @@ sub Sync {
   
   };
   
-  produce_text;
+  produce_text($time);
 
   $SYNC=$time;
   undef @TEXT;

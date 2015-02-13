@@ -3,7 +3,8 @@
 # Copyright 2015  Johns Hopkins University (Author: Jan Trmal).  Apache 2.0.
 
 # Begin configuration section.
-train_corpus=/export/corpora/LDC/LDC2012S05
+train_corpus_audio=/export/corpora/LDC/LDC2012S05
+train_corpus_text=./transcriptions/
 dev_corpus=/export/a13/jtrmal/Malach_EN_test
 audio_sampling_rate=16000
 # End configuration section.
@@ -29,35 +30,45 @@ mkdir -p data/local/dev_uwb
 find $dev_corpus -maxdepth 1 -type f  -name "*.trs"| sort -u > data/local/dev_uwb/files.lst
 find $dev_corpus -maxdepth 1 -type f  -name "*.wav"| sort -u > data/local/dev_uwb/audio.lst
 cat data/local/dev_uwb/files.lst |\
-  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks\
+  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks |\
+  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
   > data/local/dev_uwb/transcriptions.txt
+local/malach_create_kaldi_files.pl data/local/dev_uwb/audio.lst \
+  data/local/dev_uwb/transcriptions.txt data/local/dev_uwb
 
-#Let's assume the LDC devset is defined by conf/dev.list 
+#Let's assume the LDC devset is defined by conf/dev.list
 mkdir -p data/local/dev
-find -L $train_corpus -type f -name "*.trs"| sort -u | \
+find -L $train_corpus_text -type f -name "*.trs"| sort -u | \
   grep -F -f <(cat conf/dev.list | xargs -n1 basename) \
   > data/local/dev/files.lst
-find -L $train_corpus -type f -name "*.mp2"| sort -u | \
+find -L $train_corpus_audio -type f -name "*.mp2"| sort -u | \
   grep -F -f <(cat conf/dev.list | xargs -n1 basename) \
   > data/local/dev/audio.lst
 cat data/local/dev/files.lst |\
-  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks\
+  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks |\
+  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
   > data/local/dev/transcriptions.txt
+local/malach_create_kaldi_files.pl data/local/dev/audio.lst \
+  data/local/dev/transcriptions.txt data/local/dev
 
 #For train set, we remove all files that are already in dev and dev_uwb
 mkdir -p data/local/train
-find -L $train_corpus -type f -name "*.trs"| sort -u | \
+find -L $train_corpus_text -type f -name "*.trs"| sort -u | \
   grep -v -F -f <(cat data/local/dev_uwb/files.lst | xargs -n1 basename) |\
   grep -v -F -f <(cat data/local/dev/files.lst | xargs -n1 basename) \
   > data/local/train/files.lst
-find -L $train_corpus -type f -name "*.mp2"| sort -u | \
+find -L $train_corpus_audio -type f -name "*.mp2"| sort -u | \
   grep -F -f <(cat data/local/train/files.lst| xargs -n1 -IX basename X .trs) \
   > data/local/train/audio.lst
 
 cat data/local/train/files.lst | \
-  ./local/malach_prepare_text_data.pl --max-text-len 110 --nowarn-inline-speakers \
+  ./local/malach_prepare_text_data.pl --max-text-len 110 --nowarn-inline-speakers |\
+  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
   > data/local/train/transcriptions.txt
 cat data/local/train/files.lst | \
-  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nowarn-inline-speakers \
+  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nowarn-inline-speakers |\
+  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
   > data/local/train/transcriptions_for_lm.txt
+local/malach_create_kaldi_files.pl data/local/train/audio.lst \
+  data/local/train/transcriptions.txt data/local/train
 
