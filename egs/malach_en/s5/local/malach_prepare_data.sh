@@ -20,7 +20,7 @@ set -o pipefail
 set -u
 
 
-
+if false; then
 mkdir -p data/local
 #We are using two corpora dirs, as the original UWB dataset is (mostly) not part
 #of the LDC Malach EN release
@@ -30,9 +30,14 @@ mkdir -p data/local/dev_uwb
 find $dev_corpus -maxdepth 1 -type f  -name "*.trs"| sort -u > data/local/dev_uwb/files.lst
 find $dev_corpus -maxdepth 1 -type f  -name "*.wav"| sort -u > data/local/dev_uwb/audio.lst
 cat data/local/dev_uwb/files.lst |\
-  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks |\
-  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
+  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks > data/local/dev_uwb/transcriptions.raw
+
+paste -d ' '\
+  <(cut -f 1 -d ' ' data/local/dev_uwb/transcriptions.raw)  \
+  <(cut -f 2- -d ' '  data/local/dev_uwb/transcriptions.raw | \
+    sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed ) \
   > data/local/dev_uwb/transcriptions.txt
+
 local/malach_create_kaldi_files.pl data/local/dev_uwb/audio.lst \
   data/local/dev_uwb/transcriptions.txt data/local/dev_uwb
 
@@ -45,9 +50,14 @@ find -L $train_corpus_audio -type f -name "*.mp2"| sort -u | \
   grep -F -f <(cat conf/dev.list | xargs -n1 basename) \
   > data/local/dev/audio.lst
 cat data/local/dev/files.lst |\
-  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks |\
-  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
+  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nounks > data/local/dev/transcriptions.raw
+
+paste -d ' ' \
+  <(cut -f 1 -d ' ' data/local/dev/transcriptions.raw)  \
+  <(cut -f 2- -d ' '  data/local/dev/transcriptions.raw | \
+    sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed ) \
   > data/local/dev/transcriptions.txt
+
 local/malach_create_kaldi_files.pl data/local/dev/audio.lst \
   data/local/dev/transcriptions.txt data/local/dev
 
@@ -62,13 +72,25 @@ find -L $train_corpus_audio -type f -name "*.mp2"| sort -u | \
   > data/local/train/audio.lst
 
 cat data/local/train/files.lst | \
-  ./local/malach_prepare_text_data.pl --max-text-len 110 --nowarn-inline-speakers |\
-  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
+  ./local/malach_prepare_text_data.pl --max-text-len 110 --nowarn-inline-speakers > data/local/train/transcriptions.raw
+
+fi
+paste -d ' ' \
+  <(cut -f 1 -d ' ' data/local/train/transcriptions.raw)  \
+  <(cut -f 2- -d ' '  data/local/train/transcriptions.raw | \
+    sed  -f conf/unify.sed | \
+    sed  -f conf/uhs.sed | \
+    sed -f conf/doubles.sed |\
+    sed -f conf/kill.sed  ) \
   > data/local/train/transcriptions.txt
+
 cat data/local/train/files.lst | \
-  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nowarn-inline-speakers |\
-  sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed \
+  ./local/malach_prepare_text_data.pl --crosstalks --max-text-len -1 --nowarn-inline-speakers > data/local/train/transcriptions_for_lm.raw
+
+paste -d ' '  \
+  <(cut -f 1 -d ' ' data/local/train/transcriptions_for_lm.raw)  \
+  <(cut -f 2- -d ' '  data/local/train/transcriptions_for_lm.raw | \
+    sed  -f conf/unify.sed | sed  -f conf/uhs.sed | sed -f conf/doubles.sed ) \
   > data/local/train/transcriptions_for_lm.txt
-local/malach_create_kaldi_files.pl data/local/train/audio.lst \
-  data/local/train/transcriptions.txt data/local/train
+
 

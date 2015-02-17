@@ -87,12 +87,16 @@ while (my $audio=<$A>) {
 close($WAV);
 
 my @UNK_END_TIME;
+my $empty_lines_warn=0;
+my $empty_lines_warn_max=3;
 
 while (my $line=<$T>) {
   chomp $line;
   (my $header, my $text) = split(" ", $line, 2);
   unless ($text) {
-    print STDERR "$line\n";
+    print STDERR "Warning, empty line: $line\n" if $empty_lines_warn <=$empty_lines_warn_max;
+    print STDERR "Maximum number of warning reached, not warning again.\n" if $empty_lines_warn == $empty_lines_warn_max;
+    $empty_lines_warn += 1;
     next;
   }
   (my $file, my $time_start, my $time_end, my $spk)  = ($header=~ /\[(.*?)\]\[(.*?)\]\[(.*?)\]\[(.*?)\]/g);

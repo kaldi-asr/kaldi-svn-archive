@@ -24,17 +24,6 @@ sub cartesian_str {
     return @a;
 }
 
-sub cartesiaan {
-    my @C = map { [ $_ ] } @{ shift @_ };
-
-    foreach (@_) {
-        my @A = @$_;
-
-        @C = map { my $n = $_; map { [ $n, @$_ ] } @C } @A;
-    }
-
-    return @C;
-}
 
 sub print_lexicon_entries {
   my $F = $_[0];
@@ -42,7 +31,7 @@ sub print_lexicon_entries {
   my @P = @{$_[2]};
 
   for my $p (@P) {
-    print $F "$W\t$p\n";
+    print $F "$W $p\n";
   }
 
 }
@@ -57,10 +46,12 @@ sub remove_brackets_and_look {
   $lookup=~s/\(//g;
   $lookup=~s/\)//g;
   $lookup=~s/\[//g;
-  $lookup=~s/\[//g;
+  $lookup=~s/\]//g;
+  $lookup=~s/\<//g;
+  $lookup=~s/\>//g;
 
   if (exists $LEX->{$lookup} ) {
-    return $LEX->{$lookup};
+    return @{$LEX->{$lookup}};
   } else {
     return ;
   }
@@ -72,7 +63,7 @@ sub split_and_look {
 
   return if $lookup =~ m/ -|-$/; 
 
-  my @split_words = split("-", $lookup);
+  my @split_words = split(/[-_ ]/, $lookup);
   my @split_prons;
   foreach my $word (@split_words) {
     if ( $LEX->{$word} ) {
@@ -88,12 +79,14 @@ sub split_and_look {
 }
 
 my $cmudict=$ARGV[0];
-my $wordlist=$ARGV[1];
+my $ns = $ARGV[1];
+my $wordlist=$ARGV[2];
 
-my $lexout=$ARGV[2];
-my $oov=$ARGV[3];
+my $lexout=$ARGV[3];
+my $oov=$ARGV[4];
 
 open(CMU, "<:utf8", $cmudict);
+open(NS, "<:utf8", $ns);
 open(WORDS, "<:utf8", $wordlist);
 open(LEXICON, ">:utf8", $lexout);
 open(OOV, ">:utf8", $oov);
@@ -110,6 +103,18 @@ while (my $line = <CMU>) {
 }
 close(CMU);
 
+my @EVENTS;
+while (my $line = <NS> ) {
+  chomp $line;
+  next if $line =~ /^#/;
+
+  $line =~ s/^\s+|\s+$//g;
+  next if not $line;
+  push @EVENTS, $line;
+}
+close(NS);
+print Dumper(\@EVENTS);
+
 my $total_words=0;
 my $found_words=0;
 my $oov_words=0;
@@ -124,6 +129,7 @@ while (my $line = <WORDS>) {
   next if not $line;
 
   (my $wc, my $word) = split(" ", $line, 2);
+  next unless defined $word;
   my $lookup = uc($word);
   $lookup =~ s/\@//g;
   
@@ -132,13 +138,13 @@ while (my $line = <WORDS>) {
     $found_tokens+=$wc;
     
     print_lexicon_entries(\*LEXICON, $word,  $LEX{$lookup});
-  } elsif ($word =~ /<.*>/ ) {
+  } elsif (($word =~ /<.*>/ ) && ( $word ~~ @EVENTS)  ) {
     next;
   } elsif ( my @l = remove_brackets_and_look(\%LEX, $lookup) ) {
     $found_words+=1;
     $found_tokens+=$wc;
-    print "REMOVE: " .  Dumper(\@l); 
-    print_lexicon_entries(\*LEXICON, $word,  @l);
+    #print "REMOVE: " .  Dumper(\@l); 
+    print_lexicon_entries(\*LEXICON, $word,  \@l);
   } elsif ( my @m=split_and_look(\%LEX, $lookup) ) {
     #print Dumper(\@l);
     $found_words+=1;

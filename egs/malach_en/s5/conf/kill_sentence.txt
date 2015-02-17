@@ -1,0 +1,23 @@
+<cross_talk_begin>
+<cross_talk_end>
+<noise_begin>
+<noise_end>
+<cross_talk>
+<background_noise_begin>
+<background_noise_end>
+<emotion_begin>
+<emotion_end>
+<speech_cutoff>
+<stumble>
+<distortion>
+<laugh_begin>
+<laugh_end>
+<end>
+<distortion_begin>
+<distortion_end>
+<preliminary_talk_end>
+<solo violin music from 3:55 minute to 5:00 minute>
+<sound_problem_begin>
+<sound_problem_end>
+<static_end>
+<stuttering>

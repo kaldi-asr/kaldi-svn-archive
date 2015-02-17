@@ -1,0 +1,8 @@
+     31 <stumble>
+     30 <distortion>
+     10 <whisper>
+      2 <static>
+      2 <whispers>
+      1 <aircraft_noise_begin>
+      1 <s>
+      1 </s>
