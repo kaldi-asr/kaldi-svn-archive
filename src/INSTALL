@@ -1,4 +1,4 @@
-
+This is the official Kaldi INSTALL. Look also at INSTALL.md for the git mirror installation.
 These instructions are valid for UNIX-like systems (these steps have
 been run on various Linux distributions; Darwin; Cygwin).  For native Windows
 compilation, see ../windows/INSTALL.

@@ -93,7 +93,7 @@ void MatrixBase<Real>::Invert(Real *log_det, Real *det_sign,
   if (inverse_needed) clapack_Xgetri2(&M, data_, &LDA, pivot, p_work, &l_work,
                               &result);
   delete[] pivot;
-  free(p_work);
+  KALDI_MEMALIGN_FREE(p_work);
 #else
   if (inverse_needed)
     clapack_Xgetri(num_rows_, data_, stride_, pivot, &result);
@@ -443,6 +443,62 @@ void MatrixBase<Real>::AddDiagVecMat(
     cblas_Xaxpy(num_cols, alpha * *vdata, Mdata, M_col_stride, data, 1);
 }
 
+template<typename Real>
+void MatrixBase<Real>::AddMatDiagVec(
+    const Real alpha, 
+    const MatrixBase<Real> &M, MatrixTransposeType transM, 
+    VectorBase<Real> &v, 
+    Real beta) {
+  
+  if (beta != 1.0) this->Scale(beta);
+  
+  if (transM == kNoTrans) {
+    KALDI_ASSERT(SameDim(*this, M));
+  } else {
+    KALDI_ASSERT(M.NumRows() == NumCols() && M.NumCols() == NumRows());
+  }
+  KALDI_ASSERT(v.Dim() == this->NumCols());
+
+  MatrixIndexT M_row_stride = M.Stride(), 
+               M_col_stride = 1, 
+               stride = stride_,
+               num_rows = num_rows_, 
+               num_cols = num_cols_;
+
+  if (transM == kTrans) 
+    std::swap(M_row_stride, M_col_stride);
+
+  Real *data = data_;
+  const Real *Mdata = M.Data(), *vdata = v.Data();
+  if (num_rows_ == 0) return;
+  for (MatrixIndexT i = 0; i < num_rows; i++){
+      for(MatrixIndexT j = 0; j < num_cols; j ++ ){
+          data[i*stride + j] += alpha * vdata[j] * Mdata[i*M_row_stride + j*M_col_stride];
+      }
+  }
+}
+
+template<typename Real>
+void MatrixBase<Real>::AddMatMatElements(const Real alpha,
+                                         const MatrixBase<Real>& A,
+                                         const MatrixBase<Real>& B,
+                                         const Real beta) {
+    KALDI_ASSERT(A.NumRows() == B.NumRows() && A.NumCols() == B.NumCols());
+    KALDI_ASSERT(A.NumRows() == NumRows() && A.NumCols() == NumCols());
+    Real *data = data_;
+    const Real *dataA = A.Data();
+    const Real *dataB = B.Data();
+
+    for (MatrixIndexT i = 0; i < num_rows_; i++) {
+        for (MatrixIndexT j = 0; j < num_cols_; j++) {
+            data[j] = beta*data[j] + alpha*dataA[j]*dataB[j];
+        }
+        data += Stride();
+        dataA += A.Stride();
+        dataB += B.Stride();
+    }
+}
+
 #if !defined(HAVE_ATLAS) && !defined(USE_KALDI_SVD)
 // ****************************************************************************
 // ****************************************************************************
@@ -520,7 +576,7 @@ void MatrixBase<Real>::LapackGesvd(VectorBase<Real> *s, MatrixBase<Real> *U_in,
   if (result != 0) {
     KALDI_WARN << "CLAPACK sgesvd_ : some weird convergence not satisfied";
   }
-  free(p_work);
+  KALDI_MEMALIGN_FREE(p_work);
 }
 
 #endif
@@ -2544,13 +2600,19 @@ void MatrixBase<Real>::AddVecToRows(const Real alpha, const VectorBase<OtherReal
   const MatrixIndexT num_rows = num_rows_, num_cols = num_cols_,
       stride = stride_;
   KALDI_ASSERT(v.Dim() == num_cols);
-  Real *data = data_;
-  const OtherReal *vdata = v.Data();
+  if(num_cols <= 64) {
+    Real *data = data_;
+    const OtherReal *vdata = v.Data();
+    for (MatrixIndexT i = 0; i < num_rows; i++, data += stride) {
+      for (MatrixIndexT j = 0; j < num_cols; j++)
+        data[j] += alpha * vdata[j];
+    }
 
-  for (MatrixIndexT i = 0; i < num_rows; i++, data += stride) {
-    for (MatrixIndexT j = 0; j < num_cols; j++)
-      data[j] += alpha * vdata[j];
-  }
+  } else {
+    Vector<OtherReal> ones(num_rows);
+    ones.Set(1.0);
+    this->AddVecVec(alpha, ones, v);
+   }  
 }
 
 template void MatrixBase<float>::AddVecToRows(const float alpha,
@@ -2569,15 +2631,22 @@ void MatrixBase<Real>::AddVecToCols(const Real alpha, const VectorBase<OtherReal
   const MatrixIndexT num_rows = num_rows_, num_cols = num_cols_,
       stride = stride_;
   KALDI_ASSERT(v.Dim() == num_rows);
-  Real *data = data_;
-  const OtherReal *vdata = v.Data();
 
-  for (MatrixIndexT i = 0; i < num_rows; i++, data += stride) {
-    Real to_add = alpha * vdata[i];
-    for (MatrixIndexT j = 0; j < num_cols; j++)
-      data[j] += to_add;
+  if (num_rows <= 64) {
+    Real *data = data_;
+    const OtherReal *vdata = v.Data();
+    for (MatrixIndexT i = 0; i < num_rows; i++, data += stride) {
+      Real to_add = alpha * vdata[i];
+      for (MatrixIndexT j = 0; j < num_cols; j++)
+        data[j] += to_add;
+    }
+
+  } else {
+    Vector<OtherReal> ones(num_cols);
+    ones.Set(1.0);
+    this->AddVecVec(alpha, v, ones);
   }
-}
+}  
 
 template void MatrixBase<float>::AddVecToCols(const float alpha,
                                               const VectorBase<float> &v);
