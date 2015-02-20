@@ -56,7 +56,7 @@ static void GiveNnetCorrectTopology(Nnet *nnet,
   component = &(nnet->GetComponent(nc - 2));    
   if ((*softmax_component = dynamic_cast<SoftmaxComponent*>(component)) == NULL)
     KALDI_ERR << "Neural net has wrong topology: expected second-to-last "
-              << "component to be SoftmaxComponent, type is "
+              << "component to be SoftmaxComponent or GroupSoftmaxComponent, type is "
               << component->Type();
   component = &(nnet->GetComponent(nc - 3));
   if ((*affine_component = dynamic_cast<AffineComponent*>(component)) == NULL)

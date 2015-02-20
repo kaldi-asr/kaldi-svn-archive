@@ -59,6 +59,14 @@ class NnetUpdater {
                              double *tot_accuracy);
   
   void GetOutput(CuMatrix<BaseFloat> *output);
+
+  // Compute accuracy at output layer summed over all examples.
+  // it computes accuracy per group of output layer and each label of example
+  // corresponds to one of output groups.
+  void ComputeAccPerTask(const std::vector<NnetExample> &examples,  
+                         std::vector<double> *acc_per_task,
+                         std::vector<double> *weight_per_task,
+                         std::vector<double> *objf_per_task);
  protected:
 
   /// takes the input and formats as a single matrix, in forward_data_[0].
@@ -75,8 +83,6 @@ class NnetUpdater {
   double ComputeObjfAndDeriv(const std::vector<NnetExample> &data,
                              CuMatrix<BaseFloat> *deriv,
                              double *tot_accuracy = NULL) const;
-  
-
   /// Backprop must be called after ComputeObjfAndDeriv.  Does the
   /// backpropagation; "nnet_to_update_" is updated.  Note: "deriv" will
   /// contain, at input, the derivative w.r.t. the output layer (as computed by
@@ -93,6 +99,7 @@ class NnetUpdater {
   const Nnet &nnet_;
   Nnet *nnet_to_update_;
   int32 num_chunks_; // same as the minibatch size.
+  std::vector<ChunkInfo> chunk_info_out_; 
   
   std::vector<CuMatrix<BaseFloat> > forward_data_; // The forward data
   // for the outputs of each of the components.
@@ -144,8 +151,13 @@ double ComputeNnetGradient(
     const std::vector<NnetExample> &examples,
     int32 batch_size,
     Nnet *gradient);
-
-
+// compute accuracy per task w.r.t group of outputs and return vector of
+// accuracy corresponds to output groups.
+void  ComputeAccuracyPerTask(const Nnet &nnet,
+                             const std::vector<NnetExample> &examples,
+                             std::vector<double> *acc_per_task,
+                             std::vector<double> *weight_per_task,
+                             std::vector<double> *objf_per_task); 
 } // namespace nnet2
 } // namespace kaldi
 

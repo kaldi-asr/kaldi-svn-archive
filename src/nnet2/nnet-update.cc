@@ -60,7 +60,7 @@ void NnetUpdater::Propagate() {
     CuMatrix<BaseFloat> &output = forward_data_[c+1];
     // Note: the Propagate function will automatically resize the
     // output.
-    component.Propagate(input, num_chunks_, &output);
+    component.Propagate(chunk_info_out_[c], chunk_info_out_[c+1], input, &output);
     // If we won't need the output of the previous layer for
     // backprop, delete it to save memory.
     bool need_last_output =
@@ -89,12 +89,15 @@ double NnetUpdater::ComputeObjfAndDeriv(
   KALDI_ASSERT(SameDim(output, *deriv));
 
   std::vector<MatrixElement<BaseFloat> > sv_labels;
-  sv_labels.reserve(num_chunks_); // We must have at least this many labels.
+  int32 num_labels = data[0].labels.size();
+  sv_labels.reserve(num_labels * num_chunks_); // We must have at least this many labels.
   for (int32 m = 0; m < num_chunks_; m++) {
-    for (size_t i = 0; i < data[m].labels.size(); i++) {
-      MatrixElement<BaseFloat> 
-         tmp = {m, data[m].labels[i].first, data[m].labels[i].second};
-      sv_labels.push_back(tmp);
+    KALDI_ASSERT(data[m].labels.size() == 1 &&
+                 "Training code currently does not support multi-frame egs");
+    const std::vector<std::pair<int32,BaseFloat> > &labels = data[m].labels[0];
+    for (size_t i = 0; i < labels.size(); i++) {
+      MatrixElement<BaseFloat> elem = {m, labels[i].first, labels[i].second};
+      sv_labels.push_back(elem);
     }
   }
 
@@ -108,7 +111,76 @@ double NnetUpdater::ComputeObjfAndDeriv(
   return tot_objf;
 }
 
+void NnetUpdater::ComputeAccPerTask(
+    const std::vector<NnetExample> &data,
+    std::vector<double> *acc_per_task,
+    std::vector<double> *weight_per_task,
+    std::vector<double> *objf_per_task)  {
+  FormatInput(data);
+  Propagate();
+  int32 num_components = nnet_.NumComponents();
+  const GroupSoftmaxComponent *component = 
+    dynamic_cast<const GroupSoftmaxComponent*>(&(nnet_.GetComponent(num_components-1)));
+  std::vector<int32> active_group_sizes;
+  if (component != NULL) { 
+    active_group_sizes = component->GetActiveGroupSizes();
+  } else {
+    KALDI_ASSERT(dynamic_cast<const SoftmaxComponent*>(&(nnet_.GetComponent(num_components-1))) != NULL);
+    active_group_sizes.push_back(nnet_.GetComponent(num_components-1).OutputDim());
+  }
 
+  
+  int32 num_active_groups = active_group_sizes.size(), sum_active_groups = 0;
+  acc_per_task->resize(num_active_groups);
+  weight_per_task->resize(num_active_groups);
+  objf_per_task->resize(num_active_groups);
+
+  for (int32 i = 0; i < num_active_groups; i++) 
+    sum_active_groups += active_group_sizes[i];
+  
+  const CuMatrix<BaseFloat> &output(forward_data_[num_components]);   
+  KALDI_ASSERT(output.NumRows() == static_cast<int32>(data.size()));
+  KALDI_ASSERT(sum_active_groups == output.NumCols());
+  int32 first_ind = 0;
+  CuMatrix<BaseFloat> deriv(num_chunks_, nnet_.OutputDim()); // sets to zero. 
+  
+  // Compute objective and accuracy per group of outputs
+  for (int32 group = 0; group < num_active_groups; group++) {
+    const CuSubMatrix<BaseFloat> out_group = output.ColRange(first_ind, active_group_sizes[group]);
+    std::vector<MatrixElement<BaseFloat> > sv_labels;
+    sv_labels.reserve(num_chunks_); // We must have at least this many labels. 
+    
+    CuArray<int32> best_pdf(output.NumRows());     
+    out_group.FindRowMaxId(&best_pdf);
+    std::vector<int32> best_pdf_cpu;  
+    best_pdf.CopyToVec(&best_pdf_cpu); 
+    BaseFloat tot_weight = 0.0, tot_accuracy = 0.0;
+    int32 last_ind = first_ind + active_group_sizes[group] - 1;
+    for (int32 i = 0 ; i < output.NumRows(); i++) {
+      int32 hyp_pdf_id = best_pdf_cpu[i] + first_ind;
+      const std::vector<std::pair<int32,BaseFloat> > &labels = data[i].labels[0]; 
+      for (int32 j = 0; j < data[i].labels.size(); j++) {
+        int32 ref_pdf_id = labels[j].first,
+          weight = labels[j].second;
+        // sum-up labels correspond to specific output group
+        if (ref_pdf_id <=  last_ind  && ref_pdf_id >= first_ind) {
+          MatrixElement<BaseFloat> 
+             tmp = {i, labels[j].first, labels[j].second};
+          sv_labels.push_back(tmp);
+
+          tot_accuracy += weight * (hyp_pdf_id == ref_pdf_id ? 1.0 : 0.0);
+          tot_weight += weight;
+        }
+      }
+    }
+    BaseFloat tot_objf = 0, tot_weight1 = 0;
+    deriv.CompObjfAndDeriv(sv_labels, output, &tot_objf, &tot_weight1);
+    (*acc_per_task)[group] += tot_accuracy;
+    (*weight_per_task)[group] += tot_weight;
+    (*objf_per_task)[group] += tot_objf;
+    first_ind += active_group_sizes[group];
+  }
+}
 double NnetUpdater::ComputeTotAccuracy(
     const std::vector<NnetExample> &data) const {
   BaseFloat tot_accuracy = 0.0;
@@ -122,10 +194,13 @@ double NnetUpdater::ComputeTotAccuracy(
   best_pdf.CopyToVec(&best_pdf_cpu);
 
   for (int32 i = 0; i < output.NumRows(); i++) {
-    for (size_t j = 0; j < data[i].labels.size(); j++) {
-      int32 ref_pdf_id = data[i].labels[j].first,
+    KALDI_ASSERT(data[i].labels.size() == 1 &&
+                 "Training code currently does not support multi-frame egs");
+    const std::vector<std::pair<int32,BaseFloat> > &labels = data[i].labels[0];
+    for (size_t j = 0; j < labels.size(); j++) {
+      int32 ref_pdf_id = labels[j].first,
           hyp_pdf_id = best_pdf_cpu[i];
-      BaseFloat weight = data[i].labels[j].second;
+      BaseFloat weight = labels[j].second;
       tot_accuracy += weight * (hyp_pdf_id == ref_pdf_id ? 1.0 : 0.0);
     }
   }
@@ -136,7 +211,7 @@ double NnetUpdater::ComputeTotAccuracy(
 void NnetUpdater::Backprop(CuMatrix<BaseFloat> *deriv) const {
   // We assume ComputeObjfAndDeriv has already been called.
   for (int32 c = nnet_.NumComponents() - 1;
-       c >= nnet_.LastUpdatableComponent(); c--) {
+       c >= nnet_.FirstUpdatableComponent(); c--) {
     const Component &component = nnet_.GetComponent(c);
     Component *component_to_update = (nnet_to_update_ == NULL ? NULL :
                                       &(nnet_to_update_->GetComponent(c)));
@@ -144,9 +219,9 @@ void NnetUpdater::Backprop(CuMatrix<BaseFloat> *deriv) const {
         &output = forward_data_[c+1];
     CuMatrix<BaseFloat> input_deriv(input.NumRows(), input.NumCols());
     const CuMatrix<BaseFloat> &output_deriv(*deriv);
-
-    component.Backprop(input, output, output_deriv, num_chunks_,
-                       component_to_update, &input_deriv);
+    component.Backprop(chunk_info_out_[c], chunk_info_out_[c+1], input, output,                       
+                       output_deriv, component_to_update,
+                       &input_deriv);
     input_deriv.Swap(deriv);
   }
 }
@@ -154,14 +229,14 @@ void NnetUpdater::Backprop(CuMatrix<BaseFloat> *deriv) const {
 
 void NnetUpdater::FormatInput(const std::vector<NnetExample> &data) {
   KALDI_ASSERT(data.size() > 0);
-  int32 num_splice = nnet_.LeftContext() + 1 + nnet_.RightContext();
+  int32 num_splice = 1 + nnet_.RightContext() + nnet_.LeftContext();
   KALDI_ASSERT(data[0].input_frames.NumRows() >= num_splice);
   
   int32 feat_dim = data[0].input_frames.NumCols(),
          spk_dim = data[0].spk_info.Dim(),
          tot_dim = feat_dim + spk_dim; // we append these at the neural net
                                        // input... note, spk_dim might be 0.
-  KALDI_ASSERT(tot_dim == nnet_.InputDim());
+  //KALDI_ASSERT(tot_dim == nnet_.InputDim());
   KALDI_ASSERT(data[0].left_context >= nnet_.LeftContext());
   int32 ignore_frames = data[0].left_context - nnet_.LeftContext(); // If
   // the NnetExample has more left-context than we need, ignore some.
@@ -193,13 +268,16 @@ void NnetUpdater::FormatInput(const std::vector<NnetExample> &data) {
     }
   }
   forward_data_[0].Swap(&temp_forward_data); // Copy to GPU, if being used.
+
+  nnet_.ComputeChunkInfo(num_splice, num_chunks_, &chunk_info_out_);
 }
 
 BaseFloat TotalNnetTrainingWeight(const std::vector<NnetExample> &egs) {
   double ans = 0.0;
   for (size_t i = 0; i < egs.size(); i++)
-    for (size_t j = 0; j < egs[i].labels.size(); j++)
-      ans += egs[i].labels[j].second;
+    for (size_t j = 0; j < egs[i].labels.size(); j++) // for each labeled frame
+      for (size_t k = 0; k < egs[i].labels[j].size(); k++)
+        ans += egs[i].labels[j][k].second;
   return ans;
 }
 
@@ -209,6 +287,15 @@ double ComputeNnetObjf(const Nnet &nnet,
                        double *tot_accuracy) {
   NnetUpdater updater(nnet, NULL);
   return updater.ComputeForMinibatch(examples, tot_accuracy);
+}
+
+void  ComputeAccuracyPerTask(const Nnet &nnet,
+                             const std::vector<NnetExample> &examples,
+                             std::vector<double> *acc_per_task,
+                             std::vector<double> *weight_per_task,
+                             std::vector<double> *objf_per_task) {
+  NnetUpdater updater(nnet, NULL);    
+  updater.ComputeAccPerTask(examples, acc_per_task, weight_per_task, objf_per_task); 
 }
 
 double DoBackprop(const Nnet &nnet,
