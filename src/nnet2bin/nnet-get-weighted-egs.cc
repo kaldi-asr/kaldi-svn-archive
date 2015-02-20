@@ -44,6 +44,7 @@ int32 GetCount(double expected_count) {
 
 static void ProcessFile(const MatrixBase<BaseFloat> &feats,
                         const Posterior &pdf_post,
+                        const std::string &utt_id,
                         const Vector<BaseFloat> &weights,
                         int32 left_context,
                         int32 right_context,
@@ -63,6 +64,8 @@ static void ProcessFile(const MatrixBase<BaseFloat> &feats,
   Matrix<BaseFloat> input_frames(left_context + 1 + right_context,
                                  basic_feat_dim);
   eg.left_context = left_context;
+  // TODO: modify this code, and this binary itself, to support the --num-frames
+  // option to allow multiple frames per eg.
   for (int32 i = 0; i < feats.NumRows(); i++) {
     int32 count = GetCount(keep_proportion); // number of times
     // we'll write this out (1 by default).
@@ -76,7 +79,7 @@ static void ProcessFile(const MatrixBase<BaseFloat> &feats,
                                                   j + left_context);
         dest.CopyFromVec(src);
       }
-      eg.labels = pdf_post[i];
+      eg.labels.push_back(pdf_post[i]);
       eg.input_frames = input_frames;
       if (const_feat_dim > 0) {
         // we'll normally reach here if we're using online-estimated iVectors.
@@ -91,7 +94,7 @@ static void ProcessFile(const MatrixBase<BaseFloat> &feats,
         }
       }
       std::ostringstream os;
-      os << ((*num_frames_written)++);
+      os << utt_id << "-" << i;
       std::string key = os.str(); // key in the archive is the number of the example
 
       for (int32 c = 0; c < count; c++)
@@ -207,7 +210,7 @@ int main(int argc, char *argv[]) {
             num_err++;
             continue;
           }
-          ProcessFile(feats, pdf_post, weights, left_context, right_context,
+          ProcessFile(feats, pdf_post, key, weights, left_context, right_context,
                       const_feat_dim, keep_proportion, weight_threshold,
                       use_frame_selection, use_frame_weights,
                       &num_frames_written, &num_frames_skipped, &example_writer);

@@ -88,12 +88,10 @@ int main(int argc, char *argv[]) {
       nnet.Read(ki.Stream(), binary);
       am_nnet.Init(nnet);
     }
-    
     if (am_nnet.NumPdfs() != trans_model->NumPdfs())
       KALDI_ERR << "Mismatch in number of pdfs, neural net has "
                 << am_nnet.NumPdfs() << ", transition model has "
                 << trans_model->NumPdfs();
-
     {
       Output ko(nnet_wxfilename, binary_write);
       trans_model->Write(ko.Stream(), binary_write);

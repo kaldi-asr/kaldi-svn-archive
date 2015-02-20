@@ -35,6 +35,8 @@ int main(int argc, char *argv[]) {
         "Add mixture-components to a neural net (comparable to mixtures in a Gaussian\n"
         "mixture model).  Number of mixture components must be greater than the number\n"
         "of pdfs\n"
+        "By default reads/writes model file (.mdl) but with --raw=true,\n"  
+        "reads/writes raw-nnet.\n"       
         "\n"
         "Usage:  nnet-am-mixup [options] <nnet-in> <nnet-out>\n"
         "e.g.:\n"
@@ -42,8 +44,10 @@ int main(int argc, char *argv[]) {
 
     NnetMixupConfig config;
     bool binary_write = true;
-    
+    bool raw = false; 
     ParseOptions po(usage);
+    po.Register("raw", &raw,
+                "If true, read/write raw neural net rather than .mdl");
     config.Register(&po);
 
     po.Read(argc, argv);
@@ -58,19 +62,24 @@ int main(int argc, char *argv[]) {
     
     TransitionModel trans_model;
     AmNnet am_nnet;
-    {
+    Nnet nnet;
+    if (!raw) {
       bool binary;
       Input ki(nnet_rxfilename, &binary);
       trans_model.Read(ki.Stream(), binary);
       am_nnet.Read(ki.Stream(), binary);
+    } else {
+      ReadKaldiObject(nnet_rxfilename, &nnet);
     }
 
-    MixupNnet(config, &(am_nnet.GetNnet()));
+    MixupNnet(config, (raw ? &nnet : &(am_nnet.GetNnet())));
 
-    {
+    if (!raw) {
       Output ko(nnet_wxfilename, binary_write);
       trans_model.Write(ko.Stream(), binary_write);
       am_nnet.Write(ko.Stream(), binary_write);
+    } else {
+      WriteKaldiObject(nnet, nnet_wxfilename, binary_write);
     }
     KALDI_LOG << "Mixed up neural net from " << nnet_rxfilename
               << " and wrote it to " << nnet_wxfilename;

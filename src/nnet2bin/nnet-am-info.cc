@@ -31,12 +31,16 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Print human-readable information about the neural network\n"
         "acoustic model to the standard output\n"
+        "By default reads model file (.mdl) but with --raw=true,\n" 
+        "reads/writes raw-nnet.\n"        
         "Usage:  nnet-am-info [options] <nnet-in>\n"
         "e.g.:\n"
         " nnet-am-info 1.nnet\n";
-        
+    bool raw = false;
     ParseOptions po(usage);
-    
+    po.Register("raw", &raw,
+                "If true, read/write raw neural net rather than .mdl");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 1) {
@@ -48,15 +52,21 @@ int main(int argc, char *argv[]) {
     
     TransitionModel trans_model;
     AmNnet am_nnet;
-    {
+    Nnet nnet;
+    if (!raw) {
       bool binary_read;
       Input ki(nnet_rxfilename, &binary_read);
       trans_model.Read(ki.Stream(), binary_read);
       am_nnet.Read(ki.Stream(), binary_read);
+    } else {
+      ReadKaldiObject(nnet_rxfilename, &nnet);    
     }
-
-    std::cout << am_nnet.Info();
     
+    if (!raw) 
+      std::cout << am_nnet.Info();
+    else
+      std::cout << nnet.Info();   
+
     KALDI_LOG << "Printed info about " << nnet_rxfilename;
   } catch(const std::exception &e) {
     std::cerr << e.what() << '\n';

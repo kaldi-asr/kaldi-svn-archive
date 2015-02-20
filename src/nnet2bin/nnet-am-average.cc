@@ -33,6 +33,8 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "This program average (or sums, if --sum=true) the parameters over a number of neural nets.\n"
+        "By default reads/writes model file (.mdl) but with --raw=true,\n"            
+        "reads/writes raw-nnet.\n"          
         "\n"
         "Usage:  nnet-am-average [options] <model1> <model2> ... <modelN> <model-out>\n"
         "\n"
@@ -41,8 +43,11 @@ int main(int argc, char *argv[]) {
     
     bool binary_write = true;
     bool sum = false;
-    
+    bool raw = false;
+
     ParseOptions po(usage);
+    po.Register("raw", &raw,
+                "If true, read/write raw neural net rather than .mdl");
     po.Register("sum", &sum, "If true, sums instead of averages.");
     po.Register("binary", &binary_write, "Write output in binary mode");
     
@@ -59,31 +64,44 @@ int main(int argc, char *argv[]) {
     
     TransitionModel trans_model;
     AmNnet am_nnet1;
-    {
+    Nnet nnet1;
+    if (!raw) {
       bool binary_read;
       Input ki(nnet1_rxfilename, &binary_read);
       trans_model.Read(ki.Stream(), binary_read);
       am_nnet1.Read(ki.Stream(), binary_read);
+    } else {
+      ReadKaldiObject(nnet1_rxfilename, &nnet1);
     }
 
     int32 num_inputs = po.NumArgs() - 1;
     BaseFloat scale = (sum ? 1.0 : 1.0 / num_inputs);
+    if (!raw) 
+      am_nnet1.GetNnet().Scale(scale);
+    else 
+      nnet1.Scale(scale);
 
-    am_nnet1.GetNnet().Scale(scale);
-    
     for (int32 i = 2; i <= num_inputs; i++) {
-      bool binary_read;
-      Input ki(po.GetArg(i), &binary_read);
-      trans_model.Read(ki.Stream(), binary_read);
-      AmNnet am_nnet;
-      am_nnet.Read(ki.Stream(), binary_read);
-      am_nnet1.GetNnet().AddNnet(scale, am_nnet.GetNnet());
+      if (!raw) {
+        bool binary_read;
+        Input ki(po.GetArg(i), &binary_read);
+        trans_model.Read(ki.Stream(), binary_read);
+        AmNnet am_nnet;
+        am_nnet.Read(ki.Stream(), binary_read);
+        am_nnet1.GetNnet().AddNnet(scale, am_nnet.GetNnet());
+      } else {
+        Nnet nnet;
+        ReadKaldiObject(po.GetArg(i), &nnet);         
+        nnet1.AddNnet(scale, nnet);   
+      }
     }
     
-    {
+    if (!raw) {
       Output ko(nnet_wxfilename, binary_write);
       trans_model.Write(ko.Stream(), binary_write);
       am_nnet1.Write(ko.Stream(), binary_write);
+    } else {
+      WriteKaldiObject(nnet1, nnet_wxfilename, binary_write);
     }
     
     KALDI_LOG << "Averaged parameters of " << num_inputs

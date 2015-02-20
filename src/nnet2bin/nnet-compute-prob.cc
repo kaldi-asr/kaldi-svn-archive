@@ -37,11 +37,16 @@ int main(int argc, char *argv[]) {
         "Aside from the logging output, which goes to the standard error, this program\n"
         "prints the average log-prob per frame to the standard output.\n"
         "Also see nnet-logprob, which produces a matrix of log-probs for each utterance.\n"
+        "By default reads/writes model file (.mdl) but with --raw=true,\n"
+        "reads/writes raw-nnet.\n" 
         "\n"
         "Usage:  nnet-compute-prob [options] <model-in> <training-examples-in>\n"
         "e.g.: nnet-compute-prob 1.nnet ark:valid.egs\n";
     
+    bool raw = false;
     ParseOptions po(usage);
+    po.Register("raw", &raw,
+                "If true, read/write raw neural net rather than .mdl");  
 
     po.Read(argc, argv);
     
@@ -55,11 +60,14 @@ int main(int argc, char *argv[]) {
 
     TransitionModel trans_model;
     AmNnet am_nnet;
-    {
+    Nnet nnet;
+    if (!raw) {
       bool binary_read;
       Input ki(nnet_rxfilename, &binary_read);
       trans_model.Read(ki.Stream(), binary_read);
       am_nnet.Read(ki.Stream(), binary_read);
+    } else {
+      ReadKaldiObject(nnet_rxfilename, &nnet);
     }
 
 
@@ -70,7 +78,7 @@ int main(int argc, char *argv[]) {
     for (; !example_reader.Done(); example_reader.Next(), num_examples++) {
       if (examples.size() == 1000) {
         double accuracy;
-        tot_like += ComputeNnetObjf(am_nnet.GetNnet(), examples, &accuracy);
+        tot_like += ComputeNnetObjf((raw ? nnet : am_nnet.GetNnet()), examples, &accuracy);
         tot_accuracy += accuracy;
         tot_weight += TotalNnetTrainingWeight(examples);
         examples.clear();
@@ -83,7 +91,7 @@ int main(int argc, char *argv[]) {
     }
     if (!examples.empty()) {
       double accuracy;
-      tot_like += ComputeNnetObjf(am_nnet.GetNnet(), examples, &accuracy);
+      tot_like += ComputeNnetObjf((raw ? nnet : am_nnet.GetNnet()), examples, &accuracy);
       tot_accuracy += accuracy;      
       tot_weight += TotalNnetTrainingWeight(examples);
     }
