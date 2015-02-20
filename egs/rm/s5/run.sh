@@ -10,7 +10,7 @@ set -e # exit on error
 #    rm1_audio1  rm1_audio2	rm2_audio
 
 #local/rm_data_prep.sh /mnt/matylda2/data/RM
-
+if false; then
 local/rm_data_prep.sh /export/corpora5/LDC/LDC93S3A/rm_comp
 
 #local/rm_data_prep.sh /home/dpovey/data/LDC93S3A/rm_comp
@@ -26,7 +26,7 @@ local/rm_prepare_grammar_ug.sh   # Unigram grammar (gives worse results, but
 featdir=mfcc
 
 for x in test_mar87 test_oct87 test_feb89 test_oct89 test_feb91 test_sep92 train; do
-  steps/make_mfcc.sh --nj 8 --cmd "run.pl" data/$x exp/make_feat/$x $featdir
+  steps/make_mfcc.sh --nj 8 --cmd "run.pl" --mfcc-config conf/mfcc.conf data/$x exp/make_feat/$x $featdir
   #steps/make_plp.sh --nj 8 --cmd "run.pl" data/$x exp/make_feat/$x $featdir
   steps/compute_cmvn_stats.sh data/$x exp/make_feat/$x $featdir
 done
@@ -181,7 +181,7 @@ steps/decode.sh --config conf/decode.config --nj 20 --cmd "$decode_cmd" \
 # local/online/run_nnet2_baseline.sh
 
 
-
+fi #100
 #first, train UBM for fMMI experiments.
 steps/train_diag_ubm.sh --silence-weight 0.5 --nj 8 --cmd "$train_cmd" \
   250 data/train data/lang exp/tri3b_ali exp/dubm3b
@@ -229,5 +229,7 @@ local/run_sgmm2.sh
 # local/run_nnet2.sh
 
 # Karel's neural net recipe.                                                                                                                                        
-# local/run_dnn.sh                                                                                                                                                  
+# local/nnet/run_dnn.sh                                                                                                                                                  
 
+# Karel's CNN recipe.
+# local/nnet/run_cnn.sh

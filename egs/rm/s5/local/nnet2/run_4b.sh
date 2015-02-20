@@ -2,7 +2,7 @@
 
 
 stage=0
-train_stage=-100
+train_stage=42
 # This trains only unadapted (just cepstral mean normalized) features,
 # and uses various combinations of VTLN warping factor and time-warping
 # factor to artificially expand the amount of data.
