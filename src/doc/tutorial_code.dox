@@ -284,8 +284,8 @@ less exp/tri1/train_tree.log
 This program does the decision-tree clustering; it reads in the statistics
 that were output by.  It is basically a wrapper for the BuildTree function discussed above.
 The questions that it asks in the decision-tree clustering are automatically generated,
-as you can see in the script steps/train_tri1.sh (look for the programs cluster-phones
-and compile-questions).  
+as you can see in the triphone system training scripts (for example, see the file 
+steps/train_deltas.sh and look for the programs cluster-phones and compile-questions).  
 
 
 
