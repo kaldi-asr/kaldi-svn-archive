@@ -127,21 +127,48 @@ while (my $line=<$T>) {
         foreach my $chan ( ("A", "B") ) {
           my $time_id=sprintf("%08d", ($time_start) * 1000);
           my $segment_id="$file-$chan-". uc($spk) . "-$time_id";
+          
+          if ( ($time_start - $time_end) > -0.01 ) {
+            print STDERR "Warning: Segment is too short or time_end > time_start: ";
+            print STDERR "$segment_id $file-$chan $time_start $time_end $text\n";
+            next;
+          }
+          
           print $SEGMENTS "$segment_id $file-$chan $time_start $time_end\n";
           print $TEXT "$segment_id $text\n";
           print $UTT2SPK "$segment_id $file-$chan-" . uc($spk) . "\n";
         }
       }
       undef @UNK_END_TIME;
+    } elsif ($UNK_END_TIME[0]->[0] eq $file ) {
+      foreach my $entry (@UNK_END_TIME) {
+        my $spk = $entry->[2];
+        my $text = $entry->[3];
+        my $local_time_start=$entry->[1];
+        my $local_time_end=$time_start;
+        foreach my $chan ( ("A", "B") ) {
+          my $time_id=sprintf("%08d", ($local_time_start) * 1000);
+          my $segment_id="$file-$chan-". uc($spk) . "-$time_id";
+          if ( ($local_time_start - $local_time_end) > -0.1 ) {
+            print STDERR "Warning: Segment is too short or time_end > time_start: ";
+            print STDERR "$segment_id $file-$chan $local_time_start $local_time_end $text\n";
+            next;
+          }
+        
+          print $SEGMENTS "$segment_id $file-$chan $local_time_start $local_time_end\n";
+          print $TEXT "$segment_id $text\n";
+          print $UTT2SPK "$segment_id $file-$chan-" . uc($spk) . "\n";
+        }
+      }
     } else {
-      print STDERR "Could not deduce the ending time before this line: \n\t$line\n";
-      print STDERR "The previous line: \n";
+      print STDERR "Warning: Could not deduce the ending time before this line: \n\t$line\n";
+      print STDERR "\tprevious line: ";
       foreach my $entry (@UNK_END_TIME) {
         my $file = $entry->[0];
         my $time_start = $entry->[1];
         my $spk = $entry->[2];
         my $text = $entry->[3];
-        print STDERR "\t[$file][$time_start][???][$spk] $text\"\n";
+        print STDERR "[$file][$time_start][???][$spk] $text\"\n";
       }
     }
     undef @UNK_END_TIME;
@@ -150,6 +177,12 @@ while (my $line=<$T>) {
   foreach my $chan ( ("A", "B") ) {
     my $time_id=sprintf("%08d", ($time_start) * 1000);
     my $segment_id="$file-$chan-". uc($spk) . "-$time_id";
+    
+    if ( ($time_start - $time_end) > -0.01 ) {
+      print STDERR "Warning: Segment is too short or time_end > time_start: ";
+      print STDERR "$segment_id $file-$chan $time_start $time_end $text\n";
+      next;
+    }
     print $SEGMENTS "$segment_id $file-$chan $time_start $time_end\n";
     print $TEXT "$segment_id $text\n";
     print $UTT2SPK "$segment_id $file-$chan-" . uc($spk) . "\n";
@@ -161,4 +194,3 @@ close($SEGMENTS);
 close($UTT2SPK);
 close($RECO);
 
-print STDERR "Done...\n";

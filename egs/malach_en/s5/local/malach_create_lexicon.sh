@@ -3,8 +3,9 @@
 # Copyright 2015  Johns Hopkins University (Author: Jan Trmal).  Apache 2.0.
 
 # Begin configuration section.
-transcript=data/local/train/transcriptions.txt 
-datadir=data/local/lang
+nonspeech=conf/nonspeech.txt
+oov="<UNK>"
+sil="<SILENCE>"
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -17,61 +18,45 @@ set -e
 set -o pipefail
 set -u
 
+src=$1
+dest=$2
+tmp=$2/tmp
 
-
-mkdir -p $datadir
+mkdir -p $tmp
 
 #Generate words with counts (as we will be able to track easily how much
 #of the text we did cover
-cut -f 2- -d ' ' $transcript |  sed 's/ /\n/g' | sed '/^\s*$/d' | \
-  sort | uniq -c |sort -k1nr -k2 | grep -v -F '<s>'  > $datadir/wordlist.txt
+cut -f 2- -d ' ' $src |  sed 's/ /\n/g' | sed '/^\s*$/d' | \
+  sort | uniq -c |sort -k1nr -k2 | grep -v -F '</*s>'  > $dest/wordlist.txt
 
 #now, lets install cmudict
 ( 
-  cd  $datadir
+  cd  $tmp
   test -f cmudict-0.7b || \
     wget "http://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b"
 )
 
-local/malach_find_pronunciation.pl $datadir/cmudict-0.7b conf/nonspeech.txt \
-  $datadir/wordlist.txt $datadir/lexicon-iv.txt $datadir/wordlist-oov.txt 
+local/malach_find_pronunciation.pl $tmp/cmudict-0.7b  $nonspeech \
+  $dest/wordlist.txt $dest/lexicon-iv.txt $dest/wordlist-oov.txt 
 
 #Next, we have to prepare the non-speech part of the lexicon
 #We are grepping the "<unintelligible>" away, so that it gets mapped
 #to <OOV>, which has kinda the same meaning
+echo -e "$oov\n$sil" | \
+cat - $nonspeech | sort -u | \
+awk '{ print $1, tolower($1)}'| sort -u > $dest/lexicon-ns.txt
 
-echo "<UNK>" | \
-cat - conf/nonspeech.txt | \
-grep -v "<unintelligible>"  |\
-awk '{ print $1, $1}' > $datadir/lexicon-ns.txt
+cat $dest/lexicon-iv.txt | sort -u | cat $dest/lexicon-ns.txt - | \
+ sed '/^\s*$/d'  > $dest/lexicon.txt
+rm $dest/lexiconp.txt 2>/dev/null || true
 
-cat $datadir/lexicon-iv.txt | sort -u | cat $datadir/lexicon-ns.txt - \
-  > $datadir/lexicon.txt
-rm $datadir/lexiconp.txt 2>/dev/null || true
+cut -f 2 -d ' ' $dest/lexicon-ns.txt | sed '/^\s*$/d' | sort -u \
+  > $dest/silence_phones.txt
+cut -f 2- -d ' ' $dest/lexicon.txt | sed 's/ /\n/g' | sort -u | \
+  grep -v -F -f $dest/silence_phones.txt | sed '/^\s*$/d' \
+  > $dest/nonsilence_phones.txt
+grep -F "$sil"  $dest/lexicon-ns.txt | head -n 1 | \
+  cut -f 2 -d ' ' > $dest/optional_silence.txt
+cat $dest/silence_phones.txt | paste -s -d ' ' > $dest/extra_questions.txt
 
-cut -f 2 -d ' ' $datadir/lexicon-ns.txt | sed '/^\s*$/d' \
-  > $datadir/silence_phones.txt
-cut -f 2- -d ' ' $datadir/lexicon.txt | sed 's/ /\n/g' | sort -u | \
-  grep -v -F -f $datadir/silence_phones.txt | sed '/^\s*$/d' \
-  > $datadir/nonsilence_phones.txt
-echo "<pause>" > $datadir/optional_silence.txt
-cat $datadir/silence_phones.txt | paste -s -d ' ' > $datadir/extra_questions.txt
-cat $datadir/silence_phones.txt | grep hes | paste -s -d ' ' >> $datadir/extra_questions.txt
-
-#Remap the $data/text
-cat  $transcript | \
-  local/map_oov.pl --symbol "<UNK>"  $datadir/lexicon.txt \
-  > `dirname $transcript`/transcriptions_mapped.txt
-
-local/malach_create_kaldi_files.pl data/local/train/audio.lst \
-  data/local/train/transcriptions_mapped.txt data/local/train
-
-mkdir -p data/local/lang
-cut -f 1 -d ' ' $datadir/lexicon.txt  > data/local/lang/words.txt
-
-rm -rf data/lang 2>/dev/null || true 
-utils/prepare_lang.sh --share-silence-phones true  data/local/lang/ "<UNK>" data/local/lang/tmp data/lang
-#local/train_lms_srilm.sh --oov-symbol "<UNK>" --train-text $transcript \
-#  data/local data/local/lang
-local/arpa2G.sh  data/local/lang/lm.gz  data/lang/ data/lang
-
+echo "Lexicon (and associate files) prepared..."
