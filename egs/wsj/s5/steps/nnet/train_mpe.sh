@@ -19,8 +19,9 @@ lmwt=1.0
 learn_rate=0.00001
 halving_factor=1.0 #ie. disable halving
 do_smbr=true
-exclude_silphones=false # exclude silphones from approximate accuracy computation
+exclude_silphones=true # exclude silphones from approximate accuracy computation
 unkphonelist= # exclude unkphones from approximate accuracy computation (overrides exclude_silphones)
+one_silence_class=true # true : reduce insertions in sMBR/MPE FW/BW, more stable training,
 verbose=1
 
 seed=777    # seed value used for training data shuffling
@@ -111,7 +112,7 @@ D=$srcdir
 [ -e $D/delta_opts ] && delta_opts=$(cat $D/delta_opts)
 #
 # Create the feature stream,
-feats="ark,s,cs:copy-feats scp:$data/feats.scp ark:- |"
+feats="ark,o:copy-feats scp:$dir/train.scp ark:- |"
 # apply-cmvn (optional),
 [ ! -z "$cmvn_opts" -a ! -f $data/cmvn.scp ] && echo "$0: Missing $data/cmvn.scp" && exit 1
 [ ! -z "$cmvn_opts" ] && feats="$feats apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp ark:- ark:- |"
@@ -158,6 +159,7 @@ while [ $x -le $num_iters ]; do
        --learn-rate=$learn_rate \
        --do-smbr=$do_smbr \
        --verbose=$verbose \
+       --one-silence-class=$one_silence_class \
        $mpe_silphones_arg \
        $cur_mdl $alidir/final.mdl "$feats" "$lats" "$ali" $dir/$x.nnet || exit 1
   fi
@@ -173,8 +175,12 @@ done
 
 (cd $dir; [ -e final.nnet ] && unlink final.nnet; ln -s $((x-1)).nnet final.nnet)
 
+
 echo "MPE/sMBR training finished"
 
-
+echo "Re-estimating priors by forwarding the training set."
+. cmd.sh
+nj=$(cat $alidir/num_jobs)
+steps/nnet/make_priors.sh --cmd "$train_cmd" --nj $nj $data $dir || exit 1
 
 exit 0

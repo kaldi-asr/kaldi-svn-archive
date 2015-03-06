@@ -101,10 +101,10 @@ class ChunkInfo {
   // 3) if offsets = {2, 10, 12} then indices for these offsets are 0, 1 and 2
  
   // Returns the chunk row index corresponding to given time offset
-  inline int32 GetIndex (int32 offset) const;
+  int32 GetIndex (int32 offset) const;
   
   // Returns time offset at the current row index in the chunk
-  inline int32 GetOffset (int32 index) const;
+  int32 GetOffset (int32 index) const;
 
   // Makes the offsets vector empty, to ensure that the chunk is processed as a
   // contiguous chunk with the given first_offset and last_offset
@@ -1003,6 +1003,9 @@ class RandomComponent: public Component {
 class SpliceComponent: public Component {
  public:
   SpliceComponent() { }  // called only prior to Read() or Init().
+  // Note: it is required that the elements of "context" be in
+  // strictly increasing order, that the lowest element of component
+  // be nonpositive, and the highest element be nonnegative.
   void Init(int32 input_dim,
             std::vector<int32> context,
             int32 const_component_dim=0);

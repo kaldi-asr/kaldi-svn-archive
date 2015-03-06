@@ -161,6 +161,7 @@ sub parseMakefile {
   close(FILE);
 
   my $lines = join '', @lines;
+  $lines =~ s/#[^\n]+//g;
   $lines =~ s/\\\s*\n//g;
   @lines = split /\n/, $lines;
   #$lines =~ s/\\//g;
@@ -394,7 +395,7 @@ sub writeProjectFiles {
   </PropertyGroup>
   <PropertyGroup Condition=\"'\$(Configuration)|\$(Platform)'=='Release|Win32'\" Label=\"Configuration\">
     <ConfigurationType>" . $conftype . "</ConfigurationType>
-    <CharacterSet>Unicode</CharacterSeti>
+    <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v110</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
@@ -432,7 +433,7 @@ sub writeProjectFiles {
     <Import Project=\"..\\openfstwin_debug_win32.props\" />
   </ImportGroup>
   <ImportGroup Condition=\"'\$(Configuration)|\$(Platform)'=='Debug|x64'\" Label=\"PropertySheets\">
-    <Import Project=\"\$(UserRootDir)\\Microsoft.Cpp.\$(Platform).user.props\" Condition=\"exists('\$(UserRootDir)\\Microsoft.Cpp.\$(Platform).user.props')\" Label=\"LocalAppDataPlatform\" />^M
+    <Import Project=\"\$(UserRootDir)\\Microsoft.Cpp.\$(Platform).user.props\" Condition=\"exists('\$(UserRootDir)\\Microsoft.Cpp.\$(Platform).user.props')\" Label=\"LocalAppDataPlatform\" />
     <Import Project=\"..\\kaldiwin.props\" />
     <Import Project=\"..\\openfstwin_debug.props\" />
   </ImportGroup>
