@@ -30,7 +30,7 @@ mkdir -p data/local
 #in the LDC Malach EN release
 mkdir -p data/local/dev
 find $dev_transcripts -maxdepth 1 -type f  -name "*.trs"| sort -u > data/local/dev/files.lst
-find $dev_audio -maxdepth 1 -type f  -name "*.mp2"| sort -u |\
+find $dev_audio -maxdepth 1 -type f \( -name "*.mp2" -o -name "*.wav" \) | sort -u |\
   grep -F -f <(cat data/local/dev/files.lst| xargs -n1 -IX basename X .trs) \
   > data/local/dev/audio.lst
 

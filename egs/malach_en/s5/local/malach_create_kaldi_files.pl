@@ -74,12 +74,12 @@ while (my $audio=<$A>) {
   my $base=$file;
   if ($file =~ /\.mp2$/ ) {
     $base=~s/\.mp2$//g;
-    print $WAV "$base-A $MPG -q -b 10240 -s $audio | $SOX -t raw -r 44100 -e signed -b 16 -c 2 - -r $rate -c 1 -t wav - remix 1|\n";
-    print $WAV "$base-B $MPG -q -b 10240 -s $audio | $SOX -t raw -r 44100 -e signed -b 16 -c 2 - -r $rate -c 1 -t wav - remix 2|\n";
+    print $WAV "$base-A $MPG -q -b 10240 -s $audio |$SOX -t raw -r 44100 -e signed -b 16 -c 2 - -t wav - gain -B -n | $SOX -t wav - -r $rate -c 1 -t wav - remix 1|\n";
+    print $WAV "$base-B $MPG -q -b 10240 -s $audio |$SOX -t raw -r 44100 -e signed -b 16 -c 2 - -t wav - gain -B -n | $SOX -t wav - -r $rate -c 1 -t wav - remix 2|\n";
   } elsif ($file =~ /\.wav$/) { 
     $base=~s/\.wav$//g;
-    print $WAV "$base-A $SOX $audio -r $rate -c 1 -t wav - remix 1|\n";
-    print $WAV "$base-B $SOX $audio -r $rate -c 1 -t wav - remix 2|\n";
+    print $WAV "$base-A  $SOX $audio -t wav - gain -B -n|$SOX -t wav - -r $rate -c 1 -t wav - remix 1|\n";
+    print $WAV "$base-B  $SOX $audio -t wav - gain -B -n|$SOX -t wav - -r $rate -c 1 -t wav - remix 2|\n";
   } else {
     die "Unknown audio format for file $audio\n";
   }

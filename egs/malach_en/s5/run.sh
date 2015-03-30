@@ -6,8 +6,13 @@ dev_audio_path=/export/corpora/LDC/LDC2012S05/data/mp2/
 dev_audio_path=/export/a13/jtrmal/malach_uwb_sets/test/
 dev_trs_path=/export/a13/jtrmal/malach_uwb_sets/test/
 
+
+. ./path.sh
+. ./cmd.sh
+
 set -e -o pipefail
 
+if false; then 
 if [[ `hostname -f` == *clsp.jhu.edu ]] ; then
   w=`whoami`
   segpath=`pwd | sed 's/.*'$who'//g'`
@@ -74,7 +79,7 @@ local/malach_create_kaldi_files.sh --map-oov false \
 local/malach_create_kaldi_files.sh --map-oov true  \
   data/local/train data/lang data/train
 
-
+fi
 
 for dataset in train dev ; do
   if [ ! -f data/$dataset/.done ] ; then
@@ -119,15 +124,15 @@ if [ ! -f exp/mono/.done ]; then
 fi
 
 (
-  [ -f exp/mono/decode_dev_uwb/.done ] && exit 0
+  [ -f exp/mono/decode_dev/.done ] && exit 0
 
   utils/mkgraph.sh --mono data/lang_test exp/mono/ exp/mono/graph
 
   steps/decode.sh  --cmd "$decode_cmd" \
     --parallel-opts "-pe smp 4" --num-threads 4 --nj 32 \
-    exp/mono/graph/ data/dev_uwb/ exp/mono/decode_dev_uwb
+    exp/mono/graph/ data/dev/ exp/mono/decode_dev
 
-  touch exp/mono/decode_dev_uwb/.done
+  touch exp/mono/decode_dev/.done
 ) &
 
 if [ ! -f exp/tri1/.done ]; then
@@ -145,15 +150,15 @@ fi
 
 
 (
-  [ -f exp/tri1/decode_dev_uwb/.done ] && exit 0
+  [ -f exp/tri1/decode_dev/.done ] && exit 0
 
   utils/mkgraph.sh data/lang_test exp/tri1/ exp/tri1/graph
 
   steps/decode_si.sh  --cmd "$decode_cmd" \
     --parallel-opts "-pe smp 4" --num-threads 4 --nj 32 \
-    exp/tri1/graph/ data/dev_uwb/ exp/tri1/decode_dev_uwb
+    exp/tri1/graph/ data/dev/ exp/tri1/decode_dev
 
-  touch exp/tri1/decode_dev_uwb/.done
+  touch exp/tri1/decode_dev/.done
 ) &
 
 echo ---------------------------------------------------------------------
@@ -170,15 +175,15 @@ if [ ! -f exp/tri2/.done ]; then
 fi
 
 (
-  [ -f exp/tri2/decode_dev_uwb/.done ] && exit 0
+  [ -f exp/tri2/decode_dev/.done ] && exit 0
 
   utils/mkgraph.sh data/lang_test exp/tri2/ exp/tri2/graph
 
   steps/decode_si.sh  --cmd "$decode_cmd" \
     --parallel-opts "-pe smp 4" --num-threads 4 --nj 32 \
-    exp/tri2/graph/ data/dev_uwb/ exp/tri2/decode_dev_uwb
+    exp/tri2/graph/ data/dev/ exp/tri2/decode_dev
 
-  touch exp/tri2/decode_dev_uwb/.done
+  touch exp/tri2/decode_dev/.done
 ) &
 
 
@@ -197,15 +202,15 @@ fi
 
 
 (
-  [ -f exp/tri3/decode_dev_uwb/.done ] && exit 0
+  [ -f exp/tri3/decode_dev/.done ] && exit 0
 
   utils/mkgraph.sh data/lang_test exp/tri3/ exp/tri3/graph
 
   steps/decode_si.sh  --cmd "$decode_cmd" \
     --parallel-opts "-pe smp 4" --num-threads 4 --nj 32 \
-    exp/tri3/graph/ data/dev_uwb/ exp/tri3/decode_dev_uwb
+    exp/tri3/graph/ data/dev/ exp/tri3/decode_dev
 
-  touch exp/tri3/decode_dev_uwb/.done
+  touch exp/tri3/decode_dev/.done
 ) &
 
 
@@ -225,15 +230,15 @@ if [ ! -f exp/tri4/.done ]; then
 fi
 
 (
-  [ -f exp/tri4/decode_dev_uwb/.done ] && exit 0
+  [ -f exp/tri4/decode_dev/.done ] && exit 0
 
   utils/mkgraph.sh data/lang_test exp/tri4/ exp/tri4/graph
 
   steps/decode.sh  --cmd "$decode_cmd" \
     --parallel-opts "-pe smp 4" --num-threads 4 --nj 32 \
-    exp/tri4/graph/ data/dev_uwb/ exp/tri4/decode_dev_uwb
+    exp/tri4/graph/ data/dev/ exp/tri4/decode_dev
 
-  touch exp/tri4/decode_dev_uwb/.done
+  touch exp/tri4/decode_dev/.done
 ) &
 
 echo ---------------------------------------------------------------------
@@ -252,14 +257,14 @@ if [ ! -f exp/tri5/.done ]; then
 fi
 
   (
-    [ -f exp/tri5/decode_dev_uwb_fmllr_extra/.done ] && exit 0
+    [ -f exp/tri5/decode_dev_fmllr_extra/.done ] && exit 0
 
     utils/mkgraph.sh data/lang_test  exp/tri5/ exp/tri5/graph
     steps/decode_fmllr_extra.sh  --cmd "$decode_cmd" \
       --parallel-opts "-pe smp 4" --num-threads 4 --nj 32 \
-      exp/tri5/graph/ data/dev_uwb/ exp/tri5/decode_dev_uwb_fmllr_extra
+      exp/tri5/graph/ data/dev/ exp/tri5/decode_dev_fmllr_extra
 
-    touch exp/tri5/decode_dev_uwb_fmllr_extra/.done
+    touch exp/tri5/decode_dev_fmllr_extra/.done
   ) &
 
 wait
