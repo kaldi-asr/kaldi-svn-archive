@@ -65,6 +65,7 @@ if [ $stage -le 0 ]; then
       lattice-align-words $lang/phones/word_boundary.int $model ark:- ark:- \| \
       nbest-to-ctm ark:- - \| \
       utils/int2sym.pl -f 5 $lang/words.txt \| \
+      tee $dir/score_LMWT/$name.utt.ctm \| \
       $filter_cmd '>' $dir/score_LMWT/$name.ctm || exit 1;
   else
     if [ ! -f $lang/phones/align_lexicon.int ]; then
@@ -78,6 +79,7 @@ if [ $stage -le 0 ]; then
       lattice-align-words-lexicon $lang/phones/align_lexicon.int $model ark:- ark:- \| \
       nbest-to-ctm ark:- - \| \
       utils/int2sym.pl -f 5 $lang/words.txt \| \
+      tee $dir/score_LMWT/$name.utt.ctm \| \
       $filter_cmd '>' $dir/score_LMWT/$name.ctm || exit 1;
   fi
 fi

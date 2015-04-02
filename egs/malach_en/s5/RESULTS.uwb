@@ -1,0 +1,33 @@
+####RESULTS on the UWB (University of West Bohemia) manually corrected transcripts
+
+#cat exp/tri5/decode_dev_fmllr_extra/scoring_kaldi/best_wer           
+%WER 37.64 [ 91560 / 243230, 14714 ins, 21855 del, 54991 sub ] exp/tri5/decode_dev_fmllr_extra/wer_17_0.0
+#cat exp/tri5/decode_dev_fmllr_extra/scoring_kaldi/wer_details/per_spk | \
+#  utils/scoring/wer_report.pl "Both channels"
+%WER 37.64 [ 91560 / 243230,  13636 ins, 20777 del, 57147 sub ] Both channels
+#cat exp/tri5/decode_dev_fmllr_extra/scoring_kaldi/wer_details/per_spk | \
+#  grep -- "-A-" | perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel A"
+%WER 34.57 [ 42041 / 121615,  7323 ins, 10262 del, 24456 sub ] Channel A
+#cat exp/tri5/decode_dev_fmllr_extra/scoring_kaldi/wer_details/per_spk | \
+#  grep -- "-B-" | perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel B"
+%WER 40.72 [ 49519 / 121615,  6313 ins, 10515 del, 32691 sub ] Channel B
+#cat exp/tri5/decode_dev_fmllr_extra/scoring_kaldi/wer_details/per_spk  | \
+#  perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel Oracle"
+%WER 30.37 [ 36933 / 121615,  7629 ins, 4931 del, 24373 sub ] Channel Oracle
+
+
+#cat exp/nnet2_online/nnet_ms_swbd_a_online/decode_dev/scoring_kaldi/best_wer
+%WER 31.67 [ 77027 / 243230, 10831 ins, 21137 del, 45059 sub ] exp/nnet2_online/nnet_ms_swbd_a_online/decode_dev/wer_14_0.0
+#cat exp/nnet2_online/nnet_ms_swbd_a_online/decode_dev/scoring_kaldi/wer_details/per_spk | \
+#  utils/scoring/wer_report.pl "Both channels"
+%WER 31.67 [ 77027 / 243230,  9975 ins, 20281 del, 46771 sub ] Both channels
+#cat exp/nnet2_online/nnet_ms_swbd_a_online/decode_dev/scoring_kaldi/wer_details/per_spk | \
+#  grep -- "-A-" | perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel A"
+%WER 28.95 [ 35204 / 121615,  4964 ins, 10707 del, 19533 sub ] Channel A
+#cat exp/nnet2_online/nnet_ms_swbd_a_online/decode_dev/scoring_kaldi/wer_details/per_spk | \
+#  grep -- "-B-" | perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel B"
+%WER 34.39 [ 41823 / 121615,  5011 ins, 9574 del, 27238 sub ] Channel B
+#cat exp/nnet2_online/nnet_ms_swbd_a_online/decode_dev/scoring_kaldi/wer_details/per_spk  | \
+#  perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel oracle"
+%WER 24.62 [ 29937 / 121615,  5155 ins, 5204 del, 19578 sub ] Channel oracle
+

@@ -62,106 +62,14 @@ cp -f $old_data_dir/wav.scp $new_data_dir
 #    the segmentation with overlapping region).
 # Note that for each audio file, we expect its segments have been sorted in time
 # ascending order (if we ignore the overlap).
-cat $ctm | perl -e '
-  $precision = $ARGV[0];
-  @ctm = ();
-  %processed_ids = ();
-  $previous_id = "";
-  while (<STDIN>) {
-    chomp;
-    my @current = split;
-    @current >= 5 || die "Error: bad line $_\n";
-    $id = join("_", ($current[0], $current[1]));
-    @previous = @{$ctm[-1]};
-
-    # Start of a new audio file.
-    if ($previous_id ne $id) {
-      # Prints existing information.
-      if (@ctm > 0) {
-        foreach $line (@ctm) {
-          print "$line->[0] $line->[1] $line->[2] $line->[3] $line->[4]\n";
-        }
-      }
-
-      # Checks if the ctm file is sorted.
-      if (defined($processed_ids{$id})) {
-        die "Error: \"$current[0] $current[1]\" has already been processed\n";
-      } else {
-        $processed_ids{$id} = 1;
-      }
-
-      @ctm = ();
-      push(@ctm, \@current);
-      $previous_id = $id;
-      next;
-    }
-
-    $new_start = sprintf("%.2f", $previous[2] + $previous[3]);
-
-    if ($new_start < $current[2]) {
-      # Case 1: inserts <eps> as silence.
-      $new_dur = sprintf("%.2f", $current[2] - $new_start);
-      push(@ctm, [$current[0], $current[1], $new_start, $new_dur, "<eps>"]);
-      push(@ctm, \@current);
-    } elsif ($new_start > $current[2]) {
-      # Case 2: scans for a splice point.
-      $index = -1;
-      while (defined($ctm[$index])
-             && $ctm[$index]->[2] + $ctm[$index]->[3] > $current[2]) {
-        if ($ctm[$index]->[4] eq $current[4]
-            && abs($ctm[$index]->[2] - $current[2]) < $precision
-            && abs($ctm[$index]->[3] - $current[3]) < $precision) {
-          pop @ctm for 2..abs($index);
-          last;
-        } else {
-          $index -= 1;
-        }
-      }
-    } else {
-      push(@ctm, \@current);
-    }
-  }
-
-  if (@ctm > 0) {
-    foreach $line (@ctm) {
-      print "$line->[0] $line->[1] $line->[2] $line->[3] $line->[4]\n";
-    }
-  }' $time_precision > $new_data_dir/tmp/ctm
-
-# Creates a text file from the ctm, which will be used in Levenshtein alignment.
-# Note that we remove <eps> in the text file.
-cat $new_data_dir/tmp/ctm | perl -e '
-  $previous_wav = "";
-  $previous_channel = "";
-  $text = "";
-  while (<STDIN>) {
-    chomp;
-    @col = split;
-    @col >= 5 || die "Error: bad line $_\n";
-    if ($previous_wav eq $col[0]) {
-      $previous_channel eq $col[1] ||
-        die "Error: more than one channels detected\n";
-      if ($col[4] ne "<eps>") {
-        $text .= " $col[4]";
-      }
-    } else {
-      if ($text ne "") {
-        print "$previous_wav $text\n";
-      }
-      $text = $col[4];
-      $previous_wav = $col[0];
-      $previous_channel = $col[1];
-    }
-  }
-  if ($text ne "") {
-    print "$previous_wav $text\n";
-  }' > $new_data_dir/tmp/text
+local/cleanup/parse_split_ctm.pl $ctm  $old_data_dir/segments > $new_data_dir/tmp/text
 
 # Computes the Levenshtein alignment.
 align-text --special-symbol=$special_symbol --separator=$separator \
   ark:$old_data_dir/text.orig ark:$new_data_dir/tmp/text \
   ark,t:$new_data_dir/tmp/aligned.txt
 
+exit 1
 # Creates new segmentation.
 steps/cleanup/create_segments_from_ctm.pl \
   --max-seg-length $max_seg_length --min-seg-length $min_seg_length \
