@@ -31,3 +31,5 @@
 #  perl local/channel_oracle_wer.pl  | utils/scoring/wer_report.pl "Channel oracle"
 %WER 24.62 [ 29937 / 121615,  5155 ins, 5204 del, 19578 sub ] Channel oracle
 
+# cat exp/nnet2_online/nnet_ms_swbd_e_mpfe_0.000005/decode_dev_epoch4/scoring_kaldi/best_wer
+%WER 28.77 [ 69987 / 243230, 8087 ins, 25233 del, 36667 sub ] exp/nnet2_online/nnet_ms_swbd_e_mpfe_0.000005/decode_dev_epoch4/wer_12_0.0
