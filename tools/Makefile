@@ -161,9 +161,20 @@ openblas: openblas_compiled
 
 fortran_opt = $(shell gcc -v 2>&1 | perl -e '$$x = join(" ", <STDIN>); if($$x =~ m/target=\S+64\S+/) { print "BINARY=64"; }')
 
+
+# note: you can change the USE_THREAD=0 option below to USE_THREAD=1
+# if you want Open Blas to use multiple threads.  then you could set,
+# for example, OPENBLAS_NUM_THREADS=2 in your path.sh so that the
+# runtime knows how many threads to use.
+# Note: if you ever get the error "Program is Terminated. Because you tried to
+# allocate too many memory regions.", this is because OpenBLAS has a fixed
+# buffer size for the number of threads and you might have gone beyond that.  It
+# may possibly help to add e.g. NUM_THREADS=64 to the command line below (after
+# $(MAKE)).
 openblas_compiled:
 	-git clone git://github.com/xianyi/OpenBLAS
-	$(MAKE) PREFIX=`pwd`/OpenBLAS/install FC=gfortran $(fortran_opt) DEBUG=1 USE_THREAD=0 -C OpenBLAS all install
+	cd OpenBLAS; sed 's:# FCOMMON_OPT = -frecursive:FCOMMON_OPT = -frecursive:' < Makefile.rule >tmp && mv tmp Makefile.rule
+	$(MAKE) PREFIX=`pwd`/OpenBLAS/install FC=gfortran $(fortran_opt) DEBUG=1 USE_THREAD=1 -C OpenBLAS all install
 
 beamformit: beamformit-3.51
 
