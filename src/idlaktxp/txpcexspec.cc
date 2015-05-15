@@ -391,14 +391,15 @@ bool TxpCexspecContext::Next() {
 
 // look up from the node until we find the correct current context node
 pugi::xml_node TxpCexspecContext::GetContextUp(const pugi::xml_node &node,
-                                          const char* name) {
+                                          const char* name) const {
   pugi::xml_node parent;
+  pugi::xml_node empty;
   parent = node.parent();
   while (!parent.empty()) {
     if (!strcmp(parent.name(), name)) return parent;
     parent = parent.parent();
   }
-  return parent;
+  return empty;
 }
 
 // return phon back or forwards from current phone

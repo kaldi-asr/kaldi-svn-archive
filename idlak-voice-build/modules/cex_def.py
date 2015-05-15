@@ -18,7 +18,7 @@
 # Full model context creation (linguistic context extraction)
 
 import sys, os.path, time, subprocess, re, shlex
-from xml.dom.minidom import parse, parseString
+from xml.dom.minidom import parse, parseString, getDOMImplementation
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
@@ -30,6 +30,15 @@ sys.path = sys.path + [SCRIPT_DIR]
 
 # import voice build utilities
 import build_configuration
+
+# numeric sort (used to correctly order string valued integers)
+def numeric_sort(a , b):
+    if int(a) > int(b):
+        return 1
+    elif int(a) < int(b):
+        return -1
+    else:
+        return 0
 
 # based on the delimiters unpacks the cex string into a list
 def cex2list(cexheader, cex):
@@ -108,16 +117,16 @@ def output_kaldicex(logger, dom, outdir):
             # currently add phone contexts as first 5 features
             # this to avoid a mismatch between manual phone
             # questions and the kaldi context information
-            cexs = list(pat.groups()) + cexs
+            cexs = [pat.group(1), pat.group(2), pat.group(3), pat.group(4), pat.group(5)] + cexs
             # Currently set all contexts in pause to 0
-            if phon_name == 'pau':
-                for i in range(len(cexs)): cexs[i] = '0'
+            #if phonename == 'pau':
+            #    for i in range(len(cexs)): cexs[i] = '0'
             # prepend the phone to keep track of silences and for sanity checks
             cexs.insert(0, phonename)
             # save/write contexts
             output_file.write('%s %s\n' % (f.getAttribute('id'), ' '.join(cexs)))
             output_contexts[-1][-1].append(cexs)
-            # keep track of context frequencies
+            # keep track of frequencies 
             for i in range(len(cexs)):
                 key = 'cex' + ('000' + str(i))[-3:]
                 if not freqtables.has_key(key):
@@ -142,9 +151,9 @@ def output_htscex(logger, dom, outdir, phon_labs):
     if not os.path.exists(htslabdir):
         os.mkdir(htslabdir)
     # output the contexts only
-    # we need to determine whch feature to use for
-    # for HTS style parallel processing. It has to be the same within
-    # each files
+    # we need to determine which feature to use for
+    # for HTS style processing. It has to be the same within
+    # each file
     badfilecontexts = []
     for f in fileids:
         fileid = f.getAttribute('id')
@@ -287,8 +296,71 @@ def write_htsqset(logger, defqset, htsqsetfile, cexheader):
                         vals[j] = predelim + vals[j] + pstdelim
                     if len(vals):
                         htsqset.write('QS "%s" {%s}\n' % (qsname, ','.join(vals)))
-    htsqset.close()                
-            
+    htsqset.close()
+    
+def write_kaldi_context_setup(cexheader, cexheaderhts, freqtables, lookuptables, outdir):
+    # extract hts previous and post delimeters so we can convert kaldi questions back to hts questions
+    # later on for parallel hts processing
+    htsdelims = {}
+    kaldiphones = []
+    prev = ""
+    # extract delimeters for hts if present for hts processing
+    if  cexheaderhts:
+        for idx, cexfunction in enumerate(cexheaderhts.getElementsByTagName('cexfunction')):
+            name = cexfunction.getAttribute('name')
+            if re.match('.*Kaldi$', name):
+                kaldiphones.append([name, idx])
+            htsdelims[name] = [cexfunction.getAttribute('delim'), '', idx]
+            if prev:
+                htsdelims[prev][1] = cexfunction.getAttribute('delim')
+            prev = name
+    # build XML file for setup
+    contextsetup = getDOMImplementation().createDocument(None, "cex", None)
+    cex = contextsetup.documentElement
+    for i, cexfunction in enumerate(cexheader.getElementsByTagName('cexfunction')):
+        delim = cexfunction.getAttribute('delim')
+        name = cexfunction.getAttribute('name')
+        isinteger = cexfunction.getAttribute('isinteger')
+        newcf = contextsetup.createElement('cexfunction')
+        newcf.setAttribute("name", name)
+        newcf.setAttribute("isinteger", isinteger)
+        if htsdelims.has_key(name):
+            newcf.setAttribute("htsprv", htsdelims[name][0])
+            newcf.setAttribute("htspst", htsdelims[name][1])
+        cex.appendChild(newcf)
+        table = 'cex' + ('000' + str(i + 1))[-3:]
+        ftable = freqtables[table]
+        vals = ftable.keys()
+        if isinteger == '0':
+            lkptable = lookuptables[table]
+            vals.sort()
+        else:
+            lkptable = None
+            vals.sort(numeric_sort)
+        for val in vals:
+            element = contextsetup.createElement('val')
+            element.setAttribute("name", val)
+            element.setAttribute("freq", str(ftable[val]))
+            if lkptable:
+                element.setAttribute("mapping", str(lkptable[val]))
+            else:
+                element.setAttribute("mapping", val)
+            newcf.appendChild(element)
+    #record delimeters for kaldi phones if we have hts and they are present
+    #big assumption that the contexts appear in the correct order in the cex-hts
+    if cexheaderhts:
+        for kphone in kaldiphones:
+            newkphone = contextsetup.createElement('kphone')
+            newkphone.setAttribute("idx", str(kphone[1]))
+            newkphone.setAttribute("name", kphone[0])
+            newkphone.setAttribute("htsprv", htsdelims[kphone[0]][0])
+            newkphone.setAttribute("htspst", htsdelims[kphone[0]][1])
+            cex.appendChild(newkphone)
+    
+    fp = open(os.path.join(outdir, 'output', 'context_setup.xml'), 'w')
+    fp.write(cex.toprettyxml())
+    fp.close()
+ 
 def main():
     # process the options based on the default build configuration
     build_conf, parser = build_configuration.get_config(SCRIPT_NAME, DESCRIPTION, SCRIPT_NAME)
@@ -341,24 +413,25 @@ def main():
                                 os.path.join(aligndir, 'labs'),
                                 os.path.join(outdir, 'output', 'spt_times.dat'))    
     # generate HTS style context model names
+    cexheaderhts = None
     if hts == "True":
         output_filename = os.path.join(outdir, 'output', 'cex_hts.xml')
         cmd = "idlaktxp --pretty --tpdb=%s %s - | " % (tpdbdir, os.path.join(aligndir, "text.xml")) + \
             "idlakcex --pretty --cex-arch=hts --tpdb=%s - %s" % (tpdbdir, output_filename)
         os.system(cmd)
         dom = parse(output_filename)
-        filecontexts, cexheader = output_htscex(build_conf.logger, dom, outdir, phon_labs)
+        filecontexts, cexheaderhts = output_htscex(build_conf.logger, dom, outdir, phon_labs)
         htsqset = os.path.join(outdir, 'output', 'questions-kaldi-%s-%s.hed' % (build_conf.lang, build_conf.acc))
-        write_htsqset(build_conf.logger, qset, htsqset, cexheader)
+        write_htsqset(build_conf.logger, qset, htsqset, cexheaderhts)
 
-    # write frequency tables of contexts for audit purposes
-    for ftable in freqtables.keys():
-        fp = open(os.path.join(outdir, 'output', ftable + '_freq.txt'), 'w')
-        vals = freqtables[ftable].keys()
-        vals.sort()
-        for v in vals:
-            fp.write("%s %d\n" % (v, freqtables[ftable][v]))
-        fp.close()
+    # # write frequency tables of contexts for audit purposes
+    # for ftable in freqtables.keys():
+    #     fp = open(os.path.join(outdir, 'output', ftable + '_freq.txt'), 'w')
+    #     vals = freqtables[ftable].keys()
+    #     vals.sort()
+    #     for v in vals:
+    #         fp.write("%s %d\n" % (v, freqtables[ftable][v]))
+    #     fp.close()
         
     # create lookup tables if required
     lookuptables = {}
@@ -379,15 +452,19 @@ def main():
                         mapping += 1
                 break
             
-    # output lookup tables
-    for table in lookuptables.keys():
-        fp = open(os.path.join(outdir, 'output', table + '_lkp.txt'), 'w')
-        vals = lookuptables[table].keys()
-        vals.sort()
-        for v in vals:
-            fp.write("%s %d\n" % (v, lookuptables[table][v]))
-        fp.close()
+    # # output lookup tables
+    # for table in lookuptables.keys():
+    #     fp = open(os.path.join(outdir, 'output', table + '_lkp.txt'), 'w')
+    #     vals = lookuptables[table].keys()
+    #     vals.sort()
+    #     for v in vals:
+    #         fp.write("%s %d\n" % (v, lookuptables[table][v]))
+    #     fp.close()
 
+    # Output the context information used in an XMl readable form.
+    # incudes frequency/lookup tables field names etc.
+    write_kaldi_context_setup(cexheader, cexheaderhts, freqtables, lookuptables, outdir)
+            
     # write kaldi style archive replacing symbols with lookup
     output_filename = os.path.join(outdir, 'output', 'cex.ark')
     fp = open(output_filename, 'w')

@@ -22,9 +22,9 @@ from xml.dom.minidom import getDOMImplementation
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
-DESCRIPTION = 'Triphone speake specific aligner using kaldi'
+DESCRIPTION = 'Triphone speaker specific alighner using kaldi'
 FRAMESHIFT = 0.005
-NOSTATES = 6
+NOSTATES = 5
 STARTENDMINSIL = 0.01
 # Add to path
 sys.path = sys.path + [SCRIPT_DIR + '/../utils']

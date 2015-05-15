@@ -65,12 +65,16 @@
   <tree_def
       depend="align_def,cex_def,pitch_def"
       />
+  <!-- getf0="/home/matthewa/kaldi/esps/5.3.1/get_f0"
+       getf0_desc="The location of the get_f0 binary."
+       pplain="/home/matthewa/kaldi/esps/5.3.1/pplain"
+       pplain_desc="The location of the pplain binary." -->
   <pitch_def
       options="getf0,pplain"
-      getf0="/home/matthewa/kaldi/esps/5.3.1/get_f0"
-      getf0_desc="The location of the get_f0 binary."
-      pplain="/home/matthewa/kaldi/esps/5.3.1/pplain"
-      pplain_desc="The location of the pplain binary."
+      getf0=""
+      getf0_desc="Set to file path of get_f0 use instead of kaldi pitch extraction"
+      pplain=""
+      pplain_desc="Set to file path of pplain use get_f0 instead of kaldi pitch extraction"
       />    
   <cex_def
       options="hts"

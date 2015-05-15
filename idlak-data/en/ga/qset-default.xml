@@ -259,6 +259,9 @@
 		<qs name="LL-sil">
 			sil
 		</qs>
+		<qs name="LL-pau">
+			pau
+		</qs>
 		<qs name="LL-t">
 			t
 		</qs>
@@ -545,6 +548,9 @@
 		</qs>
 		<qs name="L-sil">
 			sil
+		</qs>
+		<qs name="L-pau">
+			pau
 		</qs>
 		<qs name="L-t">
 			t
@@ -833,6 +839,9 @@
 		<qs name="C-sil">
 			sil
 		</qs>
+		<qs name="C-pau">
+			pau
+		</qs>
 		<qs name="C-t">
 			t
 		</qs>
@@ -1120,6 +1129,9 @@
 		<qs name="R-sil">
 			sil
 		</qs>
+		<qs name="R-pau">
+			pau
+		</qs>
 		<qs name="R-t">
 			t
 		</qs>
@@ -1406,6 +1418,9 @@
 		</qs>
 		<qs name="RR-sil">
 			sil
+		</qs>
+		<qs name="RR-pau">
+			pau
 		</qs>
 		<qs name="RR-t">
 			t

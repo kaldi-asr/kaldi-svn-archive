@@ -112,21 +112,11 @@
     <item name="LL"/>
     <item name="X"/>
   </set>
-  <feat delim="^" htsname="LL" desc="phone_before_before" name="BackwardBackwardPhone" set="phone" pauctx="false">
-    <mapping fromstr="pau" tostr="0"/>
-  </feat>
-  <feat delim="~" htsname="L" desc="phone_before" name="BackwardPhone" set="phone" pauctx="false">
-    <mapping fromstr="pau" tostr="0"/>
-  </feat>
-  <feat delim="-" htsname="C" desc="current_phone" name="Phone" set="phone" pauctx="false">
-    <mapping fromstr="pau" tostr="0"/>
-  </feat>
-  <feat delim="+" htsname="R" desc="phone_forward" name="ForwardPhone" set="phone" pauctx="false">
-    <mapping fromstr="pau" tostr="0"/>
-  </feat>
-  <feat delim="=" htsname="RR" desc="phone_forward_forward" name="ForwardForwardPhone" set="phone" pauctx="false">
-    <mapping fromstr="pau" tostr="0"/>
-  </feat>
+  <feat delim="^" htsname="LL" desc="phone_before_before" name="BackwardBackwardPhone" set="phone" pauctx="false"/>
+  <feat delim="~" htsname="L" desc="phone_before" name="BackwardPhone" set="phone" pauctx="false"/>
+  <feat delim="-" htsname="C" desc="current_phone" name="Phone" set="phone" pauctx="false"/>
+  <feat delim="+" htsname="R" desc="phone_forward" name="ForwardPhone" set="phone" pauctx="false"/>
+  <feat delim="=" htsname="RR" desc="phone_forward_forward" name="ForwardForwardPhone" set="phone" pauctx="false"/>
   <feat delim=" " htsname="Seg_Fw" desc="segment_location_from_front" name="SegmentLocationFromFront" min="0" max="7" />
   <feat delim=" " htsname="Seg_Bw" desc="segment_location_from_back" name="SegmentLocationFromBack" min="0" max="7" />
   <feat delim=" " htsname="L-Syl_Stress" desc="left_syllabic_stress" name="BackwardSyllableStress" min="0" max="1" pauctx="false" />

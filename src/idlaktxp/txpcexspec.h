@@ -218,11 +218,11 @@ class TxpCexspecContext {
   pugi::xml_node GetWord(const int32 idx, const bool pause_context) const;
   // return parent spurt back or forwards from current phone
   pugi::xml_node GetSpurt(const int32 idx, const bool pause_context) const;
-
- private:
   // look up from the node until we find the correct current context node
   pugi::xml_node GetContextUp(const pugi::xml_node &node,
-                                const char* name);
+                              const char* name) const;
+  
+ private:
   bool isbreak_;
   bool endbreak_;
   bool internalbreak_;

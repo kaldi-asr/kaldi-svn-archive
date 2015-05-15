@@ -522,4 +522,93 @@ bool CexFuncStringPhraseTobiEndTone(const TxpCexspec* cex,
   // return error status
   return okay;
 }
+
+// Kaldi style current phone name. Kaldi includes _B/I/E/S for word position
+// equating to begining, intermediate, end and standalone.
+// Also as per idlak voice build we include the syllabic stress of the nucleus
+// i.e dh_B ax0_E k_B ae1_I t_E etc. etc.
+// This utility function unpacks this information for a given non-silent
+// phone node
+static bool KaldiPhone(const TxpCexspec* cex,
+                       const TxpCexspecFeat* feat,
+                       const TxpCexspecContext* context,
+                       std::string* buffer,
+                       int32 phon_pos) {
+  bool okay = true;
+  pugi::xml_node node;
+  pugi::xml_node sylnode;
+  pugi::xml_node tknode;
+  std::string phonename;
+  // get node from correct context
+  node = context->GetPhone(phon_pos, feat->pause_context);
+  // check for NULL value
+  if (node.empty()) {
+    cex->AppendNull(*feat, buffer);
+  } else {
+    // extract phone value from XML
+    phonename = node.attribute("val").value();
+    // get the syllable and token the phone is in
+    sylnode = context->GetContextUp(node, "syl");
+    tknode = context->GetContextUp(sylnode, "tk");
+    // if a nucleus extract stress
+    if (!strcmp("nucleus", node.attribute("type").value())) {
+      phonename += sylnode.attribute("stress").value();
+    }
+    // work out word context
+    // standalone phone or a pause (has no nosyls attribute)
+    if (tknode.attribute("nosyl").empty() ||
+        (!strcmp("1", tknode.attribute("nosyl").value()) &&
+         !strcmp("1", sylnode.attribute("nophons").value())))
+      phonename += "_S";
+    else if (!strcmp("1", sylnode.attribute("sylid").value()) &&
+             !strcmp("1", node.attribute("phonid").value()))
+      phonename += "_B";
+    else if (!strcmp(sylnode.attribute("sylid").value(),
+                tknode.attribute("nosyl").value()) &&
+        !strcmp(node.attribute("phonid").value(),
+                sylnode.attribute("nophons").value()))
+      phonename += "_E";
+    else
+      phonename += "_I";
+    okay = cex->AppendValue(*feat, okay, phonename.c_str(), buffer);
+  }
+  // return error status
+  return okay;
+}
+
+bool CexFuncStringBackwardBackwardPhoneKaldi(const TxpCexspec* cex,
+                                             const TxpCexspecFeat* feat,
+                                             const TxpCexspecContext* context,
+                                             std::string* buffer) {
+  return KaldiPhone(cex, feat, context, buffer, -2);
+}
+
+bool CexFuncStringBackwardPhoneKaldi(const TxpCexspec* cex,
+                                     const TxpCexspecFeat* feat,
+                                     const TxpCexspecContext* context,
+                                     std::string* buffer) {
+  return KaldiPhone(cex, feat, context, buffer, -1);
+}
+
+bool CexFuncStringPhoneKaldi(const TxpCexspec* cex,
+                             const TxpCexspecFeat* feat,
+                             const TxpCexspecContext* context,
+                             std::string* buffer) {
+  return KaldiPhone(cex, feat, context, buffer, 0);
+}
+
+bool CexFuncStringForwardPhoneKaldi(const TxpCexspec* cex,
+                                    const TxpCexspecFeat* feat,
+                                    const TxpCexspecContext* context,
+                                    std::string* buffer) {
+  return KaldiPhone(cex, feat, context, buffer, 1);
+}
+
+bool CexFuncStringForwardForwardPhoneKaldi(const TxpCexspec* cex,
+                                    const TxpCexspecFeat* feat,
+                                    const TxpCexspecContext* context,
+                                    std::string* buffer) {
+  return KaldiPhone(cex, feat, context, buffer, 2);
+}
+
 }  // namespace kaldi

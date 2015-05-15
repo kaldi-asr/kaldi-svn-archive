@@ -19,12 +19,12 @@
 // Full context alignments have the form
 // <phone contexts> <full context> <state no> as an integer vector for
 // each frame.
-// Full context is output by cex idlak voice build module and assignes a
+// Full context is output by cex idlak voice build module and assigns a
 // full context for each phone.
 // the align idlak voice build module produces a standard quin phone alignment
-// my transition id.
+// by transition id.
 // This program takes this alignment, extracts the phone context and state no
-// for each frame and merges it with the phone full c-aliontext information.
+// for each frame and merges it with the phone full context information.
 // The process is complicated by the fact that initial and final pauses may be
 // missing from the data while assummed in the full context information.
 // Current policy is to remove context information for leading and final pauses
@@ -126,7 +126,8 @@ int main(int argc, char *argv[]) {
           if (phone_index >= contexts.size()) {
             break;
           }
-          for (k = 0; k < contexts[phone_index].size(); k++)
+          // first item in context is the mid point phone - ignore it
+          for (k = 1; k < contexts[phone_index].size(); k++)
             curphone.push_back(contexts[phone_index][k]);
           curphone.push_back(states[j]);
           output.push_back(curphone);
@@ -135,7 +136,7 @@ int main(int argc, char *argv[]) {
         if (curphone[MIDCONTEXT] != 1) phone_index++;
         if (phone_index + 1 != contexts.size()) {
           KALDI_WARN << "Merge of alignment and contexts failed for key " << key
-                     <<" mismatching numbe of phones contexts:"
+                     <<" mismatching number of phones contexts:"
                      << contexts.size()
                      <<" alignment:" << phone_index + 1;
           num_fail++;

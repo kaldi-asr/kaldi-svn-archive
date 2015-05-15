@@ -437,7 +437,7 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories 
 # with spaces.
 
- the lines after "doc itf" are copied from SUBDIRS in the Makefile.
+# the lines after "doc itf" are copied from SUBDIRS in the Makefile.
 INPUT    = doc itf \
           base matrix util feat tree thread gmm transform sgmm \
           fstext hmm lm decoder lat cudamatrix nnet \

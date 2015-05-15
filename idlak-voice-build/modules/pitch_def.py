@@ -17,7 +17,7 @@
 
 # Calculates the f0 from .wav files'
 
-import sys, os.path, time, glob, math
+import sys, os.path, time, glob, math, re
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 SCRIPT_NAME = os.path.splitext(os.path.split(__file__)[1])[0]
@@ -121,6 +121,40 @@ def run_f0_pass(wavdir, outdir, getf0_path, pplain_path, params_file, input_file
 
     return f0s
 
+def run_f0_pass_kaldi(kaldisrcdir, wavdir, outdir, valid_ids, frame_step, f0_min, f0_max):
+    # Create input scp files.
+    scp_in_filename=os.path.join(outdir, 'wav.scp')
+    scp_in_file = open(scp_in_filename, 'w');
+    for f in valid_ids:
+        infile = os.path.join(wavdir, f + ".wav")
+        scp_line = '%s %s\n' % (f, infile)
+        scp_in_file.write(scp_line)
+    scp_in_file.close()
+
+    #output ascii ark file
+    ark_out_filename = os.path.join(outdir, 'pitch.ark')
+    
+    # framestep is in milliseconds
+    com = "%s/featbin/compute-kaldi-pitch-feats --frame-shift=%d --min-f0=%f --max-f0=%f scp:%s ark,t:%s\n" % (kaldisrcdir, frame_step * 1000, f0_min, f0_max, scp_in_filename, ark_out_filename)
+    os.system(com)
+    
+    # collect f0s for stat analysis
+    # This can be done more kaldi like but as we need ascii files in a format that
+    # wavesurfer can read to audit feature extraction anyway we just hack it here
+    # by reading the ark.
+    lines = open(os.path.join(outdir, ark_out_filename)).readlines()
+    f0s = []
+    for l in lines:
+        l = l.strip()
+        ll = l.split()
+        if ll[1] == '[':
+            fp = open(os.path.join(outdir, ll[0] + '.f0'), 'w')
+        else:
+            fp.write("%s %s \n" % (ll[0], ll[1]))
+            f0s.append(float(ll[1]))
+    fp.close()
+    return f0s
+    
 def interpolate_f0s(kaldisrcdir, valid_ids, indir, outdir):
     # The purpose of this function is to interpolate a series of f0s,
     # removing the 0 instances.
@@ -146,7 +180,7 @@ def interpolate_f0s(kaldisrcdir, valid_ids, indir, outdir):
     print com
     os.system(com)
 
-def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir, force=False):
+def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir):
     valid_ids = load_input_wavs(wavdir, flist)
 
     # Stop ESPS writing configuration files that
@@ -161,13 +195,14 @@ def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir, fo
     if not os.path.isdir(pass1_outdir):
         os.mkdir(pass1_outdir)
 
-    # Create initial params file.
-    params_file = os.path.join(pass1_outdir, 'params')
-    create_params_file(params_file, frame_step, None, None)
-
-    # Returns only non-zero (voiced values)
-    f0s = run_f0_pass(wavdir, pass1_outdir, getf0_path, pplain_path, params_file, valid_ids)
-
+    if os.path.isfile(getf0_path):
+        # Create initial params file.
+        params_file = os.path.join(pass1_outdir, 'params')
+        create_params_file(params_file, frame_step, None, None)
+        # Returns only non-zero (voiced values)
+        f0s = run_f0_pass(wavdir, pass1_outdir, getf0_path, pplain_path, params_file, valid_ids)
+    else:
+        f0s = run_f0_pass_kaldi(kaldisrcdir, wavdir, pass1_outdir, valid_ids, frame_step, 50, 400)
     # We now want to log the values and find the +/-3 std. devs boundary.
     f0s_log = []
     for f0 in f0s:
@@ -194,16 +229,43 @@ def process_data(outdir, wavdir, getf0_path, pplain_path, flist, kaldisrcdir, fo
     pass2_outdir = os.path.join(outdir, 'data', 'pass2')
     if not os.path.isdir(pass2_outdir):
         os.mkdir(pass2_outdir)
+    # and interpolation
+    interp_outdir = os.path.join(outdir, 'data', 'interp')
+    if not os.path.isdir(interp_outdir):
+        os.mkdir(interp_outdir)
+    
+    if os.path.isfile(getf0_path):
+        # Now recreate the params file with these new values for min/max.
+        params_file = os.path.join(pass2_outdir, 'params')
+        create_params_file(params_file, frame_step, f0_min, f0_max)
+        # Run a second pass of get_f0/pplain.
+        run_f0_pass(wavdir, pass2_outdir, getf0_path, pplain_path, params_file, valid_ids)
+        # Interpolate in gaps.
+        interpolate_f0s(kaldisrcdir, valid_ids, pass2_outdir, interp_outdir)
+    else:
+        # don't need to interpolate on kaldi extraction as value is present for all frames by default
+        f0s = run_f0_pass_kaldi(kaldisrcdir, wavdir, interp_outdir, valid_ids, frame_step, f0_min, f0_max)
+        
+    # convert ot log values
+    lines = open(os.path.join(interp_outdir, 'pitch.ark')).readlines()
+    fp = open(os.path.join(interp_outdir, 'lf0.ark'), 'w')
+    for l in lines:
+        ll = l.split()
+        if len(ll) > 1 and re.match('[0-9\.]+', ll[1]):
+            ll[1] = str(math.log(float(ll[1])))
+        fp.write(' '.join(ll) + '\n')
+    fp.close()
 
-    # Now recreate the params file with these new values for min/max.
-    params_file = os.path.join(pass2_outdir, 'params')
-    create_params_file(params_file, frame_step, f0_min, f0_max)
-
-    # Run a second pass of get_f0/pplain.
-    run_f0_pass(wavdir, pass2_outdir, getf0_path, pplain_path, params_file, valid_ids)
-
-    # Interpolate in gaps.
-    interpolate_f0s(kaldisrcdir, valid_ids, pass2_outdir, outdir)
+    # add deltas to log f0 only
+    #f0_feat="%s/fselect-feats 1 ark:%s ark:-" % (kaldisrcdir, os.path.join(interp_outdir, 'lf0.ark'))
+    prob_feat="%s/featbin/select-feats 0 ark:%s ark:-" % (kaldisrcdir, os.path.join(interp_outdir, 'lf0.ark'))
+    add_lf0_deltas = '%s/featbin/select-feats 1 ark:%s ark:- | %s/featbin/add-deltas ark:- ark,t:%s' % (kaldisrcdir, os.path.join(interp_outdir, 'lf0.ark'), kaldisrcdir, os.path.join(interp_outdir, 'lf0deltas.ark'))
+    print add_lf0_deltas
+    os.system(add_lf0_deltas)
+    
+    com = '%s/featbin/paste-feats ark:"%s |" ark:%s ark,t:%s' % (kaldisrcdir, prob_feat, os.path.join(interp_outdir, 'lf0deltas.ark'), os.path.join(outdir, 'output', 'lf0.ark'))
+    print com
+    os.system(com)
 
 def main():
     # process the options based on the default build configuration
@@ -232,12 +294,12 @@ def main():
     getf0_path = build_conf.getval('pitch_def', 'getf0')
     pplain_path = build_conf.getval('pitch_def', 'pplain')
 
-    if not os.path.isfile(getf0_path):
-        build_conf.logger.log('error', 'Supplied get_f0 location %s does not exist!' % (getf0_path))
-        raise IOError('Supplied get_f0 location %s does not exist!' % (getf0_path))
-    if not os.path.isfile(pplain_path):
-        build_conf.logger.log('error', 'Supplied pplain location %s does not exist!' % (pplain_path))
-        raise IOError('Supplied pplain location %s does not exist!' % (pplain_path))
+    # if not os.path.isfile(getf0_path):
+    #     build_conf.logger.log('error', 'Supplied get_f0 location %s does not exist!' % (getf0_path))
+    #     raise IOError('Supplied get_f0 location %s does not exist!' % (getf0_path))
+    # if not os.path.isfile(pplain_path):
+    #     build_conf.logger.log('error', 'Supplied pplain location %s does not exist!' % (pplain_path))
+    #     raise IOError('Supplied pplain location %s does not exist!' % (pplain_path))
 
     # process data
     wavdir = os.path.join(build_conf.idlakwav, build_conf.lang, build_conf.acc, build_conf.spk, build_conf.srate)
@@ -246,7 +308,7 @@ def main():
     if not os.path.isdir(outdir_data):
         os.mkdir(outdir_data)
 
-    process_data(outdir, wavdir, getf0_path, pplain_path, build_conf.flist, kaldisrcdir, True)
+    process_data(outdir, wavdir, getf0_path, pplain_path, build_conf.flist, kaldisrcdir)
     # END OF MODULE SPECIFIC CODE
     
     build_conf.end_processing(SCRIPT_NAME)

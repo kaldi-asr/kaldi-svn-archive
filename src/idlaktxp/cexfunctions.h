@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-// Automatically generated: Wed Jul 31 15:53:53 2013
+// Automatically generated: Wed Feb  4 10:38:27 2015
 
 #ifndef KALDI_IDLAKTXP_CEXFUNCTIONS_H
 #define KALDI_IDLAKTXP_CEXFUNCTIONS_H
@@ -28,7 +28,7 @@
 
 namespace kaldi {
 
-#define CEX_NO_FEATURES 21
+#define CEX_NO_FEATURES 26
 
 bool CexFuncStringBackwardBackwardPhone(const TxpCexspec* cex,
                       const TxpCexspecFeat* feat,
@@ -134,6 +134,31 @@ bool CexFuncStringPhraseTobiEndTone(const TxpCexspec* cex,
                      const TxpCexspecFeat* feat,
                      const TxpCexspecContext* context,
                      std::string* buffer);
+
+bool CexFuncStringBackwardBackwardPhoneKaldi(const TxpCexspec* cex,
+                                             const TxpCexspecFeat* feat,
+                                             const TxpCexspecContext* context,
+                                             std::string* buffer);
+
+bool CexFuncStringBackwardPhoneKaldi(const TxpCexspec* cex,
+                                     const TxpCexspecFeat* feat,
+                                     const TxpCexspecContext* context,
+                                     std::string* buffer);
+
+bool CexFuncStringPhoneKaldi(const TxpCexspec* cex,
+                             const TxpCexspecFeat* feat,
+                             const TxpCexspecContext* context,
+                             std::string* buffer);
+
+bool CexFuncStringForwardPhoneKaldi(const TxpCexspec* cex,
+                                    const TxpCexspecFeat* feat,
+                                    const TxpCexspecContext* context,
+                                    std::string* buffer);
+
+bool CexFuncStringForwardForwardPhoneKaldi(const TxpCexspec* cex,
+                                    const TxpCexspecFeat* feat,
+                                    const TxpCexspecContext* context,
+                                    std::string* buffer);
 
 
 
