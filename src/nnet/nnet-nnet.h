@@ -95,8 +95,11 @@ class Nnet {
   void SetWeights(const Vector<BaseFloat>& wei_src);
   /// Get the gradient stored in the network
   void GetGradient(Vector<BaseFloat>* grad_copy) const;
+
   /// Set the dropout rate 
   void SetDropoutRetention(BaseFloat r);
+  /// Reset streams in LSTM multi-stream training,
+  void ResetLstmStreams(const std::vector<int32> &stream_reset_flag);
 
   /// Initialize MLP from config
   void Init(const std::string &config_file);
@@ -146,5 +149,4 @@ class Nnet {
 } // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_NNET_H_
-
 

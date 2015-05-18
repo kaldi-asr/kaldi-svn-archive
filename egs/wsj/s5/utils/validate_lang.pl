@@ -654,12 +654,14 @@ if (-s "$lang/phones/word_boundary.int") {
     print "--> generating a $wlen word sequence\n";
     $wordseq = "";
     $sid = 0;
+    $wordseq_syms = "";
     foreach (1 .. $wlen) {
       $id = int(rand(scalar(keys %wint2sym)));
       while ($wint2sym{$id} =~ m/^#[0-9]*$/ or
              $wint2sym{$id} eq "<s>" or $wint2sym{$id} eq "</s>" or $id == 0) {
         $id = int(rand(scalar(keys %wint2sym)));
       }
+      $wordseq_syms = $wordseq_syms . $wint2sym{$id} . " ";
       $wordseq = $wordseq . "$sid ". ($sid + 1) . " $id $id 0\n";
       $sid ++;
     }
@@ -702,7 +704,9 @@ if (-s "$lang/phones/word_boundary.int") {
     }
     if (!$exit) {
       if ($num_words != $wlen) {
-        $exit = 1; print "--> ERROR: number of reconstructed words $num_words does not match real number of words $wlen; indicates problem in $fst or word_boundary.int.  phoneseq = $phoneseq\n";
+        $phoneseq_syms = "";
+        foreach my $id (split(" ", $phoneseq)) { $phoneseq_syms = $phoneseq_syms . " " . $pint2sym{$id}; }
+        $exit = 1; print "--> ERROR: number of reconstructed words $num_words does not match real number of words $wlen; indicates problem in $fst or word_boundary.int.  phoneseq = $phoneseq_syms, wordseq = $wordseq_syms\n";
       } else {
         print "--> resulting phone sequence from $fst corresponds to the word sequence\n";
         print "--> $fst is OK\n";
@@ -778,7 +782,7 @@ if (-e "$lang/G.fst") {
 
   # Check that G.fst does not have cycles with only disambiguation symbols or
   # epsilons on the input, or the forbidden symbols <s> and </s>.
-  $cmd = ". ./path.sh; fstprint $lang/G.fst | awk -v disambig=$lang/phones/disambig.int -v words=$lang/words.txt 'BEGIN{while((getline<disambig)>0) is_disambig[$1]=1; is_disambig[0] = 1; while((getline<words)>0){ if(\$1==\"<s>\"||\$1==\"</s>\") is_forbidden[\$2]=1;}} {if(NF<3 || is_disambig[\$3]) print; else if(is_forbidden[\$3] || is_forbidden[\$4]) { print \"Error: line \" \$0 \" in G.fst contains forbidden symbol <s> or </s>\" >/dev/stderr; exit(1); }}' | fstcompile | fstinfo ";
+  $cmd = ". ./path.sh; fstprint $lang/G.fst | awk -v disambig=$lang/phones/disambig.int -v words=$lang/words.txt 'BEGIN{while((getline<disambig)>0) is_disambig[$1]=1; is_disambig[0] = 1; while((getline<words)>0){ if(\$1==\"<s>\"||\$1==\"</s>\") is_forbidden[\$2]=1;}} {if(NF<3 || is_disambig[\$3]) print; else if(is_forbidden[\$3] || is_forbidden[\$4]) { print \"Error: line \" \$0 \" in G.fst contains forbidden symbol <s> or </s>\" | \"cat 1>&2\"; exit(1); }}' | fstcompile | fstinfo ";
   $output = `$cmd`;
   if ($output !~ m/# of states\s+[1-9]/) { # fstinfo did not read a nonempty FST (there should be final probs at least)...
     print "--> ERROR: failure running command to check for disambig-sym loops [possibly G.fst " .

@@ -135,6 +135,9 @@ for (my $x = 1; $x <= 3; $x++) { # This for-loop is to
     if ($jobstart > $jobend) {
       die "queue.pl: invalid job range $ARGV[0]";
     }
+    if ($jobstart <= 0) {
+      die "run.pl: invalid job range $ARGV[0], start must be strictly positive (this is a GridEngine limitation).";
+    }
   } elsif ($ARGV[0] =~ m/^([\w_][\w\d_]*)+=(\d+)$/) { # e.g. JOB=1.
     $array_job = 1;
     $jobname = $1;
@@ -323,7 +326,7 @@ if ($array_job == 1) { # It's an array job.
   $queue_array_opt = "-t $jobstart:$jobend"; 
   $logfile =~ s/$jobname/\$SGE_TASK_ID/g; # This variable will get 
   # replaced by qsub, in each job, with the job-id.
-  $cmd =~ s/$jobname/\$SGE_TASK_ID/g; # same for the command...
+  $cmd =~ s/$jobname/\$\{SGE_TASK_ID\}/g; # same for the command...
   $queue_logfile =~ s/\.?$jobname//; # the log file in the q/ subdirectory
   # is for the queue to put its log, and this doesn't need the task array subscript
   # so we remove it.
@@ -498,7 +501,7 @@ if (! $sync) { # We're not submitting with -sync y, so we
           } else {
             chop $last_line;
             print STDERR "queue.pl: Error, unfinished job no " .
-              "longer exists, log is in $logfile, last line is '$last_line'" .
+              "longer exists, log is in $logfile, last line is '$last_line', " .
               "syncfile is $f, return status of qstat was $ret\n" .
               "Possible reasons: a) Exceeded time limit? -> Use more jobs!" .
               " b) Shutdown/Frozen machine? -> Run again!\n";

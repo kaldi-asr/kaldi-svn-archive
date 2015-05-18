@@ -29,6 +29,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <map>
 
 
 namespace kaldi {
@@ -246,6 +247,10 @@ class Nnet {
   /// Scale all the learning rates in the neural net by this factor.
   void ScaleLearningRates(BaseFloat factor);
 
+  /// Scale all the learning rates in the neural net by the factors indexed
+  /// by the type of component.
+  void ScaleLearningRates(std::map<std::string, BaseFloat> scale_factors);
+
   /// Set all the learning rates in the neural net to this value.
   void SetLearningRates(BaseFloat learning_rates);
 
@@ -256,8 +261,6 @@ class Nnet {
   /// Get all the learning rates in the neural net (the output
   /// must have dim equal to NumUpdatableComponents()).
   void GetLearningRates(VectorBase<BaseFloat> *learning_rates) const;
-  
-
   
   // This sets *dot_prod to the dot prod of *this . validation_gradient,
   // separately for each updatable component.  The vector must have size equal

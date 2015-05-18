@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 # Copyright 2010-2011  Microsoft Corporation
 #                2013  Johns Hopkins University (author: Daniel Povey)
+#                2015  Hainan Xu
+#                2015  Guoguo Chen
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,14 +27,20 @@
 # of each lexicon line to be a pron-prob.
 
 $pron_probs = 0;
+$sil_probs = 0;
 
 if ($ARGV[0] eq "--pron-probs") {
   $pron_probs = 1;
   shift @ARGV;
 }
 
+if ($ARGV[0] eq "--sil-probs") {
+  $sil_probs = 1;
+  shift @ARGV;
+}
+
 if(@ARGV != 2) {
-    die "Usage: add_lex_disambig.pl [--pron-probs] lexicon.txt lexicon_disambig.txt "
+    die "Usage: add_lex_disambig.pl [--pron-probs] [--sil-probs] lexicon.txt lexicon_disambig.txt "
 }
 
 
@@ -58,6 +66,17 @@ foreach $l (@L) {
       $p = shift @A;
       if (!($p > 0.0 && $p <= 1.0)) { die "Bad lexicon line $l (expecting pron-prob as second field)"; }
     }
+    if ($sil_probs) {
+      $silp = shift @A;
+      if (!($silp > 0.0 && $silp <= 1.0)) { die "Bad lexicon line $l for silprobs"; }
+      $correction = shift @A;
+      if ($correction <= 0.0) { die "Bad lexicon line $l for silprobs"; }
+      $correction = shift @A;
+      if ($correction <= 0.0) { die "Bad lexicon line $l for silprobs"; }
+    }
+    if (!(@A)) {
+      die "Bad lexicon line $1, no phone in phone list";
+    }
     $count{join(" ",@A)}++;
 }
 
@@ -68,6 +87,10 @@ foreach $l (@L) {
     @A = split(" ", $l);
     shift @A; # Remove word.
     if ($pron_probs) { shift @A; } # remove pron-prob.
+    if ($sil_probs) {
+      shift @A; # Remove silprob
+      shift @A; # Remove silprob
+    }
     while(@A > 0) {
         pop @A;  # Remove last phone
         $issubseq{join(" ",@A)} = 1;
@@ -88,6 +111,11 @@ foreach $l (@L) {
     @A = split(" ", $l);
     $word = shift @A;
     if ($pron_probs) { $pron_prob = shift @A; }
+    if ($sil_probs) {
+      $sil_word_prob = shift @A;
+      $word_sil_correction = shift @A;
+      $prev_nonsil_correction = shift @A
+    }
     $phnseq = join(" ",@A);
     if(!defined $issubseq{$phnseq}
        && $count{$phnseq} == 1) {
@@ -110,7 +138,14 @@ foreach $l (@L) {
             $phnseq = $phnseq . " #" . $curnumber;
          }
     }
-    if ($pron_probs) {  print O "$word\t$pron_prob\t$phnseq\n"; }
+    if ($pron_probs) {  
+      if ($sil_probs) {
+        print O "$word\t$pron_prob\t$sil_word_prob\t$word_sil_correction\t$prev_nonsil_correction\t$phnseq\n"; 
+      }
+      else {
+        print O "$word\t$pron_prob\t$phnseq\n"; 
+      }
+    }
     else {  print O "$word\t$phnseq\n"; }
 }
 

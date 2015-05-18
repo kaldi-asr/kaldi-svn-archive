@@ -38,7 +38,8 @@ echo Preparing language models for test
 
 for lm_suffix in bg tgpr tg bg_5k tgpr_5k tg_5k; do
   test=data/lang_test_${lm_suffix}
-  cp -rT data/lang $test
+  mkdir -p $test
+  cp -r data/lang/* $test
 
   gunzip -c $lmdir/lm_${lm_suffix}.arpa.gz | \
    utils/find_arpa_oovs.pl $test/words.txt  > $tmpdir/oovs_${lm_suffix}.txt
@@ -58,7 +59,7 @@ for lm_suffix in bg tgpr tg bg_5k tgpr_5k tg_5k; do
       --osymbols=$test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
      fstrmepsilon | fstarcsort --sort_type=ilabel > $test/G.fst
   
-  utils/validate_lang.pl --skip-determinizability-check $test || exit 1;
+  utils/validate_lang.pl --skip-determinization-check $test || exit 1;
 done
 
 echo "Succeeded in formatting data."

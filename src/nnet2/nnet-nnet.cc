@@ -326,6 +326,25 @@ void Nnet::ScaleLearningRates(BaseFloat factor) {
             << ostr.str();
 }
 
+void Nnet::ScaleLearningRates(std::map<std::string, BaseFloat> scale_factors) {
+  std::ostringstream ostr;
+  for (int32 c = 0; c < NumComponents(); c++) {
+    UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[c]);
+    if (uc != NULL) {  // Updatable component...
+      // check if scaling factor was specified for a component of this type
+      std::map<std::string, BaseFloat>::const_iterator lr_iterator =
+        scale_factors.find(uc->Type());
+      if (lr_iterator != scale_factors.end())  {
+        uc->SetLearningRate(uc->LearningRate() * lr_iterator->second);
+        ostr << uc->LearningRate() << " ";
+      }
+    }
+  }
+  KALDI_LOG << "Scaled learning rates by component-type specific factor, "
+            << "new learning rates are "
+            << ostr.str();
+}
+
 void Nnet::SetLearningRates(BaseFloat learning_rate) {
   for (int32 c = 0; c < NumComponents(); c++) {
     UpdatableComponent *uc = dynamic_cast<UpdatableComponent*>(components_[c]);
@@ -728,8 +747,8 @@ Nnet *GenRandomNnet(int32 input_dim,
                     int32 output_dim) {
   std::vector<Component*> components;
   int32 cur_dim = input_dim;
-  // have up to 4 layers before the final one.
-  for (size_t i = 0; i < 4; i++) {
+  // have up to 10 layers before the final one.
+  for (size_t i = 0; i < 10; i++) {
     if (rand() % 2 == 0) {
       // add an affine component.
       int32 next_dim = 50 + rand() % 100;
@@ -743,14 +762,21 @@ Nnet *GenRandomNnet(int32 input_dim,
     } else if (rand() % 2 == 0) {
       components.push_back(new SigmoidComponent(cur_dim));
     } else if (rand() % 2 == 0 && cur_dim < 200) {
-      int32 left_context = rand() % 3, right_context = rand() % 3;
       SpliceComponent *component = new SpliceComponent();
-      std::vector<int32> context(right_context + left_context + 1);
-      for (int32 i = -1 * left_context ; i < right_context; i++ )
-        context[i + left_context] = i;
+      std::vector<int32> context;
+      while (true) {
+        context.clear();
+        for (int32 i = -3; i <= 3; i++) {
+          if (rand() % 3 == 0)
+            context.push_back(i);
+        }
+        if (!context.empty() && context.front() <= 0 &&
+            context.back() >= 0)
+          break;
+      }
       component->Init(cur_dim, context);
       components.push_back(component);
-      cur_dim = cur_dim * (1 + left_context + right_context);
+      cur_dim = cur_dim * context.size();
     } else {
       break;
     }

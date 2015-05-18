@@ -45,9 +45,9 @@ mkdir -p $graph_dir/sub_graphs
 # Maps OOV words to the oov symbol.
 oov=`cat $lang/oov.int`
 
-N=`tree-info --print-args=false exp/tri2b/tree |\
+N=`tree-info --print-args=false $model_dir/tree |\
   grep "context-width" | awk '{print $NF}'`
-P=`tree-info --print-args=false exp/tri2b/tree |\
+P=`tree-info --print-args=false $model_dir/tree |\
   grep "central-position" | awk '{print $NF}'`
 
 # Loops over all utterances.
@@ -106,7 +106,8 @@ while read line; do
 done < $text
 
 # Copies files from lang directory.
-cp -rT $lang $graph_dir
+mkdir -p $graph_dir
+cp -r $lang/* $graph_dir
 
 am-info --print-args=false $model_dir/final.mdl |\
  grep pdfs | awk '{print $NF}' > $graph_dir/num_pdfs

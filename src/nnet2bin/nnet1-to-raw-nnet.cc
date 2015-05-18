@@ -23,6 +23,7 @@
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-affine-transform.h"
 #include "nnet/nnet-activation.h"
+#include "nnet/nnet-various.h"
 #include "nnet2/nnet-nnet.h"
 #include "nnet2/nnet-component.h"
 
@@ -169,7 +170,6 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Convert nnet1 neural net to nnet2 'raw' neural net\n"
-        ""
         "\n"
         "Usage:  nnet1-to-raw-nnet [options] <nnet1-in> <nnet2-out>\n"
         "e.g.:\n"

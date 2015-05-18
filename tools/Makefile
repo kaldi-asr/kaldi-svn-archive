@@ -4,7 +4,8 @@ CXX = g++
 # CXX = clang++  # Uncomment this line to build with Clang.
 
 OPENFST_VERSION = 1.3.4
-# OPENFST_VERSION = 1.4.1  # Uncomment this line to build with OpenFst-1.4.1.
+# Uncomment the next line to build with OpenFst-1.4.1.
+# OPENFST_VERSION = 1.4.1
 # Note: OpenFst >= 1.4 requires C++11 support, hence you will need to use a
 # relatively recent C++ compiler, e.g. gcc >= 4.6, clang >= 3.0.
 
@@ -52,6 +53,7 @@ distclean:
 	rm -rf sctk-2.4.9-20141015-1634Z.tar.bz2
 	rm -rf openfst-$(OPENFST_VERSION).tar.gz
 	rm -f openfst
+	rm -rf libsndfile-1.0.25{,.tar.gz} BeamformIt-3.51{,.tgz}
 
 
 .PHONY: openfst # so target will be made even though "openfst" exists.
@@ -160,17 +162,37 @@ openblas: openblas_compiled
 
 fortran_opt = $(shell gcc -v 2>&1 | perl -e '$$x = join(" ", <STDIN>); if($$x =~ m/target=\S+64\S+/) { print "BINARY=64"; }')
 
+
+# note: you can change the USE_THREAD=0 option below to USE_THREAD=1
+# if you want Open Blas to use multiple threads.  then you could set,
+# for example, OPENBLAS_NUM_THREADS=2 in your path.sh so that the
+# runtime knows how many threads to use.
+# Note: if you ever get the error "Program is Terminated. Because you tried to
+# allocate too many memory regions.", this is because OpenBLAS has a fixed
+# buffer size for the number of threads and you might have gone beyond that.  It
+# may possibly help to add e.g. NUM_THREADS=64 to the command line below (after
+# $(MAKE)).
 openblas_compiled:
 	-git clone git://github.com/xianyi/OpenBLAS
-	$(MAKE) PREFIX=`pwd`/OpenBLAS/install FC=gfortran $(fortran_opt) DEBUG=1 USE_THREAD=0 -C OpenBLAS all install
+	cd OpenBLAS; sed 's:# FCOMMON_OPT = -frecursive:FCOMMON_OPT = -frecursive:' < Makefile.rule >tmp && mv tmp Makefile.rule
+	$(MAKE) PREFIX=`pwd`/OpenBLAS/install FC=gfortran $(fortran_opt) DEBUG=1 USE_THREAD=1 -C OpenBLAS all install
 
-beamformit: beamformit-3.51
+# libsndfile needed by beamformit,
+libsndfile: libsndfile-1.0.25.tar.gz libsndfile-1.0.25/lib/libsndfile.so
+libsndfile-1.0.25.tar.gz:
+	wget http://www.mega-nerd.com/libsndfile/files/libsndfile-1.0.25.tar.gz
+libsndfile-1.0.25/lib/libsndfile.so:
+	tar xvf libsndfile-1.0.25.tar.gz && cd libsndfile-1.0.25/ && \
+	./configure --prefix=$(PWD)/libsndfile-1.0.25/ && make && make install
+
+# beamforming tool,
+beamformit: libsndfile beamformit-3.51
 
 .PHONY: beamformit-3.51
 
 beamformit-3.51: beamformit-3.51.tgz
 	tar -xozf BeamformIt-3.51.tgz; \
-	cd BeamformIt-3.51; cmake . ; make
+	cd BeamformIt-3.51; patch -p1 -N < ../extras/beamformit.patch; cmake . ; make
 
 beamformit-3.51.tgz:
 	wget -c -T 10 http://www.xavieranguera.com/beamformit/releases/BeamformIt-3.51.tgz

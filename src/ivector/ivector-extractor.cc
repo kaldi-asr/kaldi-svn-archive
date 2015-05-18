@@ -259,13 +259,13 @@ void IvectorExtractor::GetIvectorDistMean(
   for (int32 i = 0; i < I; i++) {
     double gamma = utt_stats.gamma_(i);
     if (gamma != 0.0) {
-      Vector<double> x(utt_stats.X_.Row(i)); // == \gamma(i) \m_i
+      SubVector<double> x(utt_stats.X_, i); // == \gamma(i) \m_i
       // next line: a += \gamma_i \M_i^T \Sigma_i^{-1} \m_i
       linear->AddMatVec(1.0, Sigma_inv_M_[i], kTrans, x, 1.0); 
     }
   }
   SubVector<double> q_vec(quadratic->Data(), IvectorDim()*(IvectorDim()+1)/2);
-  q_vec.AddMatVec(1.0, U_, kTrans, Vector<double>(utt_stats.gamma_), 1.0);
+  q_vec.AddMatVec(1.0, U_, kTrans, utt_stats.gamma_, 1.0);
 }
 
 void IvectorExtractor::GetIvectorDistPrior(
@@ -534,7 +534,9 @@ void OnlineIvectorEstimationStats::AccStats(
   for (size_t idx = 0; idx < gauss_post.size(); idx++) {
     int32 g = gauss_post[idx].first;
     double weight = gauss_post[idx].second;
-    KALDI_ASSERT(weight >= 0.0);
+    // allow negative weights; it's needed in the online iVector extraction
+    // with speech-silence detection based on decoder traceback (we subtract
+    // stuff we previously added if the traceback changes).
     if (weight == 0.0)
       continue;
     linear_term_.AddMatVec(weight, extractor.Sigma_inv_M_[g], kTrans,
@@ -543,24 +545,56 @@ void OnlineIvectorEstimationStats::AccStats(
     quadratic_term_vec.AddVec(weight, U_g);
     tot_weight += weight;
   }
+  if (max_count_ > 0.0) {
+    // see comments in header RE max_count for explanation.  It relates to
+    // prior scaling when the count exceeds max_count_
+    double old_num_frames = num_frames_,
+        new_num_frames = num_frames_ + tot_weight;
+    double old_prior_scale = std::max(old_num_frames, max_count_) / max_count_,
+        new_prior_scale = std::max(new_num_frames, max_count_) / max_count_;
+    // The prior_scales are the inverses of the scales we would put on the stats
+    // if we were implementing this by scaling the stats.  Instead we
+    // scale the prior term.
+    double prior_scale_change = new_prior_scale - old_prior_scale;
+    if (prior_scale_change != 0.0) {
+      linear_term_(0) += prior_offset_ * prior_scale_change;
+      quadratic_term_.AddToDiag(prior_scale_change);
+    }
+  }
+  
   num_frames_ += tot_weight;
 }
 
 void OnlineIvectorEstimationStats::Scale(double scale) {
   KALDI_ASSERT(scale >= 0.0 && scale <= 1.0);
+  double old_num_frames = num_frames_;
   num_frames_ *= scale;
   quadratic_term_.Scale(scale);
   linear_term_.Scale(scale);
 
   // Scale back up the prior term, by adding in whatever we scaled down.
-  linear_term_(0) += prior_offset_ * (1.0 - scale);
-  quadratic_term_.AddToDiag(1.0 - scale);
+  if (max_count_ == 0.0) {
+    linear_term_(0) += prior_offset_ * (1.0 - scale);
+    quadratic_term_.AddToDiag(1.0 - scale);
+  } else {
+    double new_num_frames = num_frames_;
+    double old_prior_scale =
+        scale * std::max(old_num_frames, max_count_) / max_count_,
+        new_prior_scale = std::max(new_num_frames, max_count_) / max_count_;
+    // old_prior_scale is the scale the prior term currently has in the stats,
+    // i.e. the previous scale times "scale" as we just scaled the stats.
+    // new_prior_scale is the scale we want the prior term to have.
+    linear_term_(0) += prior_offset_ * (new_prior_scale - old_prior_scale);
+    quadratic_term_.AddToDiag(new_prior_scale - old_prior_scale);
+  }
 }
 
 void OnlineIvectorEstimationStats::Write(std::ostream &os, bool binary) const {
-  WriteToken(os, binary, "<OnlineIvectorEstimationStats>");  // magic string.
+  WriteToken(os, binary, "<OnlineIvectorEstimationStats>");
   WriteToken(os, binary, "<PriorOffset>");
   WriteBasicType(os, binary, prior_offset_);
+  WriteToken(os, binary, "<MaxCount>");
+  WriteBasicType(os, binary, max_count_);
   WriteToken(os, binary, "<NumFrames>");
   WriteBasicType(os, binary, num_frames_);
   WriteToken(os, binary, "<QuadraticTerm>");
@@ -571,11 +605,20 @@ void OnlineIvectorEstimationStats::Write(std::ostream &os, bool binary) const {
 }
 
 void OnlineIvectorEstimationStats::Read(std::istream &is, bool binary) {
-  ExpectToken(is, binary, "<OnlineIvectorEstimationStats>");  // magic string.
+  ExpectToken(is, binary, "<OnlineIvectorEstimationStats>");
   ExpectToken(is, binary, "<PriorOffset>");
   ReadBasicType(is, binary, &prior_offset_);
-  ExpectToken(is, binary, "<NumFrames>");
-  ReadBasicType(is, binary, &num_frames_);
+  std::string tok;
+  ReadToken(is, binary, &tok);
+  if (tok == "<MaxCount>") {
+    ReadBasicType(is, binary, &max_count_);
+    ExpectToken(is, binary, "<NumFrames>");
+    ReadBasicType(is, binary, &num_frames_);
+  } else {
+    KALDI_ASSERT(tok == "<NumFrames>");
+    max_count_ = 0.0;
+    ReadBasicType(is, binary, &num_frames_);
+  }
   ExpectToken(is, binary, "<QuadraticTerm>");
   quadratic_term_.Read(is, binary);
   ExpectToken(is, binary, "<LinearTerm>");
@@ -604,7 +647,7 @@ void OnlineIvectorEstimationStats::GetIvector(
     ivector->SetZero();
     (*ivector)(0) = prior_offset_;
   }
-  KALDI_VLOG(3) << "Objective function improvement from estimating the "
+  KALDI_VLOG(4) << "Objective function improvement from estimating the "
                 << "iVector (vs. default value) is "
                 << ObjfChange(*ivector);
 }
@@ -638,8 +681,9 @@ double OnlineIvectorEstimationStats::DefaultObjf() const {
 }
 
 OnlineIvectorEstimationStats::OnlineIvectorEstimationStats(int32 ivector_dim,
-                                                           BaseFloat prior_offset):
-    prior_offset_(prior_offset), num_frames_(0.0),
+                                                           BaseFloat prior_offset,
+                                                           BaseFloat max_count):
+    prior_offset_(prior_offset), max_count_(max_count), num_frames_(0.0),
     quadratic_term_(ivector_dim), linear_term_(ivector_dim) {
   if (ivector_dim != 0) {
     linear_term_(0) += prior_offset;
@@ -650,6 +694,7 @@ OnlineIvectorEstimationStats::OnlineIvectorEstimationStats(int32 ivector_dim,
 OnlineIvectorEstimationStats::OnlineIvectorEstimationStats(
     const OnlineIvectorEstimationStats &other):
     prior_offset_(other.prior_offset_),
+    max_count_(other.max_count_),
     num_frames_(other.num_frames_),
     quadratic_term_(other.quadratic_term_),
     linear_term_(other.linear_term_) { }
@@ -733,6 +778,12 @@ void IvectorExtractorUtteranceStats::AccStats(
   }
 }
 
+void IvectorExtractorUtteranceStats::Scale(double scale) {
+  gamma_.Scale(scale);
+  X_.Scale(scale);
+  for (size_t i = 0; i < S_.size(); i++)
+    S_[i].Scale(scale);
+}
 
 IvectorExtractorStats::IvectorExtractorStats(
     const IvectorExtractor &extractor,
@@ -1174,6 +1225,47 @@ double IvectorExtractorStats::UpdateProjection(
   return impr;
 }
 
+void IvectorExtractorStats::GetOrthogonalIvectorTransform(
+                              const SubMatrix<double> &T,
+                              IvectorExtractor *extractor, 
+                              Matrix<double> *A) const {
+  extractor->ComputeDerivedVars(); // Update the extractor->U_ matrix.
+  int32 ivector_dim = extractor->IvectorDim(),
+        num_gauss = extractor->NumGauss();
+  int32 quad_dim = ivector_dim*(ivector_dim + 1)/2;
+
+  // Each row of extractor->U_ is an SpMatrix. We can compute the weighted
+  // avg of these rows in a SubVector that updates the data of the SpMatrix
+  // Uavg.
+  SpMatrix<double> Uavg(ivector_dim), Vavg(ivector_dim - 1);
+  SubVector<double> uavg_vec(Uavg.Data(), quad_dim);
+  if (extractor->IvectorDependentWeights()) {
+    Vector<double> w_uniform(num_gauss);
+    for (int32 i = 0; i < num_gauss; i++) w_uniform(i) = 1.0;
+    uavg_vec.AddMatVec(1.0/num_gauss, extractor->U_, kTrans, w_uniform, 0.0);
+  } else {
+    uavg_vec.AddMatVec(1.0, extractor->U_, kTrans, extractor->w_vec_, 0.0);
+  }
+
+  Matrix<double> Tinv(T);
+  Tinv.Invert();
+  Matrix<double> Vavg_temp(Vavg), Uavg_temp(Uavg);
+    
+  Vavg_temp.AddMatMatMat(1.0, Tinv, kTrans, SubMatrix<double>(Uavg_temp,
+                           1, ivector_dim-1, 1, ivector_dim-1),
+                         kNoTrans, Tinv, kNoTrans, 0.0);
+  Vavg.CopyFromMat(Vavg_temp);
+
+  Vector<double> s(ivector_dim-1);
+  Matrix<double> P(ivector_dim-1, ivector_dim-1);
+  Vavg.Eig(&s, &P);
+  SortSvd(&s, &P);
+  A->Resize(P.NumCols(), P.NumRows());
+  A->SetZero();
+  A->AddMat(1.0, P, kTrans);
+  KALDI_LOG << "Eigenvalues of Vavg: " << s;
+}
+
 class IvectorExtractorUpdateProjectionClass {
  public:
   IvectorExtractorUpdateProjectionClass(const IvectorExtractorStats &stats,
@@ -1420,7 +1512,6 @@ double IvectorExtractorStats::PriorDiagnostics(double old_prior_offset) const {
 }
 
 
-
 double IvectorExtractorStats::UpdatePrior(
     const IvectorExtractorEstimationOptions &opts,
     IvectorExtractor *extractor) const {
@@ -1456,11 +1547,12 @@ double IvectorExtractorStats::UpdatePrior(
       KALDI_ASSERT(Tproj.IsUnit(1.0e-06));
     }
   }
+
   Vector<double> sum_proj(ivector_dim);
   sum_proj.AddMatVec(1.0, T, kNoTrans, sum, 0.0);
-
+  
   KALDI_ASSERT(sum_proj.Norm(2.0) != 0.0);
-
+  
   // We need a projection that (like T) makes "covar" unit,
   // but also that sends "sum" to a multiple of the vector e0 = [ 1 0 0 0 .. ].
   // We'll do this by a transform that follows T, of the form
@@ -1495,6 +1587,24 @@ double IvectorExtractorStats::UpdatePrior(
   
   Matrix<double> V(ivector_dim, ivector_dim);
   V.AddMatMat(1.0, U, kNoTrans, T, kNoTrans, 0.0);
+
+  // Optionally replace transform V with V' such that V' makes the
+  // covariance unit and additionally diagonalizes the quadratic
+  // term.
+  if (opts.diagonalize) {
+
+    SubMatrix<double> Vsub(V, 1, V.NumRows()-1, 0, V.NumCols());
+    Matrix<double> Vtemp(SubMatrix<double>(V, 1, V.NumRows()-1, 
+                         0, V.NumCols())), 
+                   A;
+    GetOrthogonalIvectorTransform(SubMatrix<double>(Vtemp, 0, 
+                                  Vtemp.NumRows(), 1, Vtemp.NumCols()-1),
+                                  extractor, &A);
+
+    // It is necessary to exclude the first row of V in this transformation
+    // so that the sum_vproj has the form [ x 0 0 0 .. ], where x > 0. 
+    Vsub.AddMatMat(1.0, A, kNoTrans, Vtemp, kNoTrans, 0.0);
+  }
 
   if (num_floored == 0) { // a check..
     SpMatrix<double> Vproj(ivector_dim);
@@ -1534,6 +1644,7 @@ double EstimateIvectorsOnline(
     const IvectorExtractor &extractor,
     int32 ivector_period,
     int32 num_cg_iters,
+    BaseFloat max_count,
     Matrix<BaseFloat> *ivectors) {
   
   KALDI_ASSERT(ivector_period > 0);
@@ -1544,7 +1655,8 @@ double EstimateIvectorsOnline(
   ivectors->Resize(num_ivectors, extractor.IvectorDim());
 
   OnlineIvectorEstimationStats online_stats(extractor.IvectorDim(),
-                                            extractor.PriorOffset());
+                                            extractor.PriorOffset(),
+                                            max_count);
 
   double ans = 0.0;
   

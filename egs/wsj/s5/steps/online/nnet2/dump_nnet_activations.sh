@@ -111,12 +111,13 @@ if [ $stage -le 2 ]; then
       ark:$dir/spk2utt_fake/spk2utt.JOB "$wav_rspecifier" ark:- \| \
     nnet-compute $dir/nnet.raw ark:- ark:- \| \
     copy-feats --compress=true ark:- \
-      ark,scp,t:$dir/feats/feats.JOB.ark,$dir/feats/feats.JOB.scp || exit 1;
+      ark,scp:$dir/feats/feats.JOB.ark,$dir/feats/feats.JOB.scp || exit 1;
 fi
 
 if [ $stage -le 3 ]; then
   echo "$0: combining activations across jobs"
-  cp -rT $data $dir/data
+  mkdir -p $dir/data
+  cp -r $data/* $dir/data
   for j in $(seq $nj); do cat $dir/feats/feats.$j.scp; done >$dir/data/feats.scp || exit 1;
 fi
 

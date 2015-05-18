@@ -38,7 +38,7 @@ sph2pipe=$KALDI_ROOT/tools/sph2pipe_v2.5/sph2pipe
 # Trans directory check
 if [ ! -d $SWBD_DIR/transcriptions/swb_ms98_transcriptions ]; then
   # To get the SWBD transcriptions and dict, do:
-  echo " *** Downloading trascriptions and dictionary ***"   
+  echo " *** Downloading transcriptions and dictionary ***"   
   ( 
     cd $dir;
     wget http://www.isip.piconepress.com/projects/switchboard/releases/switchboard_word_alignments.tar.gz
@@ -73,7 +73,7 @@ awk '{
        stime=$2; etime=$3;
        printf("%s-%s_%06.0f-%06.0f", 
               name, side, int(100*stime+0.5), int(100*etime+0.5));
-       for(i=4;i<=NF;i++) printf(" %s", tolower($i)); printf "\n"
+       for(i=4;i<=NF;i++) printf(" %s", $i); printf "\n"
 }' $dir/swb_ms98_transcriptions/*/*/*-trans.text  > $dir/transcripts1.txt
 
 # test if trans. file is sorted
@@ -97,7 +97,15 @@ cat $dir/transcripts1.txt \
 
 # **NOTE: swbd1_map_words.pl has been modified to make the pattern matches 
 # case insensitive
-local/swbd1_map_words.pl -f 2- $dir/transcripts2.txt > $dir/text  # final transcripts
+local/swbd1_map_words.pl -f 2- $dir/transcripts2.txt  > $dir/text  # final transcripts
+
+# format acronyms in text
+python local/map_acronyms_transcripts.py -i $dir/text -o $dir/text_map \
+  -M data/local/dict/acronyms_swbd.map
+cp $dir/text $dir/text_bk
+mv $dir/text_map $dir/text
+
+
 
 # (1c) Make segment files from transcript
 #segments file format is: utt-id side-id start-time end-time, e.g.:

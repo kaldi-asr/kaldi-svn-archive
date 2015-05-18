@@ -74,18 +74,22 @@ cat $dir/lexicon2_raw.txt | \
              if (defined($pron{$a})) { $this_pron = $this_pron . "$pron{$a} "; }
              else { $pron_ok = 0; print STDERR "Not handling word $w, count is $c\n"; last; } 
            }
-           if ($pron_ok) { $new_pron{$w} = $this_pron;  } }}}
+           if ($pron_ok) { $this_pron =~ s/\s+$//; $new_pron{$w} = $this_pron;  } }}}
     foreach $w (keys %new_pron) { print "$w $new_pron{$w}\n"; } ' \
-   $dir/word_counts > $dir/lexicon3_expand.txt || exit 1;
+   $dir/word_counts > $dir/lexicon3_expand_v1.txt || exit 1;
+
+cat $dir/word_counts | awk '{print $2}' > $dir/fisher_word_list
+filter_scp.pl $dir/fisher_word_list $dir/lexicon2_raw.txt > $dir/lexicon3_expand_v2.txt
+
+cat $dir/lexicon3_expand_v1.txt $dir/lexicon3_expand_v2.txt | sort -u > $dir/lexicon3_expand.txt
 
 cat $dir/lexicon3_expand.txt  \
    <( echo "mm m"
       echo "<unk> oov" ) > $dir/lexicon4_extra.txt
 
+cp $dir/lexicon4_extra.txt $dir/lexicon_fisher.txt
 
-cp $dir/lexicon4_extra.txt $dir/lexicon.txt
-
-awk '{print $1}' $dir/lexicon.txt | \
+awk '{print $1}' $dir/lexicon_fisher.txt | \
   perl -e '($word_counts)=@ARGV;
    open(W, "<$word_counts")||die "opening word-counts $word_counts";
    while(<STDIN>) { chop; $seen{$_}=1; }
@@ -97,11 +101,9 @@ awk '{print $1}' $dir/lexicon.txt | \
 echo "*Highest-count OOVs are:"
 head -n 20 $dir/oov_counts.txt
 
-utils/validate_dict_dir.pl $dir
-exit 0;
 
 
-
+# Preparing SWBD acronymns from its dictionary
 srcdir=data/local/train_swbd # This is where we downloaded some stuff..
 dir=data/local/dict
 mkdir -p $dir
@@ -110,64 +112,37 @@ srcdict=$srcdir/swb_ms98_transcriptions/sw-ms98-dict.text
 # assume swbd_p1_data_prep.sh was done already.
 [ ! -f "$srcdict" ] && echo "No such file $srcdict" && exit 1;
 
+cp $srcdict $dir/lexicon0.txt || exit 1;
+patch <local/dict.patch $dir/lexicon0.txt || exit 1;
+
 #(2a) Dictionary preparation:
 # Pre-processing (Upper-case, remove comments)
-awk 'BEGIN{getline}($0 !~ /^#/) {$0=toupper($0); print}' \
-  $srcdict | sort | awk '($0 !~ /^[:space:]*$/) {print}' \
-   > $dir/lexicon1.txt || exit 1;
+awk 'BEGIN{getline}($0 !~ /^#/) {print}' \
+  $dir/lexicon0.txt | sort | awk '($0 !~ /^[[:space:]]*$/) {print}' \
+   > $dir/lexicon1_swbd.txt || exit 1;
 
 
-cat $dir/lexicon1.txt | awk '{ for(n=2;n<=NF;n++){ phones[$n] = 1; }} END{for (p in phones) print p;}' | \
-  grep -v SIL > $dir/nonsilence_phones.txt  || exit 1;
-
-( echo SIL; echo SPN; echo NSN; echo LAU ) > $dir/silence_phones.txt
-
-echo SIL > $dir/optional_silence.txt
-
-# No "extra questions" in the input to this setup, as we don't
-# have stress or tone.
-echo -n >$dir/extra_questions.txt
-
-# Add to the lexicon the silences, noises etc.
-(echo '!SIL SIL'; echo '[VOCALIZED-NOISE] SPN'; echo '[NOISE] NSN'; echo '[LAUGHTER] LAU';
- echo '<UNK> SPN' ) | \
- cat - $dir/lexicon1.txt  > $dir/lexicon2.txt || exit 1;
+cat $dir/lexicon1_swbd.txt | awk '{ for(n=2;n<=NF;n++){ phones[$n] = 1; }} END{for (p in phones) print p;}' | \
+  grep -v SIL > $dir/nonsilence_phones_msu.txt  || exit 1;
 
 
-# Map the words in the lexicon.  That is-- for each word in the lexicon, we map it
-# to a new written form.  The transformations we do are:
-# remove laughter markings, e.g.
-# [LAUGHTER-STORY] -> STORY
-# Remove partial-words, e.g.
-# -[40]1K W AH N K EY
-# becomes -1K
-# and
-# -[AN]Y IY
-# becomes
-# -Y
-# -[A]B[OUT]- B
-# becomes
-# -B-
-# Also, curly braces, which appear to be used for "nonstandard"
-# words or non-words, are removed, e.g. 
-# {WOLMANIZED} W OW L M AX N AY Z D
-# -> WOLMANIZED
-# Also, mispronounced words, e.g.
-#  [YEAM/YEAH] Y AE M
-# are changed to just e.g. YEAM, i.e. the orthography
-# of the mispronounced version.
-# Note-- this is only really to be used in training.  The main practical
-# reason is to avoid having tons of disambiguation symbols, which
-# we otherwise would get because there are many partial words with
-# the same phone sequences (most problematic: S).
-# Also, map
-# THEM_1 EH M -> THEM
-# so that multiple pronunciations just have alternate entries
-# in the lexicon.
+local/swbd1_map_words.pl -f 1 $dir/lexicon1_swbd.txt | sort | uniq \
+   > $dir/lexicon2_swbd.txt || exit 1;
 
-local/swbd_map_words.pl -f 1 $dir/lexicon2.txt | sort | uniq > $dir/lexicon3.txt || exit 1;
+cp conf/MSU_single_letter.txt $dir/MSU_single_letter.txt
+python local/format_acronyms_dict.py -i $dir/lexicon2_swbd.txt \
+  -o1 $dir/acronyms_lex_swbd.txt -o2 $dir/acronyms_lex_swbd_ori.txt \
+  -L $dir/MSU_single_letter.txt -M $dir/acronyms_raw.map
+cat $dir/acronyms_raw.map | sort -u > $dir/acronyms_swbd.map
 
-cp $dir/lexicon3.txt $dir/lexicon.txt # This is the final lexicon.
+cat $dir/acronyms_lex_swbd.txt |\
+  sed 's/ ax/ ah/g' |\
+  sed 's/ en/ ah n/g' |\
+  sed 's/ el/ ah l/g' \
+  > $dir/acronyms_lex_swbd_cmuphones.txt
+
+
+cat $dir/acronyms_lex_swbd_cmuphones.txt $dir/lexicon_fisher.txt | sort -u > $dir/lexicon.txt
 
 echo Prepared input dictionary and phone-sets for Switchboard phase 1.
-
+utils/validate_dict_dir.pl $dir

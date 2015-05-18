@@ -1,5 +1,18 @@
 #!/bin/bash
 
+# This script demonstrates some scripts for resegmenting data.  This was
+# developed for a scenario where the evaluation data doesn't come with
+# segmentation, so we run a phone decoding on the evaluation data to get the
+# segmentation, before we decode.  We were concerned that possibly there would
+# be a mismatch with the way training data was prepared (e.g. the CMVN would
+# have a different amount of silence), so this script demonstrates running the
+# same resegmentation on the training data and automatically converting the text
+# of the transcriptions to match the automatically derived segmentation.  IIRC
+# this probably didn't make much difference.  The main point of this script is
+# to have a top-level place that demonstrates the various scripts related to
+# resegmentation of data.
+
+
 . cmd.sh
 
 steps/align_fmllr.sh --nj 30 --cmd "$train_cmd" \
@@ -17,7 +30,8 @@ steps/make_phone_graph.sh data/lang exp/tri3b_ali_all exp/tri4b_seg || exit 1;
 mkdir -p data_reseg
 
 for data in train eval2000; do
-  cp -rT data/${data} data_reseg/${data}_orig; rm -r data_reseg/${data}_orig/split*
+  mkdir -p data_reseg/${data}_orig
+  cp data/${data}/* data_reseg/${data}_orig || true
   for f in text utt2spk spk2utt feats.scp cmvn.scp segments; do rm data_reseg/${data}_orig/$f; done
   cat data_reseg/${data}_orig/wav.scp  | awk '{print $1, $1;}' | \
     tee data_reseg/${data}_orig/spk2utt > data_reseg/${data}_orig/utt2spk

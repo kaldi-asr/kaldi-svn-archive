@@ -19,8 +19,9 @@ lmwt=1.0
 learn_rate=0.00001
 halving_factor=1.0 #ie. disable halving
 do_smbr=true
-exclude_silphones=false # exclude silphones from approximate accuracy computation
+exclude_silphones=true # exclude silphones from approximate accuracy computation
 unkphonelist= # exclude unkphones from approximate accuracy computation (overrides exclude_silphones)
+one_silence_class=true # true : reduce insertions in sMBR/MPE FW/BW, more stable training,
 verbose=1
 
 seed=777    # seed value used for training data shuffling
@@ -98,25 +99,29 @@ $exclude_silphones && mpe_silphones_arg="--silence-phones=$silphonelist" # all s
 # By shuffling features, we have to use lattices with random access (indexed by .scp file).
 cat $data/feats.scp | utils/shuffle_list.pl --srand $seed > $dir/train.scp
 
-
 ###
-### Prepare feature pipeline
+### PREPARE FEATURE EXTRACTION PIPELINE
 ###
-# Create the feature stream:
-feats="ark,s,cs:copy-feats scp:$dir/train.scp ark:- |"
-# Optionally add cmvn
-if [ -f $srcdir/norm_vars ]; then
-  norm_vars=$(cat $srcdir/norm_vars 2>/dev/null)
-  [ ! -f $data/cmvn.scp ] && echo "$0: cannot find cmvn stats $data/cmvn.scp" && exit 1
-  feats="$feats apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp ark:- ark:- |"
-  cp $srcdir/norm_vars $dir
-fi
-# Optionally add deltas
-if [ -f $srcdir/delta_order ]; then
-  delta_order=$(cat $srcdir/delta_order)
-  feats="$feats add-deltas --delta-order=$delta_order ark:- ark:- |"
-  cp $srcdir/delta_order $dir
-fi
+# import config,
+cmvn_opts=
+delta_opts=
+D=$srcdir
+[ -e $D/norm_vars ] && cmvn_opts="--norm-means=true --norm-vars=$(cat $D/norm_vars)" # Bwd-compatibility,
+[ -e $D/cmvn_opts ] && cmvn_opts=$(cat $D/cmvn_opts)
+[ -e $D/delta_order ] && delta_opts="--delta-order=$(cat $D/delta_order)" # Bwd-compatibility,
+[ -e $D/delta_opts ] && delta_opts=$(cat $D/delta_opts)
+#
+# Create the feature stream,
+feats="ark,o:copy-feats scp:$dir/train.scp ark:- |"
+# apply-cmvn (optional),
+[ ! -z "$cmvn_opts" -a ! -f $data/cmvn.scp ] && echo "$0: Missing $data/cmvn.scp" && exit 1
+[ ! -z "$cmvn_opts" ] && feats="$feats apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp ark:- ark:- |"
+# add-deltas (optional),
+[ ! -z "$delta_opts" ] && feats="$feats add-deltas $delta_opts ark:- ark:- |"
+#
+# Record the setup,
+[ ! -z "$cmvn_opts" ] && echo $cmvn_opts >$dir/cmvn_opts
+[ ! -z "$delta_opts" ] && echo $delta_opts >$dir/delta_opts
 ###
 ###
 ###
@@ -154,6 +159,7 @@ while [ $x -le $num_iters ]; do
        --learn-rate=$learn_rate \
        --do-smbr=$do_smbr \
        --verbose=$verbose \
+       --one-silence-class=$one_silence_class \
        $mpe_silphones_arg \
        $cur_mdl $alidir/final.mdl "$feats" "$lats" "$ali" $dir/$x.nnet || exit 1
   fi
@@ -169,8 +175,12 @@ done
 
 (cd $dir; [ -e final.nnet ] && unlink final.nnet; ln -s $((x-1)).nnet final.nnet)
 
+
 echo "MPE/sMBR training finished"
 
-
+echo "Re-estimating priors by forwarding the training set."
+. cmd.sh
+nj=$(cat $alidir/num_jobs)
+steps/nnet/make_priors.sh --cmd "$train_cmd" --nj $nj $data $dir || exit 1
 
 exit 0

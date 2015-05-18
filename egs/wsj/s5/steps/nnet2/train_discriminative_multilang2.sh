@@ -15,6 +15,7 @@ boost=0.0       # option relevant for MMI
 
 criterion=smbr
 drop_frames=false #  option relevant for MMI
+one_silence_class=true # option relevant for MPE/SMBR
 num_jobs_nnet="4 4"    # Number of neural net jobs to run in parallel, one per
                        # language..  Note: this will interact with the learning
                        # rates (if you decrease this, you'll have to decrease
@@ -61,14 +62,11 @@ if [ $# -lt 3 ]; then
   echo "Main options (for others, see top of script file)"
   echo "  --config <config-file>                           # config file containing options"
   echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
-  echo "  --num-epochs <#epochs|4>                        # Number of epochs of training"
-  echo "  --initial-learning-rate <initial-learning-rate|0.0002> # Learning rate at start of training"
-  echo "  --final-learning-rate  <final-learning-rate|0.0004>   # Learning rate at end of training"
-  echo "  --num-jobs-nnet <num-jobs|8>                     # Number of parallel jobs to use for main neural net"
-  echo "                                                   # training (will affect results as well as speed; try 8, 16)"
-  echo "                                                   # Note: if you increase this, you may want to also increase"
-  echo "                                                   # the learning rate.  Also note: if there are fewer archives"
-  echo "                                                   # of egs than this, it will get reduced automatically."
+  echo "  --num-epochs <#epochs|4>                        # Number of epochs of training (measured on language 0)"
+  echo "  --learning-rate <learning-rate|0.0002>           # Learning rate to use"
+  echo "  --num-jobs-nnet <num-jobs|4 4>                   # Number of parallel jobs to use for main neural net:"
+  echo "                                                   # space separated list of num-jobs per language. Affects"
+  echo "                                                   # relative weighting."
   echo "  --num-threads <num-threads|16>                   # Number of parallel threads per job (will affect results"
   echo "                                                   # as well as speed; may interact with batch size; if you increase"
   echo "                                                   # this, you may want to decrease the batch size.  With GPU, must be 1."
@@ -220,6 +218,7 @@ while [ $x -lt $num_iters ]; do
           "ark:$this_degs_dir/degs.\$[((JOB-1+($x*$this_num_jobs_nnet))%$this_num_archives)+1].ark" ark:- \| \
           nnet-train-discriminative$train_suffix --silence-phones=$this_silphonelist \
            --criterion=$criterion --drop-frames=$drop_frames \
+           --one-silence-class=$one_silence_class \
            --boost=$boost --acoustic-scale=$acoustic_scale \
            $dir/$lang/$x.mdl ark:- $dir/$lang/$[$x+1].JOB.mdl || exit 1;
 

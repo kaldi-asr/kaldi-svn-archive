@@ -96,6 +96,7 @@ realign_times=          # List of times on which we realign.  Each time is
                         # number.
 num_jobs_align=30       # Number of jobs for realignment
 # End configuration section.
+frames_per_eg=8 # to be passed on to get_egs2.sh
 
 trap 'for pid in $(jobs -pr); do kill -KILL $pid; done' INT QUIT TERM
 
@@ -215,11 +216,18 @@ if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
       --samples-per-iter $samples_per_iter --stage $get_egs_stage \
       --io-opts "$io_opts" \
       --cmd "$cmd" $egs_opts \
+      --frames-per-eg $frames_per_eg \
       $data $alidir $dir/egs || exit 1;
 fi
 
 if [ -z $egs_dir ]; then
   egs_dir=$dir/egs
+  # confirm that the provided egs_dir has the necessary context
+  egs_left_context=$(cat $egs_dir/info/left_context) || exit -1
+  egs_right_context=$(cat $egs_dir/info/right_context) || exit -1
+  echo $egs_left_context  $nnet_left_context $egs_right_context $nnet_right_context
+  ([[ $egs_left_context -lt $nnet_left_context ]] || [[ $egs_right_context -lt $nnet_right_context ]]) &&
+    echo "Provided egs_dir $egs_dir does not have sufficient context to train the neural network." && exit -1;
 fi
 
 frames_per_eg=$(cat $egs_dir/info/frames_per_eg) || { echo "error: no such file $egs_dir/info/frames_per_eg"; exit 1; }

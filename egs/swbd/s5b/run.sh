@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# This recipe is based on the run_edin.sh recipe, by Arnab Ghoshal,
-# in the s5/ directory.
-# This is supposed to be the "new" version of the switchboard recipe,
-# after the s5/ one became a bit messy.  It is not 100% checked-through yet.
+# Warning: this recipe is now out of date.  See ../s5c/
 
-#exit 1;
+exit 1;
+
+
+
 # This is a shell script, but it's recommended that you run the commands one by
 # one by copying and pasting into the shell.
 # Caution: some of the graph creation steps use quite a bit of memory, so you
@@ -209,7 +209,9 @@ for lm_suffix in tg fsh_tgpr; do
 done
 
 
-#local/run_resegment.sh
+# The following script demonstrates a scenario where we run automatic segmentation on
+# both train and test data.
+# local/run_resegment.sh
 
 # Now train a LDA+MLLT+SAT model on the entire training data (train_nodup; 
 # 286 hours)
@@ -366,6 +368,7 @@ done
 # this will help find issues with the lexicon.
 # steps/cleanup/debug_lexicon.sh --nj 300 --cmd "$train_cmd" data/train_nodev data/lang exp/tri4b data/local/dict/lexicon.txt exp/debug_lexicon
 
+# steps/cleanup/find_bad_utts.sh  --nj 150 --cmd "$train_cmd" data/train_nodup data/lang exp/tri4b exp/tri4b_debug
 
 # local/run_sgmm2.sh
 

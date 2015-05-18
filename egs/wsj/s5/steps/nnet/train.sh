@@ -7,11 +7,11 @@
 config=            # config, which is also sent to all other scripts
 
 # NETWORK INITIALIZATION
-mlp_init=          # select initialized MLP (override initialization)
-mlp_proto=         # select network prototype (initialize it)
+nnet_init=          # select initialized MLP (override initialization)
+nnet_proto=         # select network prototype (initialize it)
 proto_opts=        # non-default options for 'make_nnet_proto.py'
 feature_transform= # provide feature transform (=splice,rescaling,...) (don't build new one)
-prepend_cnn_type=none   # (none,cnn1d,cnn2d) create nnet with convolutional layers
+network_type=dnn   # (dnn,cnn1d,cnn2d,lstm) select type of neural network
 cnn_proto_opts=     # extra options for 'make_cnn_proto.py'
 #
 hid_layers=4       # nr. of hidden layers (prior to sotfmax or bottleneck)
@@ -25,9 +25,8 @@ init_opts=         # options, passed to the initialization script
 copy_feats=true # resave the train/cv features into /tmp (disabled by default)
  copy_feats_tmproot= # tmproot for copy-feats (optional)
 # feature config (applies always)
-apply_cmvn=false # apply normalization to input features?
- norm_vars=false # use variance normalization?
-delta_order=
+cmvn_opts=
+delta_opts=
 # feature_transform:
 splice=5         # temporal splicing
 splice_step=1    # stepsize of the splicing (1 == no gap between frames)
@@ -151,7 +150,7 @@ else
   cp $alidir/tree $dir/tree || exit 1
 
   # make phone counts for analysis
-  analyze-counts --verbose=1 --symbol-table=$lang/phones.txt "$labels_tr_phn" /dev/null 2>$dir/log/analyze_counts_phones.log || exit 1
+  [ -e $lang/phones.txt ] && analyze-counts --verbose=1 --symbol-table=$lang/phones.txt "$labels_tr_phn" /dev/null 2>$dir/log/analyze_counts_phones.log || exit 1
 fi
 
 ###### PREPARE FEATURES ######
@@ -178,43 +177,40 @@ head -n 10000 $dir/train.scp > $dir/train.scp.10k
 
 ###### PREPARE FEATURE PIPELINE ######
 
-# read the features
+# optionally import feature setup from pre-training,
+if [ ! -z $feature_transform ]; then
+  D=$(dirname $feature_transform)
+  [ -e $D/norm_vars ] && cmvn_opts="--norm-means=true --norm-vars=$(cat $D/norm_vars)" # Bwd-compatibility,
+  [ -e $D/cmvn_opts ] && cmvn_opts=$(cat $D/cmvn_opts)
+  [ -e $D/delta_order ] && delta_opts="--delta-order=$(cat $D/delta_order)" # Bwd-compatibility,
+  [ -e $D/delta_opts ] && delta_opts=$(cat $D/delta_opts)
+  echo "Imported config : cmvn_opts='$cmvn_opts' delta_opts='$delta_opts'"
+fi
+
+# read the features,
 feats_tr="ark:copy-feats scp:$dir/train.scp ark:- |"
 feats_cv="ark:copy-feats scp:$dir/cv.scp ark:- |"
-
-# CMVN:
-# optionally import CMVN config from pre-training
-if [ ! -z $feature_transform ]; then
-  norm_vars_file=$(dirname $feature_transform)/norm_vars 
-  if [ -e $norm_vars_file ]; then
-    apply_cmvn=true; norm_vars=$(cat $norm_vars_file);
-  fi
-  echo "Imported CMVN config from pre-training: apply_cmvn=$apply_cmvn; norm_vars=$norm_vars"
-  delta_order_file=$(dirname $feature_transform)/delta_order
-  [ -r $delta_order_file ] && delta_order=$(cat $delta_order_file) && echo "Imported delta-order $delta_order"
-fi
-# optionally add per-speaker CMVN
-if [ $apply_cmvn == "true" ]; then
+# optionally add per-speaker CMVN,
+if [ ! -z "$cmvn_opts" ]; then
   echo "Will use CMVN statistics : $data/cmvn.scp, $data_cv/cmvn.scp"
-  [ ! -r $data/cmvn.scp ] && echo "Cannot find cmvn stats $data/cmvn.scp" && exit 1;
-  [ ! -r $data_cv/cmvn.scp ] && echo "Cannot find cmvn stats $data_cv/cmvn.scp" && exit 1;
-  feats_tr="$feats_tr apply-cmvn --print-args=false --norm-vars=$norm_vars --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp ark:- ark:- |"
-  feats_cv="$feats_cv apply-cmvn --print-args=false --norm-vars=$norm_vars --utt2spk=ark:$data_cv/utt2spk scp:$data_cv/cmvn.scp ark:- ark:- |"
-  # keep track of norm_vars option
-  echo "$norm_vars" >$dir/norm_vars 
+  [ ! -r $data/cmvn.scp ] && echo "Missing $data/cmvn.scp" && exit 1;
+  [ ! -r $data_cv/cmvn.scp ] && echo "Missing $data_cv/cmvn.scp" && exit 1;
+  feats_tr="$feats_tr apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp ark:- ark:- |"
+  feats_cv="$feats_cv apply-cmvn $cmvn_opts --utt2spk=ark:$data_cv/utt2spk scp:$data_cv/cmvn.scp ark:- ark:- |"
 else
-  echo "apply_cmvn is disabled (per speaker norm. on input features)"
+  echo "apply-cmvn is not used"
+fi
+# optionally add deltas,
+if [ ! -z "$delta_opts" ]; then
+  feats_tr="$feats_tr add-deltas $delta_opts ark:- ark:- |"
+  feats_cv="$feats_cv add-deltas $delta_opts ark:- ark:- |"
+  echo "add-deltas with $delta_opts"
 fi
 
-# optionally add deltas
-delta_order_file=$(dirname $feature_transform)/delta_order
-[ -e $delta_order_file ] && delta_order=$(cat $delta_order_file)
-if [ "$delta_order" != "" ]; then
-  feats_tr="$feats_tr add-deltas --delta-order=$delta_order ark:- ark:- |"
-  feats_cv="$feats_cv add-deltas --delta-order=$delta_order ark:- ark:- |"
-  echo "$delta_order" > $dir/delta_order
-  echo "add-deltas (delta_order $delta_order)"
-fi
+# keep track of the config,
+[ ! -z "$cmvn_opts" ] && echo "$cmvn_opts" >$dir/cmvn_opts 
+[ ! -z "$delta_opts" ] && echo "$delta_opts" >$dir/delta_opts
+#
 
 # get feature dim
 echo "Getting feature dim : "
@@ -319,13 +315,13 @@ fi
 ###### INITIALIZE THE NNET ######
 echo 
 echo "# NN-INITIALIZATION"
-[ ! -z "$mlp_init" ] && echo "Using pre-initialized network '$mlp_init'";
-if [ ! -z "$mlp_proto" ]; then 
-  echo "Initializing using network prototype '$mlp_proto'";
-  mlp_init=$dir/nnet.init; log=$dir/log/nnet_initialize.log
-  nnet-initialize $mlp_proto $mlp_init 2>$log || { cat $log; exit 1; } 
+[ ! -z "$nnet_init" ] && echo "Using pre-initialized network '$nnet_init'";
+if [ ! -z "$nnet_proto" ]; then 
+  echo "Initializing using network prototype '$nnet_proto'";
+  nnet_init=$dir/nnet.init; log=$dir/log/nnet_initialize.log
+  nnet-initialize $nnet_proto $nnet_init 2>$log || { cat $log; exit 1; } 
 fi
-if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
+if [[ -z "$nnet_init" && -z "$nnet_proto" ]]; then
   echo "Getting input/output dims :"
   #initializing the MLP, get the i/o dims...
   #input-dim
@@ -339,39 +335,45 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
   [ -z $num_tgt ] && num_tgt=$(hmm-info --print-args=false $alidir/final.mdl | grep pdfs | awk '{ print $NF }')
 
   # make network prototype
-  mlp_proto=$dir/nnet.proto
-  echo "Genrating network prototype $mlp_proto"
-  case "$prepend_cnn_type" in
-    none)
+  nnet_proto=$dir/nnet.proto
+  echo "Genrating network prototype $nnet_proto"
+  case "$network_type" in
+    dnn)
       utils/nnet/make_nnet_proto.py $proto_opts \
         ${bn_dim:+ --bottleneck-dim=$bn_dim} \
-        $num_fea $num_tgt $hid_layers $hid_dim >$mlp_proto || exit 1 
+        $num_fea $num_tgt $hid_layers $hid_dim >$nnet_proto || exit 1 
       ;;
     cnn1d)
+      delta_order=$([ -z $delta_opts ] && echo "0" || { echo $delta_opts | tr ' ' '\n' | grep "delta[-_]order" | sed 's:^.*=::'; })
+      echo "Debug : $delta_opts, delta_order $delta_order"
       utils/nnet/make_cnn_proto.py $cnn_proto_opts \
-        --splice $splice --delta-order $delta_order --dir $dir \
-        $num_fea >$mlp_proto || exit 1
-      cnn_fea=$(cat $mlp_proto | grep -v '^$' | tail -n1 | awk '{ print $5; }')
+        --splice=$splice --delta-order=$delta_order --dir=$dir \
+        $num_fea >$nnet_proto || exit 1
+      cnn_fea=$(cat $nnet_proto | grep -v '^$' | tail -n1 | awk '{ print $5; }')
       utils/nnet/make_nnet_proto.py $proto_opts \
         --no-proto-head --no-smaller-input-weights \
         ${bn_dim:+ --bottleneck-dim=$bn_dim} \
-        "$cnn_fea" $num_tgt $hid_layers $hid_dim >>$mlp_proto || exit 1 
+        "$cnn_fea" $num_tgt $hid_layers $hid_dim >>$nnet_proto || exit 1 
       ;;
     cnn2d) 
       #TODO, to be filled by Vijay...
       ;;
-    *) echo "Unknown 'prepend-cnn' value $prepend_cnn" && exit 1;
+    lstm)
+      utils/nnet/make_lstm_proto.py $proto_opts \
+        $num_fea $num_tgt >$nnet_proto || exit 1 
+      ;;
+    *) echo "Unknown : --network_type $network_type" && exit 1;
   esac
 
   # initialize
-  mlp_init=$dir/nnet.init; log=$dir/log/nnet_initialize.log
-  echo "Initializing $mlp_proto -> $mlp_init"
-  nnet-initialize $mlp_proto $mlp_init 2>$log || { cat $log; exit 1; }
+  nnet_init=$dir/nnet.init; log=$dir/log/nnet_initialize.log
+  echo "Initializing $nnet_proto -> $nnet_init"
+  nnet-initialize $nnet_proto $nnet_init 2>$log || { cat $log; exit 1; }
 
-  #optionally prepend dbn to the initialization
+  # optionally prepend dbn to the initialization
   if [ ! -z $dbn ]; then
-    mlp_init_old=$mlp_init; mlp_init=$dir/nnet_$(basename $dbn)_dnn.init
-    nnet-concat $dbn $mlp_init_old $mlp_init || exit 1 
+    nnet_init_old=$nnet_init; nnet_init=$dir/nnet_$(basename $dbn)_dnn.init
+    nnet-concat $dbn $nnet_init_old $nnet_init || exit 1 
   fi
 fi
 
@@ -387,7 +389,7 @@ steps/nnet/train_scheduler.sh \
   ${train_tool:+ --train-tool "$train_tool"} \
   ${frame_weights:+ --frame-weights "$frame_weights"} \
   ${config:+ --config $config} \
-  $mlp_init "$feats_tr" "$feats_cv" "$labels_tr" "$labels_cv" $dir || exit 1
+  $nnet_init "$feats_tr" "$feats_cv" "$labels_tr" "$labels_cv" $dir || exit 1
 
 if $prepend_cnn; then
   echo "Preparing feature transform with CNN layers for RBM pre-training."

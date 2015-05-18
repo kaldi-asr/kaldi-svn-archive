@@ -1,8 +1,8 @@
-
 // Copyright 2011-2012  Karel Vesely
 //           2013-2014  Johns Hopkins University (author: Daniel Povey)
-//                  2013  Xiaohui Zhang
-//                  2014  Vijayaditya Peddinti
+//                2013  Xiaohui Zhang
+//                2014  Vijayaditya Peddinti
+//                2014  Guoguo Chen
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -24,6 +24,7 @@
 #include "nnet2/nnet-component.h"
 #include "nnet2/nnet-precondition.h"
 #include "nnet2/nnet-precondition-online.h"
+#include "util/stl-utils.h"
 #include "util/text-utils.h"
 #include "util/kaldi-io.h"
 
@@ -444,9 +445,9 @@ void MaxoutComponent::InitFromString(std::string args) {
 void MaxoutComponent::Propagate(const ChunkInfo &in_info,
                                 const ChunkInfo &out_info,
                                 const CuMatrixBase<BaseFloat> &in,
-                                CuMatrix<BaseFloat> *out) const  {
+                                CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined);
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   int32 group_size = input_dim_ / output_dim_;
@@ -539,9 +540,9 @@ void PnormComponent::InitFromString(std::string args) {
 void PnormComponent::Propagate(const ChunkInfo &in_info,
                                const ChunkInfo &out_info,
                                const CuMatrixBase<BaseFloat> &in,
-                               CuMatrix<BaseFloat> *out) const  {
+                               CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined);
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   out->GroupPnorm(in, p_);
@@ -597,8 +598,8 @@ const BaseFloat NormalizeComponent::kNormFloor = pow(2.0, -66);
 void NormalizeComponent::Propagate(const ChunkInfo &in_info,
                                    const ChunkInfo &out_info,
                                    const CuMatrixBase<BaseFloat> &in,
-                                   CuMatrix<BaseFloat> *out) const  {
-  *out = in;
+                                   CuMatrixBase<BaseFloat> *out) const  {
+  out->CopyFromMat(in);
 
   CuVector<BaseFloat> in_norm(in.NumRows());
   in_norm.AddDiagMat2(1.0 / in.NumCols(),
@@ -658,9 +659,9 @@ void NormalizeComponent::Backprop(const ChunkInfo &,  // in_info,
 void SigmoidComponent::Propagate(const ChunkInfo &in_info,
                                  const ChunkInfo &out_info,
                                  const CuMatrixBase<BaseFloat> &in,
-                                 CuMatrix<BaseFloat> *out) const  {
+                                 CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   out->Sigmoid(in);
@@ -697,13 +698,13 @@ void SigmoidComponent::Backprop(const ChunkInfo &,  //in_info,
 void TanhComponent::Propagate(const ChunkInfo &in_info,
                               const ChunkInfo &out_info,
                               const CuMatrixBase<BaseFloat> &in,
-                              CuMatrix<BaseFloat> *out) const  {
+                              CuMatrixBase<BaseFloat> *out) const  {
   // Apply tanh function to each element of the output...
   // the tanh function may be written as -1 + ( 2 / (1 + e^{-2 x})),
   // which is a scaled and shifted sigmoid.
   
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined);
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   out->Tanh(in);
 }
@@ -760,9 +761,9 @@ void PowerComponent::InitFromString(std::string args) {
 void PowerComponent::Propagate(const ChunkInfo &in_info,
                                const ChunkInfo &out_info,
                                const CuMatrixBase<BaseFloat> &in,
-                               CuMatrix<BaseFloat> *out) const  {
+                               CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined);
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   // Apply power operation to each element of the input...
@@ -816,9 +817,9 @@ std::string PowerComponent::Info() const {
 void RectifiedLinearComponent::Propagate(const ChunkInfo &in_info,
                                          const ChunkInfo &out_info,
                                          const CuMatrixBase<BaseFloat> &in,
-                                         CuMatrix<BaseFloat> *out) const  {
+                                         CuMatrixBase<BaseFloat> *out) const  {
   // Apply rectified linear function (x >= 0 ? 1.0 : 0.0)
-  *out = in;
+  out->CopyFromMat(in);
   out->ApplyFloor(0.0);
 }
 
@@ -846,9 +847,9 @@ void RectifiedLinearComponent::Backprop(const ChunkInfo &,  //in_info,
 void SoftHingeComponent::Propagate(const ChunkInfo &in_info,
                                    const ChunkInfo &out_info,
                                    const CuMatrixBase<BaseFloat> &in,
-                                   CuMatrix<BaseFloat> *out) const  {
+                                   CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined);
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   // Apply function x = log(1 + exp(x))
   out->SoftHinge(in);
@@ -884,8 +885,8 @@ void SoftHingeComponent::Backprop(const ChunkInfo &,  //in_info,
 void ScaleComponent::Propagate(const ChunkInfo &in_info,
                                const ChunkInfo &out_info,
                                const CuMatrixBase<BaseFloat> &in,
-                               CuMatrix<BaseFloat> *out) const  {
-  *out = in;
+                               CuMatrixBase<BaseFloat> *out) const  {
+  out->CopyFromMat(in);
   out->Scale(scale_);
 }
 
@@ -947,9 +948,9 @@ std::string ScaleComponent::Info() const {
 void SoftmaxComponent::Propagate(const ChunkInfo &in_info,
                                  const ChunkInfo &out_info,
                                  const CuMatrixBase<BaseFloat> &in,
-                                 CuMatrix<BaseFloat> *out) const  {
+                                 CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined); 
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   // Apply softmax function to each row of the output...
@@ -1177,9 +1178,9 @@ void AffineComponent::InitFromString(std::string args) {
 void AffineComponent::Propagate(const ChunkInfo &in_info,
                                 const ChunkInfo &out_info,
                                 const CuMatrixBase<BaseFloat> &in,
-                                CuMatrix<BaseFloat> *out) const  {
+                                CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   // No need for asserts as they'll happen within the matrix operations.
@@ -1982,9 +1983,9 @@ void BlockAffineComponent::Add(BaseFloat alpha,
 void BlockAffineComponent::Propagate(const ChunkInfo &in_info,
                                      const ChunkInfo &out_info,
                                      const CuMatrixBase<BaseFloat> &in,
-                                     CuMatrix<BaseFloat> *out) const  {
+                                     CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
 
   // The matrix has a block structure where each matrix has input dim
@@ -2341,9 +2342,9 @@ void PermuteComponent::InitFromString(std::string args) {
 void PermuteComponent::Propagate(const ChunkInfo &in_info,
                                  const ChunkInfo &out_info,
                                  const CuMatrixBase<BaseFloat> &in,
-                                 CuMatrix<BaseFloat> *out) const  {
+                                 CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   std::vector<int32> reverse_reorder(reorder_.size());
@@ -2407,7 +2408,13 @@ void SumGroupComponent::Read(std::istream &is, bool binary) {
   ExpectOneOrTwoTokens(is, binary, "<SumGroupComponent>", "<Sizes>");
   std::vector<int32> sizes;
   ReadIntegerVector(is, binary, &sizes);
-  ExpectToken(is, binary, "<SumGroupComponent>");
+
+  std::string token;
+  ReadToken(is, binary, &token);
+  if (!(token == "<SumGroupComponent>" ||
+        token == "</SumGroupComponent>")) {
+    KALDI_ERR << "Expected </SumGroupComponent>, got " << token;
+  }
   this->Init(sizes);
 }
 
@@ -2430,15 +2437,15 @@ void SumGroupComponent::Write(std::ostream &os, bool binary) const {
   std::vector<int32> sizes;
   this->GetSizes(&sizes);
   WriteIntegerVector(os, binary, sizes);
-  WriteToken(os, binary, "<SumGroupComponent>");
+  WriteToken(os, binary, "</SumGroupComponent>");
 }
 
 void SumGroupComponent::Propagate(const ChunkInfo &in_info,
                                   const ChunkInfo &out_info,
                                   const CuMatrixBase<BaseFloat> &in,
-                                  CuMatrix<BaseFloat> *out) const  {
+                                  CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols(), kUndefined);
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   out->SumColumnRanges(in, indexes_);
@@ -2468,13 +2475,14 @@ std::string SpliceComponent::Info() const {
   return stream.str();
 }
 
-void SpliceComponent::Init(int32 input_dim, std::vector< int32 > context,
+void SpliceComponent::Init(int32 input_dim, std::vector<int32> context,
                            int32 const_component_dim) {
   input_dim_ = input_dim;
   const_component_dim_ = const_component_dim;
   context_ = context;
   KALDI_ASSERT(context_.size() > 0);
   KALDI_ASSERT(input_dim_ > 0 && context_.front() <= 0 && context_.back() >= 0);
+  KALDI_ASSERT(IsSortedAndUniq(context));
   KALDI_ASSERT(const_component_dim_ >= 0 && const_component_dim_ < input_dim_);
 }
 
@@ -2572,13 +2580,13 @@ void ChunkInfo::ToString() const  {
 void SpliceComponent::Propagate(const ChunkInfo &in_info,
                                 const ChunkInfo &out_info,
                                 const CuMatrixBase<BaseFloat> &in,
-                                CuMatrix<BaseFloat> *out) const  {
+                                CuMatrixBase<BaseFloat> *out) const  {
 
   // Check the inputs are correct and resize output  
   in_info.Check();
   out_info.Check();
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
 
   int32 in_chunk_size  = in_info.ChunkSize(),
@@ -2837,11 +2845,11 @@ void SpliceMaxComponent::InitFromString(std::string args) {
 void SpliceMaxComponent::Propagate(const ChunkInfo &in_info,
                                    const ChunkInfo &out_info,
                                    const CuMatrixBase<BaseFloat> &in,
-                                   CuMatrix<BaseFloat> *out) const  {
+                                   CuMatrixBase<BaseFloat> *out) const  {
   in_info.Check();
   out_info.Check();
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   int32 in_chunk_size  = in_info.ChunkSize(),
         out_chunk_size = out_info.ChunkSize(),
@@ -3042,16 +3050,17 @@ void DctComponent::Reorder(CuMatrixBase<BaseFloat> *mat, bool reverse) const {
 void DctComponent::Propagate(const ChunkInfo &in_info,
                              const ChunkInfo &out_info,
                              const CuMatrixBase<BaseFloat> &in,
-                             CuMatrix<BaseFloat> *out) const  {
+                             CuMatrixBase<BaseFloat> *out) const  {
   KALDI_ASSERT(in.NumCols() == InputDim());
   int32 dct_dim = dct_mat_.NumCols(),
         dct_keep_dim = dct_mat_.NumRows(),
         num_rows = in.NumRows(),
         num_chunks = dim_ / dct_dim;
 
-  out->Resize(num_rows, num_chunks * dct_keep_dim);
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
+  KALDI_ASSERT(num_rows == out_info.NumRows());
+  KALDI_ASSERT(num_chunks * dct_keep_dim == out_info.NumCols());
   
   CuMatrix<BaseFloat> in_tmp;
   if (reorder_) {
@@ -3191,9 +3200,9 @@ std::string FixedLinearComponent::Info() const {
 void FixedLinearComponent::Propagate(const ChunkInfo &in_info,
                                      const ChunkInfo &out_info,
                                      const CuMatrixBase<BaseFloat> &in,
-                                     CuMatrix<BaseFloat> *out) const  {
+                                     CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   out->AddMatMat(1.0, in, kNoTrans, mat_, kTrans, 0.0);
@@ -3276,9 +3285,9 @@ std::string FixedAffineComponent::Info() const {
 void FixedAffineComponent::Propagate(const ChunkInfo &in_info,
                                      const ChunkInfo &out_info,
                                      const CuMatrixBase<BaseFloat> &in,
-                                     CuMatrix<BaseFloat> *out) const  {
+                                     CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   
   out->AddMatMat(1.0, in, kNoTrans, linear_params_, kTrans, 0.0);
@@ -3346,8 +3355,8 @@ std::string FixedScaleComponent::Info() const {
   std::stringstream stream;
   BaseFloat scales_size = static_cast<BaseFloat>(scales_.Dim()),
       scales_mean = scales_.Sum() / scales_size,
-      scales_stddev = std::sqrt(VecVec(scales_, scales_) / scales_size)
-       - (scales_mean * scales_mean);
+      scales_stddev = std::sqrt(VecVec(scales_, scales_) / scales_size
+       - (scales_mean * scales_mean));
   stream << Component::Info() << ", scales-mean=" << scales_mean
          << ", scales-stddev=" << scales_stddev;
   return stream.str();
@@ -3356,8 +3365,8 @@ std::string FixedScaleComponent::Info() const {
 void FixedScaleComponent::Propagate(const ChunkInfo &in_info,
                                     const ChunkInfo &out_info,
                                     const CuMatrixBase<BaseFloat> &in,
-                                    CuMatrix<BaseFloat> *out) const  {
-  *out = in;
+                                    CuMatrixBase<BaseFloat> *out) const  {
+  out->CopyFromMat(in);
   out->MulColsVec(scales_);
 }
 
@@ -3426,8 +3435,8 @@ std::string FixedBiasComponent::Info() const {
 void FixedBiasComponent::Propagate(const ChunkInfo &in_info,
                                    const ChunkInfo &out_info,
                                    const CuMatrixBase<BaseFloat> &in,
-                                   CuMatrix<BaseFloat> *out) const  {
-  *out = in;
+                                   CuMatrixBase<BaseFloat> *out) const  {
+  out->CopyFromMat(in);
   out->AddVecToRows(1.0, bias_, 1.0);
 }
 
@@ -3519,9 +3528,9 @@ void DropoutComponent::Init(int32 dim,
 void DropoutComponent::Propagate(const ChunkInfo &in_info,
                                  const ChunkInfo &out_info,
                                  const CuMatrixBase<BaseFloat> &in,
-                                 CuMatrix<BaseFloat> *out) const  {
+                                 CuMatrixBase<BaseFloat> *out) const  {
   in_info.CheckSize(in);
-  out->Resize(out_info.NumRows(), out_info.NumCols());
+  out_info.CheckSize(*out);
   KALDI_ASSERT(in_info.NumChunks() == out_info.NumChunks());
   KALDI_ASSERT(in.NumCols() == this->InputDim());
 
@@ -3534,8 +3543,6 @@ void DropoutComponent::Propagate(const ChunkInfo &in_info,
       average = (low_scale * dp) +
                 (high_scale * (1.0 - dp));
   KALDI_ASSERT(fabs(average - 1.0) < 0.01);
-
-  out->Resize(in.NumRows(), in.NumCols(), kUndefined);
 
   // This const_cast is only safe assuming you don't attempt
   // to use multi-threaded code with the GPU.
@@ -3609,9 +3616,9 @@ void AdditiveNoiseComponent::Init(int32 dim, BaseFloat stddev) {
 void AdditiveNoiseComponent::Propagate(const ChunkInfo &in_info,
                                        const ChunkInfo &out_info,
                                        const CuMatrixBase<BaseFloat> &in,
-                                       CuMatrix<BaseFloat> *out) const  {
+                                       CuMatrixBase<BaseFloat> *out) const  {
   KALDI_ASSERT(in.NumCols() == this->InputDim());
-  *out = in;
+  out->CopyFromMat(in);
   CuMatrix<BaseFloat> rand(in.NumRows(), in.NumCols());
   const_cast<CuRand<BaseFloat>&>(random_generator_).RandUniform(&rand);
   out->AddMat(stddev_, rand);

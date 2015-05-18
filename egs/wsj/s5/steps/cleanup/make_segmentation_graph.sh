@@ -55,10 +55,13 @@ fi
 
 mkdir -p $graph_dir/split$nj
 mkdir -p $graph_dir/log
-for x in `seq 1 $nj`; do
-  mkdir -p $graph_dir/split$nj/$x
-  split -n r/$x/$nj $data/text.orig > $graph_dir/split$nj/$x/text
+ 
+split_texts=""
+for n in $(seq $nj); do
+  mkdir -p $graph_dir/split$nj/$n
+  split_texts="$split_texts $graph_dir/split$nj/$n/text"
 done
+utils/split_scp.pl $data/text.orig $split_texts
 
 $cmd JOB=1:$nj $graph_dir/log/make_transcript_graph.JOB.log \
   steps/cleanup/make_transcript_graph.sh --cleanup $cleanup \
@@ -67,7 +70,8 @@ $cmd JOB=1:$nj $graph_dir/log/make_transcript_graph.JOB.log \
   $model_dir $graph_dir/split$nj/JOB || exit 1;
 
 # Copies files from lang directory.
-cp -rT $lang $graph_dir
+mkdir -p $graph_dir
+cp -r $lang/* $graph_dir
 
 am-info --print-args=false $model_dir/final.mdl |\
  grep pdfs | awk '{print $NF}' > $graph_dir/num_pdfs

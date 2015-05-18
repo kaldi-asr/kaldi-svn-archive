@@ -78,6 +78,10 @@ inline int MachineIsLittleEndian() {
   return (*reinterpret_cast<char*>(&check) != 0);
 }
 
+// This function kaldi::Sleep() provides a portable way to sleep for a possibly fractional
+// number of seconds.  On Windows it's only accurate to microseconds.
+void Sleep(float seconds);
+
 }
 
 #define KALDI_SWAP8(a) { \
@@ -108,7 +112,7 @@ inline int MachineIsLittleEndian() {
 template<bool B> class KaldiCompileTimeAssert { };
 template<> class KaldiCompileTimeAssert<true> {
  public:
-  static inline void Check() { }
+  static inline void Check() { }  
 };
 
 #define KALDI_COMPILE_TIME_ASSERT(b) KaldiCompileTimeAssert<(b)>::Check()
@@ -141,6 +145,13 @@ template<> class KaldiCompileTimeAssert<true> {
 #endif
 
 #define KALDI_STRTOD(cur_cstr, end_cstr) strtod(cur_cstr, end_cstr)
+
+#ifdef _MSC_VER
+#  define KALDI_STRTOF(cur_cstr, end_cstr) \
+    static_cast<float>(strtod(cur_cstr, end_cstr));
+#else
+#  define KALDI_STRTOF(cur_cstr, end_cstr) strtof(cur_cstr, end_cstr);
+#endif
 
 #endif  // KALDI_BASE_KALDI_UTILS_H_
 

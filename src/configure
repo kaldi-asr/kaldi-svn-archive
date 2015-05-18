@@ -17,6 +17,7 @@
 #        # this, cd to ../tools and type "make openblas".  Note:
 #        # this is not working correctly on all platforms, do "make test"
 #        # and look out for segmentation faults.
+# ./configure --atlas-root=../tools/ATLAS/build
 
 #This should be incremented after every significant change of the configure script
 #I.e. after each change that affects the kaldi.mk or the build system as whole
@@ -394,7 +395,7 @@ function fix_cxx_flag {
 
 function linux_atlas_failure { # function we use when we couldn't find
    # ATLAS libs.
-   echo ATLASINC = [somewhere]/include >> kaldi.mk
+   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
    echo ATLASLIBS = [somewhere]/liblapack.a [somewhere]/libcblas.a [somewhere]/libatlas.a [somewhere]/libf77blas.a $ATLASLIBDIR >> kaldi.mk
    cat makefiles/linux_atlas.mk >> kaldi.mk
    fix_cxx_flag
@@ -438,6 +439,29 @@ function linux_configure_debian_ubuntu {
   for f in $ATLASLIBS; do 
     [ ! -f $f ] && return 1;
   done
+  lapacklib=$(echo $ATLASLIBS | awk '{print $NF}')
+  if ! nm --dynamic $lapacklib | grep ATL_cgetrf >/dev/null; then 
+    exit 1;
+  fi
+  echo ATLASINC = $ATLASROOT/include >> kaldi.mk
+  echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
+  cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
+  echo "Successfully configured for Debian/Ubuntu Linux [dynamic libraries] with ATLASLIBS =$ATLASLIBS"
+  $use_cuda && linux_configure_cuda
+  linux_configure_speex
+  exit_success;
+}
+
+function linux_configure_debian_ubuntu3 {
+  ATLASLIBS="/usr/lib/libatlas.so.3  /usr/lib/libf77blas.so.3 /usr/lib/libcblas.so.3  /usr/lib/liblapack_atlas.so.3"
+  for f in $ATLASLIBS; do 
+    [ ! -f $f ] && return 1;
+  done
+  lapacklib=$(echo $ATLASLIBS | awk '{print $NF}')
+  if ! nm --dynamic $lapacklib | grep ATL_cgetrf >/dev/null; then 
+    exit 1;
+  fi
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
   cat makefiles/linux_atlas.mk >> kaldi.mk
@@ -453,6 +477,10 @@ function linux_configure_debian7 {
   for f in $ATLASLIBS; do 
     [ ! -f $f ] && return 1;
   done
+  lapacklib=$(echo $ATLASLIBS | awk '{print $NF}')
+  if ! nm --dynamic $lapacklib | grep ATL_cgetrf >/dev/null; then 
+    exit 1;
+  fi
   libdir=$(dirname $(echo $ATLASLIBS | awk '{print $1}'))
   [ -z "$libdir" ] && echo "Error getting libdir in linux_configure_debian7" && exit 1;
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
@@ -484,6 +512,27 @@ function linux_configure_redhat {
   exit_success;
 }
 
+function linux_configure_redhat_fat {
+  # This is for when only two so-called 'fat' ATLAS libs are provided:
+  # libsatlas.so.3 and libtatlas.so.3.
+  # See http://stackoverflow.com/questions/13439296/build-shared-libraries-in-atlas.
+  m=$1  # 64 or empty.
+  ATLASLIBS="/usr/lib$m/atlas/libsatlas.so.3 /usr/lib$m/atlas/libtatlas.so.3"
+  for f in $ATLASLIBS; do 
+    [ ! -f $f ] && return 1;
+  done
+  libdir=$(dirname $(echo $ATLASLIBS | awk '{print $1}'))
+  [ -z "$libdir" ] && echo "Error getting libdir in linux_configure_redhat_fat" && exit 1;
+  echo ATLASINC = $ATLASROOT/include >> kaldi.mk
+  echo ATLASLIBS = $ATLASLIBS -Wl,-rpath=$libdir >> kaldi.mk
+  echo 
+  cat makefiles/linux_atlas.mk >> kaldi.mk
+  fix_cxx_flag
+  echo "Successfully configured for red hat [dynamic libraries, fat] with ATLASLIBS =$ATLASLIBS"
+  $use_cuda && linux_configure_cuda
+  exit_success;
+}
+
 
 function linux_configure_static {
   if $threaded_atlas; then pt=pt; else pt=""; fi
@@ -501,7 +550,7 @@ function linux_configure_static {
     echo "Could not find libatlas.a in '$ATLASLIBDIR'"
     return 1;
   fi
-  echo "Looking for ATLAS libs in $ATLASLIBDIR"
+  echo "Validating presence of ATLAS libs in $ATLASLIBDIR"
   ATLASLIBS=
   # The Lapack part of ATLAS seems to appear under various different names.. but it
   # should always have symbols like ATL_cgetrf defined, so we test for this,
@@ -541,61 +590,71 @@ function linux_configure_static {
 function linux_check_dynamic {
   # will exit with success if $dir seems to contain ATLAS libraries with
   # right architecture (compatible with default "nm")
-  if [ -f $dir/libatlas.so ]; then # candidate...
-    if nm --dynamic $dir/libatlas.so 2>&1 | grep "File format not recognized" >/dev/null; then
-      echo "Directory $dir may contain dynamic ATLAS libraries but seems to be wrong architecture";
-      return 1;
-    fi
-    echo "Atlas found in $dir";
-    return 0;
-  else
-      echo "... no libatlas.so in $dir";
-      return 1;
-  fi
+  if $threaded_atlas; then pt=t; else pt=s; fi
+  for atlas_libname in libatlas.so lib${pt}atlas.so; do
+    if [ -f $dir/$atlas_libname ]; then # candidate...
+      if nm --dynamic $dir/$atlas_libname 2>&1 | grep "File format not recognized" >/dev/null; then
+        echo "Directory $dir may contain dynamic ATLAS libraries but seems to be wrong architecture";
+        return 1;
+      fi
+        echo "Atlas found in $dir";
+        return 0;
+      fi
+  done
+  echo "... no {libatlas,lib${pt}atlas}.so in $dir";
+  return 1;
 }
 
 function linux_configure_dynamic {
-  if $threaded_atlas; then pt=pt; else pt=""; fi
+  if $threaded_atlas; then pt=t; else pt=s; fi # relevant to "fat" libraries, will change later for separate ones
   if [ -z $ATLASLIBDIR ]; then # Note: it'll pick up the last one below.
     for dir in /usr{,/local}/lib{,64}{,/atlas,/atlas-sse2,/atlas-sse3} \
       `pwd`/../tools/ATLAS/build/install/lib/ $ATLASROOT/lib; do
-       linux_check_dynamic && ATLASLIBDIR=$dir
+      linux_check_dynamic && ATLASLIBDIR=$dir && ATLASLIBNAME=$atlas_libname
     done
-    if [ -z $ATLASLIBDIR ]; then
-      echo "Could not find libatlas.so in any of the obvious places, will most likely try static:"
+    if [ -z $ATLASLIBDIR -o -z $ATLASLIBNAME ]; then
+      echo "Could not find {libatlas,lib${pt}atlas}.so in any of the obvious places, will most likely try static:"
       return 1;
     fi
-  elif [ ! -f $ATLASLIBDIR/libatlas.so ]; then
-    echo "Could not find libatlas.so in '$ATLASLIBDIR'"
-    return 1;
   fi
 
-  echo "Looking for ATLAS libs in $ATLASLIBDIR"
-  ATLASLIBS=
-  # The Lapack part of ATLAS seems to appear under various different names.. but it
-  # should always have symbols like ATL_cgetrf defined, so we test for this,
-  # for all the names we have encountered.
-  for libname in lapack lapack_atlas  clapack; do
-    if [ -f $ATLASLIBDIR/lib${libname}.so -a "$ATLASLIBS" == "" ]; then
-      if nm  --dynamic $ATLASLIBDIR/lib${libname}.so  | grep ATL_cgetrf >/dev/null; then
-         ATLASLIBS="-L$ATLASLIBDIR -l${libname}"
-         echo "Using library $ATLASLIBS as ATLAS's CLAPACK library."
-      fi
-    fi
-  done
-  if [ "$ATLASLIBS" == "" ]; then
-    echo Could not find any libraries $ATLASLIBDIR/{liblapack,liblapack_atlas,libclapack} that seem to be an ATLAS CLAPACK library.
-    return 1;
-  fi
-   
-  for x in ${pt}cblas atlas ${pt}f77blas; do
-    if [ ! -f $ATLASLIBDIR/lib$x.so ]; then
-      echo "Configuring dynamic ATLAS libraries failed: Could not find library $x in directory $ATLASLIBDIR"
+  # If using "fat" libraries we only need one file to link against
+  if [ $ATLASLIBNAME != libatlas.so ]; then
+    if [ -f $ATLASLIBDIR/$ATLASLIBNAME ]; then
+      ATLASLIBS="$ATLASLIBDIR/$ATLASLIBNAME"
+    else
+      echo "Configuring dynamic ATLAS library failed: library $ATLASLIBNAME not found in $ATLASLIBDIR"
       return 1;
     fi
-    ATLASLIBS="$ATLASLIBS -l$x"
-  done
-  if $threaded_atlas; then ATLASLIBS="$ATLASLIBS"; fi
+  else  # with "thin" libraries, we have several object to link against, and different single/multi-thread names
+    if $threaded_atlas; then pt=pt; else pt=""; fi
+    echo "Validating presence of ATLAS libs in $ATLASLIBDIR"
+    ATLASLIBS=
+    # The Lapack part of ATLAS seems to appear under various different names.. but it
+    # should always have symbols like ATL_cgetrf defined, so we test for this,
+    # for all the names we have encountered.
+    for libname in lapack lapack_atlas  clapack; do
+      if [ -f $ATLASLIBDIR/lib${libname}.so -a "$ATLASLIBS" == "" ]; then
+        if nm  --dynamic $ATLASLIBDIR/lib${libname}.so  | grep ATL_cgetrf >/dev/null; then
+           ATLASLIBS="$ATLASLIBDIR/lib${libname}.so"
+           echo "Using library $ATLASLIBS as ATLAS's CLAPACK library."
+        fi
+      fi
+    done
+    if [ "$ATLASLIBS" == "" ]; then
+      echo Could not find any libraries $ATLASLIBDIR/{liblapack,liblapack_atlas,libclapack} that seem to be an ATLAS CLAPACK library.
+      return 1;
+    fi
+  
+    for x in ${pt}cblas atlas ${pt}f77blas; do
+      if [ ! -f $ATLASLIBDIR/lib$x.so ]; then
+        echo "Configuring dynamic ATLAS libraries failed: Could not find library $x in directory $ATLASLIBDIR"
+        return 1;
+      fi
+      ATLASLIBS="$ATLASLIBS $ATLASLIBDIR/lib${x}.so"
+    done
+    if $threaded_atlas; then ATLASLIBS="$ATLASLIBS"; fi
+  fi
 
   echo ATLASINC = $ATLASROOT/include >> kaldi.mk
   echo ATLASLIBS = $ATLASLIBS >> kaldi.mk
@@ -783,22 +842,28 @@ if [ "`uname`" == "Linux" ]; then
     if $static_math; then
       # Prefer static to dynamic math.
       linux_configure_static || \
+        linux_configure_debian_ubuntu3 || \
         linux_configure_dynamic || \
         linux_configure_debian_ubuntu 64 || \
         linux_configure_debian_ubuntu || \
         linux_configure_debian7 || \
         linux_configure_redhat 64 || \
         linux_configure_redhat || \
+        linux_configure_redhat_fat 64 || \
+        linux_configure_redhat_fat || \
         linux_atlas_failure "Failed to configure ATLAS lbiraries";
     else
       # Prefer dynamic to static math.
-      linux_configure_dynamic || \
+      linux_configure_debian_ubuntu3 || \
+        linux_configure_dynamic || \
         linux_configure_static || \
         linux_configure_debian_ubuntu 64 || \
         linux_configure_debian_ubuntu || \
         linux_configure_debian7 || \
         linux_configure_redhat 64 || \
         linux_configure_redhat || \
+        linux_configure_redhat_fat 64 || \
+        linux_configure_redhat_fat || \
         linux_atlas_failure "Failed to configure ATLAS lbiraries";
     fi
 

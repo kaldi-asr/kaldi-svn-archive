@@ -23,7 +23,8 @@
 namespace kaldi {
 
 OnlineNnet2FeaturePipelineInfo::OnlineNnet2FeaturePipelineInfo(
-    const OnlineNnet2FeaturePipelineConfig &config) {
+    const OnlineNnet2FeaturePipelineConfig &config):
+    silence_weighting_config(config.silence_weighting_config) {
   if (config.feature_type == "mfcc" || config.feature_type == "plp" ||
       config.feature_type == "fbank") {
     feature_type = config.feature_type;
@@ -167,6 +168,12 @@ void OnlineNnet2FeaturePipeline::AcceptWaveform(
     pitch_->AcceptWaveform(sampling_rate, waveform);
 }
 
+void OnlineNnet2FeaturePipeline::UpdateFrameWeights(
+    const std::vector<std::pair<int32, BaseFloat> > &delta_weights) {
+  if (ivector_feature_ != NULL)
+    ivector_feature_->UpdateFrameWeights(delta_weights);
+}
+
 void OnlineNnet2FeaturePipeline::InputFinished() {
   base_feature_->InputFinished();
   if (pitch_)
@@ -183,5 +190,6 @@ BaseFloat OnlineNnet2FeaturePipelineInfo::FrameShiftInSeconds() const {
     return 0.0;
   }
 }
+
 
 }  // namespace kaldi
