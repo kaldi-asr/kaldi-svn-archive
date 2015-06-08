@@ -122,6 +122,7 @@ class CuVectorBase {
   void ApplyExp();
   void ApplyLog();
   MatrixIndexT ApplyFloor(Real floor_val);
+  void ApplyCeiling(Real ceiling_val);
   void ApplyPow(Real power);
   Real Sum() const;
   void SetRandn();
@@ -181,8 +182,11 @@ class CuVectorBase {
 
   /// Extracts the diagonal of a matrix.
   void CopyDiagFromMat(const CuMatrix<Real> &M);
-  
-  Real Max() const;  
+
+  /// Returns the maximum value of any element, or -infinity for the empty vector.  
+  Real Max() const;
+
+  /// Returns the minimum value of any element, or +infinity for the empty vector.  
   Real Min() const;
   
   // Set each element to y = (x == orig ? changed : x).

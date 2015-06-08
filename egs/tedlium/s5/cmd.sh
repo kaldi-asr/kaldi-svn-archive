@@ -10,8 +10,23 @@
 #export decode_cmd=run.pl
 #export cuda_cmd=run.pl
 
-# BUT cluster:
-export train_cmd="queue.pl -q all.q@blade[01][0126789][123456789] -l ram_free=2500M,mem_free=2500M,matylda5=0.5"
-export decode_cmd="queue.pl -q all.q@blade[01][0126789][123456789] -l ram_free=3000M,mem_free=3000M,matylda5=0.1"
-export cuda_cmd="queue.pl -q long.q@pcspeech-gpu -l gpu=1" 
+# JHU cluster:
+export train_cmd="queue.pl -l arch=*64*"
+export decode_cmd="queue.pl -l arch=*64* --mem 4G"
+export cuda_cmd="queue.pl -l arch=*64* --gpu 1"
 
+host=$(hostname -f)
+if [ ${host#*.} == "fit.vutbr.cz" ]; then
+  # BUT cluster:
+  queue="all.q@@blade,all.q@@speech"
+  gpu_queue="long.q@supergpu*,long.q@dellgpu*,long.q@pcspeech-gpu,long.q@pcgpu*"
+  storage="matylda5"
+  export train_cmd="queue.pl -q $queue -l ram_free=1500M,mem_free=1500M,${storage}=1"
+  export decode_cmd="queue.pl -q $queue -l ram_free=2500M,mem_free=2500M,${storage}=0.5"
+  export cuda_cmd="queue.pl -q $gpu_queue -l gpu=1" 
+elif [ ${host#*.} == "cm.cluster" ]; then
+  # MARCC bluecrab cluster:
+  export train_cmd="slurm.pl --time 4:00:00 "
+  export decode_cmd="slurm.pl --mem 4G --time 4:00:00 "
+  export cuda_cmd="slurm.pl --gpu 1" 
+fi

@@ -1,4 +1,5 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
+use warnings; #sed replacement for -w perl parameter
 # Copyright 2010-2011 Microsoft Corporation
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,15 +29,16 @@
 $quiet = 0;
 $first = 0;
 $last = 0;
-if ($ARGV[0] eq "--quiet") {
+
+if (@ARGV > 0 && $ARGV[0] eq "--quiet") {
   shift;
   $quiet = 1;
 }
-if ($ARGV[0] eq "--first") {
+if (@ARGV > 0 && $ARGV[0] eq "--first") {
   shift;
   $first = 1;
 }
-if ($ARGV[0] eq "--last") {
+if (@ARGV > 0 && $ARGV[0] eq "--last") {
   shift;
   $last = 1;
 }
@@ -44,7 +46,8 @@ if ($ARGV[0] eq "--last") {
 if(@ARGV < 2 ) {
     die "Usage: subset_scp.pl [--quiet][--first|--last] N in.scp\n" .
         " --quiet  causes it to not die if N < num lines in scp.\n" .
-        " --first and --last make it equivalent to head or tail.\n";
+        " --first and --last make it equivalent to head or tail.\n" .
+        "See also: filter_scp.pl\n";
 }
 
 $N = shift @ARGV;

@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Copyright 2010-2012 Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
+# Copyright 2010-2012 Microsoft Corporation  
+#           2012-2014 Johns Hopkins University (Author: Daniel Povey)
+#                2015 Guoguo Chen
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +29,12 @@
 # silence_phones.txt
 
 # run this from ../
-dir=data/local/dict
+dict_suffix=
+
+echo "$0 $@"  # Print the command line for logging
+. utils/parse_options.sh || exit 1;
+
+dir=data/local/dict${dict_suffix}
 mkdir -p $dir
 
 
@@ -70,14 +77,16 @@ grep -v ';;;' $dir/cmudict/cmudict.0.7a | \
 
 # Add to cmudict the silences, noises etc.
 
+# the sort | uniq is to remove a duplicated pron from cmudict.
 (echo '!SIL SIL'; echo '<SPOKEN_NOISE> SPN'; echo '<UNK> SPN'; echo '<NOISE> NSN'; ) | \
- cat - $dir/lexicon1_raw_nosil.txt  > $dir/lexicon2_raw.txt || exit 1;
+ cat - $dir/lexicon1_raw_nosil.txt | sort | uniq > $dir/lexicon2_raw.txt || exit 1;
 
 
 # lexicon.txt is without the _B, _E, _S, _I markers.
 # This is the input to wsj_format_data.sh
 cp $dir/lexicon2_raw.txt $dir/lexicon.txt
 
+rm $dir/lexiconp.txt 2>/dev/null
 
 echo "Dictionary preparation succeeded"
 

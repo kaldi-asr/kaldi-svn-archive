@@ -15,10 +15,12 @@ acwt=0.1  # Just a default value, used for adaptation and beam-pruning..
 cmd=run.pl
 beam=15.0
 max_active=7000
+min_active=200
+ivector_scale=1.0
 lattice_beam=8.0 # Beam we use in lattice generation.
 iter=final
 num_threads=1 # if >1, will use gmm-latgen-faster-parallel
-parallel_opts=  # If you supply num-threads, you should supply this too.
+parallel_opts=  # ignored now.
 scoring_opts=
 skip_scoring=false
 feat_type=
@@ -45,7 +47,7 @@ if [ $# -ne 3 ]; then
   echo "  --iter <iter>                            # Iteration of model to decode; default is final."
   echo "  --scoring-opts <string>                  # options to local/score.sh"
   echo "  --num-threads <n>                        # number of threads to use, default 1."
-  echo "  --parallel-opts <opts>                   # e.g. '-pe smp 4' if you supply --num-threads 4"
+  echo "  --parallel-opts <opts>                   # e.g. '--num-threads 4' if you supply --num-threads 4"
   exit 1;
 fi
 
@@ -64,7 +66,7 @@ for f in $graphdir/HCLG.fst $data/feats.scp $model $extra_files; do
 done
 
 sdata=$data/split$nj;
-cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
+cmvn_opts=`cat $srcdir/cmvn_opts` || exit 1;
 thread_string=
 [ $num_threads -gt 1 ] && thread_string="-parallel --num-threads=$num_threads" 
 
@@ -123,13 +125,13 @@ fi
 if [ ! -z "$online_ivector_dir" ]; then
   ivector_period=$(cat $online_ivector_dir/ivector_period) || exit 1;
   # note: subsample-feats, with negative n, will repeat each feature -n times.
-  feats="$feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $sdata/JOB/utt2spk $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- |' ark:- |"
+  feats="$feats paste-feats --length-tolerance=$ivector_period ark:- 'ark,s,cs:utils/filter_scp.pl $sdata/JOB/utt2spk $online_ivector_dir/ivector_online.scp | subsample-feats --n=-$ivector_period scp:- ark:- | copy-matrix --scale=$ivector_scale ark:- ark:-|' ark:- |"
 fi
 
 if [ $stage -le 1 ]; then
-  $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
+  $cmd --num-threads $num_threads JOB=1:$nj $dir/log/decode.JOB.log \
     nnet-latgen-faster$thread_string \
-     --minimize=$minimize --max-active=$max_active --beam=$beam \
+     --minimize=$minimize --max-active=$max_active --min-active=$min_active --beam=$beam \
      --lattice-beam=$lattice_beam --acoustic-scale=$acwt --allow-partial=true \
      --word-symbol-table=$graphdir/words.txt "$model" \
      $graphdir/HCLG.fst "$feats" "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;

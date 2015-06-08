@@ -33,6 +33,7 @@
 #include "nnet/nnet-activation.h"
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-pdf-prior.h"
+#include "nnet/nnet-utils.h"
 #include "base/timer.h"
 #include "cudamatrix/cu-device.h"
 
@@ -113,6 +114,7 @@ int main(int argc, char *argv[]) {
     PdfPriorOptions prior_opts;
     prior_opts.Register(&po);
 
+    bool one_silence_class = false;
     BaseFloat acoustic_scale = 1.0,
         lm_scale = 1.0,
         old_acoustic_scale = 0.0;
@@ -123,6 +125,8 @@ int main(int argc, char *argv[]) {
     po.Register("old-acoustic-scale", &old_acoustic_scale,
                 "Add in the scores in the input lattices with this scale, rather "
                 "than discarding them.");
+    po.Register("one-silence-class", &one_silence_class, "If true, newer "
+                "behavior which will tend to reduce insertions.");
     kaldi::int32 max_frames = 6000; // Allow segments maximum of one minute by default
     po.Register("max-frames",&max_frames, "Maximum number of frames a segment can have to be processed");
     bool do_smbr = false;
@@ -159,7 +163,6 @@ int main(int argc, char *argv[]) {
     // Select the GPU
 #if HAVE_CUDA == 1
     CuDevice::Instantiate().SelectGpuId(use_gpu);
-    CuDevice::Instantiate().DisableCaching();
 #endif
 
     Nnet nnet_transf;
@@ -191,7 +194,7 @@ int main(int argc, char *argv[]) {
     RandomAccessInt32VectorReader ref_ali_reader(ref_ali_rspecifier);
 
     CuMatrix<BaseFloat> feats, feats_transf, nnet_out, nnet_diff;
-    Matrix<BaseFloat> nnet_out_h, nnet_diff_h;
+    Matrix<BaseFloat> nnet_out_h;
 
     Timer time;
     double time_now = 0;
@@ -295,20 +298,17 @@ int main(int argc, char *argv[]) {
 
       if (do_smbr) {  // use state-level accuracies, i.e. sMBR estimation
         utt_frame_acc = LatticeForwardBackwardMpeVariants(
-            trans_model, silence_phones, den_lat, ref_ali, "smbr", &post);
+            trans_model, silence_phones, den_lat, ref_ali, "smbr",
+            one_silence_class, &post);
       } else {  // use phone-level accuracies, i.e. MPFE (minimum phone frame error)
         utt_frame_acc = LatticeForwardBackwardMpeVariants(
-            trans_model, silence_phones, den_lat, ref_ali, "mpfe", &post);
+            trans_model, silence_phones, den_lat, ref_ali, "mpfe",
+            one_silence_class, &post);
       }
 
-      // 6) convert the Posterior to a matrix
-      nnet_diff_h.Resize(num_frames, num_pdfs, kSetZero);
-      for (int32 t = 0; t < post.size(); t++) {
-        for (int32 arc = 0; arc < post[t].size(); arc++) {
-          int32 pdf = trans_model.TransitionIdToPdf(post[t][arc].first);
-          nnet_diff_h(t, pdf) -= post[t][arc].second;
-        }
-      }
+      // 6) convert the Posterior to a matrix,
+      PosteriorToMatrixMapped(post, trans_model, &nnet_diff);
+      nnet_diff.Scale(-1.0); // need to flip the sign of derivative,
 
       KALDI_VLOG(1) << "Lattice #" << num_done + 1 << " processed"
                     << " (" << utt << "): found " << den_lat.NumStates()
@@ -316,14 +316,12 @@ int main(int argc, char *argv[]) {
 
       KALDI_VLOG(1) << "Utterance " << utt << ": Average frame accuracy = "
                     << (utt_frame_acc/num_frames) << " over " << num_frames
-                    << " frames.";
+                    << " frames,"
+                    << " diff-range(" << nnet_diff.Min() << "," << nnet_diff.Max() << ")";
 
-      // 7) backpropagate through the nnet
-      nnet_diff.Resize(num_frames, num_pdfs, kUndefined);
-      nnet_diff.CopyFromMat(nnet_diff_h);
+      // 7) backpropagate through the nnet,
       nnet.Backpropagate(nnet_diff, NULL);
-      // relase the buffer, we don't need anymore
-      nnet_diff.Resize(0,0);
+      nnet_diff.Resize(0,0); // release GPU memory,
 
       // increase time counter
       total_frame_acc += utt_frame_acc;

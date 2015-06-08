@@ -38,6 +38,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <ctime>
+#include <signal.h>
 
 namespace kaldi {
 /*
@@ -72,6 +73,7 @@ int32 main(int argc, char *argv[]) {
     typedef kaldi::int32 int32;
     typedef OnlineFeInput<Mfcc> FeInput;
     TcpServer tcp_server;
+    signal(SIGPIPE, SIG_IGN);
 
     // up to delta-delta derivative features are calculated (unless LDA is used)
     const int32 kDeltaOrder = 2;
@@ -354,6 +356,13 @@ bool TcpServer::Listen(int32 port) {
     return false;
   }
 
+  int32 flag = 1;
+  int32 len = sizeof(int32);
+  if( setsockopt(server_desc_, SOL_SOCKET, SO_REUSEADDR, &flag, len) == -1){
+    KALDI_ERR << "Cannot set socket options!\n";
+    return false;
+  }
+
   if (bind(server_desc_, (struct sockaddr*) &h_addr_, sizeof(h_addr_)) == -1) {
     KALDI_ERR << "Cannot bind to port: " << port << " (is it taken?)";
     return false;
@@ -380,6 +389,7 @@ int32 TcpServer::Accept() {
 
   socklen_t len;
 
+  len = sizeof(struct sockaddr);
   int32 client_desc = accept(server_desc_, (struct sockaddr*) &h_addr_, &len);
 
   struct sockaddr_storage addr;

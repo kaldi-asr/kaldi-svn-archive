@@ -20,7 +20,7 @@ if ! echo "#include <zlib.h>" | gcc -E - >&/dev/null; then
   add_packages zlib-devel zlib1g-dev
 fi
 
-for f in make automake libtool autoconf patch awk grep bzip2 gzip; do
+for f in make automake libtool autoconf patch awk grep bzip2 gzip wget git; do
   if ! which $f >&/dev/null; then
     echo "$0: $f is not installed."
     add_packages $f $f
@@ -37,6 +37,21 @@ if ! which awk >&/dev/null; then
   add_packages gawk gawk
 fi
 
+if which python >&/dev/null ; then
+  version=`python 2>&1 --version | awk '{print $2}' `
+  if [[ $version != "2."* ]] ; then
+    if which python2.7 >&/dev/null  || which python2 >&/dev/null ; then
+      echo "$0: python 2.7 is not the default python. You should either make it"
+      echo "$0: default or create an bash alias for kaldi scripts to run correctly"
+    else
+      echo "$0: python 2.7 is not installed"
+      add_packages python2.7 python2.7
+    fi
+  fi
+else
+  echo "$0: python 2.7 is not installed"
+  add_packages python2.7 python2.7
+fi
 
 printed=false
 status=0
@@ -86,7 +101,21 @@ if [ ! -z "$debian_packages" ]; then
 fi
 
 
+if [ $(pwd | wc -w) -gt 1 ]; then 
+  echo "*** $0: Warning: Kaldi scripts will fail if the directory name contains a space."
+  echo "***  (it's OK if you just want to compile a few tools -> disable this check)."
+  status=1;
+fi
+
+if which grep >&/dev/null && pwd | grep -E 'JOB|LMWT' >/dev/null; then
+  echo "*** $0: Kaldi scripts will fail if the directory name contains"
+  echo "***  either of the strings 'JOB' or 'LMWT'."
+  status=1;
+fi
+
 if ! $printed && [ $status -eq 0 ]; then
   echo "$0: all OK."
 fi
+
+
 exit $status

@@ -27,6 +27,7 @@
 #include "hmm/transition-model.h"
 #include "util/stl-utils.h"
 #include "base/kaldi-math.h"
+#include "hmm/hmm-utils.h"
 
 namespace kaldi {
 using std::map;
@@ -664,6 +665,7 @@ BaseFloat LatticeForwardBackwardMpeVariants(
     const Lattice &lat,
     const std::vector<int32> &num_ali,
     std::string criterion,
+    bool one_silence_class,
     Posterior *post) {
   using namespace fst;
   typedef Lattice::Arc Arc;
@@ -739,16 +741,27 @@ BaseFloat LatticeForwardBackwardMpeVariants(
       double frame_acc = 0.0;
       if (arc.ilabel != 0) {
         int32 cur_time = state_times[s];
-        int32 phone = trans.TransitionIdToPhone(arc.ilabel);
+        int32 phone = trans.TransitionIdToPhone(arc.ilabel),
+            ref_phone = trans.TransitionIdToPhone(num_ali[cur_time]);
         bool phone_is_sil = std::binary_search(silence_phones.begin(),
-                                               silence_phones.end(), phone);
+                                               silence_phones.end(),
+                                               phone),
+            ref_phone_is_sil = std::binary_search(silence_phones.begin(),
+                                                  silence_phones.end(),
+                                                  ref_phone),
+            both_sil = phone_is_sil && ref_phone_is_sil;
         if (!is_mpfe) { // smbr.
           int32 pdf = trans.TransitionIdToPdf(arc.ilabel),
               ref_pdf = trans.TransitionIdToPdf(num_ali[cur_time]);
-          frame_acc = (pdf == ref_pdf && !phone_is_sil) ? 1.0 : 0.0;
+          if (!one_silence_class)  // old behavior
+            frame_acc = (pdf == ref_pdf && !phone_is_sil) ? 1.0 : 0.0;
+          else
+            frame_acc = (pdf == ref_pdf || both_sil) ? 1.0 : 0.0;
         } else {
-          int32 ref_phone = trans.TransitionIdToPhone(num_ali[cur_time]);
-          frame_acc = (phone == ref_phone && !phone_is_sil) ? 1.0 : 0.0;
+          if (!one_silence_class)  // old behavior
+            frame_acc = (phone == ref_phone && !phone_is_sil) ? 1.0 : 0.0;
+          else
+            frame_acc = (phone == ref_phone || both_sil) ? 1.0 : 0.0;
         }
       }
       double arc_scale = Exp(alpha[s] + arc_like - alpha[arc.nextstate]);
@@ -773,16 +786,26 @@ BaseFloat LatticeForwardBackwardMpeVariants(
       int32 transition_id = arc.ilabel;
       if (arc.ilabel != 0) {
         int32 cur_time = state_times[s];
-        int32 phone = trans.TransitionIdToPhone(arc.ilabel);
+        int32 phone = trans.TransitionIdToPhone(arc.ilabel),
+            ref_phone = trans.TransitionIdToPhone(num_ali[cur_time]);
         bool phone_is_sil = std::binary_search(silence_phones.begin(),
-                                               silence_phones.end(), phone);
+                                               silence_phones.end(), phone),
+            ref_phone_is_sil = std::binary_search(silence_phones.begin(),
+                                                  silence_phones.end(),
+                                                  ref_phone),
+            both_sil = phone_is_sil && ref_phone_is_sil;
         if (!is_mpfe) { // smbr.
           int32 pdf = trans.TransitionIdToPdf(arc.ilabel),
               ref_pdf = trans.TransitionIdToPdf(num_ali[cur_time]);
-          frame_acc = (pdf == ref_pdf && !phone_is_sil) ? 1.0 : 0.0;
+          if (!one_silence_class)  // old behavior
+            frame_acc = (pdf == ref_pdf && !phone_is_sil) ? 1.0 : 0.0;
+          else
+            frame_acc = (pdf == ref_pdf || both_sil) ? 1.0 : 0.0;
         } else {
-          int32 ref_phone = trans.TransitionIdToPhone(num_ali[cur_time]);
-          frame_acc = (phone == ref_phone && !phone_is_sil) ? 1.0 : 0.0;
+          if (!one_silence_class)  // old behavior
+            frame_acc = (phone == ref_phone && !phone_is_sil) ? 1.0 : 0.0;
+          else
+            frame_acc = (phone == ref_phone || both_sil) ? 1.0 : 0.0;
         }
       }
       double arc_scale = Exp(beta[arc.nextstate] + arc_like - beta[s]);
@@ -866,6 +889,77 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
     }
   }
 }
+
+
+bool CompactLatticeToWordProns(
+    const TransitionModel &tmodel,
+    const CompactLattice &clat,
+    std::vector<int32> *words,
+    std::vector<int32> *begin_times,
+    std::vector<int32> *lengths,
+    std::vector<std::vector<int32> > *prons,
+    std::vector<std::vector<int32> > *phone_lengths) {
+  words->clear();
+  begin_times->clear();
+  lengths->clear();
+  prons->clear();
+  phone_lengths->clear();
+  typedef CompactLattice::Arc Arc;
+  typedef Arc::Label Label;
+  typedef CompactLattice::StateId StateId;
+  typedef CompactLattice::Weight Weight;
+  using namespace fst;
+  StateId state = clat.Start();
+  int32 cur_time = 0;
+  if (state == kNoStateId) {
+    KALDI_WARN << "Empty lattice.";
+    return false;
+  }
+  while (1) {
+    Weight final = clat.Final(state);
+    size_t num_arcs = clat.NumArcs(state);
+    if (final != Weight::Zero()) {
+      if (num_arcs != 0) {
+        KALDI_WARN << "Lattice is not linear.";
+        return false;
+      }
+      if (! final.String().empty()) {
+        KALDI_WARN << "Lattice has alignments on final-weight: probably "
+            "was not word-aligned (alignments will be approximate)";
+      }
+      return true;
+    } else {
+      if (num_arcs != 1) {
+        KALDI_WARN << "Lattice is not linear: num-arcs = " << num_arcs;
+        return false;
+      }
+      fst::ArcIterator<CompactLattice> aiter(clat, state);
+      const Arc &arc = aiter.Value();
+      Label word_id = arc.ilabel; // Note: ilabel==olabel, since acceptor.
+      // Also note: word_id may be zero; we output it anyway.
+      int32 length = arc.weight.String().size();
+      words->push_back(word_id);
+      begin_times->push_back(cur_time);
+      lengths->push_back(length);
+      const std::vector<int32> &arc_alignment = arc.weight.String();
+      std::vector<std::vector<int32> > split_alignment;
+      SplitToPhones(tmodel, arc_alignment, &split_alignment);
+      std::vector<int32> phones(split_alignment.size());
+      std::vector<int32> plengths(split_alignment.size());
+      for (size_t i = 0; i < split_alignment.size(); i++) {
+        KALDI_ASSERT(!split_alignment[i].empty());
+        phones[i] = tmodel.TransitionIdToPhone(split_alignment[i][0]);
+        plengths[i] = split_alignment[i].size();
+      }
+      prons->push_back(phones);
+      phone_lengths->push_back(plengths);
+      
+      cur_time += length;
+      state = arc.nextstate;
+    }
+  }
+}
+
 
 
 void CompactLatticeShortestPath(const CompactLattice &clat,

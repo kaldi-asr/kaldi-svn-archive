@@ -614,6 +614,37 @@ static void _apply_mask(Real* mat, const char* mask, MatrixDim dmat, MatrixDim d
     if(mask[index2] == 0) mat[index] = 0;
 }
 
+template<typename Real>
+__global__
+static void _add_mat_diag_vec(Real alpha, Real *mat, MatrixDim mat_dim,
+                              const Real *mat2, int mat2_row_stride, int mat2_col_stride, 
+                              const Real *vec, Real beta) {
+  // Note from Dan: in this kernel, we make the x dimension correspond to the
+  // row index and y to the column index.  That was not always the case for
+  // earlier kernels written by others.
+  int i = blockIdx.x * blockDim.x + threadIdx.x; // row index
+  int j = blockIdx.y * blockDim.y + threadIdx.y; // column index
+  
+  int index = i * mat_dim.stride + j,
+      index2 = i * mat2_row_stride + j * mat2_col_stride;
+  
+  if (i < mat_dim.rows && j < mat_dim.cols) {
+    mat[index] = alpha * mat2[index2] * vec[j] + beta * mat[index];
+  }
+}
+
+template<typename Real>
+__global__
+static void _add_mat_mat_elements(Real *data, const Real *srcA_data, const Real *srcB_data, MatrixDim dim, int srcA_stride, int srcB_stride, Real alpha, Real beta) {
+    int32_cuda i = blockIdx.x * blockDim.x + threadIdx.x;
+    int32_cuda j = blockIdx.y * blockDim.y + threadIdx.y;
+    int32_cuda tgt_index = i + j*dim.stride;
+    int32_cuda srcA_index = i + j*srcA_stride;
+    int32_cuda srcB_index = i + j*srcB_stride;
+    if (i < dim.cols && j < dim.rows) {
+        data[tgt_index] = alpha * srcA_data[srcA_index] * srcB_data[srcB_index] + beta * data[tgt_index] ;
+    }
+}
 
 
 /*
@@ -1246,55 +1277,6 @@ static void _apply_ceiling(Real* mat, Real ceiling_val, MatrixDim d) {
   }
 }
 
-
-template<typename Real>
-__global__
-static void _add_row_sum_mat(const Real* mat, Real* vec_sum, MatrixDim d) {
-  int i = blockIdx.y * blockDim.y + threadIdx.y; //col
-  int j = blockIdx.x * blockDim.x + threadIdx.x; //row
-
-  if(blockIdx.x > 0) return;
-  if(blockDim.y != 1) return;
-
-  __shared__ Real row_data[CU1DBLOCK];
-
-  //copy the input to row_data
-  row_data[j] = mat[i+j*d.stride];
-  __syncthreads();
-
-  //get the sum
-  Real sum = _sum_reduce(row_data);
-  __syncthreads();
-  
-  //add to previously accumulated sum
-  if(threadIdx.x == 0)
-    vec_sum[i] += sum;
-}
-
-
-template<typename Real>
-__global__
-static void _add_col_sum_mat(const Real* mat, Real* vec_sum, MatrixDim d) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x; //row
-  int j = blockIdx.y * blockDim.y + threadIdx.y; //col
-
-  if(blockIdx.x > 0) return;
-  if(blockDim.y != 1) return;
-
-  __shared__ Real row_data[CU1DBLOCK];
-
-  //copy the input to row_data
-  row_data[i] = mat[i+j*d.stride];
-  __syncthreads();
-
-  //get the sum
-  Real sum = _sum_reduce(row_data);
-  __syncthreads();
-  
-  //add to previously accumulated sum
-  if(threadIdx.x == 0) 
-    vec_sum[j] += sum;
-}
 
 
 template<typename Real>
@@ -2037,6 +2019,15 @@ void cudaF_add_vec_to_rows(dim3 Gr, dim3 Bl, float alpha, const float* row, floa
   _add_vec_to_rows<<<Gr,Bl>>>(alpha,row,beta,dst,d); 
 }
 
+void cudaF_add_mat_diag_vec(dim3 Gr, dim3 Bl, float alpha, float *mat, MatrixDim mat_dim, const float *mat2, int mat2_row_stride, int mat2_col_stride, const float *vec,  float beta) {
+  _add_mat_diag_vec<<<Gr,Bl>>>(alpha, mat, mat_dim, mat2, mat2_row_stride, mat2_col_stride, vec, beta);
+}
+
+void cudaF_add_mat_mat_elements(dim3 Gr, dim3 Bl, float *data, const float *srcA_data, const float *srcB_data, MatrixDim dim, int srcA_stride, int srcB_stride, float alpha, float beta) {
+    _add_mat_mat_elements<<<Gr, Bl>>>(data, srcA_data, srcB_data, dim, srcA_stride, srcB_stride, alpha, beta);
+}
+
+
 // CURRENTLY UNUSED...
 void cudaF_apply_mask(dim3 Gr, dim3 Bl, float* mat, const char* mask, MatrixDim dmat, MatrixDim dmask) {
   _apply_mask<<<Gr,Bl>>>(mat,mask,dmat,dmask); 
@@ -2129,14 +2120,6 @@ void cudaF_vec_apply_exp(int Gr, int Bl, float* v, int dim) {
 
 void cudaF_vec_apply_log(int Gr, int Bl, float* v, float* flag, int dim) {
   _vec_apply_log<<<Gr,Bl>>>(v,flag,dim);
-}
-
-void cudaF_add_row_sum_mat(dim3 Gr, dim3 Bl, const float* mat, float* vec_sum, MatrixDim d) {
-  _add_row_sum_mat<<<Gr,Bl>>>(mat,vec_sum,d);
-}
-
-void cudaF_add_col_sum_mat(dim3 Gr, dim3 Bl, const float* mat, float* vec_sum, MatrixDim d) {
-  _add_col_sum_mat<<<Gr,Bl>>>(mat,vec_sum,d);
 }
 
 void cudaF_invert_elements(dim3 Gr, dim3 Bl, float* data, MatrixDim d) {
@@ -2443,6 +2426,14 @@ void cudaD_add_vec_to_rows(dim3 Gr, dim3 Bl, double alpha, const double* row, do
   _add_vec_to_rows<<<Gr,Bl>>>(alpha,row,beta,dst,d); 
 }
 
+void cudaD_add_mat_diag_vec(dim3 Gr, dim3 Bl, double alpha, double *mat, MatrixDim mat_dim, const double *mat2, int mat2_row_stride, int mat2_col_stride, const double *vec,  double beta) {
+  _add_mat_diag_vec<<<Gr,Bl>>>(alpha, mat, mat_dim, mat2, mat2_row_stride, mat2_col_stride, vec, beta);
+}
+
+void cudaD_add_mat_mat_elements(dim3 Gr, dim3 Bl, double *data, const double *srcA_data, const double *srcB_data, MatrixDim dim, int srcA_stride, int srcB_stride, double alpha, double beta) {
+    _add_mat_mat_elements<<<Gr, Bl>>>(data, srcA_data, srcB_data, dim, srcA_stride, srcB_stride, alpha, beta);
+}
+
 // CURRENTLY UNUSED...
 void cudaD_apply_mask(dim3 Gr, dim3 Bl, double* mat, const char* mask, MatrixDim dmat, MatrixDim dmask) {
   _apply_mask<<<Gr,Bl>>>(mat,mask,dmat,dmask); 
@@ -2538,14 +2529,6 @@ void cudaD_vec_apply_exp(int Gr, int Bl, double* v, int dim) {
 
 void cudaD_vec_apply_log(int Gr, int Bl, double* v, double* flag, int dim) {
   _vec_apply_log<<<Gr,Bl>>>(v,flag,dim);
-}
-
-void cudaD_add_row_sum_mat(dim3 Gr, dim3 Bl, const double* mat, double* vec_sum, MatrixDim d) {
-  _add_row_sum_mat<<<Gr,Bl>>>(mat,vec_sum,d);
-}
-
-void cudaD_add_col_sum_mat(dim3 Gr, dim3 Bl, const double* mat, double* vec_sum, MatrixDim d) {
-  _add_col_sum_mat<<<Gr,Bl>>>(mat,vec_sum,d);
 }
 
 void cudaD_invert_elements(dim3 Gr, dim3 Bl, double* data, MatrixDim d) {

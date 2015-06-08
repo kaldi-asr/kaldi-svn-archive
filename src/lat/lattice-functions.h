@@ -147,11 +147,14 @@ bool LatticeBoost(const TransitionModel &trans,
 
 
 /**
-   This function implements either the MPFE (minimum phone frame error)
-   or SMBR (state-level minimum bayes risk) forward-backward, depending
-   on whether "criterion" is "mpfe" or "smbr".  It returns the MPFE criterion
-   of SMBR criterion for this file, and outputs the posteriors (which may be
-   positive or negative) into "arc_post".
+   This function implements either the MPFE (minimum phone frame error) or SMBR
+   (state-level minimum bayes risk) forward-backward, depending on whether
+   "criterion" is "mpfe" or "smbr".  It returns the MPFE
+   criterion of SMBR criterion for this file, and outputs the posteriors (which
+   may be positive or negative) into "arc_post".
+   Note: setting one_silence_class to false gives the old traditional behavior,
+   true gives a possibly improved behavior which will tend to reduce insertions
+   in the trained model.
 */
 BaseFloat LatticeForwardBackwardMpeVariants(
     const TransitionModel &trans,
@@ -159,6 +162,7 @@ BaseFloat LatticeForwardBackwardMpeVariants(
     const Lattice &lat,
     const std::vector<int32> &num_ali,
     std::string criterion,
+    bool one_silence_class,
     Posterior *post);
 
 /**
@@ -184,14 +188,14 @@ BaseFloat LatticeForwardBackwardMmi(
     Posterior *arc_post);
 
 
-/// This function takes a CompactLattice that should only contain
-/// a single linear sequence (e.g. derived from lattice-1best), and
-/// that should have been processed so that the arcs in the CompactLattice
-/// align correctly with the word boundaries (e.g. by lattice-align-words).
-/// It outputs 3 vectors of the same size, which give, for each word
-/// in the lattice (in sequence), the word label and the begin time and
-/// end time.  This is done even for zero words-- if you don't want them,
-/// just ignore them in the output.
+/// This function takes a CompactLattice that should only contain a single
+/// linear sequence (e.g. derived from lattice-1best), and that should have been
+/// processed so that the arcs in the CompactLattice align correctly with the
+/// word boundaries (e.g. by lattice-align-words).  It outputs 3 vectors of the
+/// same size, which give, for each word in the lattice (in sequence), the word
+/// label and the begin time and length in frames.  This is done even for zero
+/// (epsilon) words, generally corresponding to optional silence-- if you don't
+/// want them, just ignore them in the output.
 /// This function will print a warning and return false, if the lattice
 /// did not have the correct format (e.g. if it is empty or it is not
 /// linear).
@@ -199,6 +203,27 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
                                    std::vector<int32> *words,
                                    std::vector<int32> *begin_times,
                                    std::vector<int32> *lengths);
+
+/// This function takes a CompactLattice that should only contain a single
+/// linear sequence (e.g. derived from lattice-1best), and that should have been
+/// processed so that the arcs in the CompactLattice align correctly with the
+/// word boundaries (e.g. by lattice-align-words).  It outputs 4 vectors of the
+/// same size, which give, for each word in the lattice (in sequence), the word
+/// label, the begin time and length in frames, and the pronunciation (sequence
+/// of phones).  This is done even for zero words, corresponding to optional
+/// silences -- if you don't want them, just ignore them in the output.
+/// This function will print a warning and return false, if the lattice
+/// did not have the correct format (e.g. if it is empty or it is not
+/// linear).
+bool CompactLatticeToWordProns(
+    const TransitionModel &tmodel,
+    const CompactLattice &clat,
+    std::vector<int32> *words,
+    std::vector<int32> *begin_times,
+    std::vector<int32> *lengths,
+    std::vector<std::vector<int32> > *prons,
+    std::vector<std::vector<int32> > *phone_lengths);
+
 
 /// A form of the shortest-path/best-path algorithm that's specially coded for
 /// CompactLattice.  Requires that clat be acyclic.

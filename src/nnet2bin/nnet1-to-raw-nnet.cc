@@ -23,6 +23,7 @@
 #include "nnet/nnet-nnet.h"
 #include "nnet/nnet-affine-transform.h"
 #include "nnet/nnet-activation.h"
+#include "nnet/nnet-various.h"
 #include "nnet2/nnet-nnet.h"
 #include "nnet2/nnet-component.h"
 
@@ -79,7 +80,11 @@ nnet2::Component *ConvertSpliceComponent(
   high = frame_offsets[frame_offsets.size() - 1];
 
   nnet2::SpliceComponent *res = new nnet2::SpliceComponent();
-  res->Init(splice->InputDim(), -low, high);
+  std::vector<int32> context(high - low + 1);
+  for (int32 i = low; i <= high; i++)  {
+    context[i - low] = i;
+  }
+  res->Init(splice->InputDim(), context);
   return res;
 }
 
@@ -165,7 +170,6 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Convert nnet1 neural net to nnet2 'raw' neural net\n"
-        ""
         "\n"
         "Usage:  nnet1-to-raw-nnet [options] <nnet1-in> <nnet2-out>\n"
         "e.g.:\n"

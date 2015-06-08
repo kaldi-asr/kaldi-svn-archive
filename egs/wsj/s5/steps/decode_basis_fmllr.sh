@@ -49,7 +49,7 @@ silence_weight=0.01
 cmd=run.pl
 si_dir=
 num_threads=1 # if >1, will use gmm-latgen-faster-parallel
-parallel_opts=  # If you supply num-threads, you should supply this too.
+parallel_opts=  # ignored, present for historical reasons.
 skip_scoring=false
 scoring_opts=
 # End configuration section
@@ -75,7 +75,7 @@ if [ $# != 3 ]; then
    echo "  --acwt <acoustic-weight>                 # default 0.08333 ... used to get posteriors"
    echo "  --scoring-opts <string>                  # options to local/score.sh"
    echo "  --num-threads <n>                        # number of threads to use, default 1."
-   echo "  --parallel-opts <opts>                   # e.g. '-pe smp 4' if you supply --num-threads 4"
+   echo "  --parallel-opts <opts>                   # ignored, present for historical reasons."
    exit 1;
 fi
 
@@ -116,7 +116,12 @@ fi
 if [ -z "$si_dir" ]; then # we need to do the speaker-independent decoding pass.
   si_dir=${dir}.si # Name it as our decoding dir, but with suffix ".si".
   if [ $stage -le 0 ]; then
-    steps/decode.sh --parallel-opts "$parallel_opts" --scoring-opts "$scoring_opts" \
+    if [ -f "$graphdir/num_pdfs" ]; then
+      [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $alignment_model | grep pdfs | awk '{print $NF}'` ] || \
+        { echo "Mismatch in number of pdfs with $alignment_model"; exit 1; }
+    fi
+
+    steps/decode.sh --scoring-opts "$scoring_opts" \
               --num-threads $num_threads --skip-scoring $skip_scoring \
               --acwt $acwt --nj $nj --cmd "$cmd" --beam $first_beam \
               --model $alignment_model --max-active \
@@ -169,7 +174,11 @@ pass1feats="$sifeats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$dir/p
 ## model, and it's more correct to store the full state-level lattice for this purpose.
 if [ $stage -le 2 ]; then
   echo "$0: doing main lattice generation phase"
-  $cmd JOB=1:$nj $dir/log/decode.JOB.log \
+  if [ -f "$graphdir/num_pdfs" ]; then
+    [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $adapt_model | grep pdfs | awk '{print $NF}'` ] || \
+      { echo "Mismatch in number of pdfs with $adapt_model"; exit 1; }
+  fi
+  $cmd JOB=1:$nj --num-threads $num_threads $dir/log/decode.JOB.log \
     gmm-latgen-faster$thread_string --max-active=$max_active --beam=$beam --lattice-beam=$lattice_beam \
     --acoustic-scale=$acwt  \
     --determinize-lattice=false --allow-partial=true --word-symbol-table=$graphdir/words.txt \

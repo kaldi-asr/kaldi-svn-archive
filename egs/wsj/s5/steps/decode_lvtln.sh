@@ -18,7 +18,7 @@ logdet_scale=0.0
 cmd=run.pl
 skip_scoring=false
 num_threads=1 # if >1, will use gmm-latgen-faster-parallel
-parallel_opts=  # If you supply num-threads, you should supply this too.
+parallel_opts=  # ignored now.
 scoring_opts=
 cleanup=true
 # End configuration section
@@ -85,7 +85,11 @@ esac
 ## Generate lattices.
 if [ $stage -le 0 ]; then
   echo "$0: doing main lattice generation phase"
-  $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
+  if [ -f "$graphdir/num_pdfs" ]; then
+    [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $srcdir/final.alimdl | grep pdfs | awk '{print $NF}'` ] || \
+      { echo "Mismatch in number of pdfs with $srcdir/final.alimdl"; exit 1; }
+  fi
+  $cmd --num-threads $num_threads JOB=1:$nj $dir/log/decode.JOB.log \
     gmm-latgen-faster$thread_string --max-active=$max_active --beam=$beam --lattice-beam=$lattice_beam \
      --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \
     $srcdir/final.alimdl $graphdir/HCLG.fst "$sifeats" "ark:|gzip -c > $dir/lat_pass1.JOB.gz" \
@@ -96,6 +100,10 @@ fi
 ## Get the first-pass LVTLN transforms
 if [ $stage -le 1 ]; then
   echo "$0: getting first-pass LVTLN transforms."
+  if [ -f "$graphdir/num_pdfs" ]; then
+    [ "`cat $graphdir/num_pdfs`" -eq `am-info --print-args=false $srcdir/final.mdl | grep pdfs | awk '{print $NF}'` ] || \
+      { echo "Mismatch in number of pdfs with $srcdir/final.mdl"; exit 1; }
+  fi
   $cmd JOB=1:$nj $dir/log/lvtln_pass1.JOB.log \
     gunzip -c $dir/lat_pass1.JOB.gz \| \
     lattice-to-post --acoustic-scale=$acwt ark:- ark:- \| \
@@ -113,7 +121,7 @@ feats1="$sifeats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$dir/trans
 
 if [ $stage -le 3 ]; then
   echo "$0: rescoring the lattices with first-pass LVTLN transforms"
-  $cmd $parallel_opts JOB=1:$nj $dir/log/rescore.JOB.log \
+  $cmd --num-threads $num_threads JOB=1:$nj $dir/log/rescore.JOB.log \
     gmm-rescore-lattice $srcdir/final.mdl "ark:gunzip -c $dir/lat_pass1.JOB.gz|" "$feats1" \
      "ark:|gzip -c > $dir/lat_pass2.JOB.gz" || exit 1;
 fi
@@ -136,7 +144,7 @@ if [ $stage -le 5 ]; then
   # This second rescoring is only really necessary for scoring purposes,
   # it does not affect the transforms.
   echo "$0: rescoring the lattices with second-pass LVTLN transforms"
-  $cmd $parallel_opts JOB=1:$nj $dir/log/rescore.JOB.log \
+  $cmd --num-threads $num_threads JOB=1:$nj $dir/log/rescore.JOB.log \
     gmm-rescore-lattice $srcdir/final.mdl "ark:gunzip -c $dir/lat_pass2.JOB.gz|" "$feats" \
      "ark:|gzip -c > $dir/lat.JOB.gz" || exit 1;
 fi

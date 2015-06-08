@@ -232,6 +232,7 @@ class TransitionModel {
   void InitStats(Vector<double> *stats) const { stats->Resize(NumTransitionIds()+1); }
 
   void Accumulate(BaseFloat prob, int32 trans_id, Vector<double> *stats) const {
+    KALDI_ASSERT(trans_id <= NumTransitionIds());
     (*stats)(trans_id) += prob;
     // This is trivial and doesn't require class members, but leaves us more open
     // to design changes than doing it manually.
@@ -311,7 +312,8 @@ class TransitionModel {
 inline int32 TransitionModel::TransitionIdToPdf(int32 trans_id) const {
   // If a lot of time is spent here we may create an extra array
   // to handle this.
-  KALDI_ASSERT(static_cast<size_t>(trans_id) < id2state_.size());
+  KALDI_ASSERT(static_cast<size_t>(trans_id) < id2state_.size() &&
+               "Likely graph/model mismatch (graph built from wrong model?)");
   int32 trans_state = id2state_[trans_id];
   return triples_[trans_state-1].pdf;
 }

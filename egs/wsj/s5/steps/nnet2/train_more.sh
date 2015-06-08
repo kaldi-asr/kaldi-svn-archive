@@ -39,7 +39,7 @@ shuffle_buffer_size=5000 # This "buffer_size" variable controls randomization of
 mix_up=0
 stage=-5
 num_threads=16
-parallel_opts="-pe smp 16 -l ram_free=1G,mem_free=1G" # by default we use 16 threads; this lets the queue know.
+parallel_opts="--num-threads 16 --mem 1G" # by default we use 16 threads; this lets the queue know.
    # note: parallel_opts doesn't automatically get adjusted if you adjust num-threads.
 cleanup=true
 remove_egs=false
@@ -64,16 +64,13 @@ if [ $# != 3 ]; then
   echo "  --num-epochs <#epochs|15>                        # Number of epochs of training"
   echo "                                                   # while reducing learning rate (determines #iterations, together"
   echo "                                                   # with --samples-per-iter and --num-jobs-nnet)"
-  echo "  --num-epochs-extra <#epochs-extra|5>             # Number of extra epochs of training"
-  echo "                                                   # after learning rate fully reduced"
   echo "  --learning-rate-factor<factor|1.0>               # Factor (e.g. 0.2) by which to change learning rate"
   echo "                                                   # during the course of training"
   echo "  --num-threads <num-threads|16>                   # Number of parallel threads per job (will affect results"
   echo "                                                   # as well as speed; may interact with batch size; if you increase"
   echo "                                                   # this, you may want to decrease the batch size."
-  echo "  --parallel-opts <opts|\"-pe smp 16 -l ram_free=1G,mem_free=1G\">      # extra options to pass to e.g. queue.pl for processes that"
-  echo "                                                   # use multiple threads... note, you might have to reduce mem_free,ram_free"
-  echo "                                                   # versus your defaults, because it gets multiplied by the -pe smp argument."
+  echo "  --parallel-opts <opts|\"--num-threads 16 --mem 1G\">      # extra options to pass to e.g. queue.pl for processes that"
+  echo "                                                   # use multiple threads... "
   echo "  --minibatch-size <minibatch-size|128>            # Size of minibatch to process (note: product with --num-threads"
   echo "                                                   # should not get too large, e.g. >2k)."
   echo "  --num-iters-final <#iters|20>                    # Number of final iterations to give to nnet-combine-fast to "

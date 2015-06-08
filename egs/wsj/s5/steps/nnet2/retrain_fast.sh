@@ -58,10 +58,10 @@ target_multiplier=0 #  Set this to e.g. 1.0 to enable perturbed training.
 mix_up=0 # Number of components to mix up to (should be > #tree leaves, if
         # specified.)
 num_threads=16
-parallel_opts="-pe smp 16 -l ram_free=1G,mem_free=1G" # by default we use 16 threads; this lets the queue know.
+parallel_opts="--num-threads 16 --mem 1G" # by default we use 16 threads; this lets the queue know.
   # note: parallel_opts doesn't automatically get adjusted if you adjust num-threads.
 combine_num_threads=8
-combine_parallel_opts="-pe smp 8"  # queue options for the "combine" stage.
+combine_parallel_opts="--num-threads 8"  # queue options for the "combine" stage.
 cleanup=true
 egs_dir=
 egs_opts=
@@ -100,9 +100,8 @@ if [ $# != 4 ]; then
   echo "  --num-threads <num-threads|16>                   # Number of parallel threads per job (will affect results"
   echo "                                                   # as well as speed; may interact with batch size; if you increase"
   echo "                                                   # this, you may want to decrease the batch size."
-  echo "  --parallel-opts <opts|\"-pe smp 16 -l ram_free=1G,mem_free=1G\">      # extra options to pass to e.g. queue.pl for processes that"
-  echo "                                                   # use multiple threads... note, you might have to reduce mem_free,ram_free"
-  echo "                                                   # versus your defaults, because it gets multiplied by the -pe smp argument."
+  echo "  --parallel-opts <opts|\"--num-threads 16 --mem 1G\">      # extra options to pass to e.g. queue.pl for processes that"
+  echo "                                                   # use multiple threads... "
   echo "  --io-opts <opts|\"-tc 10\">                      # Options given to e.g. queue.pl for jobs that do a lot of I/O."
   echo "  --minibatch-size <minibatch-size|128>            # Size of minibatch to process (note: product with --num-threads"
   echo "                                                   # should not get too large, e.g. >2k)."
@@ -132,7 +131,7 @@ done
 
 
 # Set some variables.
-num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+num_leaves=`tree-info $alidir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1
 [ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
 [ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 
@@ -149,7 +148,7 @@ cp $alidir/tree $dir
 if [ $stage -le -3 ] && [ -z "$egs_dir" ]; then
   echo "$0: calling get_egs.sh"
   steps/nnet2/get_egs.sh --feat-type raw --cmvn-opts "--norm-means=false --norm-vars=false" \
-      --samples-per-iter $samples_per_iter \
+      --samples-per-iter $samples_per_iter --left-context 0 --right-context 0 \
       --num-jobs-nnet $num_jobs_nnet --stage $get_egs_stage \
       --cmd "$cmd" $egs_opts --io-opts "$io_opts" \
       $data $lang $alidir $dir || exit 1;

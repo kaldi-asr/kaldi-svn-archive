@@ -7,10 +7,10 @@
 
 #a) JHU cluster options
 export train_cmd="queue.pl -l arch=*64"
-export decode_cmd="queue.pl -l arch=*64,mem_free=2G,ram_free=2G"
-export mkgraph_cmd="queue.pl -l arch=*64,ram_free=4G,mem_free=4G"
-
-#export cuda_cmd="..."
+export decode_cmd="queue.pl -l arch=*64 --mem 2G"
+export mkgraph_cmd="queue.pl -l arch=*64 --mem 4G"
+export big_memory_cmd="queue.pl -l arch=*64 --mem 8G"
+export cuda_cmd="queue.pl --gpu 1"
 
 
 #b) BUT cluster options
@@ -25,5 +25,5 @@ export mkgraph_cmd="queue.pl -l arch=*64,ram_free=4G,mem_free=4G"
 #c) run it locally...
 #export train_cmd=run.pl
 #export decode_cmd=run.pl
-export cuda_cmd=run.pl
+#export cuda_cmd=run.pl
 #export mkgraph_cmd=run.pl

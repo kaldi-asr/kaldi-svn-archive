@@ -87,7 +87,7 @@ class NnetDiscriminativeUpdater {
                          // another Nnet, in gradient-computation case, or
                          // NULL if we just need the objective function.
   NnetDiscriminativeStats *stats_; // the objective function, etc.
-  
+  std::vector<ChunkInfo> chunk_info_out_; 
   // forward_data_[i] is the input of the i'th component and (if i > 0)
   // the output of the i-1'th component.
   std::vector<CuMatrix<BaseFloat> > forward_data_; 
@@ -112,6 +112,8 @@ NnetDiscriminativeUpdater::NnetDiscriminativeUpdater(
     KALDI_ERR << "Bad value for --silence-phones option: "
               << opts_.silence_phones_str;
   }
+  const Nnet &nnet = am_nnet_.GetNnet();
+  nnet.ComputeChunkInfo(eg_.input_frames.NumRows(), 1, &chunk_info_out_);
 }
 
 
@@ -154,14 +156,12 @@ void NnetDiscriminativeUpdater::Propagate() {
                            input_feats.NumCols(), spk_dim).CopyRowsFromVec(
                                eg_.spk_info);
   }
-  int32 num_chunks = 1; // one big chunk, rather than a sequence of examples.
 
   for (int32 c = 0; c < nnet.NumComponents(); c++) {
     const Component &component = nnet.GetComponent(c);
     CuMatrix<BaseFloat> &input = forward_data_[c],
         &output = forward_data_[c+1];
-        
-    component.Propagate(input, num_chunks, &output);
+    component.Propagate(chunk_info_out_[c] , chunk_info_out_[c+1], input, &output);
     const Component *prev_component = (c == 0 ? NULL :
                                        &(nnet.GetComponent(c-1)));
     bool will_do_backprop = (nnet_to_update_ != NULL),
@@ -264,7 +264,7 @@ void NnetDiscriminativeUpdater::LatticeComputations() {
   if (opts_.criterion == "mmi") {
     double tot_num_like = 0.0;
     for (; index < eg_.num_ali.size(); index++)
-      tot_num_like += log(answers[index]);
+      tot_num_like += answers[index];
     stats_->tot_num_objf += eg_.weight * tot_num_like;
   }
 
@@ -327,7 +327,8 @@ double NnetDiscriminativeUpdater::GetDiscriminativePosteriors(Posterior *post) {
     double ans;
     ans = LatticeForwardBackwardMpeVariants(tmodel_, silence_phones_, lat_,
                                             eg_.num_ali, opts_.criterion,
-                                            &tid_post) * eg_.weight;
+                                            opts_.one_silence_class,
+                                            &tid_post);
     ConvertPosteriorToPdfs(tmodel_, tid_post, post);
     return ans; // returns the objective function.
   } else {
@@ -344,7 +345,6 @@ double NnetDiscriminativeUpdater::GetDiscriminativePosteriors(Posterior *post) {
 
 
 void NnetDiscriminativeUpdater::Backprop() {
-  int32 num_chunks = 1;
   const Nnet &nnet = am_nnet_.GetNnet();
   for (int32 c = nnet.NumComponents() - 1; c >= 0; c--) {
     const Component &component = nnet.GetComponent(c);
@@ -353,7 +353,7 @@ void NnetDiscriminativeUpdater::Backprop() {
                             &output = forward_data_[c+1],
                       &output_deriv = backward_data_;
     CuMatrix<BaseFloat> input_deriv;
-    component.Backprop(input, output, output_deriv, num_chunks,
+    component.Backprop(chunk_info_out_[c], chunk_info_out_[c+1], input, output, output_deriv,
                        component_to_update, &input_deriv);
     backward_data_.Swap(&input_deriv); // backward_data_ = input_deriv.
   }

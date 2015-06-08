@@ -41,6 +41,7 @@
 #include "cudamatrix/cu-tp-matrix.h"
 #include "cudamatrix/cu-block-matrix.h"
 #include "cudamatrix/cublas-wrappers.h"
+#include "cudamatrix/cu-thrust.h"
 
 namespace kaldi {
 
@@ -315,6 +316,14 @@ void CuMatrixBase<Real>::CopyFromMat(const MatrixBase<OtherReal> &src,
   this->CopyFromMat(temp, trans);
 }
 
+// instantiate the template above.
+template
+void CuMatrixBase<float>::CopyFromMat(const MatrixBase<double> &src,
+                                      MatrixTransposeType trans);
+template
+void CuMatrixBase<double>::CopyFromMat(const MatrixBase<float> &src,
+                                       MatrixTransposeType trans);
+
 
 template<typename Real>
 void CuMatrixBase<Real>::CopyFromSp(const CuSpMatrix<Real> &M) {
@@ -380,12 +389,13 @@ template<typename OtherReal>
 void CuMatrixBase<Real>::CopyToMat(MatrixBase<OtherReal> *dst,
                                    MatrixTransposeType trans) const {
 #if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) {
+  if (CuDevice::Instantiate().Enabled()) {    
     if (trans == kTrans || sizeof(OtherReal) != sizeof(Real)) {
       CuMatrix<OtherReal> this_trans(*this, trans);
       this_trans.CopyToMat(dst, kNoTrans);
     } else {
       KALDI_ASSERT(dst->NumRows() == NumRows() && dst->NumCols() == NumCols());
+      if (num_rows_ == 0) return;
       Timer tim;
    
       MatrixIndexT src_pitch = stride_*sizeof(Real);
@@ -460,7 +470,8 @@ void CuMatrixBase<Real>::SetZero() {
 template<typename Real> 
 void CuMatrixBase<Real>::Set(Real value) {
   #if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) { 
+  if (CuDevice::Instantiate().Enabled()) {
+    if (num_rows_ == 0) return;
     Timer tim;
 
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
@@ -482,6 +493,7 @@ template<typename Real>
 void CuMatrixBase<Real>::SetZeroAboveDiag() {
 #if HAVE_CUDA == 1
   if (CuDevice::Instantiate().Enabled()) {
+    if (num_rows_ == 0) return;
     Timer tim;
 
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
@@ -507,7 +519,8 @@ void CuMatrixBase<Real>::SetZeroAboveDiag() {
 template<typename Real> 
 void CuMatrixBase<Real>::Add(Real value) { 
 #if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) { 
+  if (CuDevice::Instantiate().Enabled()) {
+    if (num_rows_ == 0) return;
     Timer tim;
 
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
@@ -527,7 +540,8 @@ void CuMatrixBase<Real>::Add(Real value) {
 template<typename Real> 
 void CuMatrixBase<Real>::AddToDiag(Real value) { 
 #if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) { 
+  if (CuDevice::Instantiate().Enabled()) {
+    if (num_rows_ == 0) return;
     Timer tim;
     // We'll create a fake matrix with "num_diag" rows, one
     // columnn, and a stride of "this_stride".  The y-value of
@@ -566,7 +580,8 @@ bool CuMatrixBase<Real>::IsUnit(Real tol) const {
 template<typename Real> 
 void CuMatrixBase<Real>::Scale(Real value) { 
 #if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) { 
+  if (CuDevice::Instantiate().Enabled()) {
+    if (num_rows_ == 0) return;
     Timer tim;
 
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
@@ -586,7 +601,8 @@ void CuMatrixBase<Real>::Scale(Real value) {
 template<typename Real> 
 void CuMatrixBase<Real>::ApplyLog() { 
   #if HAVE_CUDA == 1 
-  if (CuDevice::Instantiate().Enabled()) { 
+  if (CuDevice::Instantiate().Enabled()) {
+    if (num_rows_ == 0) return;
     Timer tim;
 
     dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
@@ -1009,6 +1025,59 @@ void CuMatrixBase<Real>::AddDiagVecMat(
 
 
 template<typename Real>
+void CuMatrixBase<Real>::AddMatDiagVec(
+    const Real alpha, 
+    const CuMatrixBase<Real> &M, MatrixTransposeType transM,
+    CuVectorBase<Real> &v,
+    Real beta) {
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    if (transM == kNoTrans) {
+      KALDI_ASSERT(SameDim(*this, M));
+    } else {
+      KALDI_ASSERT(M.NumRows() == NumCols() && M.NumCols() == NumRows());
+    }
+    KALDI_ASSERT(v.Dim() == this->NumCols());
+
+    Timer tim;
+    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
+    // Caution, this dimGrid is not the same way around as much of the other
+    // code: going forward, I want to use the (rows, cols) order.
+    dim3 dimGrid(n_blocks(num_rows_, CU2DBLOCK), n_blocks(num_cols_, CU2DBLOCK));
+
+    MatrixIndexT M_row_stride = M.Stride(), M_col_stride = 1;
+    if (transM == kTrans) std::swap(M_row_stride, M_col_stride);
+
+    cuda_add_mat_diag_vec(dimGrid, dimBlock, alpha, data_, Dim(),
+                          M.Data(), M_row_stride, M_col_stride, v.Data(),  beta);
+    CU_SAFE_CALL(cudaGetLastError());
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().AddMatDiagVec(alpha, M.Mat(), transM, v.Vec(), beta);
+  }
+}
+
+template<typename Real>
+void CuMatrixBase<Real>::AddMatMatElements(Real alpha, 
+    const CuMatrixBase<Real> &A, const CuMatrixBase<Real> &B, Real beta) {
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    Timer tim;
+    dim3 dimBlock(CU2DBLOCK, CU2DBLOCK);
+    dim3 dimGrid(n_blocks(NumCols(), CU2DBLOCK), n_blocks(NumRows(), CU2DBLOCK));
+    cuda_add_mat_mat_elements(dimGrid, dimBlock, this->data_, A.Data(), B.Data(), Dim(), A.Stride(), B.Stride(), alpha, beta);
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  } else
+#endif
+  {
+    Mat().AddMatMatElements(alpha, A.Mat(), B.Mat(), beta);
+  }
+}
+
+
+template<typename Real>
 void CuMatrixBase<Real>::Sigmoid(const CuMatrixBase<Real> &src) {
   KALDI_ASSERT(SameDim(*this, src));
 #if HAVE_CUDA == 1 
@@ -1052,24 +1121,19 @@ void CuMatrixBase<Real>::SigmoidCuDnn(const CuMatrixBase<Real> &src) {
   }
 }
 
-
-template<typename Real>
-__host__ __device__
-static Real thrust_functor_sigmoid(const Real& x) {
-  return 1.0 / (1.0 + exp(-x));
-}
-
 template<typename Real>
 void CuMatrixBase<Real>::SigmoidThrust(const CuMatrixBase<Real> &src) {
   KALDI_ASSERT(SameDim(*this, src));
 #if HAVE_CUDA == 1 
   if (CuDevice::Instantiate().Enabled()) {
     Timer tim;
-    // See thrust::transform examples : http://docs.nvidia.com/cuda/thrust/#axzz3I2pBlHr1
+    int32 r=0;
+    thrust_sigmoid(src.RowData(r), src.RowData(r) + src.NumCols(), this->RowData(r));
+    /*
     for (int32 r=0; r<NumRows(); r++) {
-      thrust::transform(src.RowData(r), src.RowData(r) + src.NumCols(), 
-                        this->RowData(r), thrust_functor_sigmoid<Real>);
+      thrust_sigmoid(src.RowData(r), src.RowData(r) + src.NumCols(), this->RowData(r));
     }
+    */
     CU_SAFE_CALL(cudaGetLastError());
     CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
   } else
@@ -1992,6 +2056,39 @@ Real CuMatrixBase<Real>::Sum() const {
   return row_sum.Sum();
 }
 
+
+template<typename Real>
+Real CuMatrixBase<Real>::Max() const {
+  Timer tim;
+  // TODO rewrite in CUDA,
+  Matrix<Real> tmp(NumRows(), NumCols(), kUndefined);
+  CopyToMat(&tmp);
+  Real ans = tmp.Max();
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }
+#endif
+  return ans;
+}
+
+
+template<typename Real>
+Real CuMatrixBase<Real>::Min() const {
+  Timer tim;
+  // TODO rewrite in CUDA,
+  Matrix<Real> tmp(NumRows(), NumCols(), kUndefined);
+  CopyToMat(&tmp);
+  Real ans = tmp.Min();
+#if HAVE_CUDA == 1
+  if (CuDevice::Instantiate().Enabled()) {
+    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
+  }
+#endif
+  return ans;
+}
+
+
 template<typename Real>
 Real CuMatrixBase<Real>::Trace(bool check_square) const {
 #if HAVE_CUDA == 1
@@ -2073,22 +2170,6 @@ CuMatrix<float>::CuMatrix(const CuMatrixBase<double> & M,
 template
 CuMatrix<double>::CuMatrix(const CuMatrixBase<float> & M,
                            MatrixTransposeType trans);
-
-/*
-template<typename Real>
-CuMatrix<Real>::DeriveLastLayerComponent(int32 i, int32 label,
-                                         Real weight, Real this_prob) {
-#if HAVE_CUDA == 1
-  if (CuDevice::Instantiate().Enabled()) {
-    cuda_derive_last_layer_component(i, label, weight, this_prob);
-    CuDevice::Instantiate().AccuProfile(__func__, tim.Elapsed());
-  }
-#endif
-  {
-
-  }
-}
-*/
 
 
 template<typename Real>

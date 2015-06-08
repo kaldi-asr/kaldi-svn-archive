@@ -96,6 +96,13 @@ num_utts=`cat $tmpdir/utts | wc -l`
 if [ -f $data/text ]; then
   check_sorted_and_uniq $data/text
   text_len=`cat $data/text | wc -l`
+  illegal_sym_list="<s> </s> #0"
+  for x in $illegal_sym_list; do
+    if grep -w "$x" $data/text > /dev/null; then
+      echo "$0: Error: in $data, text contains illegal symbol $x"
+      exit 1;
+    fi
+  done
   awk '{print $1}' < $data/text > $tmpdir/utts.txt
   if ! cmp -s $tmpdir/utts{,.txt}; then
     echo "$0: Error: in $data, utterance lists extracted from utt2spk and text"
@@ -181,8 +188,19 @@ if [ -f $data/wav.scp ]; then
       # this file is needed only for ctm scoring; it's indexed by recording-id.
       check_sorted_and_uniq $data/reco2file_and_channel
       ! cat $data/reco2file_and_channel | \
-        awk '{if (NF != 3 || ($3 != "A" && $3 != "B")) { print "Bad line ", $0; exit 1; }}' && \
-        echo "$0: badly formatted reco2file_and_channel file" && exit 1;
+        awk '{if (NF != 3 || ($3 != "A" && $3 != "B" )) { 
+                if ( NF == 3 && $3 == "1" ) {
+                  warning_issued = 1;
+                } else {
+                  print "Bad line ", $0; exit 1; 
+                }
+              }
+            } 
+            END {
+              if (warning_issued == 1) {
+                print "The channel should be marked as A or B, not 1! You should change it ASAP! "
+              }
+            }' && echo "$0: badly formatted reco2file_and_channel file" && exit 1;
       cat $data/reco2file_and_channel | awk '{print $1}' > $tmpdir/utts.r2fc
       if ! cmp -s $tmpdir/utts{,.r2fc}; then
         echo "$0: Error: in $data, utterance-ids extracted from segments and reco2file_and_channel"

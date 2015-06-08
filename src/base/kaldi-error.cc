@@ -128,14 +128,19 @@ std::string KaldiGetStackTrace() {
 
 void KaldiAssertFailure_(const char *func, const char *file,
                          int32 line, const char *cond_str) {
-  std::cerr << "KALDI_ASSERT: at " << GetProgramName() << func << ':'
-            << GetShortFileName(file)
-            << ':' << line << ", failed: " << cond_str << '\n';
+  std::ostringstream ss;
+  ss << "KALDI_ASSERT: at " << GetProgramName() << func << ':'
+     << GetShortFileName(file)
+     << ':' << line << ", failed: " << cond_str << '\n';
 #ifdef HAVE_EXECINFO_H
-  std::cerr << "Stack trace is:\n" << KaldiGetStackTrace();
+  ss << "Stack trace is:\n" << KaldiGetStackTrace();
 #endif
+  std::cerr << ss.str();
   std::cerr.flush();
-  abort();  // Will later throw instead if needed.
+  // We used to call abort() here, but switch to throwing an exception
+  // (like KALDI_ERR) because it's easier to deal with in multi-threaded
+  // code.
+  throw std::runtime_error(ss.str());
 }
 
 
@@ -165,7 +170,7 @@ KaldiErrorMessage::KaldiErrorMessage(const char *func, const char *file,
                  << GetShortFileName(file) << ':' << line << ") ";
 }
 
-KaldiErrorMessage::~KaldiErrorMessage() {
+KaldiErrorMessage::~KaldiErrorMessage() NOEXCEPT(false) {
   // (1) Print the message to stderr.
   std::cerr << ss.str() << '\n';
   // (2) Throw an exception with the message, plus traceback info if available.

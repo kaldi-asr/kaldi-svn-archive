@@ -32,10 +32,9 @@ bool CompareInterval(const Interval &i1,
 
 }
 
-bool ClusterLattice(CompactLattice *clat, 
+bool ClusterLattice(CompactLattice *clat,
                     const vector<int32> &state_times) {
   using namespace fst;
-  using std::tr1::unordered_map;
   typedef CompactLattice::StateId StateId;
 
   // Hashmap to store the cluster heads.
@@ -506,8 +505,15 @@ void DoFactorMerging(KwsProductFst *factor_transducer,
 
   MaybeDoSanityCheck(dest_transducer);
 
-  KALDI_VLOG(2) << "DoFactorMerging: minimization...";
-  Minimize(&dest_transducer);
+  // Commenting the minimization out, as it moves states/arcs in a way we don't
+  // want in some rare cases. For example, if we have two arcs from starting
+  // state, which have same words on the input side, but different cluster IDs
+  // on the output side, it may make the two arcs sharing a common final arc,
+  // which will cause problem in the factor disambiguation stage (we will not
+  // be able to add disambiguation symbols for both paths). We do a final step
+  // optimization anyway so commenting this out shouldn't matter too much.
+  // KALDI_VLOG(2) << "DoFactorMerging: minimization...";
+  // Minimize(&dest_transducer);
 
   MaybeDoSanityCheck(dest_transducer);
   

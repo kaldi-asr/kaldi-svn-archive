@@ -15,12 +15,13 @@ lattice_beam=7.0
 acwt=0.1
 max_active=5000
 nnet=
+nnet_forward_opts="--no-softmax=true --prior-scale=1.0"
 max_mem=20000000 # This will stop the processes getting too large.
 # This is in bytes, but not "real" bytes-- you have to multiply
 # by something like 5 or 10 to get real bytes (not sure why so large)
 # End configuration section.
 use_gpu=no # yes|no|optional
-parallel_opts="-pe smp 2"
+parallel_opts="--num-threads 2"
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -63,7 +64,7 @@ new_lang="$dir/"$(basename "$lang")
 echo "Making unigram grammar FST in $new_lang"
 cat $data/text | utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt | \
   awk '{for(n=2;n<=NF;n++){ printf("%s ", $n); } printf("\n"); }' | \
-  utils/make_unigram_grammar.pl | fstcompile > $new_lang/G.fst \
+  utils/make_unigram_grammar.pl | fstcompile | fstarcsort --sort_type=ilabel > $new_lang/G.fst \
    || exit 1;
 
 # mkgraph.sh expects a whole directory "lang", so put everything in one directory...
@@ -93,22 +94,25 @@ done
 
 
 # PREPARE FEATURE EXTRACTION PIPELINE
-# Create the feature stream:
+# import config,
+cmvn_opts=
+delta_opts=
+D=$srcdir
+[ -e $D/norm_vars ] && cmvn_opts="--norm-means=true --norm-vars=$(cat $D/norm_vars)" # Bwd-compatibility,
+[ -e $D/cmvn_opts ] && cmvn_opts=$(cat $D/cmvn_opts)
+[ -e $D/delta_order ] && delta_opts="--delta-order=$(cat $D/delta_order)" # Bwd-compatibility,
+[ -e $D/delta_opts ] && delta_opts=$(cat $D/delta_opts)
+#
+# Create the feature stream,
 feats="ark,s,cs:copy-feats scp:$sdata/JOB/feats.scp ark:- |"
-# Optionally add cmvn
-if [ -f $srcdir/norm_vars ]; then
-  norm_vars=$(cat $srcdir/norm_vars 2>/dev/null)
-  [ ! -f $sdata/1/cmvn.scp ] && echo "$0: cannot find cmvn stats $sdata/1/cmvn.scp" && exit 1
-  feats="$feats apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp ark:- ark:- |"
-fi
-# Optionally add deltas
-if [ -f $srcdir/delta_order ]; then
-  delta_order=$(cat $srcdir/delta_order)
-  feats="$feats add-deltas --delta-order=$delta_order ark:- ark:- |"
-fi
-# Finally add feature_transform and the MLP
-feats="$feats nnet-forward --feature-transform=$feature_transform --no-softmax=true --class-frame-counts=$class_frame_counts --use-gpu=$use_gpu $nnet ark:- ark:- |"
-
+# apply-cmvn (optional),
+[ ! -z "$cmvn_opts" -a ! -f $sdata/1/cmvn.scp ] && echo "$0: Missing $sdata/1/cmvn.scp" && exit 1
+[ ! -z "$cmvn_opts" ] && feats="$feats apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp ark:- ark:- |"
+# add-deltas (optional),
+[ ! -z "$delta_opts" ] && feats="$feats add-deltas $delta_opts ark:- ark:- |"
+# nnet-forward,
+feats="$feats nnet-forward $nnet_forward_opts --feature-transform=$feature_transform --class-frame-counts=$class_frame_counts --use-gpu=$use_gpu $nnet ark:- ark:- |"
+#
 
 # if this job is interrupted by the user, we want any background jobs to be
 # killed too.
@@ -176,8 +180,11 @@ else
 fi
 
 #2) Generate 'scp' for reading the lattices
+# make $dir an absolute pathname.
+[ '/' != ${dir:0:1} ] && dir=$PWD/$dir
 for n in `seq $nj`; do
-  find $dir/lat${n} -name "*.gz" | awk -v FS="/" '{ print gensub(".gz","","",$NF)" gunzip -c "$0" |"; }' 
-done >$dir/lat.scp
+  find $dir/lat${n} -name "*.gz" | perl -ape 's:.*/([^/]+)\.gz$:$1 gunzip -c $& |:; '
+done | sort >$dir/lat.scp
+[ -s $dir/lat.scp ] || exit 1
 
 echo "$0: done generating denominator lattices."

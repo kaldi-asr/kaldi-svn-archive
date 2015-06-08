@@ -18,8 +18,8 @@
 // limitations under the License.
 
 
-#ifndef KALDI_ONLINE2_SPEEX_WRAPPER_H_
-#define KALDI_ONLINE2_SPEEX_WRAPPER_H_
+#ifndef KALDI_ONLINE2_ONLINE_SPEEX_WRAPPER_H_
+#define KALDI_ONLINE2_ONLINE_SPEEX_WRAPPER_H_
 
 #ifdef HAVE_SPEEX
   #include <speex/speex.h>
@@ -88,8 +88,9 @@ class OnlineSpeexEncoder {
   private:
     int32 speex_frame_size_;  // in bytes, will be different according to the quality
     int32 speex_encoded_frame_size_;  // in samples, typically 320 in wideband mode, 16kHz
-
+#ifdef HAVE_SPEEX
     void *speex_state_;  // Holds the state of the speex encoder
+#endif
     SPEEXBITS speex_bits_;
 
     Vector<BaseFloat> waveform_remainder_;      // Holds the waveform that have not been processed
@@ -121,7 +122,9 @@ class OnlineSpeexDecoder {
     int32 speex_frame_size_;  // in bytes, will be different according to the quality
     int32 speex_decoded_frame_size_;  // in samples, typically 320 in wideband mode, 16kHz
 
+#ifdef HAVE_SPEEX
     void *speex_state_;  // Holds the state of the speex decoder
+#endif
     SPEEXBITS speex_bits_;
 
 
@@ -134,4 +137,4 @@ class OnlineSpeexDecoder {
 
 }  // namespace kaldi
 
-#endif  // KALDI_ONLINE2_SPEEX_WRAPPER_H_
+#endif  // KALDI_ONLINE2_ONLINE_SPEEX_WRAPPER_H_

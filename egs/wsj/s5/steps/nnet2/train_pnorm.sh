@@ -56,7 +56,7 @@ add_layers_period=2 # by default, add new layers every 2 iterations.
 num_hidden_layers=3
 stage=-5
 
-io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time.   These don't
+io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one time. 
 splice_width=4 # meaning +- 4 frames on each side for second LDA
 randprune=4.0 # speeds up LDA.
 alpha=4.0
@@ -64,7 +64,7 @@ max_change=10.0
 mix_up=0 # Number of components to mix up to (should be > #tree leaves, if
         # specified.)
 num_threads=16
-parallel_opts="-pe smp 16 -l ram_free=1G,mem_free=1G" # by default we use 16 threads; this lets the queue know.
+parallel_opts="--num-threads 16 --mem 1G" # by default we use 16 threads; this lets the queue know.
   # note: parallel_opts doesn't automatically get adjusted if you adjust num-threads.
 cleanup=true
 egs_dir=
@@ -116,9 +116,8 @@ if [ $# != 4 ]; then
   echo "  --num-threads <num-threads|16>                   # Number of parallel threads per job (will affect results"
   echo "                                                   # as well as speed; may interact with batch size; if you increase"
   echo "                                                   # this, you may want to decrease the batch size."
-  echo "  --parallel-opts <opts|\"-pe smp 16 -l ram_free=1G,mem_free=1G\">      # extra options to pass to e.g. queue.pl for processes that"
-  echo "                                                   # use multiple threads... note, you might have to reduce mem_free,ram_free"
-  echo "                                                   # versus your defaults, because it gets multiplied by the -pe smp argument."
+  echo "  --parallel-opts <opts|\"--num-threads 16 --mem 1G\">      # extra options to pass to e.g. queue.pl for processes that"
+  echo "                                                   # use multiple threads... "
   echo "  --io-opts <opts|\"-tc 10\">                      # Options given to e.g. queue.pl for jobs that do a lot of I/O."
   echo "  --minibatch-size <minibatch-size|128>            # Size of minibatch to process (note: product with --num-threads"
   echo "                                                   # should not get too large, e.g. >2k)."
@@ -159,7 +158,7 @@ done
 
 
 # Set some variables.
-num_leaves=`tree-info $alidir/tree 2>/dev/null | awk '{print $2}'` || exit 1
+num_leaves=`tree-info $alidir/tree 2>/dev/null | grep num-pdfs | awk '{print $2}'` || exit 1
 [ -z $num_leaves ] && echo "\$num_leaves is unset" && exit 1
 [ "$num_leaves" -eq "0" ] && echo "\$num_leaves is 0" && exit 1
 

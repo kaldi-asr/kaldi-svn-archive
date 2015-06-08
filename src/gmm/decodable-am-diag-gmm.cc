@@ -27,8 +27,10 @@ namespace kaldi {
 
 BaseFloat DecodableAmDiagGmmUnmapped::LogLikelihoodZeroBased(
     int32 frame, int32 state) {
-  KALDI_ASSERT(static_cast<size_t>(frame) < static_cast<size_t>(NumFrames()));
-  KALDI_ASSERT(static_cast<size_t>(state) < static_cast<size_t>(NumIndices()));
+  KALDI_ASSERT(static_cast<size_t>(frame) <
+               static_cast<size_t>(NumFramesReady()));
+  KALDI_ASSERT(static_cast<size_t>(state) < static_cast<size_t>(NumIndices()) &&
+               "Likely graph/model mismatch, e.g. using wrong HCLG.fst");
 
   if (log_like_cache_[state].hit_time == frame) {
     return log_like_cache_[state].log_like;  // return cached value, if found

@@ -28,8 +28,8 @@
      - extract-segments [options ..]  <scriptfile > <segments-file> <wav-written-specifier>
      - "scriptfile" must contain full path of the wav file.
      - "segments-file" should have the information of the segments that needs to be extracted from wav file
-     - the format of the segments file : speaker_name wavfilename start_time(in secs) end_time(in secs) channel(1 or 2)
-     - The channel information in the segfile is optional . default value is mono(1).
+     - the format of the segments file : speaker_name wavfilename start_time(in secs) end_time(in secs) channel-id(0 or 1)
+     - The channel-id is 0 for the left channel and 1 for the right channel.  This is not required for mono recordings.
      - "wav-written-specifier" is the output segment format
 */
 int main(int argc, char *argv[]) {
@@ -39,11 +39,15 @@ int main(int argc, char *argv[]) {
     const char *usage =
         "Extract segments from a large audio file in WAV format.\n"
         "Usage:  extract-segments [options] <wav-rspecifier> <segments-file> <wav-wspecifier>\n"
-        "e.g. extract-segments scp:wav.scp segments ark:- | <some other program>\n"
-        " segments-file format: segment_id wav_file_name start_time end_time [channel]\n"
-        " e.g.: spkabc_seg1 spkabc_recording1 1.10 2.36 1\n"
-        " If channel is not provided as last element, expects mono.\n"
-        " end_time of -1 means the segment runs till the end of the WAV file.\n"
+        "e.g. extract-segments scp:wav.scp segments ark:- | <some-other-program>\n"
+        " segments-file format: each line is either\n"
+        "<segment-id> <recording-id> <start-time> <end-time>\n"
+        "e.g. call-861225-A-0050-0065 call-861225-A 5.0 6.5\n"
+        "or (less frequently, and not supported in scripts):\n"
+        "<segment-id> <wav-file-name> <start-time> <end-time> <channel>\n"        
+        "where <channel> will normally be 0 (left) or 1 (right)\n"
+        "e.g. call-861225-A-0050-0065 call-861225 5.0 6.5 1\n"
+        "And <end-time> of -1 means the segment runs till the end of the WAV file\n"
         "See also: extract-rows, which does the same thing but to feature files,\n"
         " wav-copy, wav-to-duration\n";
 
@@ -53,11 +57,9 @@ int main(int argc, char *argv[]) {
     po.Register("min-segment-length", &min_segment_length,
                 "Minimum segment length in seconds (reject shorter segments)");
     po.Register("max-overshoot", &max_overshoot,
-                "End segmnents overshooting by less (in seconds) are truncated,"
-                " else rejected.");
-
-    // OPTION PARSING ...
-    // parse options  (+filling the registered variables)
+                "End segments overshooting audio by less than this (in seconds) "
+                "are truncated, else rejected.");
+    
     po.Read(argc, argv);
     if (po.NumArgs() != 3) {
       po.PrintUsage();
@@ -112,7 +114,7 @@ int main(int argc, char *argv[]) {
       }
       int32 channel = -1;  // means channel info is unspecified.
       // if each line has 5 elements then 5th element must be channel identifier
-      if(split_line.size() == 5) {
+      if (split_line.size() == 5) {
         if (!ConvertStringToInteger(split_line[4], &channel) || channel < 0) {
           KALDI_WARN << "Invalid line in segments file [bad channel]: " << line;
           continue;
@@ -121,7 +123,7 @@ int main(int argc, char *argv[]) {
       /* check whether a segment start time and end time exists in recording 
        * if fails , skips the segment.
        */ 
-      if (!reader.HasKey(recording)) {
+     if (!reader.HasKey(recording)) {
         KALDI_WARN << "Could not find recording " << recording
                    << ", skipping segment " << segment;
         continue;

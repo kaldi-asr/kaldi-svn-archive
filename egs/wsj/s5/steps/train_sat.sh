@@ -12,11 +12,15 @@
 
 # Begin configuration section.
 stage=-5
+exit_stage=-100 # you can use this to require it to exit at the
+                # beginning of a specific stage.  Not all values are
+                # supported.
 fmllr_update_type=full
 cmd=run.pl
 scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
 beam=10
 retry_beam=40
+careful=false
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
 context_opts=  # e.g. set this to "--context-width 5 --central-position 2" for quinphone.
 realign_iters="10 20 30";
@@ -65,12 +69,14 @@ ciphonelist=`cat $lang/phones/context_indep.csl` || exit 1;
 sdata=$data/split$nj;
 splice_opts=`cat $alidir/splice_opts 2>/dev/null` # frame-splicing options.
 cmvn_opts=`cat $alidir/cmvn_opts 2>/dev/null`
+delta_opts=`cat $alidir/delta_opts 2>/dev/null`
 phone_map_opt=
 [ ! -z "$phone_map" ] && phone_map_opt="--phone-map='$phone_map'"
 
 mkdir -p $dir/log
 cp $alidir/splice_opts $dir 2>/dev/null # frame-splicing options.
 cp $alidir/cmvn_opts $dir 2>/dev/null # cmn/cmvn option.
+cp $alidir/delta_opts $dir 2>/dev/null # delta option.
 
 echo $nj >$dir/num_jobs
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
@@ -82,7 +88,7 @@ echo "$0: feature type is $feat_type"
 
 ## Set up speaker-independent features.
 case $feat_type in
-  delta) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  delta) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |";;
   lda) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $alidir/final.mat ark:- ark:- |"
     cp $alidir/final.mat $dir    
     cp $alidir/full.mat $dir 2>/dev/null
@@ -117,7 +123,7 @@ if [ $stage -le -4 ] && $train_tree; then
   # Get tree stats.
   echo "$0: Accumulating tree stats"
   $cmd JOB=1:$nj $dir/log/acc_tree.JOB.log \
-    acc-tree-stats $context_opts --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
+    acc-tree-stats $context_opts $phone_map_opt --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
     "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
   [ "`ls $dir/*.treeacc | wc -w`" -ne "$nj" ] && echo "$0: Wrong #tree-accs" && exit 1;
   $cmd $dir/log/sum_tree_acc.log \
@@ -162,6 +168,8 @@ if [ $stage -le -1 ]; then
      "ark:gunzip -c $alidir/ali.JOB.gz|" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
 fi
 
+[ "$exit_stage" -eq 0 ] && echo "$0: Exiting early: --exit-stage $exit_stage" && exit 0;
+
 if [ $stage -le 0 ] && [ "$realign_iters" != "" ]; then
   echo "$0: Compiling graphs of transcripts"
   $cmd JOB=1:$nj $dir/log/compile_graphs.JOB.log \
@@ -177,7 +185,7 @@ while [ $x -lt $num_iters ]; do
     echo Aligning data
     mdl="gmm-boost-silence --boost=$boost_silence `cat $lang/phones/optional_silence.csl` $dir/$x.mdl - |"
     $cmd JOB=1:$nj $dir/log/align.$x.JOB.log \
-      gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" \
+      gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
       "ark:gunzip -c $dir/fsts.JOB.gz|" "$feats" \
       "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
   fi

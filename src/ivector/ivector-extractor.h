@@ -45,13 +45,23 @@ namespace kaldi {
 // "acoustic_weight" is not read by any class declared in this header; it has to
 // be applied by calling IvectorExtractorUtteranceStats::Scale() before
 // obtaining the iVector.
+// The same is true of max_count: it has to be applied by programs themselves
+// e.g. see ../ivectorbin/ivector-extract.cc.
 struct IvectorEstimationOptions {
   double acoustic_weight;
-  IvectorEstimationOptions(): acoustic_weight(1.0) {}
+  double max_count;
+  IvectorEstimationOptions(): acoustic_weight(1.0), max_count(0.0) {}
   void Register(OptionsItf *po) {
     po->Register("acoustic-weight", &acoustic_weight,
                  "Weight on part of auxf that involves the data (e.g. 0.2); "
                  "if this weight is small, the prior will have more effect.");
+    po->Register("max-count", &max_count,
+                 "Maximum frame count (affects prior scaling): if >0, the prior "
+                 "term will be scaled up after the frame count exceeds this "
+                 "value.  Note that this count is considered after posterior "
+                 "scaling (e.g. --acoustic-weight option, or scale argument to "
+                 "scale-post), so you would normally use a cutoff 10 times "
+                 "smaller than the corresponding number of frames.");
   }
 };
 
@@ -80,6 +90,8 @@ class IvectorExtractorUtteranceStats {
   
   void Scale(double scale); // Used to apply acoustic scale.
 
+  double NumFrames() { return gamma_.Sum(); }
+  
  protected:
   friend class IvectorExtractor;
   friend class IvectorExtractorStats;
@@ -299,8 +311,12 @@ class IvectorExtractor {
  */
 class OnlineIvectorEstimationStats {
  public:
+  // Search above for max_count to see an explanation; if nonzero, it will
+  // put a higher weight on the prior (vs. the stats) once the count passes
+  // that value.
   OnlineIvectorEstimationStats(int32 ivector_dim,
-                               BaseFloat prior_offset);
+                               BaseFloat prior_offset,
+                               BaseFloat max_count);
 
   OnlineIvectorEstimationStats(const OnlineIvectorEstimationStats &other);
 
@@ -331,7 +347,7 @@ class OnlineIvectorEstimationStats {
 
   double PriorOffset() const { return prior_offset_; }
 
-  /// ObjfChange returns the change in objective function per frame from
+  /// ObjfChange returns the change in objective function *per frame* from
   /// using the default value [ prior_offset_, 0, 0, ... ] to
   /// using the provided value; should be >= 0, if "ivector" is
   /// a value we estimated.  This is for diagnostics.
@@ -344,7 +360,19 @@ class OnlineIvectorEstimationStats {
   /// apply the scaling to the prior term.
   void Scale(double scale);
 
-  // Use the default assignment operator
+  void Write(std::ostream &os, bool binary) const;
+  void Read(std::istream &is, bool binary);
+
+  // Override the default assignment operator
+  inline OnlineIvectorEstimationStats &operator=(const OnlineIvectorEstimationStats &other) {
+	  this->prior_offset_ = other.prior_offset_;
+	  this->max_count_ = other.max_count_;
+	  this->num_frames_ = other.num_frames_;
+	  this->quadratic_term_=other.quadratic_term_;
+	  this->linear_term_=other.linear_term_;
+	  return *this;
+  }
+
  protected:
   /// Returns objective function per frame, at this iVector value.
   double Objf(const VectorBase<double> &ivector) const;
@@ -355,6 +383,7 @@ class OnlineIvectorEstimationStats {
   
   friend class IvectorExtractor;
   double prior_offset_;
+  double max_count_;
   double num_frames_;  // num frames (weighted, if applicable).
   SpMatrix<double> quadratic_term_;
   Vector<double> linear_term_;
@@ -363,8 +392,10 @@ class OnlineIvectorEstimationStats {
 
 // This code obtains periodically (for each "ivector_period" frames, e.g. 10
 // frames), an estimate of the iVector including all frames up to that point.
-// This emulates what you could do in an online/streaming algorithm; its use
-// is for neural network training in a way that's matched to online decoding.
+// This emulates what you could do in an online/streaming algorithm; its use is
+// for neural network training in a way that's matched to online decoding.
+// [note: I don't believe we are currently using the program,
+// ivector-extract-online.cc, that calls this function, in any of the scripts.].
 // Caution: this program outputs the raw iVectors, where the first component
 // will generally be very positive.  You probably want to subtract PriorOffset()
 // from the first element of each row of the output before writing it out.
@@ -379,6 +410,7 @@ double EstimateIvectorsOnline(
     const IvectorExtractor &extractor,
     int32 ivector_period,
     int32 num_cg_iters,
+    BaseFloat max_count,
     Matrix<BaseFloat> *ivectors);
 
 
@@ -414,8 +446,10 @@ struct IvectorExtractorEstimationOptions {
   double variance_floor_factor;
   double gaussian_min_count;
   int32 num_threads;
+  bool diagonalize;
   IvectorExtractorEstimationOptions(): variance_floor_factor(0.1),
-                                       gaussian_min_count(100.0) { }
+                                       gaussian_min_count(100.0),
+                                       diagonalize(true) { }
   void Register(OptionsItf *po) {
     po->Register("variance-floor-factor", &variance_floor_factor,
                  "Factor that determines variance flooring (we floor each covar "
@@ -423,6 +457,10 @@ struct IvectorExtractorEstimationOptions {
     po->Register("gaussian-min-count", &gaussian_min_count,
                  "Minimum total count per Gaussian, below which we refuse to "
                  "update any associated parameters.");
+    po->Register("diagonalize", &diagonalize, 
+                 "If true, diagonalize the quadratic term in the "
+                 "objective function. This reorders the ivector dimensions"
+                 "from most to least important.");
   }
 };
 
@@ -625,6 +663,16 @@ class IvectorExtractorStats {
   SpMatrix<double> ivector_scatter_;
 
  private:
+  /// Computes an orthogonal matrix A from the iVector transform
+  /// T such that T' = A*T is an alternative transform which diagonalizes the 
+  /// quadratic_term_ in the iVector estimation objective function. This
+  /// reorders the dimensions of the iVector from most to least important,
+  /// which may be more convenient to view. The transform should not
+  /// affect the performance of systems which use iVectors. 
+  void GetOrthogonalIvectorTransform(const SubMatrix<double> &T, 
+                                     IvectorExtractor *extractor,
+                                     Matrix<double> *A) const;
+
   IvectorExtractorStats &operator = (const IvectorExtractorStats &other);  // Disallow.
 };
 

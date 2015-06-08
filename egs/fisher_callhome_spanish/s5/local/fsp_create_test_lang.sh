@@ -9,7 +9,8 @@ mkdir -p data/lang_test
 arpa_lm=data/local/lm/3gram-mincount/lm_unpruned.gz
 [ ! -f $arpa_lm ] && echo No such file $arpa_lm && exit 1;
 
-cp -rT data/lang data/lang_test
+mkdir -p data/lang_test
+cp -r data/lang/* data/lang_test
 
 # grep -v '<s> <s>' etc. is only for future-proofing this script.  Our
 # LM doesn't have these "invalid combinations".  These can cause 
@@ -25,7 +26,7 @@ gunzip -c "$arpa_lm" | \
    utils/remove_oovs.pl /dev/null | \
    utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=data/lang_test/words.txt \
      --osymbols=data/lang_test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
-    fstrmepsilon > data/lang_test/G.fst
+    fstrmepsilon | fstarcsort --sort_type=ilabel > data/lang_test/G.fst
   fstisstochastic data/lang_test/G.fst
 
 

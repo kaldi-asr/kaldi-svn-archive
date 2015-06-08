@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Copyright 2012  Microsoft Corporation  Johns Hopkins University (Author: Daniel Povey)
+#           2015  Guoguo Chen
 # Apache 2.0
 
 # This script takes data prepared in a corpus-dependent way
@@ -12,13 +13,18 @@
 # in data/local/) because it's just the first 7138 utterances in train_si284.
 # We'll create train_si84 after doing the feature extraction.
 
+lang_suffix=
+
+echo "$0 $@"  # Print the command line for logging
+. utils/parse_options.sh || exit 1;
+
 . ./path.sh || exit 1;
 
 echo "Preparing train and test data"
 srcdir=data/local/data
 lmdir=data/local/nist_lm
 tmpdir=data/local/lm_tmp
-lexicon=data/local/lang_tmp/lexiconp.txt
+lexicon=data/local/lang${lang_suffix}_tmp/lexiconp.txt
 mkdir -p $tmpdir
 
 for x in train_si284 test_eval92 test_eval93 test_dev93 test_eval92_5k test_eval93_5k test_dev93_5k dev_dt_05 dev_dt_20; do 
@@ -37,12 +43,11 @@ done
 echo Preparing language models for test
 
 for lm_suffix in bg tgpr tg bg_5k tgpr_5k tg_5k; do
-  test=data/lang_test_${lm_suffix}
+  test=data/lang${lang_suffix}_test_${lm_suffix}
+
   mkdir -p $test
-  for f in phones.txt words.txt phones.txt L.fst L_disambig.fst \
-     phones/; do
-    cp -r data/lang/$f $test
-  done
+  cp -r data/lang${lang_suffix}/* $test || exit 1;
+
   gunzip -c $lmdir/lm_${lm_suffix}.arpa.gz | \
    utils/find_arpa_oovs.pl $test/words.txt  > $tmpdir/oovs_${lm_suffix}.txt
 
@@ -60,26 +65,8 @@ for lm_suffix in bg tgpr tg bg_5k tgpr_5k tg_5k; do
     utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=$test/words.txt \
       --osymbols=$test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
      fstrmepsilon | fstarcsort --sort_type=ilabel > $test/G.fst
-  fstisstochastic $test/G.fst
- # The output is like:
- # 9.14233e-05 -0.259833
- # we do expect the first of these 2 numbers to be close to zero (the second is
- # nonzero because the backoff weights make the states sum to >1).
- # Because of the <s> fiasco for these particular LMs, the first number is not
- # as close to zero as it could be.
 
-  # Everything below is only for diagnostic.
-  # Checking that G has no cycles with empty words on them (e.g. <s>, </s>);
-  # this might cause determinization failure of CLG.
-  # #0 is treated as an empty word.
-  mkdir -p $tmpdir/g
-  awk '{if(NF==1){ printf("0 0 %s %s\n", $1,$1); }} END{print "0 0 #0 #0"; print "0";}' \
-    < "$lexicon"  >$tmpdir/g/select_empty.fst.txt
-  fstcompile --isymbols=$test/words.txt --osymbols=$test/words.txt $tmpdir/g/select_empty.fst.txt | \
-   fstarcsort --sort_type=olabel | fstcompose - $test/G.fst > $tmpdir/g/empty_words.fst
-  fstinfo $tmpdir/g/empty_words.fst | grep cyclic | grep -w 'y' && 
-    echo "Language model has cycles with empty words" && exit 1
-  rm -r $tmpdir/g
+  utils/validate_lang.pl --skip-determinization-check $test || exit 1;
 done
 
 echo "Succeeded in formatting data."

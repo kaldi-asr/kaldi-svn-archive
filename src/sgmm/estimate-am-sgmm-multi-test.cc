@@ -25,7 +25,6 @@
 
 using kaldi::AmSgmm;
 using kaldi::MleAmSgmmAccs;
-using kaldi::int32;
 using kaldi::BaseFloat;
 namespace ut = kaldi::unittest;
 
@@ -34,6 +33,8 @@ void TestMultiSgmmEst(const std::vector<AmSgmm*> &models,
                       const std::vector< kaldi::Matrix<BaseFloat> > &feats,
                       kaldi::SgmmUpdateFlagsType flags) {
   using namespace kaldi;
+  typedef kaldi::int32 int32;
+
   int32 num_gauss = models[0]->NumGauss(),
       feat_dim = models[0]->FeatureDim(),
       phn_dim = models[0]->PhoneSpaceDim(),
@@ -97,7 +98,7 @@ void TestMultiSgmmEst(const std::vector<AmSgmm*> &models,
 }
 
 void UnitTestEstimateSgmm() {
-  int32 dim = 1 + kaldi::RandInt(0, 9);  // random dimension of the gmm
+  int32 dim = 2 + kaldi::RandInt(0, 9);  // random dimension of the gmm
   int32 num_comp = 2 + kaldi::RandInt(0, 9);  // random mixture size
   kaldi::FullGmm full_gmm;
   ut::InitRandFullGmm(dim, num_comp, &full_gmm);

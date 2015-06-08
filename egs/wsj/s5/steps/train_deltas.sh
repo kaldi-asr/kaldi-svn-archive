@@ -12,6 +12,7 @@ realign_iters="10 20 30";
 num_iters=35    # Number of iterations of training
 max_iter_inc=25 # Last iter to increase #Gauss on.
 beam=10
+careful=false
 retry_beam=40
 boost_silence=1.0 # Factor by which to boost silence likelihoods in alignment
 power=0.25 # Exponent for number of gaussians according to occurrence counts
@@ -19,6 +20,8 @@ cluster_thresh=-1  # for build-tree control final bottom-up clustering of leaves
 norm_vars=false # deprecated.  Prefer --cmvn-opts "--norm-vars=true"
                 # use the option --cmvn-opts "--norm-means=false"
 cmvn_opts=
+delta_opts=
+context_opts=   # use"--context-width=5 --central-position=2" for quinphone
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -63,16 +66,18 @@ split_data.sh $data $nj || exit 1;
   echo "$0: warning: ignoring CMVN options from source directory $alidir"
 $norm_vars && cmvn_opts="--norm-vars=true $cmvn_opts"
 echo $cmvn_opts  > $dir/cmvn_opts # keep track of options to CMVN.
+[ ! -z $delta_opts ] && echo $delta_opts > $dir/delta_opts
 
-feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |"
+feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
 
 rm $dir/.error 2>/dev/null
 
 if [ $stage -le -3 ]; then
   echo "$0: accumulating tree stats"
   $cmd JOB=1:$nj $dir/log/acc_tree.JOB.log \
-    acc-tree-stats  --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
-     "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
+    acc-tree-stats $context_opts \
+    --ci-phones=$ciphonelist $alidir/final.mdl "$feats" \
+    "ark:gunzip -c $alidir/ali.JOB.gz|" $dir/JOB.treeacc || exit 1;
   sum-tree-stats $dir/treeacc $dir/*.treeacc 2>$dir/log/sum_tree_acc.log || exit 1;
   rm $dir/*.treeacc
 fi
@@ -80,13 +85,15 @@ fi
 if [ $stage -le -2 ]; then
   echo "$0: getting questions for tree-building, via clustering"
   # preparing questions, roots file...
-  cluster-phones $dir/treeacc $lang/phones/sets.int $dir/questions.int 2> $dir/log/questions.log || exit 1;
+  cluster-phones $context_opts $dir/treeacc $lang/phones/sets.int \
+    $dir/questions.int 2> $dir/log/questions.log || exit 1;
   cat $lang/phones/extra_questions.int >> $dir/questions.int
-  compile-questions $lang/topo $dir/questions.int $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
+  compile-questions $context_opts $lang/topo $dir/questions.int \
+    $dir/questions.qst 2>$dir/log/compile_questions.log || exit 1;
 
   echo "$0: building the tree"
   $cmd $dir/log/build_tree.log \
-    build-tree --verbose=1 --max-leaves=$numleaves \
+    build-tree $context_opts --verbose=1 --max-leaves=$numleaves \
     --cluster-thresh=$cluster_thresh $dir/treeacc $lang/phones/roots.int \
     $dir/questions.qst $lang/topo $dir/tree || exit 1;
 
@@ -117,7 +124,7 @@ if [ $stage -le 0 ]; then
   echo "$0: compiling graphs of transcripts"
   $cmd JOB=1:$nj $dir/log/compile_graphs.JOB.log \
     compile-train-graphs $dir/tree $dir/1.mdl  $lang/L.fst  \
-     "ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt < $data/split$nj/JOB/text |" \
+     "ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt < $sdata/JOB/text |" \
       "ark:|gzip -c >$dir/fsts.JOB.gz" || exit 1;
 fi
 
@@ -129,7 +136,7 @@ while [ $x -lt $num_iters ]; do
       echo "$0: aligning data"
       mdl="gmm-boost-silence --boost=$boost_silence `cat $lang/phones/optional_silence.csl` $dir/$x.mdl - |"
       $cmd JOB=1:$nj $dir/log/align.$x.JOB.log \
-        gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam "$mdl" \
+        gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
          "ark:gunzip -c $dir/fsts.JOB.gz|" "$feats" \
          "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
     fi

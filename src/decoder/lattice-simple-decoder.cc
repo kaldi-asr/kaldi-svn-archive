@@ -247,7 +247,7 @@ void LatticeSimpleDecoder::PruneForwardLinks(
   while (changed) {
     changed = false;
     for (Token *tok = active_toks_[frame].toks; tok != NULL; tok = tok->next) {
-      ForwardLink *link, *prev_link=NULL;
+      ForwardLink *link, *prev_link = NULL;
       // will recompute tok_extra_cost.
       BaseFloat tok_extra_cost = std::numeric_limits<BaseFloat>::infinity();
       for (link = tok->links; link != NULL; ) {
@@ -257,7 +257,7 @@ void LatticeSimpleDecoder::PruneForwardLinks(
             ((tok->tot_cost + link->acoustic_cost + link->graph_cost)
              - next_tok->tot_cost);
         KALDI_ASSERT(link_extra_cost == link_extra_cost); // check for NaN
-        if (link_extra_cost > config_.lattice_beam) { // excise link
+        if (link_extra_cost > config_.lattice_beam) {  // excise link
           ForwardLink *next_link = link->next;
           if (prev_link != NULL) prev_link->next = next_link;
           else tok->links = next_link;
@@ -300,7 +300,7 @@ void LatticeSimpleDecoder::ComputeFinalCosts(
   BaseFloat infinity = std::numeric_limits<BaseFloat>::infinity();
   BaseFloat best_cost = infinity,
       best_cost_with_final = infinity;
-
+  
   for (unordered_map<StateId, Token*>::const_iterator iter = cur_toks_.begin();
        iter != cur_toks_.end(); ++iter) {
     StateId state = iter->first;
@@ -339,7 +339,7 @@ void LatticeSimpleDecoder::PruneForwardLinksFinal() {
   KALDI_ASSERT(!active_toks_.empty());  
   int32 frame_plus_one = active_toks_.size() - 1;
 
-  if (active_toks_[frame_plus_one].toks == NULL ) // empty list; should not happen.
+  if (active_toks_[frame_plus_one].toks == NULL) // empty list; should not happen.
     KALDI_WARN << "No tokens alive at end of file\n";
 
   typedef unordered_map<Token*, BaseFloat>::const_iterator IterType;  
@@ -365,9 +365,16 @@ void LatticeSimpleDecoder::PruneForwardLinksFinal() {
       // below we set it to the difference between the (score+final_prob) of this token,
       // and the best such (score+final_prob).
 
-      IterType iter = final_costs_.find(tok);
-      KALDI_ASSERT(iter != final_costs_.end());
-      BaseFloat final_cost = iter->second; // is zero if were no final-probs.
+      BaseFloat final_cost;
+      if (final_costs_.empty()) {
+        final_cost = 0.0;
+      } else {
+        IterType iter = final_costs_.find(tok);
+        if (iter != final_costs_.end())
+          final_cost = iter->second;
+        else
+          final_cost = std::numeric_limits<BaseFloat>::infinity();
+      }
       BaseFloat tok_extra_cost = tok->tot_cost + final_cost - final_best_cost_;
       // tok_extra_cost will be a "min" over either directly being final, or
       // being indirectly final through other links, and the loop below may
@@ -649,103 +656,6 @@ void LatticeSimpleDecoder::PruneCurrentTokens(BaseFloat beam, unordered_map<Stat
   }
   KALDI_VLOG(2) <<  "Pruned to "<<(retained.size())<<" toks.\n";
   tmp.swap(*toks);
-}
-
-// Takes care of output.  Returns true on success.
-bool DecodeUtteranceLatticeSimple(
-    LatticeSimpleDecoder &decoder, // not const but is really an input.
-    DecodableInterface &decodable, // not const but is really an input.
-    const TransitionModel &trans_model,
-    const fst::SymbolTable *word_syms,
-    std::string utt,
-    double acoustic_scale,
-    bool determinize,
-    bool allow_partial,
-    Int32VectorWriter *alignment_writer,
-    Int32VectorWriter *words_writer,
-    CompactLatticeWriter *compact_lattice_writer,
-    LatticeWriter *lattice_writer,
-    double *like_ptr) { // puts utterance's like in like_ptr on success.
-  using fst::VectorFst;
-
-  if (!decoder.Decode(&decodable)) {
-    KALDI_WARN << "Failed to decode file " << utt;
-    return false;
-  }
-  if (!decoder.ReachedFinal()) {
-    if (allow_partial) {
-      KALDI_WARN << "Outputting partial output for utterance " << utt
-                 << " since no final-state reached\n";
-    } else {
-      KALDI_WARN << "Not producing output for utterance " << utt
-                 << " since no final-state reached and "
-                 << "--allow-partial=false.\n";
-      return false;
-    }
-  }
-
-  double likelihood;
-  LatticeWeight weight;
-  int32 num_frames;
-  { // First do some stuff with word-level traceback...
-    VectorFst<LatticeArc> decoded;
-    if (!decoder.GetBestPath(&decoded))
-      // Shouldn't really reach this point as already checked success.
-      KALDI_ERR << "Failed to get traceback for utterance " << utt;
-
-    std::vector<int32> alignment;
-    std::vector<int32> words;
-    GetLinearSymbolSequence(decoded, &alignment, &words, &weight);
-    num_frames = alignment.size();
-    if (words_writer->IsOpen())
-      words_writer->Write(utt, words);
-    if (alignment_writer->IsOpen())
-      alignment_writer->Write(utt, alignment);
-    if (word_syms != NULL) {
-      std::cerr << utt << ' ';
-      for (size_t i = 0; i < words.size(); i++) {
-        std::string s = word_syms->Find(words[i]);
-        if (s == "")
-          KALDI_ERR << "Word-id " << words[i] <<" not in symbol table.";
-        std::cerr << s << ' ';
-      }
-      std::cerr << '\n';
-    }
-    likelihood = -(weight.Value1() + weight.Value2());
-  }
-
-  // Get lattice, and do determinization if requested.
-  Lattice lat;
-  if (!decoder.GetRawLattice(&lat))
-    KALDI_ERR << "Unexpected problem getting lattice for utterance " << utt;
-  fst::Connect(&lat);
-  if (determinize) {
-    CompactLattice clat;
-    if (!DeterminizeLatticePhonePrunedWrapper(
-            trans_model,
-            &lat,
-            decoder.GetOptions().lattice_beam,
-            &clat,
-            decoder.GetOptions().det_opts))
-      KALDI_WARN << "Determinization finished earlier than the beam for "
-                 << "utterance " << utt;
-    // We'll write the lattice without acoustic scaling.
-    if (acoustic_scale != 0.0)
-      fst::ScaleLattice(fst::AcousticLatticeScale(1.0 / acoustic_scale), &clat);
-    compact_lattice_writer->Write(utt, clat);
-  } else {
-    // We'll write the lattice without acoustic scaling.
-    if (acoustic_scale != 0.0)
-      fst::ScaleLattice(fst::AcousticLatticeScale(1.0 / acoustic_scale), &lat);
-    lattice_writer->Write(utt, lat);
-  }
-  KALDI_LOG << "Log-like per frame for utterance " << utt << " is "
-            << (likelihood / num_frames) << " over "
-            << num_frames << " frames.";
-  KALDI_VLOG(2) << "Cost for utterance " << utt << " is "
-                << weight.Value1() << " + " << weight.Value2();
-  *like_ptr = likelihood;
-  return true;
 }
 
 

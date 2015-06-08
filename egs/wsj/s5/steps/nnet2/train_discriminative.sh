@@ -2,19 +2,19 @@
 
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey).  Apache 2.0.
 
-# This script does MPE or fMMI state-level minimum bayes risk (sMBR) training.
-# Note: the temporary data is put in <exp-dir>/degs/, so if you want
-# to use a different disk for that, just make that a soft link to some other
-# volume.
+# This script does MPE or MMI or state-level minimum bayes risk (sMBR) training
+# of neural nets. 
 
 # Begin configuration section.
 cmd=run.pl
 num_epochs=4       # Number of epochs of training
 learning_rate=0.00002
+effective_lrate=    # If supplied, overrides the learning rate, which gets set to effective_lrate * num_jobs_nnet.
 acoustic_scale=0.1  # acoustic scale for MMI/MPFE/SMBR training.
 criterion=smbr
 boost=0.0       # option relevant for MMI
 drop_frames=false #  option relevant for MMI
+one_silence_class=true # Option relevant for MPE/SMBR
 num_jobs_nnet=4    # Number of neural net jobs to run in parallel.  Note: this
                    # will interact with the learning rates (if you decrease
                    # this, you'll have to decrease the learning rate, and vice
@@ -37,7 +37,7 @@ io_opts="-tc 5" # for jobs with a lot of I/O, limits the number running at one t
 
 num_threads=16  # this is the default but you may want to change it, e.g. to 1 if
                 # using GPUs.
-parallel_opts="-pe smp 16 -l ram_free=1G,mem_free=1G" # by default we use 4 threads; this lets the queue know.
+parallel_opts="--num-threads 16 --mem 1G" # by default we use 4 threads; this lets the queue know.
   # note: parallel_opts doesn't automatically get adjusted if you adjust num-threads.
 transform_dir= # If this is a SAT system, directory for transforms
 cleanup=true
@@ -45,7 +45,6 @@ transform_dir=
 degs_dir=
 retroactive=false
 online_ivector_dir=
-use_preconditioning=false
 # End configuration section.
 
 
@@ -63,8 +62,9 @@ if [ $# != 6 ]; then
   echo "  --config <config-file>                           # config file containing options"
   echo "  --cmd (utils/run.pl|utils/queue.pl <queue opts>) # how to run jobs."
   echo "  --num-epochs <#epochs|4>                        # Number of epochs of training"
-  echo "  --initial-learning-rate <initial-learning-rate|0.0002> # Learning rate at start of training"
-  echo "  --final-learning-rate  <final-learning-rate|0.0004>   # Learning rate at end of training"
+  echo "  --learning-rate <learning-rate|0.0002>           # Learning rate to use"
+  echo "  --effective-lrate <effective-learning-rate>      # If supplied, learning rate will be set to"
+  echo "                                                   # this value times num-jobs-nnet."
   echo "  --num-jobs-nnet <num-jobs|8>                     # Number of parallel jobs to use for main neural net"
   echo "                                                   # training (will affect results as well as speed; try 8, 16)"
   echo "                                                   # Note: if you increase this, you may want to also increase"
@@ -72,11 +72,10 @@ if [ $# != 6 ]; then
   echo "  --num-threads <num-threads|16>                   # Number of parallel threads per job (will affect results"
   echo "                                                   # as well as speed; may interact with batch size; if you increase"
   echo "                                                   # this, you may want to decrease the batch size."
-  echo "  --parallel-opts <opts|\"-pe smp 16 -l ram_free=1G,mem_free=1G\">      # extra options to pass to e.g. queue.pl for processes that"
-  echo "                                                   # use multiple threads... note, you might have to reduce mem_free,ram_free"
-  echo "                                                   # versus your defaults, because it gets multiplied by the -pe smp argument."
+  echo "  --parallel-opts <opts|\"--num-threads 16 --mem 1G\">      # extra options to pass to e.g. queue.pl for processes that"
+  echo "                                                   # use multiple threads... "
   echo "  --io-opts <opts|\"-tc 10\">                      # Options given to e.g. queue.pl for jobs that do a lot of I/O."
-  echo "  --samples-per-iter <#samples|200000>             # Number of samples of data to process per iteration, per"
+  echo "  --samples-per-iter <#samples|400000>             # Number of samples of data to process per iteration, per"
   echo "                                                   # process."
   echo "  --stage <stage|-8>                               # Used to run a partially-completed training process from somewhere in"
   echo "                                                   # the middle."
@@ -85,6 +84,9 @@ if [ $# != 6 ]; then
   echo "  --modify-learning-rates <true,false|false>       # If true, modify learning rates to try to equalize relative"
   echo "                                                   # changes across layers."
   echo "  --degs-dir <dir|"">                              # Directory for discriminative examples, e.g. exp/foo/degs"
+  echo "  --drop-frames <true,false|false>                 # Option that affects MMI training: if true, we exclude gradients from frames"
+  echo "                                                   # where the numerator transition-id is not in the denominator lattice."
+  echo "  --one-silence-class <true,false|false>           # Option that affects MPE/SMBR training (will tend to reduce insertions)"
   echo "  --online-ivector-dir <dir|"">                    # Directory for online-estimated iVectors, used in the"
   echo "                                                   # online-neural-net setup."
   exit 1;
@@ -238,21 +240,25 @@ if [ -z "$degs_dir" ] && [ -d $dir/degs/storage ]; then
   done
 fi
 
+
+
 if [ $stage -le -7 ]; then
   echo "$0: Copying initial model and modifying preconditioning setup"
-  # We want online preconditioning with a larger number of samples of history, since
-  # in this setup the frames are only randomized at the segment level so they are highly
-  # correlated.  It might make sense to tune this a little, later on, although I doubt
-  # it matters once it's large enough.
 
-  if $use_preconditioning; then
-    $cmd $dir/log/convert.log \
-      nnet-am-copy --learning-rate=$learning_rate "$src_model" - \| \
-      nnet-am-switch-preconditioning  --num-samples-history=50000 - $dir/0.mdl || exit 1;
-  else
-    $cmd $dir/log/convert.log \
-      nnet-am-copy --learning-rate=$learning_rate "$src_model" $dir/0.mdl || exit 1;
+  # Note, the baseline model probably had preconditioning, and we'll keep it;
+  # but we want online preconditioning with a larger number of samples of
+  # history, since in this setup the frames are only randomized at the segment
+  # level so they are highly correlated.  It might make sense to tune this a
+  # little, later on, although I doubt it matters once the --num-samples-history
+  # is large enough.
+
+  if [ ! -z "$effective_lrate" ]; then
+    learning_rate=$(perl -e "print ($num_jobs_nnet*$effective_lrate);")
+    echo "$0: setting learning rate to $learning_rate = --num-jobs-nnet * --effective-lrate."
   fi
+  $cmd $dir/log/convert.log \
+    nnet-am-copy --learning-rate=$learning_rate "$src_model" - \| \
+    nnet-am-switch-preconditioning  --num-samples-history=50000 - $dir/0.mdl || exit 1;
 fi
 
 
@@ -269,7 +275,7 @@ if [ $stage -le -6 ] && [ -z "$degs_dir" ]; then
 
   $cmd $io_opts JOB=1:$nj $dir/log/get_egs.JOB.log \
     nnet-get-egs-discriminative --criterion=$criterion --drop-frames=$drop_frames \
-     $dir/0.mdl "$feats" \
+      $dir/0.mdl "$feats" \
     "ark,s,cs:gunzip -c $alidir/ali.JOB.gz |" \
     "ark,s,cs:gunzip -c $denlatdir/lat.JOB.gz|" ark:- \| \
     nnet-copy-egs-discriminative $const_dim_opt ark:- $egs_list || exit 1;
@@ -344,22 +350,20 @@ fi
 
 x=0   
 while [ $x -lt $num_iters ]; do
-  if [ $x -ge 0 ] && [ $stage -le $x ]; then
+  if [ $stage -le $x ]; then
     
     echo "Training neural net (pass $x)"
 
     $cmd $parallel_opts JOB=1:$num_jobs_nnet $dir/log/train.$x.JOB.log \
       nnet-train-discriminative$train_suffix --silence-phones=$silphonelist \
        --criterion=$criterion --drop-frames=$drop_frames \
-       --boost=$boost --acoustic-scale=$acoustic_scale \
-       $dir/$x.mdl "ark:nnet-combine-egs-discriminative ark:$degs_dir/degs.JOB.$[$x%$iters_per_epoch].ark ark:- |" \
+       --one-silence-class=$one_silence_class --boost=$boost \
+       --acoustic-scale=$acoustic_scale $dir/$x.mdl \
+       "ark:nnet-combine-egs-discriminative ark:$degs_dir/degs.JOB.$[$x%$iters_per_epoch].ark ark:- |" \
         $dir/$[$x+1].JOB.mdl \
       || exit 1;
 
-    nnets_list=
-    for n in `seq 1 $num_jobs_nnet`; do
-      nnets_list="$nnets_list $dir/$[$x+1].$n.mdl"
-    done
+    nnets_list=$(for n in $(seq $num_jobs_nnet); do echo $dir/$[$x+1].$n.mdl; done)
 
     $cmd $dir/log/average.$x.log \
       nnet-am-average $nnets_list $dir/$[$x+1].mdl || exit 1;

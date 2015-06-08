@@ -6,11 +6,11 @@
 
 if [ -f path.sh ]; then . path.sh; fi
 
-arpa_lm=db/cmusphinx-5.0-en-us.lm.gz
+arpa_lm=db/cantab-TEDLIUM/cantab-TEDLIUM-pruned.lm3.gz
 [ ! -f $arpa_lm ] && echo No such file $arpa_lm && exit 1;
 
-rm -rf data/lang_test
-cp -r data/lang data/lang_test
+rm -rf data/lang_nosp_test
+cp -r data/lang_nosp data/lang_nosp_test
 
 # grep -v '<s> <s>' etc. is only for future-proofing this script.  Our
 # LM doesn't have these "invalid combinations".  These can cause 
@@ -24,36 +24,23 @@ gunzip -c "$arpa_lm" | \
    grep -v '</s> </s>' | \
    arpa2fst - | fstprint | \
    utils/remove_oovs.pl /dev/null | \
-   utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=data/lang_test/words.txt \
-     --osymbols=data/lang_test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
-    fstrmepsilon | fstarcsort --sort_type=ilabel > data/lang_test/G.fst
+   utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=data/lang_nosp_test/words.txt \
+     --osymbols=data/lang_nosp_test/words.txt  --keep_isymbols=false --keep_osymbols=false | \
+    fstrmepsilon | fstarcsort --sort_type=ilabel > data/lang_nosp_test/G.fst
 
 
 echo  "Checking how stochastic G is (the first of these numbers should be small):"
-fstisstochastic data/lang_test/G.fst
+fstisstochastic data/lang_nosp_test/G.fst
 
-## Check lexicon.
-## just have a look and make sure it seems sane.
-echo "First few lines of lexicon FST:"
-fstprint --isymbols=data/lang/phones.txt --osymbols=data/lang/words.txt data/lang/L.fst  | head
+utils/validate_lang.pl data/lang_nosp_test || exit 1;
 
-echo Performing further checks
+if [ ! -d data/lang_nosp_rescore ]; then
 
-# Checking that G.fst is determinizable.
-fstdeterminize data/lang_test/G.fst /dev/null || echo Error determinizing G.
+  big_arpa_lm=db/cantab-TEDLIUM/cantab-TEDLIUM-unpruned.lm4.gz
+  [ ! -f $big_arpa_lm ] && echo No such file $big_arpa_lm && exit 1;
 
-# Checking that L_disambig.fst is determinizable.
-fstdeterminize data/lang_test/L_disambig.fst /dev/null || echo Error determinizing L.
+  utils/build_const_arpa_lm.sh $big_arpa_lm data/lang_nosp_test data/lang_nosp_rescore || exit 1;
 
-# Checking that disambiguated lexicon times G is determinizable
-# Note: we do this with fstdeterminizestar not fstdeterminize, as
-# fstdeterminize was taking forever (presumbaly relates to a bug
-# in this version of OpenFst that makes determinization slow for
-# some case).
-fsttablecompose data/lang_test/L_disambig.fst data/lang_test/G.fst | \
-   fstdeterminizestar >/dev/null || { echo Error determinizing LG; exit 1; }
+fi
 
-# Checking that LG is stochastic:
-fsttablecompose data/lang/L_disambig.fst data/lang_test/G.fst | \
-   fstisstochastic || echo LG is not stochastic
-
+exit 0;

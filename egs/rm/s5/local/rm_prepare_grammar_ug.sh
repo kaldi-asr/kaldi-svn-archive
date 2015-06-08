@@ -10,8 +10,8 @@ tmpdir=data/local/tmp
 
 . ./path.sh || exit 1; # for KALDI_ROOT
 
-
-cp -rT data/lang data/lang_ug
+mkdir -p data/lang_ug
+cp -r data/lang/* data/lang_ug
 rm -rf data/lang_ug/tmp
 
 cat data/train/text  | \
@@ -21,7 +21,7 @@ cat data/train/text  | \
     $final_cost = -log($n_sent / $tot_count);
     print "0 $final_cost\n"; ' | \
   fstcompile --isymbols=data/lang/words.txt --osymbols=data/lang/words.txt --keep_isymbols=false \
-    --keep_osymbols=false > data/lang_ug/G.fst || exit 1;
+    --keep_osymbols=false | fstarcsort --sort_type=ilabel > data/lang_ug/G.fst || exit 1;
 
 # Checking that G is stochastic [note, it wouldn't be for an Arpa]
 fstisstochastic data/lang_ug/G.fst || echo Error: G is not stochastic

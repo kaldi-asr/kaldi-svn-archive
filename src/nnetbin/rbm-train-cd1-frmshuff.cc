@@ -92,7 +92,6 @@ int main(int argc, char *argv[]) {
 
 #if HAVE_CUDA==1
     CuDevice::Instantiate().SelectGpuId(use_gpu);
-    CuDevice::Instantiate().DisableCaching();
 #endif
 
     Nnet rbm_transf;
@@ -188,7 +187,10 @@ int main(int argc, char *argv[]) {
         // get the dims 
         int32 num_frames = pos_vis.NumRows(),
               dim_hid = rbm.OutputDim();
-       
+        // Create dummy frame-weights for Mse::Eval,
+        Vector<BaseFloat> dummy_weights(num_frames);
+        dummy_weights.Set(1.0);
+
         // TRAIN with CD1
         // forward pass
         rbm.Propagate(pos_vis, &pos_hid);
@@ -211,7 +213,7 @@ int main(int argc, char *argv[]) {
         // update step
         rbm.RbmUpdate(pos_vis, pos_hid, neg_vis, neg_hid);
         // evaluate mean square error
-        mse.Eval(neg_vis, pos_vis, &dummy_mse_mat);
+        mse.Eval(dummy_weights, neg_vis, pos_vis, &dummy_mse_mat);
 
         total_frames += num_frames;
 

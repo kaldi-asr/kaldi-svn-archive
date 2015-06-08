@@ -351,10 +351,9 @@ void ApplyProbabilityScale(float scale, MutableFst<Arc> *fst);
 /// equal probabilities in the first stage of selection (since the output will anyway
 /// not be a truly random sample from the FST).
 /// The input fst "ifst" must be connected or this may enter an infinite loop.
-
 template<class Arc>
 bool EqualAlign(const Fst<Arc> &ifst, typename Arc::StateId length,
-                int rand_seed, MutableFst<Arc> *ofst);
+                int rand_seed, MutableFst<Arc> *ofst, int num_retries = 10);
 
 
 // This is a Holder class with T = VectorFst<Arc>, that meets the requirements
@@ -385,8 +384,13 @@ class VectorFstTplHolder {
       // on its own line.
       os << '\n';
       bool acceptor = false, write_one = false;
+#ifdef HAVE_OPENFST_GE_10400
+      FstPrinter<Arc> printer(t, t.InputSymbols(), t.OutputSymbols(),
+                              NULL, acceptor, write_one, "\t");
+#else
       FstPrinter<Arc> printer(t, t.InputSymbols(), t.OutputSymbols(),
                               NULL, acceptor, write_one);
+#endif
       printer.Print(&os, "<unknown>");
       if (os.fail())
         KALDI_WARN << "Stream failure detected.\n";
@@ -473,7 +477,7 @@ class VectorFstTplHolder {
             else t_->SetFinal(s, w);
             break;
           case 3: // 3 columns not ok for Lattice format; it's not an acceptor.
-            ok = false; 
+            ok = false;
             break;
           case 4:
             ok = ConvertStringToInteger(col[1], &arc.nextstate) &&
@@ -501,7 +505,7 @@ class VectorFstTplHolder {
         while (d >= t_->NumStates())
           t_->AddState();
         if (!ok) {
-          KALDI_WARN << "Bad line in FST: " << line;          
+          KALDI_WARN << "Bad line in FST: " << line;
           delete t_;
           t_ = NULL;
           return false;

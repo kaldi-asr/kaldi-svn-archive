@@ -24,6 +24,7 @@
 #include "online2/online-endpoint.h"
 #include "fstext/fstext-lib.h"
 #include "lat/lattice-functions.h"
+#include "thread/kaldi-thread.h"
 
 namespace kaldi {
 
@@ -88,7 +89,8 @@ int main(int argc, char *argv[]) {
         "<spk2utt-rspecifier> <wav-rspecifier> <lattice-wspecifier>\n"
         "The spk2utt-rspecifier can just be <utterance-id> <utterance-id> if\n"
         "you want to decode utterance by utterance.\n"
-        "See egs/rm/s5/local/run_online_decoding_nnet2.sh for example\n";
+        "See egs/rm/s5/local/run_online_decoding_nnet2.sh for example\n"
+        "See also online2-wav-nnet2-latgen-threaded\n";
     
     ParseOptions po(usage);
     
@@ -121,6 +123,8 @@ int main(int argc, char *argv[]) {
                 "--use-most-recent-ivector=true and --greedy-ivector-extractor=true "
                 "in the file given to --ivector-extraction-config, and "
                 "--chunk-length=-1.");
+    po.Register("num-threads-startup", &g_num_threads,
+                "Number of threads used when initializing iVector extractor.");
     
     feature_config.Register(&po);
     nnet2_decoding_config.Register(&po);
@@ -193,6 +197,10 @@ int main(int argc, char *argv[]) {
 
         OnlineNnet2FeaturePipeline feature_pipeline(feature_info);
         feature_pipeline.SetAdaptationState(adaptation_state);
+
+        OnlineSilenceWeighting silence_weighting(
+            trans_model,
+            feature_info.silence_weighting_config);
         
         SingleUtteranceNnet2Decoder decoder(nnet2_decoding_config,
                                             trans_model,
@@ -211,6 +219,8 @@ int main(int argc, char *argv[]) {
         }
         
         int32 samp_offset = 0;
+        std::vector<std::pair<int32, BaseFloat> > delta_weights;
+        
         while (samp_offset < data.Dim()) {
           int32 samp_remaining = data.Dim() - samp_offset;
           int32 num_samp = chunk_length < samp_remaining ? chunk_length
@@ -218,18 +228,28 @@ int main(int argc, char *argv[]) {
           
           SubVector<BaseFloat> wave_part(data, samp_offset, num_samp);
           feature_pipeline.AcceptWaveform(samp_freq, wave_part);
-          
+
           samp_offset += num_samp;
           decoding_timer.WaitUntil(samp_offset / samp_freq);
           if (samp_offset == data.Dim()) {
             // no more input. flush out last frames
             feature_pipeline.InputFinished();
           }
+    
+          if (silence_weighting.Active()) {
+            silence_weighting.ComputeCurrentTraceback(decoder.Decoder());
+            silence_weighting.GetDeltaWeights(feature_pipeline.NumFramesReady(),
+                                              &delta_weights);
+            feature_pipeline.UpdateFrameWeights(delta_weights);
+          }
+          
           decoder.AdvanceDecoding();
           
           if (do_endpointing && decoder.EndpointDetected(endpoint_config))
             break;
         }
+        decoder.FinalizeDecoding();
+
         CompactLattice clat;
         bool end_of_utterance = true;
         decoder.GetLattice(end_of_utterance, &clat);

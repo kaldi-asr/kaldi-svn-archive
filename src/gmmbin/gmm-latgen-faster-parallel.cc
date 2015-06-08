@@ -26,7 +26,7 @@
 #include "tree/context-dep.h"
 #include "hmm/transition-model.h"
 #include "fstext/fstext-lib.h"
-#include "decoder/lattice-faster-decoder.h"
+#include "decoder/decoder-wrappers.h"
 #include "gmm/decodable-am-diag-gmm.h"
 #include "base/timer.h"
 #include "feat/feature-functions.h"  // feature reversal
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
                 trans_model, word_syms, utt, acoustic_scale, determinize,
                 allow_partial, &alignment_writer, &words_writer,
                 &compact_lattice_writer, &lattice_writer,
-                &tot_like, &frame_count, &num_err, &num_done, NULL);
+                &tot_like, &frame_count, &num_done, &num_err, NULL);
         sequencer.Run(task); // takes ownership of "task",
         // and will delete it when done.
       }

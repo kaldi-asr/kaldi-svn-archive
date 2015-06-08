@@ -17,7 +17,7 @@ max_mem=20000000 # This will stop the processes getting too large.
 # This is in bytes, but not "real" bytes-- you have to multiply
 # by something like 5 or 10 to get real bytes (not sure why so large)
 num_threads=1
-parallel_opts=
+parallel_opts= # ignored now
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -40,7 +40,6 @@ if [ $# != 4 ]; then
    echo "                           # will (individually) finish reasonably soon."
    echo "  --transform-dir <transform-dir>   # directory to find fMLLR transforms."
    echo "  --num-threads  <n>                # number of threads per decoding job"
-   echo "  --parallel-opts <string>          # if >1 thread, add this to 'cmd', e.g. -pe smp 6"
    exit 1;
 fi
 
@@ -63,14 +62,14 @@ oov=`cat $lang/oov.int` || exit 1;
 
 mkdir -p $dir
 
-cp -r $lang $dir/
+cp -rH $lang $dir/
 
 # Compute grammar FST which corresponds to unigram decoding graph.
 new_lang="$dir/"$(basename "$lang")
 echo "Making unigram grammar FST in $new_lang"
 cat $data/text | utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt | \
   awk '{for(n=2;n<=NF;n++){ printf("%s ", $n); } printf("\n"); }' | \
-  utils/make_unigram_grammar.pl | fstcompile > $new_lang/G.fst \
+  utils/make_unigram_grammar.pl | fstcompile | fstarcsort --sort_type=ilabel > $new_lang/G.fst \
    || exit 1;
 
 # mkgraph.sh expects a whole directory "lang", so put everything in one directory...
@@ -85,7 +84,7 @@ else
 fi
 
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
-echo "align_si.sh: feature type is $feat_type"
+echo "$0: feature type is $feat_type"
 
 case $feat_type in
   delta) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
@@ -121,7 +120,7 @@ trap "cleanup" INT QUIT TERM EXIT
 
 
 if [ $sub_split -eq 1 ]; then 
-  $cmd $parallel_opts JOB=1:$nj $dir/log/decode_den.JOB.log \
+  $cmd --num-threads $num_threads JOB=1:$nj $dir/log/decode_den.JOB.log \
    gmm-latgen-faster$thread_string --beam=$beam --lattice-beam=$lattice_beam --acoustic-scale=$acwt \
     --max-mem=$max_mem --max-active=$max_active --word-symbol-table=$lang/words.txt $srcdir/final.mdl  \
      $dir/dengraph/HCLG.fst "$feats" "ark:|gzip -c >$dir/lat.JOB.gz" || exit 1;
@@ -147,7 +146,7 @@ else
       mkdir -p $dir/part
       feats_subset=`echo $feats | sed "s/trans.JOB/trans.$n/g" | sed s:JOB/:$n/split$sub_split/JOB/:g`
 
-      $cmd $parallel_opts JOB=1:$sub_split $dir/log/$n/decode_den.JOB.log \
+      $cmd --num-threads $num_threads JOB=1:$sub_split $dir/log/$n/decode_den.JOB.log \
         gmm-latgen-faster$thread_string --beam=$beam --lattice-beam=$lattice_beam --acoustic-scale=$acwt \
         --max-mem=$max_mem --max-active=$max_active --word-symbol-table=$lang/words.txt $srcdir/final.mdl  \
           $dir/dengraph/HCLG.fst "$feats_subset" "ark:|gzip -c >$dir/lat.$n.JOB.gz" || touch $dir/.error &

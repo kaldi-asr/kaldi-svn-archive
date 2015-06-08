@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Copyright 2013  Guoguo Chen
 # Apache 2.0.
@@ -52,7 +52,8 @@ foreach my $file (@ARGV) {
 
   # If the symbolic link already exists, delete it.
   if (-l $pseudo_storage) {
-    unlink($pseudo_storage);
+    print STDERR "$0: link $pseudo_storage already exists, not overwriting.\n";
+    next;
   }
 
   # Create the destination directory and make the link.
