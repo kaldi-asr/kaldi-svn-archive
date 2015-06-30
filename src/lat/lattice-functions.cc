@@ -6,6 +6,7 @@
 //                2013  Cisco Systems (author: Neha Agrawal) [code modified
 //                      from original code in ../gmmbin/gmm-rescore-lattice.cc]
 //                2014  Guoguo Chen
+//                2015  David Snyder
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -22,6 +23,10 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
+#include <queue>
+#include <utility>
+#include <limits>
 
 #include "lat/lattice-functions.h"
 #include "hmm/transition-model.h"
@@ -88,8 +93,9 @@ int32 CompactLatticeStateTimes(const CompactLattice &lat, vector<int32> *times) 
     }
     if (lat.Final(state) != CompactLatticeWeight::Zero()) {
       int32 this_utt_len = (*times)[state] + lat.Final(state).String().size();
-      if (utt_len == -1) utt_len = this_utt_len;
-      else {
+      if (utt_len == -1) {
+        utt_len = this_utt_len;
+      } else {
         if (this_utt_len != utt_len) {
           KALDI_WARN << "Utterance does not "
               "seem to have a consistent length.";
@@ -114,7 +120,7 @@ bool ComputeCompactLatticeAlphas(const CompactLattice &clat,
   typedef Arc::Weight Weight;
   typedef Arc::StateId StateId;
 
-  //Make sure the lattice is topologically sorted.
+  // Make sure the lattice is topologically sorted.
   if (clat.Properties(fst::kTopSorted, true) == 0) {
     KALDI_WARN << "Input lattice must be topologically sorted.";
     return false;
@@ -203,7 +209,7 @@ bool PruneLattice(BaseFloat beam, LatType *lat) {
   if (num_states == 0) return false;
   std::vector<double> forward_cost(num_states,
                                    std::numeric_limits<double>::infinity());  // viterbi forward.
-  forward_cost[start] = 0.0; // lattice can't have cycles so couldn't be
+  forward_cost[start] = 0.0;  // lattice can't have cycles so couldn't be
   // less than this.
   double best_final_cost = std::numeric_limits<double>::infinity();
   // Update the forward probs.
@@ -227,7 +233,7 @@ bool PruneLattice(BaseFloat beam, LatType *lat) {
     if (this_final_cost < best_final_cost)
       best_final_cost = this_final_cost;
   }
-  int32 bad_state = lat->AddState(); // this state is not final.
+  int32 bad_state = lat->AddState();  // this state is not final.
   double cutoff = best_final_cost + beam;
 
   // Go backwards updating the backward probs (which share memory with the
@@ -253,7 +259,7 @@ bool PruneLattice(BaseFloat beam, LatType *lat) {
           this_fb_cost = this_forward_cost + arc_backward_cost;
       if (arc_backward_cost < this_backward_cost)
         this_backward_cost = arc_backward_cost;
-      if (this_fb_cost > cutoff) { // Prune the arc.
+      if (this_fb_cost > cutoff) {  // Prune the arc.
         arc.nextstate = bad_state;
         aiter.SetValue(arc);
       }
@@ -290,7 +296,7 @@ BaseFloat LatticeForwardBackward(const Lattice &lat, Posterior *post,
   vector<int32> state_times;
   int32 max_time = LatticeStateTimes(lat, &state_times);
   std::vector<double> alpha(num_states, kLogZeroDouble);
-  std::vector<double> &beta(alpha); // we re-use the same memory for
+  std::vector<double> &beta(alpha);  // we re-use the same memory for
   // this, but it's semantically distinct so we name it differently.
   double tot_forward_prob = kLogZeroDouble;
 
@@ -328,7 +334,7 @@ BaseFloat LatticeForwardBackward(const Lattice &lat, Posterior *post,
       if (transition_id != 0 || acoustic_like_sum != NULL) {
         double posterior = exp(alpha[s] + arc_beta - tot_forward_prob);
 
-        if (transition_id != 0) // Arc has a transition-id on it [not epsilon]
+        if (transition_id != 0)  // Arc has a transition-id on it [not epsilon]
           (*post)[state_times[s]].push_back(std::make_pair(transition_id,
                                                                posterior));
         if (acoustic_like_sum != NULL)
@@ -386,11 +392,11 @@ void ConvertLatticeToPhones(const TransitionModel &trans,
     for (fst::MutableArcIterator<Lattice> aiter(lat, state); !aiter.Done();
         aiter.Next()) {
       Arc arc(aiter.Value());
-      arc.olabel = 0; // remove any word.
-      if ((arc.ilabel != 0) // has a transition-id on input..
+      arc.olabel = 0;  // remove any word.
+      if ((arc.ilabel != 0)  // has a transition-id on input..
           && (trans.TransitionIdToHmmState(arc.ilabel) == 0)
           && (!trans.IsSelfLoop(arc.ilabel)))
-         // && trans.IsFinal(arc.ilabel)) // there is one of these per phone...
+         // && trans.IsFinal(arc.ilabel))  // there is one of these per phone...
         arc.olabel = trans.TransitionIdToPhone(arc.ilabel);
       aiter.SetValue(arc);
     }  // end looping over arcs
@@ -442,7 +448,7 @@ static double ComputeLatticeAlphasAndBetas(const LatticeType &lat,
       tot_forward_prob = LogAddOrMax(viterbi, tot_forward_prob, final_like);
     }
   }
-  for (StateId s = num_states-1; s >= 0; s--) { // it's guaranteed signed.
+  for (StateId s = num_states-1; s >= 0; s--) {  // it's guaranteed signed.
     double this_beta = -ConvertToCost(lat.Final(s));
     for (fst::ArcIterator<LatticeType> aiter(lat, s); !aiter.Done();
          aiter.Next()) {
@@ -466,10 +472,10 @@ static double ComputeLatticeAlphasAndBetas(const LatticeType &lat,
 
 /// This is used in CompactLatticeLimitDepth.
 struct LatticeArcRecord {
-  BaseFloat logprob; // logprob <= 0 is the best Viterbi logprob of this arc,
+  BaseFloat logprob;  // logprob <= 0 is the best Viterbi logprob of this arc,
                      // minus the overall best-cost of the lattice.
-  CompactLatticeArc::StateId state; // state in the lattice.
-  size_t arc; // arc index within the state.
+  CompactLatticeArc::StateId state;  // state in the lattice.
+  size_t arc;  // arc index within the state.
   bool operator < (const LatticeArcRecord &other) const {
     return logprob < other.logprob;
   }
@@ -513,7 +519,7 @@ void CompactLatticeLimitDepth(int32 max_depth_per_frame,
       arc_record.logprob =
           (alpha[s] + beta[arc.nextstate] - ConvertToCost(arc.weight))
            - best_prob;
-      KALDI_ASSERT(arc_record.logprob < 0.1); // Should be zero or negative.
+      KALDI_ASSERT(arc_record.logprob < 0.1);  // Should be zero or negative.
       int32 num_frames = arc.weight.String().size(), start_t = state_times[s];
       for (int32 t = start_t; t < start_t + num_frames; t++) {
         KALDI_ASSERT(t < T);
@@ -521,7 +527,7 @@ void CompactLatticeLimitDepth(int32 max_depth_per_frame,
       }
     }
   }
-  StateId dead_state = clat->AddState(); // A non-coaccesible state which we use
+  StateId dead_state = clat->AddState();  // A non-coaccesible state which we use
                                          // to remove arcs (make them end
                                          // there).
   size_t max_depth = max_depth_per_frame;
@@ -539,7 +545,7 @@ void CompactLatticeLimitDepth(int32 max_depth_per_frame,
         fst::MutableArcIterator<CompactLattice> aiter(clat, record.state);
         aiter.Seek(record.arc);
         Arc arc = aiter.Value();
-        if (arc.nextstate != dead_state) { // not already killed.
+        if (arc.nextstate != dead_state) {  // not already killed.
           arc.nextstate = dead_state;
           aiter.SetValue(arc);
         }
@@ -657,19 +663,19 @@ void ConvertCompactLatticeToPhones(const TransitionModel &trans,
       const std::vector<int32> &tid_seq = arc.weight.String();
       for (std::vector<int32>::const_iterator iter = tid_seq.begin();
            iter != tid_seq.end(); ++iter) {
-        if (trans.IsFinal(*iter))// note: there is one of these per phone...
+        if (trans.IsFinal(*iter))  // note: there is one of these per phone...
           phone_seq.push_back(trans.TransitionIdToPhone(*iter));
       }
       arc.weight.SetString(phone_seq);
       aiter.SetValue(arc);
-    } // end looping over arcs
+    }  // end looping over arcs
     Weight f = clat->Final(state);
     if (f != Weight::Zero()) {
       std::vector<int32> phone_seq;
       const std::vector<int32> &tid_seq = f.String();
       for (std::vector<int32>::const_iterator iter = tid_seq.begin();
            iter != tid_seq.end(); ++iter) {
-        if (trans.IsFinal(*iter))// note: there is one of these per phone...
+        if (trans.IsFinal(*iter))  // note: there is one of these per phone...
           phone_seq.push_back(trans.TransitionIdToPhone(*iter));
       }
       f.SetString(phone_seq);
@@ -712,13 +718,13 @@ bool LatticeBoost(const TransitionModel &trans,
         BaseFloat frame_error;
         if (phone == ref_phone) {
           frame_error = 0.0;
-        } else { // an error...
+        } else {  // an error...
           if (std::binary_search(silence_phones.begin(), silence_phones.end(), phone))
             frame_error = max_silence_error;
           else
             frame_error = 1.0;
         }
-        BaseFloat delta_cost = -b * frame_error; // negative cost if
+        BaseFloat delta_cost = -b * frame_error;  // negative cost if
         // frame is wrong, to boost likelihood of arcs with errors on them.
         // Add this cost to the graph part.
         arc.weight.SetValue1(arc.weight.Value1() + delta_cost);
@@ -762,9 +768,9 @@ BaseFloat LatticeForwardBackwardMpeVariants(
   int32 max_time = LatticeStateTimes(lat, &state_times);
   KALDI_ASSERT(max_time == static_cast<int32>(num_ali.size()));
   std::vector<double> alpha(num_states, kLogZeroDouble),
-      alpha_smbr(num_states, 0), //forward variable for sMBR
+      alpha_smbr(num_states, 0),  // forward variable for sMBR
       beta(num_states, kLogZeroDouble),
-      beta_smbr(num_states, 0); //backward variable for sMBR
+      beta_smbr(num_states, 0);  // backward variable for sMBR
 
   double tot_forward_prob = kLogZeroDouble;
   double tot_forward_score = 0;
@@ -828,7 +834,7 @@ BaseFloat LatticeForwardBackwardMpeVariants(
                                                   silence_phones.end(),
                                                   ref_phone),
             both_sil = phone_is_sil && ref_phone_is_sil;
-        if (!is_mpfe) { // smbr.
+        if (!is_mpfe) {  // smbr.
           int32 pdf = trans.TransitionIdToPdf(arc.ilabel),
               ref_pdf = trans.TransitionIdToPdf(num_ali[cur_time]);
           if (!one_silence_class)  // old behavior
@@ -872,7 +878,7 @@ BaseFloat LatticeForwardBackwardMpeVariants(
                                                   silence_phones.end(),
                                                   ref_phone),
             both_sil = phone_is_sil && ref_phone_is_sil;
-        if (!is_mpfe) { // smbr.
+        if (!is_mpfe) {  // smbr.
           int32 pdf = trans.TransitionIdToPdf(arc.ilabel),
               ref_pdf = trans.TransitionIdToPdf(num_ali[cur_time]);
           if (!one_silence_class)  // old behavior
@@ -893,7 +899,7 @@ BaseFloat LatticeForwardBackwardMpeVariants(
       if (KALDI_ISNAN(arc_scale)) arc_scale = 0;
       beta_smbr[s] += arc_scale * (beta_smbr[arc.nextstate] + frame_acc);
 
-      if (transition_id != 0) { // Arc has a transition-id on it [not epsilon]
+      if (transition_id != 0) {  // Arc has a transition-id on it [not epsilon]
         double posterior = exp(alpha[s] + arc_beta - tot_forward_prob);
         double acc_diff = alpha_smbr[s] + frame_acc + beta_smbr[arc.nextstate]
                                - tot_forward_score;
@@ -904,7 +910,7 @@ BaseFloat LatticeForwardBackwardMpeVariants(
     }
   }
 
-  //Second Pass Forward Backward check
+  // Second Pass Forward Backward check
   double tot_backward_score = beta_smbr[0];  // Initial state id == 0
   // may loose the condition somehow here 1e-5/1e-4
   if (!ApproxEqual(tot_forward_score, tot_backward_score, 1e-4)) {
@@ -944,7 +950,7 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
         KALDI_WARN << "Lattice is not linear.";
         return false;
       }
-      if (! final.String().empty()) {
+      if (!final.String().empty()) {
         KALDI_WARN << "Lattice has alignments on final-weight: probably "
             "was not word-aligned (alignments will be approximate)";
       }
@@ -956,7 +962,7 @@ bool CompactLatticeToWordAlignment(const CompactLattice &clat,
       }
       fst::ArcIterator<CompactLattice> aiter(clat, state);
       const Arc &arc = aiter.Value();
-      Label word_id = arc.ilabel; // Note: ilabel==olabel, since acceptor.
+      Label word_id = arc.ilabel;  // Note: ilabel==olabel, since acceptor.
       // Also note: word_id may be zero; we output it anyway.
       int32 length = arc.weight.String().size();
       words->push_back(word_id);
@@ -1001,7 +1007,7 @@ bool CompactLatticeToWordProns(
         KALDI_WARN << "Lattice is not linear.";
         return false;
       }
-      if (! final.String().empty()) {
+      if (!final.String().empty()) {
         KALDI_WARN << "Lattice has alignments on final-weight: probably "
             "was not word-aligned (alignments will be approximate)";
       }
@@ -1013,7 +1019,7 @@ bool CompactLatticeToWordProns(
       }
       fst::ArcIterator<CompactLattice> aiter(clat, state);
       const Arc &arc = aiter.Value();
-      Label word_id = arc.ilabel; // Note: ilabel==olabel, since acceptor.
+      Label word_id = arc.ilabel;  // Note: ilabel==olabel, since acceptor.
       // Also note: word_id may be zero; we output it anyway.
       int32 length = arc.weight.String().size();
       words->push_back(word_id);
@@ -1053,7 +1059,7 @@ void CompactLatticeShortestPath(const CompactLattice &clat,
   // Now we can assume it's topologically sorted.
   shortest_path->DeleteStates();
   if (clat.Start() == kNoStateId) return;
-  KALDI_ASSERT(clat.Start() == 0); // since top-sorted.
+  KALDI_ASSERT(clat.Start() == 0);  // since top-sorted.
   typedef CompactLatticeArc Arc;
   typedef Arc::StateId StateId;
   typedef CompactLatticeWeight Weight;
@@ -1084,13 +1090,13 @@ void CompactLatticeShortestPath(const CompactLattice &clat,
       best_cost_and_pred[superfinal].second = s;
     }
   }
-  std::vector<StateId> states; // states on best path.
+  std::vector<StateId> states;  // states on best path.
   StateId cur_state = superfinal;
   while (cur_state != 0) {
     StateId prev_state = best_cost_and_pred[cur_state].second;
     if (prev_state == kNoStateId) {
       KALDI_WARN << "Failure in best-path algorithm for lattice (infinite costs?)";
-      return; // return empty best-path.
+      return;  // return empty best-path.
     }
     states.push_back(prev_state);
     KALDI_ASSERT(cur_state != prev_state && "Lattice with cycles");
@@ -1101,7 +1107,7 @@ void CompactLatticeShortestPath(const CompactLattice &clat,
     shortest_path->AddState();
   for (StateId s = 0; static_cast<size_t>(s) < states.size(); s++) {
     if (s == 0) shortest_path->SetStart(s);
-    if (static_cast<size_t>(s + 1) < states.size()) { // transition to next state.
+    if (static_cast<size_t>(s + 1) < states.size()) {  // transition to next state.
       bool have_arc = false;
       Arc cur_arc;
       for (ArcIterator<CompactLattice> aiter(clat, states[s]);
@@ -1119,7 +1125,7 @@ void CompactLatticeShortestPath(const CompactLattice &clat,
       KALDI_ASSERT(have_arc && "Code error.");
       shortest_path->AddArc(s, Arc(cur_arc.ilabel, cur_arc.olabel,
                                    cur_arc.weight, s+1));
-    } else { // final-prob.
+    } else {  // final-prob.
       shortest_path->SetFinal(s, clat.Final(states[s]));
     }
   }
@@ -1130,21 +1136,21 @@ void AddWordInsPenToCompactLattice(BaseFloat word_ins_penalty,
   typedef CompactLatticeArc Arc;
   int32 num_states = clat->NumStates();
 
-  //scan the lattice
+  // scan the lattice
   for (int32 state = 0; state < num_states; state++) {
     for (fst::MutableArcIterator<CompactLattice> aiter(clat, state);
          !aiter.Done(); aiter.Next()) {
 
       Arc arc(aiter.Value());
 
-      if (arc.ilabel != 0) { // if there is a word on this arc
+      if (arc.ilabel != 0) {  // if there is a word on this arc
         LatticeWeight weight = arc.weight.Weight();
         // add word insertion penalty to lattice
-        weight.SetValue1( weight.Value1() + word_ins_penalty);
+        weight.SetValue1(weight.Value1() + word_ins_penalty);
         arc.weight.SetWeight(weight);
         aiter.SetValue(arc);
       }
-    } // end looping over arcs
+    }  // end looping over arcs
   }  // end looping over states
 }
 
@@ -1193,7 +1199,7 @@ bool RescoreCompactLatticeInternal(
       std::vector<int32> arc_string = arc.weight.String();
 
       for (size_t offset = 0; offset < arc_string.size(); offset++) {
-        if (t < utt_len) { // end state may be past this..
+        if (t < utt_len) {  // end state may be past this..
           int32 tid = arc_string[offset];
           time_to_state[t+offset].push_back(ClatRescoreTuple(state, arc_id, tid));
         } else {
@@ -1209,7 +1215,7 @@ bool RescoreCompactLatticeInternal(
       arc_id = -1;
       std::vector<int32> arc_string = clat->Final(state).String();
       for (size_t offset = 0; offset < arc_string.size(); offset++) {
-        KALDI_ASSERT(t + offset < utt_len); // already checked in
+        KALDI_ASSERT(t + offset < utt_len);  // already checked in
         // CompactLatticeStateTimes, so would be code error.
         time_to_state[t+offset].push_back(
             ClatRescoreTuple(state, arc_id, arc_string[offset]));
@@ -1250,7 +1256,7 @@ bool RescoreCompactLatticeInternal(
         }
       }
       if (frame_scale == 0.0)
-        continue; // the code below would be pointless.
+        continue;  // the code below would be pointless.
     }
 
     for (size_t i = 0; i < time_to_state[t].size(); i++) {
@@ -1258,7 +1264,7 @@ bool RescoreCompactLatticeInternal(
       int32 arc_id = time_to_state[t][i].arc_id;
       int32 tid = time_to_state[t][i].tid;
 
-      if (arc_id == -1) { // Final state
+      if (arc_id == -1) {  // Final state
         // Access the trans_id
         CompactLatticeWeight curr_clat_weight = clat->Final(state);
 
@@ -1319,7 +1325,7 @@ bool RescoreLattice(DecodableInterface *decodable,
   std::vector<int32> state_times;
   int32 utt_len = kaldi::LatticeStateTimes(*lat, &state_times);
 
-  std::vector<std::vector<int32> > time_to_state(utt_len );
+  std::vector<std::vector<int32> > time_to_state(utt_len);
 
   int32 num_states = lat->NumStates();
   KALDI_ASSERT(num_states == state_times.size());
@@ -1343,7 +1349,7 @@ bool RescoreLattice(DecodableInterface *decodable,
            !aiter.Done(); aiter.Next()) {
         LatticeArc arc = aiter.Value();
         if (arc.ilabel != 0) {
-          int32 trans_id = arc.ilabel; // Note: it doesn't necessarily
+          int32 trans_id = arc.ilabel;  // Note: it doesn't necessarily
           // have to be a transition-id, just whatever the Decodable
           // object is expecting, but it's normally a transition-id.
 
@@ -1451,7 +1457,7 @@ int32 LongestSentenceLength(const CompactLattice &clat) {
     for (fst::ArcIterator<CompactLattice> aiter(clat, s);
          !aiter.Done(); aiter.Next()) {
       const Arc &arc = aiter.Value();
-      bool arc_has_word = (arc.ilabel != 0); // note: olabel == ilabel.
+      bool arc_has_word = (arc.ilabel != 0);  // note: olabel == ilabel.
       // also note: for normal CompactLattice, e.g. as produced by
       // determinization, all arcs will have nonzero labels, but the user might
       // decide to remplace some of the labels with zero for some reason, and we
@@ -1582,6 +1588,177 @@ void ComposeCompactLatticeDeterministic(
     }
   }
   fst::Connect(composed_clat);
+}
+
+bool HasUniquePhoneContext(const CompactLattice &clat,
+       const TransitionModel &tmodel, int32 n) {
+  typedef typename fst::StdArc::StateId StateId;
+  typedef unordered_map<StateId, vector<int32> > MapType;
+  MapType context_map;
+  typedef typename MapType::iterator IterType;
+  KALDI_ASSERT(clat.Properties(fst::kTopSorted, true));
+  StateId num_states = clat.NumStates();
+  // Insert an empty context for the first state, 0.
+  context_map.insert(std::pair<const StateId,
+    vector<int32> >(0, vector<int32>()));
+
+  for (StateId s = 0; s < num_states; s++) {
+    KALDI_ASSERT(context_map.find(s) != context_map.end());
+    IterType itr = context_map.find(s);
+    vector<int32> old_context = itr->second;
+
+    // For each transition out of state s, record its phone label and extend
+    // it with the context stored for s, omitting the oldest label. Store this
+    // new context list at the next state.
+    for (fst::ArcIterator<CompactLattice> aiter(clat, s); !aiter.Done();
+         aiter.Next()) {
+      const CompactLatticeArc &arc = aiter.Value();
+      StateId next_state = arc.nextstate;
+      vector<int32> context;
+      const std::vector<int32> &tid_seq = arc.weight.String();
+      // If there is an epsilon on the arc of clat we transition to the next
+      // state but keep det_fst at the current state.
+      if (tid_seq.size() != 0) {
+        // The number of final states in the transition id sequence.
+        int32 num_final = 0,
+              phone_label;
+        for (int32 i = 0; i < tid_seq.size(); i++) {
+          if (tmodel.IsFinal(tid_seq[i])) {
+            phone_label = tmodel.TransitionIdToPhone(tid_seq[i]);
+            num_final += 1;
+          }
+        }
+        // There should be only one final state per phone, and only one
+        // phone per transition. If this fails, try running the lattice
+        // through lattice-align-phones with the option remove-epsilon=false.
+        context.push_back(phone_label);
+        KALDI_ASSERT(num_final == 1);
+      }
+      // Copy the transition history from the current state to the next
+      // state, omitting the oldest one.
+      for (int32 i = 0; i < std::min(static_cast<int32>(old_context.size()), n-2); i++)
+        context.push_back(old_context[i]);
+
+      // If the state has never been visited, store its history.
+      if (context_map.find(next_state) == context_map.end()) {
+        std::pair<const StateId, vector<int32> >
+            insert_value(next_state, context);
+        context_map.insert(insert_value);
+      // If next_state has already been visited, we need to check
+      // if the context recorded at that state matches the current
+      // path to it.
+      } else {
+        IterType itr = context_map.find(next_state);
+        vector<int32> next_context = itr->second;
+        for (int32 i = 0; i < std::min(static_cast<int32>(next_context.size()),
+          static_cast<int32>(context.size())); i++) {
+          if (context[i] != next_context[i])
+            return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+void CompactLatticeExpandByPhone(const CompactLattice &clat, int32 n,
+        const TransitionModel &tmodel,
+        CompactLattice *composed_clat) {
+  typedef typename CompactLatticeArc::Weight Weight;
+  typedef typename fst::StdArc::StateId StateId;
+  typedef std::pair<StateId, StateId> StatePair;
+  typedef unordered_map<StatePair, StateId,
+    kaldi::PairHasher<StateId> > MapType;
+  typedef typename MapType::iterator IterType;
+
+  fst::UnweightedNgramFst<CompactLatticeArc> det_fst(n);
+  composed_clat->DeleteStates();
+
+  MapType state_map;
+  std::queue<StatePair> state_queue;
+
+  // Set start state in fst_composed.
+  StateId s1 = clat.Start(),
+          s2 = det_fst.Start(),
+          start_state = composed_clat->AddState();
+  StatePair start_pair(s1, s2);
+  state_queue.push(start_pair);
+  composed_clat->SetStart(start_state);
+  // A mapping between pairs of states in clat and det_fst and the
+  // corresponding state in composed_clat.
+  std::pair<const StatePair, StateId> start_map(start_pair, start_state);
+  std::pair<IterType, bool> result = state_map.insert(start_map);
+  KALDI_ASSERT(result.second == true);
+
+  while (!state_queue.empty()) {
+    StatePair q = state_queue.front();
+    StateId q1 = q.first,
+            q2 = q.second;
+    state_queue.pop();
+    // All states in det_fst are final states. We only require the state in
+    // clat to be final, before we create a final state in composed_clat.
+    Weight final_weight = clat.Final(q1);
+    if (final_weight != Weight::Zero()) {
+      KALDI_ASSERT(state_map.find(q) != state_map.end());
+      composed_clat->SetFinal(state_map[q], final_weight);
+    }
+
+    // for each pair of edges from clat and det_fst at q1 and q2.
+    for (fst::ArcIterator<CompactLattice> aiter(clat, q1);
+        !aiter.Done(); aiter.Next()) {
+      const CompactLatticeArc &arc1 = aiter.Value();
+      CompactLatticeArc arc2;
+      StatePair next_pair;
+      StateId next_state1 = arc1.nextstate,
+              next_state2,
+              next_state;
+      const std::vector<int32> &tid_seq = arc1.weight.String();
+      // If there are no phone labels on the transition, then move to the
+      // next state but keep det_fst at the current state. Usually, but
+      // not always, this corresponds to a null transition.
+      if (tid_seq.size() == 0) {
+        next_state2 = q2;
+      } else {
+        // The number of final states in the transition id sequence.
+        int32 num_final = 0,
+              phone_label;
+        for (int32 i = 0; i < tid_seq.size(); i++) {
+          if (tmodel.IsFinal(tid_seq[i])) {
+            phone_label = tmodel.TransitionIdToPhone(tid_seq[i]);
+            num_final += 1;
+          }
+        }
+        // There should be only one final state per phone, and only one
+        // phone per transition. If this fails, try running the lattice
+        // through lattice-align-phones with the option remove-epsilon=false.
+        KALDI_ASSERT(num_final == 1);
+        bool match = det_fst.GetArc(q2, phone_label, &arc2);
+        KALDI_ASSERT(match == true);
+        next_state2 = arc2.nextstate;
+      }
+      next_pair = StatePair(next_state1, next_state2);
+      IterType sitr = state_map.find(next_pair);
+      // If sitr == state_map.end() then the state isn't in composed_clat yet.
+      if (sitr == state_map.end()) {
+        next_state = composed_clat->AddState();
+        std::pair<const StatePair, StateId> new_state(
+          next_pair, next_state);
+        std::pair<IterType, bool> result = state_map.insert(new_state);
+        // Since we already checked if state_map contained new_state,
+        // it should always be added if we reach here.
+        KALDI_ASSERT(result.second == true);
+        state_queue.push(next_pair);
+      // If sitr != state_map.end() then the next state is already in
+      // the state_map.
+      } else {
+        next_state = sitr->second;
+      }
+      // All weights in det_fst are Weight::One, so the weight of
+      // composed_clat is just the weight of clat.
+      composed_clat->AddArc(state_map[q], CompactLatticeArc(arc1.ilabel,
+                            arc1.olabel, arc1.weight, next_state));
+    }
+  }
 }
 
 }  // namespace kaldi
