@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Copyright 2013  Johns Hopkins University (author: Daniel Povey)
 
@@ -33,6 +33,12 @@ if (@ARGV > 1 || $ARGV[0] =~ m/^-.+/) { # >1 args, or an option we
   exit(1);
 }
 
-@lines = <>;
-@lines = sort { rand() <=> rand() } @lines;
-print @lines;
+@lines;
+while (<>) {
+  push @lines, [ (rand(), $_)] ;
+}
+
+@lines = sort { $a->[0] cmp $b->[0] } @lines;
+foreach $l (@lines) {
+    print $l->[1];
+}

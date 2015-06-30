@@ -75,7 +75,6 @@ int main(int argc, char *argv[]) {
     //Select the GPU
 #if HAVE_CUDA==1
     CuDevice::Instantiate().SelectGpuId(use_gpu);
-    CuDevice::Instantiate().DisableCaching();
 #endif
 
     Nnet nnet_transf;
@@ -220,7 +219,7 @@ int main(int argc, char *argv[]) {
     if (num_done == 0) return -1;
     return 0;
   } catch(const std::exception &e) {
-    KALDI_ERR << e.what();
+    std::cerr << e.what();
     return -1;
   }
 }

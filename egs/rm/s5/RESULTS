@@ -178,6 +178,8 @@ exit 0
 
 # CNN systems (Karel - 25.9.2014)
 %WER 1.89 [ 237 / 12533, 30 ins, 47 del, 160 sub ] exp/cnn4c/decode/wer_3 # per-frame training
+# 2D-CNN system (from Harish Mallidi, run by Karel - 22.6.2015)
+%WER 2.07 [ 260 / 12533, 32 ins, 60 del, 168 sub ] exp/cnn2d4c/decode/wer_4_0.0 # per-frame training
 
 
 # Some system combination experiments.
@@ -249,5 +251,7 @@ for x in exp/nnet2_online_wsj/nnet_ms_a_smbr_0.00005/1/decode_*; do grep WER $x/
 # LSTM result
 for x in exp/lstm4f/decode*; do [ -d $x ] && grep WER $x/wer_* | utils/best_wer.sh; done
 %WER 2.04 [ 256 / 12533, 18 ins, 60 del, 178 sub ] exp/lstm4f_c512_r200_c512_r200_lr0.0001_mmt0.9_clip50/decode/wer_4_0.5
+# BLSTM result
+%WER 2.09 [ 262 / 12533, 25 ins, 69 del, 168 sub ] exp/blstm4g/decode/wer_4_0.0
 
 
