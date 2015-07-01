@@ -7,15 +7,15 @@ SHELL := /bin/bash
 
 SUBDIRS = base matrix util feat tree thread gmm transform sgmm \
           fstext hmm lm decoder lat kws cudamatrix nnet \
-          bin fstbin gmmbin fgmmbin sgmmbin featbin \
+          bin fstbin gmmbin fgmmbin sgmmbin featbin durmod \
           nnetbin latbin sgmm2 sgmm2bin nnet2 nnet2bin kwsbin \
-          ivector ivectorbin online2 online2bin lmbin
+          ivector ivectorbin online2 online2bin lmbin durmodbin
 
 MEMTESTDIRS = base matrix util feat tree thread gmm transform sgmm \
-          fstext hmm lm decoder lat nnet \
+          fstext hmm lm decoder lat nnet durmod \
           bin fstbin gmmbin fgmmbin sgmmbin featbin \
           nnetbin latbin sgmm2 nnet2 nnet2bin sgmm2bin kwsbin \
-          ivector ivectorbin online2 online2bin lmbin
+          ivector ivectorbin online2 online2bin lmbin durmodbin \ 
 
 CUDAMEMTESTDIR = cudamatrix
 
@@ -176,5 +176,7 @@ online2bin: base matrix util feat tree optimization gmm transform sgmm sgmm2 fst
 # python-kaldi-decoding: base matrix util feat tree optimization thread gmm transform sgmm sgmm2 fstext hmm decoder lat online
 online: decoder gmm transform feat matrix util base lat hmm thread tree
 online2: decoder gmm transform feat matrix util base lat hmm thread ivector cudamatrix nnet2
+durmod: base util tree matrix lat cudamatrix nnet2
+durmodbin: base util tree matrix lat cudamatrix nnet2 durmod
 kws: base util hmm tree matrix lat
 kwsbin: fstext kws lat base util hmm tree matrix
