@@ -237,8 +237,8 @@ struct NnetComputation {
   
   // Information about where the values and derivatives of the neural net live.
   // Indexed by the node_index (the same index as used for the nodes_ array in
-  // the Nnet), each pair is (value_submatrix_index, deriv_submatrix_index),
-  // with 0 for derivatives that are not present.
+  // the Nnet), each pair is (value_matrix_index, deriv_matrix_index), with 0
+  // for derivatives that are not present.
   unordered_map<int32, std::pair<int32, int32> > input_output_info;
   
   // The sequence of commands.

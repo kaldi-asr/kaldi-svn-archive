@@ -61,10 +61,10 @@ void Compiler::AddCommands(const std::vector<bool> &deriv_needed,
   int32 num_steps = steps_.size();
   for (int32 step = 0; step < num_steps; step++)
     DoForwardComputation(step, computation);
+  computation->forward_computation_end = computation->commands.size();
   // mark the end of the forward phase.
   computation->commands.push_back(
       NnetComputation::Command(NnetComputation::kNoOperationMarker));
-  computation->forward_computation_end = computation->commands.size();
   for (int32 step = num_steps; step >= 0; step--)
     if (deriv_needed[step])
       DoBackwardComputation(step, computation);
@@ -266,8 +266,14 @@ void Compiler::SetInputOutputInfo(NnetComputation *computation) const {
     if (nnet_.IsInputNode(node_index) || nnet_.IsOutputNode(node_index)) {
       // There should be only one step for each input or output node.
       KALDI_ASSERT(computation->input_output_info.count(node_index) == 0);
+      int32 value_matrix_index =
+          computation->submatrices[this_info.value].matrix_index;
+      int32 deriv_matrix_index = 0;
+      if (this_info.deriv != 0)
+        deriv_matrix_index =
+            computation->submatrices[this_info.deriv].matrix_index;
       computation->input_output_info[node_index] =
-          std::pair<int32,int32>(this_info.value, this_info.deriv);
+          std::pair<int32,int32>(value_matrix_index, deriv_matrix_index);
     }
   }
 }

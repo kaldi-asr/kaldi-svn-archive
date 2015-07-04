@@ -23,6 +23,63 @@ namespace kaldi {
 namespace nnet3 {
 
 
+void IdentifySubmatrixArgs(NnetComputation::Command *c,
+                           std::vector<int32*> *submatrix_args) {
+  submatrix_args->clear();
+  switch (c->command_type) {
+      case NnetComputation::kResizeMatrixZeroed:
+      case NnetComputation::kResizeMatrixUndefined:
+      case NnetComputation::kResizeMatrixEmpty:
+        break;
+    case NnetComputation::kPropagate:
+      submatrix_args->push_back(&c->arg3);
+      submatrix_args->push_back(&c->arg4);
+      break;
+    case NnetComputation::kStoreStats:
+      submatrix_args->push_back(&c->arg2);
+      break;
+    case NnetComputation::kBackprop:
+      submatrix_args->push_back(&c->arg4);
+      submatrix_args->push_back(&c->arg5);
+      submatrix_args->push_back(&c->arg6);
+      submatrix_args->push_back(&c->arg7);      
+      break;
+    case NnetComputation::kMatrixCopy:
+    case NnetComputation::kMatrixAdd:
+    case NnetComputation::kAddRows:
+    case NnetComputation::kCopyRows:
+    case NnetComputation::kAddRowRanges:
+      submatrix_args->push_back(&c->arg1);
+      submatrix_args->push_back(&c->arg2);
+      break;
+    case NnetComputation::kAddRowsMulti:
+    case NnetComputation::kCopyRowsMulti:
+    case NnetComputation::kAddToRowsMulti:
+    case NnetComputation::kCopyToRowsMulti:
+      submatrix_args->push_back(&c->arg1);
+      break;
+    case NnetComputation::kNoOperation:
+    case NnetComputation::kNoOperationMarker:
+      break;
+    default:
+      KALDI_ERR << "Unknown command type.";
+  }
+}
+    
+void IdentifyMatrixArgs(NnetComputation::Command *c,
+                        std::vector<int32*> *matrix_args) {
+  matrix_args->clear();
+  switch (c->command_type) {
+    case NnetComputation::kResizeMatrixZeroed:
+    case NnetComputation::kResizeMatrixUndefined:
+    case NnetComputation::kResizeMatrixEmpty:
+      matrix_args->push_back(&c->arg1);
+      break;
+    default:
+      break;
+  }
+}
+
 
 
 } // namespace nnet3

@@ -238,6 +238,7 @@ static void PrintCommand(std::ostream &os,
                          const std::vector<std::string> &indexes_strings,
                          const std::vector<std::string> &indexes_multi_strings) {
   KALDI_ASSERT(command_index < computation.commands.size());
+  os << command_index << ": ";
   const NnetComputation::Command &c = computation.commands[command_index];
   switch (c.command_type) {
     case NnetComputation::kResizeMatrixZeroed:
@@ -337,16 +338,20 @@ void NnetComputation::Print(std::ostream &os, const Nnet &nnet) const {
   for (unordered_map<int32, std::pair<int32, int32> >::const_iterator iter =
            input_output_info.begin(); iter != input_output_info.end(); ++iter) {
     int32 node_index = iter->first,
-        value_submatrix_index = iter->second.first,
-        deriv_submatrix_index = iter->second.second;
-    os << nnet.GetNodeName(node_index) << ".value -> "
-       << submatrix_strings[value_submatrix_index] << "\n";
-    if (deriv_submatrix_index != 0) {
-      os << nnet.GetNodeName(node_index) << ".deriv -> "
-         << submatrix_strings[deriv_submatrix_index] << "\n";
+        value_matrix_index = iter->second.first,
+        deriv_matrix_index = iter->second.second;
+    os << nnet.GetNodeName(node_index) << ".value -> m"
+       << value_matrix_index << "\n";
+    if (deriv_matrix_index != 0) {
+      os << nnet.GetNodeName(node_index) << ".deriv -> m"
+         << deriv_matrix_index << "\n";
     }    
   }
   if (!matrix_debug_info.empty()) {
+    os << "# The following show how matrices correspond to network-nodes and\n"
+       << "# cindex-ids.  Format is: matrix = <node-id>.[value|deriv][ <list-of-cindex-ids> ]\n"
+       << "# where a cindex-id is written as (n,t[,x]) but ranges of t values are compressed\n"
+       << "# so we write (n, tfirst:tlast).\n";
     KALDI_ASSERT(matrix_debug_info.size() == matrices.size());
     for (int32 i = 1; i < matrices.size(); i++) {
       const MatrixDebugInfo &debug_info = matrix_debug_info[i];

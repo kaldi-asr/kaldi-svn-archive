@@ -48,7 +48,7 @@ void ComputationVariables::ComputeSplitPoints(
   matrix_to_variable_index_[0] = 0;
   matrix_to_variable_index_[1] = 0;
   for (int32 matrix_index = 1; matrix_index < num_matrices; matrix_index++) {
-    int32 num_variables = split_points_[matrix_index].size();
+    int32 num_variables = split_points_[matrix_index].size() - 1;
     KALDI_ASSERT(num_variables >= 1);
     matrix_to_variable_index_[matrix_index+1] =
         matrix_to_variable_index_[matrix_index] + num_variables;
@@ -66,8 +66,6 @@ void ComputationVariables::ComputeVariableRanges(
   variable_ranges_[0] = std::pair<int32,int32>(0, 0);
 
   full_row_range_.resize(num_submatrices);
-  submatrix_to_matrix_.resize(num_submatrices);
-  submatrix_to_matrix_[0] = 0;
   
   for (int32 submatrix_index = 1;
        submatrix_index < num_submatrices;
@@ -75,7 +73,6 @@ void ComputationVariables::ComputeVariableRanges(
     const NnetComputation::SubMatrixInfo &s =
         computation.submatrices[submatrix_index];
     int32 matrix_index = s.matrix_index;
-    submatrix_to_matrix_[submatrix_index] = matrix_index;
     int32 start_dim = s.col_offset, end_dim = start_dim + s.num_cols;
     const std::vector<int32> &split = split_points_[matrix_index];
     // std::lower_bound does a binary search -> faster than std::find.
@@ -98,9 +95,42 @@ void ComputationVariables::ComputeVariableRanges(
   }
 }
 
-ComputationVariables::ComputationVariables(const NnetComputation &computation) {
+void ComputationVariables::ComputeVariableToMatrix(
+    const NnetComputation &computation) {
+  variable_to_matrix_.clear();
+  variable_to_matrix_.resize(NumVariables(), -1);
+  int32 num_submatrices = variable_ranges_.size();
+  for (int32 submatrix_index = 1;
+       submatrix_index < num_submatrices;
+       submatrix_index++) {
+    int32 matrix_index = computation.submatrices[submatrix_index].matrix_index;
+    int32 variable_start = variable_ranges_[submatrix_index].first,
+        variable_end = variable_ranges_[submatrix_index].second;
+    for (int32 variable_index = variable_start;
+         variable_index < variable_end;
+         variable_index++) {
+      if (variable_to_matrix_[variable_index] == -1) {
+        variable_to_matrix_[variable_index] = matrix_index;
+      } else {
+        KALDI_ASSERT(variable_to_matrix_[variable_index] == matrix_index);
+      }
+    }
+  }
+  // make sure we covered all variables.
+  KALDI_ASSERT(std::count(variable_to_matrix_.begin(),
+                          variable_to_matrix_.end(), -1) == 0);
+}
+
+ComputationVariables::ComputationVariables(
+    const NnetComputation &computation) {
   ComputeSplitPoints(computation);
   ComputeVariableRanges(computation);
+  ComputeVariableToMatrix(computation);
+}
+
+int32 ComputationVariables::GetMatrixForVariable(int32 variable) const {
+  KALDI_ASSERT(static_cast<size_t>(variable) < variable_to_matrix_.size());
+  return variable_to_matrix_[variable];
 }
 
 void ComputationVariables::AppendVariablesForSubmatrix(
@@ -150,7 +180,6 @@ void ComputationVariables::RecordAccessForSubmatrix(
       AppendVariablesForSubmatrix(submatrix_index,
                                   &(ca->variables_read));
   }
-  ca->matrices_accessed.push_back(submatrix_to_matrix_[submatrix_index]);
 }
 
 
@@ -204,6 +233,8 @@ void ComputeCommandAttributes(
         else
           vars.RecordAccessForSubmatrix(c.arg3, kWriteAccess, &attr);        
         break;
+      case NnetComputation::kStoreStats:
+        vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);        
       case NnetComputation::kBackprop:
         vars.RecordAccessForSubmatrix(c.arg4, kReadAccess, &attr);
         vars.RecordAccessForSubmatrix(c.arg5, kReadAccess, &attr);
@@ -284,6 +315,8 @@ void ComputeCommandAttributes(
       default:
         KALDI_ERR << "Unknown command type.";
     }
+    SortAndUniq(&attr.variables_read);
+    SortAndUniq(&attr.variables_written);
   }
 }
 
@@ -291,7 +324,123 @@ void ComputeVariableAccesses(
     const ComputationVariables &variables,
     const std::vector<CommandAttributes> &command_attributes,
     std::vector<VariableAccesses> *variable_accesses) {
+  int32 num_variables = variables.NumVariables(),
+      num_commands = command_attributes.size();
+  variable_accesses->clear();
+  variable_accesses->resize(num_variables);
+  for (int32 c = 0; c < num_commands; c++) {
+    const CommandAttributes &attr = command_attributes[c];
+    KALDI_ASSERT(IsSortedAndUniq(attr.variables_read));
+    KALDI_ASSERT(IsSortedAndUniq(attr.variables_written));
+    std::vector<int32> all_variables;
+    all_variables.reserve(attr.variables_read.size() +
+                          attr.variables_written.size());
+    all_variables.insert(all_variables.end(), attr.variables_read.begin(),
+                         attr.variables_read.end());
+    all_variables.insert(all_variables.end(), attr.variables_written.begin(),
+                         attr.variables_written.end());
+    SortAndUniq(&all_variables);
+    
+    std::vector<int32>::const_iterator iter = all_variables.begin(),
+        end = all_variables.end();
+    for (; iter != end; ++iter) {
+      int32 variable_index = *iter;
+      bool is_read = std::binary_search(attr.variables_read.begin(),
+                                        attr.variables_read.end(),
+                                        variable_index),
+          is_written = (!is_read ? true :
+                        std::binary_search(attr.variables_written.begin(),
+                                           attr.variables_written.end(),
+                                           variable_index));
+      if (is_read && is_written) {
+        (*variable_accesses)[variable_index].accesses.push_back(
+            VariableAccesses::Access(c, kReadWriteAccess));
+      } else if (is_read) {
+        (*variable_accesses)[variable_index].accesses.push_back(
+            VariableAccesses::Access(c, kReadAccess));
+      } else {
+        (*variable_accesses)[variable_index].accesses.push_back(
+            VariableAccesses::Access(c, kWriteAccess));
+      }
+    }
+  }
+}
 
+void ComputeMatrixAccesses(
+    const Nnet &nnet,
+    const NnetComputation &computation,
+    const ComputationVariables &variables,
+    const std::vector<CommandAttributes> &command_attributes,
+    std::vector<MatrixAccesses> *matrix_accesses) {
+  int32 num_matrices = computation.matrices.size(),
+      num_commands = command_attributes.size();
+  matrix_accesses->clear();
+  matrix_accesses->resize(num_matrices);
+  for (int32 c = 0; c < num_commands; c++) {
+    const CommandAttributes &attr = command_attributes[c];
+    for (int32 i = 0; i < 2; i++) {
+      const std::vector<int32> &vars = (i == 0 ? attr.variables_read :
+                                        attr.variables_written);
+      std::vector<int32>::const_iterator iter = vars.begin(), end = vars.end();
+      for (; iter != end; ++iter) {
+        int32 variable_index = *iter,
+            matrix_index = variables.GetMatrixForVariable(variable_index);
+        KALDI_ASSERT(matrix_index > 0 && matrix_index < num_matrices);
+        (*matrix_accesses)[matrix_index].access_commands.push_back(c);
+      }
+    }
+    
+    const NnetComputation::Command &command = computation.commands[c];
+    int32 matrix_index = command.arg1;
+    
+    switch (command.command_type) {
+      case NnetComputation::kResizeMatrixZeroed:
+      case NnetComputation::kResizeMatrixUndefined:
+        if ((*matrix_accesses)[matrix_index].initialize_command != -1)
+          KALDI_ERR << "Matrix " << matrix_index << " initialized twice.";
+        (*matrix_accesses)[matrix_index].initialize_command = c;
+        break;
+      case NnetComputation::kResizeMatrixEmpty:
+        if ((*matrix_accesses)[matrix_index].destroy_command != -1)
+          KALDI_ERR << "Matrix " << matrix_index << " destroyed twice.";
+        (*matrix_accesses)[matrix_index].destroy_command = c;
+        break;
+      default:
+        ;
+    }
+  }
+  // now set up the is_input and is_output fields.
+  unordered_map<int32, std::pair<int32, int32> >::const_iterator
+      iter = computation.input_output_info.begin(),
+      end = computation.input_output_info.end();
+  for (; iter != end; ++iter) {
+    int32 node_index = iter->first,
+        value_matrix_index = iter->second.first,
+        deriv_matrix_index = iter->second.second;
+    KALDI_ASSERT(value_matrix_index > 0 && value_matrix_index < num_matrices);
+    if (nnet.IsInputNode(node_index)) {
+      // the assert checks for repeats
+      KALDI_ASSERT(!(*matrix_accesses)[value_matrix_index].is_input);
+      (*matrix_accesses)[value_matrix_index].is_input = true;
+      if (deriv_matrix_index != 0) {
+        // the derivatives, if requested, would be outputs of the computation,
+        // even though the node is an input node.
+        KALDI_ASSERT(!(*matrix_accesses)[deriv_matrix_index].is_output);
+        (*matrix_accesses)[deriv_matrix_index].is_output = true;
+      }
+    } else {
+      KALDI_ASSERT(nnet.IsOutputNode(node_index));
+      // the assert checks for repeats
+      KALDI_ASSERT(!(*matrix_accesses)[value_matrix_index].is_output);
+      (*matrix_accesses)[value_matrix_index].is_output = true;
+      if (deriv_matrix_index != 0) {
+        // the derivatives, if provided, would be inputs to the computation,
+        // even though the node is an output node.
+        KALDI_ASSERT(!(*matrix_accesses)[deriv_matrix_index].is_input);
+        (*matrix_accesses)[deriv_matrix_index].is_input = true;
+      }
+    }
+  }
 }
         
 
@@ -309,22 +458,16 @@ void ComputationChecker::Check() {
   CheckComputationIndexes();
   ComputeCommandAttributes(nnet_, computation_,
                            variables_, &attributes_);
+  ComputeVariableAccesses(computation_, attributes_,
+                        &variable_accesses_);
+  ComputeMatrixAccesses(nnet_, computation_, variables_, attributes_,
+                        &matrix_accesses_);  
   CheckComputationOrder();
-  CheckComputationAllocation();
+  CheckComputationMatrixAccesses();
   CheckComputationUndefined();  
   if (config_.check_rewrite)
     CheckComputationRewrite();
-  
-  
-}
 
-/**
-   Checks for accessing undefined variables: basically, that variables
-   are always written to (e.g. zeroed) before being read, so it's never the case
-   that we are reading an undefined value.
-*/
-void ComputationChecker::CheckComputationUndefined() const {
-  KALDI_ERR << "todo";  
 }
 
 
@@ -336,16 +479,97 @@ void ComputationChecker::CheckComputationUndefined() const {
    this check shouldn't be performed after optimization.
 */
 void ComputationChecker::CheckComputationRewrite() const {
-  KALDI_ERR << "todo";
+  int32 num_variables = variable_accesses_.size();
+  for (int32 v = 0; v < num_variables; v++) {
+    const VariableAccesses &accesses = variable_accesses_[v];
+    int32 matrix_index = variables_.GetMatrixForVariable(v);
+    if (accesses.accesses.empty())
+      KALDI_ERR << "Variable " << v << " (part of matrix m"
+                << matrix_index << ") "
+                << "is never used.";
+    int32 num_accesses = accesses.accesses.size();
+    int32 first_pure_read = -1;
+    for (int32 access = 0; access < num_accesses; access++) {
+      if (accesses.accesses[access].access_type == kReadAccess) {
+        first_pure_read = access;
+        break;
+      }
+    }
+    if (first_pure_read != -1) {
+      for (int32 access = first_pure_read + 1;
+           access < num_accesses; access++) {
+        if (accesses.accesses[access].access_type != kReadAccess) {
+          KALDI_ERR << "Variable " << v << " (part of matrix m"
+                    << matrix_index << ") "
+                    << "is modified after being read "
+                    << "(this is not expected before optimization)";
+        }
+      }
+    }
+  }
 }
 
 
 /**
-   Checks that we never use variables before they
-   are allocated or after they are deallocated.
+   Checks for the situation where a variable is read before being written.
 */
-void ComputationChecker::CheckComputationAllocation() const {
-  KALDI_ERR << "todo";  
+void ComputationChecker::CheckComputationUndefined() const {
+  int32 num_variables = variable_accesses_.size();
+  for (int32 v = 0; v < num_variables; v++) {
+    const VariableAccesses &accesses = variable_accesses_[v];
+    int32 matrix_index = variables_.GetMatrixForVariable(v);
+    if (accesses.accesses.empty())
+      KALDI_ERR << "Variable " << v << " (part of matrix m"
+                << matrix_index << ") "
+                << "is never used.";
+    if (accesses.accesses[0].access_type != kWriteAccess) {
+      KALDI_ERR << "Variable " << v << " (part of matrix m"
+                << matrix_index << ") "
+                << "is read before it is written to";
+    }
+  }
+}
+
+
+/**
+   Checks that we never use variables before they are allocated or after they
+   are deallocated, and some other checks that can be done from the
+   MatrixAccesses.
+*/
+void ComputationChecker::CheckComputationMatrixAccesses() const {
+  int32 num_matrices = matrix_accesses_.size();
+
+  for (int32 matrix_index = 1; matrix_index < num_matrices; matrix_index++) {
+    const MatrixAccesses &accesses = matrix_accesses_[matrix_index];
+    if (accesses.is_input) {
+      if (accesses.initialize_command != -1)
+        KALDI_ERR << "Input matrix is initialized.";
+    } else {
+      if (accesses.initialize_command == -1)
+        KALDI_ERR << "Matrix is not initialized.";
+      if (accesses.access_commands.empty()) {
+        KALDI_ERR << "Matrix m" << matrix_index << " is never accessed.";
+      } else if (accesses.access_commands.front() <
+                 accesses.initialize_command) {
+        KALDI_ERR << "Matrix m" << matrix_index << " is accessed before "
+            "it is initialized";
+      }
+    }
+    if (accesses.is_output) {
+      if (accesses.destroy_command != -1)
+        KALDI_ERR << "Output matrix is destroyed.";
+    } else {
+      if (accesses.destroy_command == -1)
+        KALDI_ERR << "Matrix is not destroyed.";
+      if (accesses.access_commands.empty()) {
+        KALDI_ERR << "Matrix m" << matrix_index << " is never accessed.";
+      } else if (accesses.access_commands.back() >=
+                 accesses.destroy_command) {
+        KALDI_ERR << "Matrix m" << matrix_index << " is accessed after "
+            "it is destroyed";
+      }
+    }
+  }
 }
 
 /**
@@ -397,6 +621,18 @@ void ComputationChecker::CheckComputationIndexes() const {
             c.arg3 == c.arg4)
           KALDI_ERR << "In-place propagation not supported for this component";
         break;
+      }
+      case NnetComputation::kStoreStats: {
+        if (c.arg1 < 0 || c.arg1 >= nnet_.NumComponents())
+          KALDI_ERR << "Component index out of range";
+        const Component *component = nnet_.GetComponent(c.arg1);
+        int32 properties = component->Properties();
+        if (!(properties & kStoresStats))
+          KALDI_ERR << "StoreStats called on component that does not do it.";
+        if (c.arg2 < 1 || c.arg2 >= num_submatrices)
+          KALDI_ERR << "Invalid sub-matrix index in StoreStats";
+        if (submatrices[c.arg2].num_cols != component->OutputDim())
+          KALDI_ERR << "Dimension mismatch in StoreStats";
       }
       case NnetComputation::kBackprop: {
         if (c.arg1 < 0 || c.arg1 >= nnet_.NumNodes())
@@ -570,14 +806,52 @@ void ComputationChecker::CheckComputationIndexes() const {
 }
 
 
-// make sure Propagate comes before kNoOpMarker and Backprop comes after it.
+// make sure Propagate comes before kNoOpMarker and Backprop comes after it,
+// and that the value of computation_computation_end matches the position of
+// kNoOpMarker.
 void ComputationChecker::CheckComputationOrder() const {
-  KALDI_ERR << "todo";
+  int32 num_commands = computation_.commands.size(),
+      forward_computation_end = computation_.forward_computation_end;
+  if (forward_computation_end < 0 ||
+      computation_.forward_computation_end >= num_commands)
+    KALDI_ERR << "forward_computation_end has bad value";
+  if (computation_.commands[forward_computation_end].command_type !=
+      NnetComputation::kNoOperationMarker)
+    KALDI_ERR << "expected kNoOpMarker at forward_computation_end";
+  for (int32 c = 0; c < num_commands; c++) {
+    NnetComputation::CommandType command_type =
+        computation_.commands[c].command_type;
+    if (c != forward_computation_end &&
+        command_type == NnetComputation::kNoOperationMarker)
+      KALDI_ERR << "Found kNoOpMarker in unexpected place";
+    if (c < forward_computation_end &&
+        command_type == NnetComputation::kBackprop)
+      KALDI_ERR << "Backprop occurs before kNoOpMarker";
+    if (c > forward_computation_end &&
+        command_type == NnetComputation::kPropagate)
+      KALDI_ERR << "Propagate occurs after kNoOpMarker";
+    if (c > forward_computation_end &&
+        command_type == NnetComputation::kStoreStats)
+      KALDI_ERR << "StoreStats occurs after kNoOpMarker";
+  }
 }
 
-void ComputationChecker::CheckComputationMatrixAccesses() const {
-  KALDI_ERR << "todo";
+void ComputeSubmatLists(const NnetComputation &computation,
+                        std::vector<std::vector<int32> > *submat_lists) {
+  int32 num_matrices = computation.matrices.size(),
+      num_submatrices = computation.submatrices.size();
+  submat_lists->clear();
+  submat_lists->resize(num_matrices);
+  for (int32 submatrix_index = 1;
+       submatrix_index < num_submatrices;
+       submatrix_index++) {
+    int32 matrix_index = computation.submatrices[submatrix_index].matrix_index;
+    KALDI_ASSERT(matrix_index > 0 && matrix_index < num_matrices);
+    (*submat_lists)[matrix_index].push_back(submatrix_index);
+  }
 }
+
+
 
 } // namespace nnet3
 } // namespace kaldi
