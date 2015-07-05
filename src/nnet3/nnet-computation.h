@@ -194,7 +194,7 @@ struct NnetComputation {
     int32 arg5;
     int32 arg6;
     int32 arg7;
-    Command(CommandType command_type,
+    Command(CommandType command_type = kNoOperationMarker,
             int32 arg1 = -1, int32 arg2 = -1, int32 arg3 = -1, int32 arg4 = -1,
             int32 arg5 = -1, int arg6 = -1, int arg7 = -1):
         command_type(command_type), arg1(arg1), arg2(arg2), arg3(arg3),
@@ -240,8 +240,6 @@ struct NnetComputation {
   // end-index)
   std::vector<std::vector<std::pair<int32,int32> > > indexes_ranges;
 
-
-  
   // Information about where the values and derivatives of the neural net live.
   // Indexed by the node_index (the same index as used for the nodes_ array in
   // the Nnet), each pair is (value_matrix_index, deriv_matrix_index), with 0
@@ -254,8 +252,10 @@ struct NnetComputation {
   // This is a copy of "need_model_derivative" from the ComputationRequest.
   bool need_model_derivative;
   
-  // the number of steps in the forward computation, so steps with index >= forward_computation_end
-  // are part of the backward computation.
+  // the number of steps in the forward computation, so steps with index >=
+  // forward_computation_end are part of the backward computation.  Equals
+  // the index of the kNoOperationMarker command (this makes keeping track
+  // of the break-point easier when we do optimizations).
   int32 forward_computation_end;
   
   // computed from "indexes" by ComputeCudaIndexes().

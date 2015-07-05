@@ -188,6 +188,7 @@ struct VariableAccesses {
 // organizes them per variable (see class ComputationVariables for how
 // a variable is defined; it is part of a matrix).
 void ComputeVariableAccesses(
+    const ComputationVariables &variables,
     const std::vector<CommandAttributes> &command_attributes,
     std::vector<VariableAccesses> *variable_accesses);
 

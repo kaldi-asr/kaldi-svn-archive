@@ -127,7 +127,6 @@ class ComputationRenumberer {
 
   std::vector<int32> matrices_to_remove_;
   NnetComputation *computation_;
-
   int32 num_matrices_orig_;
   int32 num_submatrices_orig_;
   int32 num_matrices_new_;
@@ -182,6 +181,9 @@ void ComputationRenumberer::SetUpMappings() {
 
   CreateRenumbering(num_matrices_orig_, matrices_to_remove_,
                     &old_to_new_matrix_);
+
+  num_matrices_new_ = num_matrices_orig_ -
+      static_cast<int32>(matrices_to_remove_.size());
   
   unordered_map<NnetComputation::SubMatrixInfo, int32,
                 SubMatrixHasher> submat_map;
@@ -314,11 +316,11 @@ void ComputationRenumberer::RenumberIo() {
                  num_matrices_orig_);
     value_matrix_index = old_to_new_matrix_[value_matrix_index];
     KALDI_ASSERT(value_matrix_index != -1);
-    if (deriv_matrix_index != -1) {
+    if (deriv_matrix_index != 0) {
       KALDI_ASSERT(deriv_matrix_index > 0 && deriv_matrix_index <
                    num_matrices_orig_);
       deriv_matrix_index = old_to_new_matrix_[deriv_matrix_index];
-      KALDI_ASSERT(deriv_matrix_index != -1);
+      KALDI_ASSERT(deriv_matrix_index > 0);
     }
   }
 }
@@ -330,6 +332,31 @@ void ComputationRenumberer::RenumberIo() {
 void RemoveOrphanMatrices(NnetComputation *computation) {
   ComputationRenumberer renumberer(computation);
   renumberer.Renumber();
+}
+
+void RemoveNoOps(NnetComputation *computation) {
+  int32 noop_marker_index = -1;
+  std::vector<NnetComputation::Command>::iterator
+      input_iter = computation->commands.begin(),
+      input_end = computation->commands.end(),
+      output_iter = computation->commands.begin();
+  for (; input_iter != input_end; ++input_iter) {
+    if (input_iter->command_type != NnetComputation::kNoOperation) {
+      *output_iter = *input_iter;
+      if (input_iter->command_type == NnetComputation::kNoOperationMarker) {
+        KALDI_ASSERT(noop_marker_index == -1 &&
+                     "kNoOperationMarker appears twice");
+        noop_marker_index = output_iter - computation->commands.begin();
+      }
+      ++output_iter;
+    }
+  }
+  KALDI_ASSERT(noop_marker_index != -1 &&
+               "kNoOperationMarker does not appear in computation.");
+  computation->commands.resize(output_iter - computation->commands.begin());
+  computation->forward_computation_end = noop_marker_index;
+  
+
 }
 
 /// Wherever matrix orig_matrix_index appears in the output of the network
@@ -376,6 +403,8 @@ VariableMergingOptimizer::VariableMergingOptimizer(
     computation_(computation), variables_(*computation) { }
 
 bool VariableMergingOptimizer::MergeVariables() {
+  if (!config_.optimize)
+    return false;
   bool merged = false;
   Initialize();
   int32 num_commands = computation_->commands.size();
@@ -384,16 +413,19 @@ bool VariableMergingOptimizer::MergeVariables() {
     const NnetComputation::Command &c =
         computation_->commands[command_index];
     int32 s1 = -1, s2 = -1;
-    if (c.command_type == NnetComputation::kMatrixCopy) {
+    if (c.command_type == NnetComputation::kMatrixCopy &&
+        config_.remove_assignments) {
       s2 = c.arg1;  // s2 is the written-to matrix.
       s1 = c.arg2;
-    } else if (c.command_type == NnetComputation::kPropagate) {
+    } else if (c.command_type == NnetComputation::kPropagate &&
+               config_.propagate_in_place) {
       const Component *component = nnet_.GetComponent(c.arg1);
       if (component->Properties() & kPropagateInPlace) {
         s1 = c.arg3;
         s2 = c.arg4;  // s2 is the written-to matrix.
       }
-    } else if (c.command_type == NnetComputation::kBackprop) {
+    } else if (c.command_type == NnetComputation::kBackprop &&
+               config_.backprop_in_place) {
       const Component *component = nnet_.GetComponent(c.arg2);
       if (component->Properties() & kBackpropInPlace) {
         s1 = c.arg6;
@@ -414,6 +446,7 @@ bool VariableMergingOptimizer::MergeVariables() {
   }
   if (merged) {
     RemoveOrphanMatrices(computation_);
+    RemoveNoOps(computation_);
   }
   return merged;
 }
@@ -463,6 +496,19 @@ void VariableMergingOptimizer::DoMerge(int32 command_index,
                  destroy_command.arg1 == m1);
     destroy_command.command_type = NnetComputation::kNoOperation;
     destroy_command.arg1 = -1;
+  }
+  // Remove the original command that allocated m2 (which should exist).
+  KALDI_ASSERT(matrix_accesses_[m2].initialize_command != -1);
+  {
+    NnetComputation::Command &initialize_command = computation_->commands[
+        matrix_accesses_[m2].initialize_command];
+    KALDI_ASSERT((initialize_command.command_type ==
+                  NnetComputation::kResizeMatrixZeroed ||
+                  initialize_command.command_type ==
+                  NnetComputation::kResizeMatrixUndefined) &&
+                 initialize_command.arg1 == m2);
+    initialize_command.command_type = NnetComputation::kNoOperation;
+    initialize_command.arg1 = -1;
   }
   // Prevent further optimizations touching m1 or m2 (we can
   // try again in a later round of optimization, with a new
@@ -519,12 +565,27 @@ void VariableMergingOptimizer::Initialize() {
                "You cannot call Merge twice on the same object.");
   ComputeCommandAttributes(nnet_, *computation_, variables_,
                            &attributes_);
-  ComputeVariableAccesses(attributes_, &variable_accesses_);
+  ComputeVariableAccesses(variables_, attributes_, &variable_accesses_);
   ComputeMatrixAccesses(nnet_, *computation_, variables_,
                         attributes_, &matrix_accesses_);
   ComputeSubmatLists(*computation_, &submatrix_lists_);
   matrix_already_optimized_.resize(computation_->matrices.size(), false);
 }
+
+void Optimize(const NnetOptimizeConfig &config,
+              const Nnet &nnet,
+              const ComputationRequest &request,
+              NnetComputation *computation) {
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    VariableMergingOptimizer opt(config, nnet, request, computation);
+    if (opt.MergeVariables())
+      changed = true;
+  }
+}
+
 
 
 } // namespace nnet3

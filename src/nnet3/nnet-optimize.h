@@ -31,13 +31,15 @@ namespace nnet3 {
 // code itself, so that if an error is detected, we can work out
 // which optimization was responsible for the error.
 struct NnetOptimizeConfig {
-  bool allow_propagate_in_place;
-  bool allow_backprop_in_place;
-  bool allow_removal_of_assignments;
+  bool optimize;  // setting this false disallow all optimization.
+  bool propagate_in_place;
+  bool backprop_in_place;
+  bool remove_assignments;
 
-  NnetOptimizeConfig(): allow_propagate_in_place(true),
-                        allow_backprop_in_place(true),
-                        allow_removal_of_assignments(true) { }
+  NnetOptimizeConfig(): optimize(true),
+                        propagate_in_place(true),
+                        backprop_in_place(true),
+                        remove_assignments(true) { }
   
   
   void Register(OptionsItf *po) {
@@ -49,9 +51,9 @@ struct NnetOptimizeConfig {
 /// The rest of this file contains various things that are
 /// called from this, and which you probably won't need to call
 /// directly.
-void Optimize(const Nnet &nnet,
+void Optimize(const NnetOptimizeConfig &config,
+              const Nnet &nnet,
               const ComputationRequest &request,
-              const NnetOptimizeConfig &config,
               NnetComputation *computation);
 
 
@@ -120,7 +122,8 @@ class VariableMergingOptimizer {
   //  - If it was case (a), replace the assignment command with a no-op.
   //  - Modify the command that deallocates m2 (if it exists) to make it
   //    deallocate m1 instead.
-  //  - Remove the original command that deallocated m1.
+  //  - Remove the original command that deallocated m1 (which should exist).
+  //  - Remove the original command that allocated m2 (which should exist).
   void DoMerge(int32 command_index, int32 s1, int32 s2);
   
   void Initialize();
@@ -145,10 +148,14 @@ class VariableMergingOptimizer {
   
 };
 
-/// This function detects matrices that have no submatrices corresponding to them (due,
-/// to changes made in other optimization code), and removes them from the computation.
-/// It also renumbers the submatrix indexes to remove duplicates.
+/// This function detects matrices that have no submatrices corresponding to
+/// them (due, to changes made in other optimization code), and removes them
+/// from the computation.  It also renumbers the submatrix indexes to remove
+/// duplicates.
 void RemoveOrphanMatrices(NnetComputation *computation);
+
+/// Removes commands of type kNoOperation in the computation.
+void RemoveNoOps(NnetComputation *computation);
 
 /// Wherever matrix orig_matrix_index appears in the output of the network
 /// (i.e. in computation->input_output_info), replaces it with new_matrix_index.
