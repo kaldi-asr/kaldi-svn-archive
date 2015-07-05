@@ -46,67 +46,51 @@ struct NnetOptimizeConfig {
 
 
 /// This is the top-level function for optimizing a computation.
+/// The rest of this file contains various things that are
+/// called from this, and which you probably won't need to call
+/// directly.
 void Optimize(const Nnet &nnet,
               const ComputationRequest &request,
               const NnetOptimizeConfig &config,
               NnetComputation *computation);
 
 
-
 /**
-   This class is responsible for merging matrices.  For simplicity we only
-   handle the case right now, where matrices only have a single submatrix
-   corresponding to them.  Suppose there are m1 and s1 on the one hand, and m2
-   and s2 on the other hand, and somewhere in the computation we have a command
-   C, which is one of:
-      (a) the assignment command  "s1 = s2", or
+   This class is responsible for merging matrices.  Suppose there are m1 and s1
+   on the one hand, where s1 is a submatrix consisting of the whole of m1, and
+   m2 and s2 on the other hand (same relationship), and somewhere in the
+   computation we have a command C, which is one of:
+      (a) the assignment command  "s2 = s1", or
       (b) a propagate command with s1 as input and s2 as output, with a component
           that supports propagate in place, or
       (c) a backprop command with s1 as output-deriv and s2 as input-deriv, with
           a component that supports backprop in place.
    Suppose also that:
-     - after command C, s1 is never accessed, apart from deallocating it [and s1
-       is not an output]
+     - m1 is not an output.
+     - after command C, s1 is never accessed [apart from deallocating its matrix]
      - before command C, s2 is never accessed, apart from initializing it and possibly
-       zeroing it; and s2 is not an input.
+       zeroing it
+     - m2 is not an input.
    Of course the matrices will have the same size.
 
    We merge the variables as follows:
-     - If it was case (a), remove the assignment command.
-     - If m2 was an output, replace it with m1.
-     - Modify the command that deallocates m2 (if it exists) to make it deallocate m1 instead.
-     - Remove the original command that deallocated m1.
-     - Modify all commands after command C that access s2, by replacing s2 with
-       s1.
-     - Remove the command that allocates m2.
-     - add m2 to a list of variables that we will later remove from the computation while
-       renumbering.
-       
-   Remove any command that allocates m2 or deallocates m1,
+     - All submatrices that reference m2, make them reference m1 instead.
+       [later we'll renumber so that there are no duplicates.]
+     - If m2 was an output, replace it as an output with m1.
+     - If it was case (a), replace the assignment command with a no-op.
+     - Modify the command that deallocates m2 (if it exists) to make it
+       deallocate m1 instead.
+     - Remove the original command that deallocated m1 (which should exist).
 
-     
-   Suppose in addition that it is not the case that (s1 is an input or output,
-   and s2 is an input or output).
-          
-          
-      .  In this case we may be able to remove
-   references to s2, remove the assignment command, and just replace instances
-   of s2 with s1.
-
-
-   ; it detects situations where
-   you compute A, do B = A, and then do something with B, and there are no
-   contraindications to just removing the variable B.
-
-   
-
+    At the end when we call RemoveOrphanMatrices(), renumbering code will
+    automatically detect that there are duplicate submatrices, and will merge
+    them, as well as removing the now-unused matrix indexes.
  */
 class VariableMergingOptimizer {
  public:
   VariableMergingOptimizer(const NnetOptimizeConfig &config,
                            const Nnet &nnet,
                            const ComputationRequest &request,
-                           const NnetOptimizeConfig &config,
                            NnetComputation *computation);
   // Note: you can call this only once.  If it returns true, it means it has
   // merged variables.  In this case, you have the option to instantiate another
@@ -114,23 +98,65 @@ class VariableMergingOptimizer {
   bool MergeVariables();
 
  private:
+
+  // this function, called while testing whether the pair (s1,s2) is a candidate
+  // for optimization, returns true if all the following conditions hold:
+  //   - s1 != s2
+  //   - s1 and s2 correspond to the whole of their corresponding matrices m1 and m2.
+  //   - neither matrix_already_optimized_[m1] nor matrix_already_optimized_[m2] is true
+  //   - m1 is not an output of the computation.
+  //   - m2 is not an input of the computation.
+  //   - after command "command_index", no part of m1 is ever accessed [apart from
+  //     deallocating it].
+  //   - before command C, no part of m2 is never accessed, apart from
+  //     initializing it and possibly zeroing it.
+  bool IsCandidate(int32 command_index, int32 s1, int32 s2) const;
+  
+  // performs the merge.
+  // compute m1,m2 from s1,s2.
+  //  - All submatrices that reference m2, make them reference m1 instead.
+  //   [later we'll renumber so that there are no duplicates.]
+  //  - If m2 was an output, replace it as an output with m1.
+  //  - If it was case (a), replace the assignment command with a no-op.
+  //  - Modify the command that deallocates m2 (if it exists) to make it
+  //    deallocate m1 instead.
+  //  - Remove the original command that deallocated m1.
+  void DoMerge(int32 command_index, int32 s1, int32 s2);
+  
+  void Initialize();
+
+  const NnetOptimizeConfig &config_;
   const Nnet &nnet_;
   const ComputationRequest &request_;
-  const NnetOptimizeConfig &config_;
   NnetComputation *computation_;
 
-  ComputationVariables variables_;
+  ComputationVariables variables_;  
   std::vector<CommandAttributes> attributes_;
   std::vector<VariableAccesses> variable_accesses_;
   std::vector<MatrixAccesses> matrix_accesses_;
+  // lists of submatrices that correspond to each matrix.
+  std::vector<std::vector<int32> > submatrix_lists_;
+
+  // true for each matrix that has already been part of
+  // an optimization (either as m1 or m2), so we can
+  // void potential
+  std::vector<bool> matrix_already_optimized_;
+
   
 };
 
-/// This function removes a subset of matrices from the computation- these
-/// should be ones that are not accessed anywhere, or it will crash.  It
-/// renumbers the matrices and submatrices in the computation.
-void RemoveSomeMatrices(const std::vector<int32> &matrices_to_remove,
-                        NnetComputation *computation);
+/// This function detects matrices that have no submatrices corresponding to them (due,
+/// to changes made in other optimization code), and removes them from the computation.
+/// It also renumbers the submatrix indexes to remove duplicates.
+void RemoveOrphanMatrices(NnetComputation *computation);
+
+/// Wherever matrix orig_matrix_index appears in the output of the network
+/// (i.e. in computation->input_output_info), replaces it with new_matrix_index.
+/// Returns true if it did replace it.
+bool ReplaceInOutput(
+    const Nnet &nnet,
+    int32 orig_matrix_index, int32 new_matrix_index,
+    NnetComputation *computation);
 
 /// This function outputs to "submatrix_args" the addresses of a subset of
 /// arguments arg1 through arg7 in "command", that correspond to the indexes

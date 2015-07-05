@@ -199,7 +199,7 @@ struct MatrixAccesses {
   // the index of the command that destroys the matrix (or -1 if never gets
   // destroyed.
   int32 destroy_command;
-  // the indexes of commands that access the matrix for read/write.
+  // the indexes of commands that access the matrix for read/write (sorted).
   std::vector<int32> access_commands;
   // true if this matrix is an input to the computation.
   bool is_input;

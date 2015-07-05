@@ -82,25 +82,15 @@ void NnetComputation::ComputeCudaIndexes() {
   for (size_t i = 0; i < indexes.size(); i++)
     indexes_cuda[i].CopyFromVec(indexes[i]);
 
-  std::vector<bool> need_cuda(indexes_multi.size(), false);
-  for (int32 c = 0; c < commands.size(); c++) {
-    if (commands[c].command_type == kAddRowRanges) {
-      int32 indexes_multi_index = commands[c].arg3;
-      KALDI_ASSERT(static_cast<size_t>(indexes_multi_index) < need_cuda.size());
-      need_cuda[indexes_multi_index] = true;
-    }
-  }
   KALDI_ASSERT(sizeof(Int32Pair) == sizeof(std::pair<int32,int32>));
-  indexes_multi_cuda.resize(indexes_multi.size());
-  for (int32 i = 0; i < indexes_multi.size(); i++) {
-    if (need_cuda[i]) {
-      const std::vector<std::pair<int32,int32> > *input = &(indexes_multi[i]);
-      const std::vector<Int32Pair> *input_cast =
-          reinterpret_cast<const std::vector<Int32Pair> *>(input);
-      // note: the indexes for CUDA use can't very easily use STL types due to
-      // the interface of CUDA being plain C.
-      indexes_multi_cuda[i].CopyFromVec(*input_cast);
-    }
+  indexes_ranges_cuda.resize(indexes_ranges.size());
+  for (int32 i = 0; i < indexes_ranges.size(); i++) {
+    const std::vector<std::pair<int32,int32> > *input = &(indexes_ranges[i]);
+    const std::vector<Int32Pair> *input_cast =
+        reinterpret_cast<const std::vector<Int32Pair> *>(input);
+    // note: the indexes for CUDA use can't very easily use STL types due to
+    // the interface of CUDA being plain C.
+    indexes_ranges_cuda[i].CopyFromVec(*input_cast);
   }
 }
 
@@ -381,6 +371,15 @@ bool NnetComputation::IsWholeMatrix(int32 submatrix_index) const {
   return submat_info.row_offset == 0 && submat_info.col_offset == 0 &&
       submat_info.num_rows == mat_info.num_rows &&
       submat_info.num_cols == mat_info.num_cols;
+}
+
+bool NnetComputation::SubMatrixInfo::operator== (
+    const NnetComputation::SubMatrixInfo &other) const {
+  return matrix_index == other.matrix_index &&
+      row_offset == other.row_offset &&
+      num_rows == other.num_rows &&
+      col_offset == other.col_offset &&
+      num_cols == other.num_cols;
 }
 
 } // namespace nnet3

@@ -151,6 +151,7 @@ struct NnetComputation {
                   int32 col_offset, int32 num_cols):
         matrix_index(matrix_index), row_offset(row_offset), num_rows(num_rows),
         col_offset(col_offset), num_cols(num_cols) {}
+    bool operator == (const SubMatrixInfo &other) const;
   };
   enum CommandType {
     kResizeMatrixZeroed, kResizeMatrixUndefined,
@@ -181,7 +182,7 @@ struct NnetComputation {
     //    "indexes_multi", of which each pair is (sub-matrix index, row index),
     //    or (-1,-1) meaning add nothing (or assign zero).
     // kAddRowRanges: arg1 is dest matrix, arg2 is source matrix, arg3 is index
-    //   into "indexes_multi".
+    //   into "indexes_ranges".
     // kNoOperation: no operation (sometimes useful during compilation but not
     //  present in final "code").
     // kNoOperationMarker: no operation (sometimes useful during compilation but not
@@ -206,8 +207,8 @@ struct NnetComputation {
   // sub-matrix that just refers to the entire matrix).
   std::vector<MatrixInfo> matrices;
 
-  // debug information for each of the matrices, only computed if requested
-  // in the compiler options.
+  // debug information for each of the matrices (indexed by matrix-index), only
+  // computed if requested in the compiler options.
   std::vector<MatrixDebugInfo> matrix_debug_info;
   
 
@@ -232,8 +233,14 @@ struct NnetComputation {
   // used kAddRowsMulti, kAddToRowsMulti, kCopyRowsMulti, kCopyToRowsMulti.
   // contains pairs (sub-matrix index, row index)- or (-1,-1) meaning don't
   // do anything for this row.
-  // Also used in kAddRowRanges where it contains pairs (start-index, end-index)
   std::vector<std::vector<std::pair<int32,int32> > > indexes_multi;
+
+
+  // Indexes used in kAddRowRanges commands, containing pairs (start-index,
+  // end-index)
+  std::vector<std::vector<std::pair<int32,int32> > > indexes_ranges;
+
+
   
   // Information about where the values and derivatives of the neural net live.
   // Indexed by the node_index (the same index as used for the nodes_ array in
@@ -254,9 +261,8 @@ struct NnetComputation {
   // computed from "indexes" by ComputeCudaIndexes().
   std::vector<CuArray<int32> > indexes_cuda;
 
-  // computed from "indexes" by ComputeCudaIndexes(), but only
-  // those that are used in the kAddRowRanges command are computed.
-  std::vector<CuArray<Int32Pair> > indexes_multi_cuda;
+  // computed from "indexes_ranges" by ComputeCudaIndexes().
+  std::vector<CuArray<Int32Pair> > indexes_ranges_cuda;
 
 
   // Convenience function used when adding new matrices.  Returns the corresponding

@@ -518,15 +518,16 @@ void ComputationChecker::CheckComputationUndefined() const {
   for (int32 v = 0; v < num_variables; v++) {
     const VariableAccesses &accesses = variable_accesses_[v];
     int32 matrix_index = variables_.GetMatrixForVariable(v);
+    bool is_input = matrix_accesses_[matrix_index].is_input;
     if (accesses.accesses.empty())
       KALDI_ERR << "Variable " << v << " (part of matrix m"
                 << matrix_index << ") "
                 << "is never used.";
-    if (accesses.accesses[0].access_type != kWriteAccess) {
+    if (accesses.accesses[0].access_type != kWriteAccess &&
+        ! is_input)
       KALDI_ERR << "Variable " << v << " (part of matrix m"
                 << matrix_index << ") "
                 << "is read before it is written to";
-    }
   }
 }
 
@@ -775,10 +776,10 @@ void ComputationChecker::CheckComputationIndexes() const {
       case NnetComputation::kAddRowRanges: {
         if (c.arg1 < 1 || c.arg1 >= num_submatrices ||
             c.arg2 < 1 || c.arg2 >= num_submatrices ||
-            static_cast<size_t>(c.arg3) >= computation_.indexes_multi.size())          
+            static_cast<size_t>(c.arg3) >= computation_.indexes_ranges.size())          
           KALDI_ERR << "Index out of range in add-row-ranges command";
         const std::vector<std::pair<int32, int32> > pairs =
-            computation_.indexes_multi[c.arg2];
+            computation_.indexes_ranges[c.arg2];
         if (static_cast<size_t>(submatrices[c.arg1].num_rows) != pairs.size())
           KALDI_ERR << "Num-rows mismatch in add-row-ranges command";
         if (submatrices[c.arg1].num_cols != submatrices[c.arg2].num_cols)

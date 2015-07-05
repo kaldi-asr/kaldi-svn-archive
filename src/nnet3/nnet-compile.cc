@@ -691,13 +691,13 @@ void Compiler::DoBackwardComputationFromIndexes(
   std::vector<std::pair<int32, int32> > ranges;
   if (HasContiguousProperty(indexes, &ranges)) {
     // the operation can be set up as AddRowRanges.
-    int32 indexes_multi_index = computation->indexes_multi.size();
-    computation->indexes_multi.push_back(ranges);
+    int32 indexes_ranges_index = computation->indexes_ranges.size();
+    computation->indexes_ranges.push_back(ranges);
     computation->commands.push_back(
         NnetComputation::Command(NnetComputation::kAddRowRanges,
                                  deriv_submatrix_index,
                                  input_deriv_submatrix_index,
-                                 indexes_multi_index));
+                                 indexes_ranges_index));
     // TODO: if any of these ranges are quite long (summing over many rows), the
     // resulting code could be inefficient because the AddRowRanges kernels
     // takes time linear in the length of the range.  Using a temporary matrix

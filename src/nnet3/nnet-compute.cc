@@ -143,7 +143,7 @@ void NnetComputer::ExecuteCommand(int32 command) {
     case NnetComputation::kAddRowRanges: {
       CuSubMatrix<BaseFloat> dest(GetSubMatrix(c.arg1));
       const CuSubMatrix<BaseFloat> src(GetSubMatrix(c.arg2));
-      const CuArray<Int32Pair> &pairs = computation_.indexes_multi_cuda[c.arg3];
+      const CuArray<Int32Pair> &pairs = computation_.indexes_ranges_cuda[c.arg3];
       dest.AddRowRanges(src, pairs);
       break;
     }
