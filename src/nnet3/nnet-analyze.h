@@ -35,20 +35,24 @@ namespace nnet3 {
 
 
 
-// this struct contains the attributes for a single command.
-// see class ComputationVariables for the meaning of a variable.
-// note, variables may be both read and written, e.g. for
-// operations that do += or that write to only some elements
-// of a variable (we can think of these as, for purposes of
-// analysis, reading the remaining elements and writing them
-// back... a more exact analysis would have to define the
-// variables on a more fine-grained level).
+// this struct contains the attributes for a single command.  see class
+// ComputationVariables for the meaning of a variable.  note, variables may be
+// both read and written, e.g. for operations that do += or that write to only
+// some elements of a variable (we can think of these as, for purposes of
+// analysis, reading the remaining elements and writing them back... a more
+// exact analysis would have to define the variables on a more fine-grained
+// level).
 struct CommandAttributes {
   // variables read 
   std::vector<int32> variables_read;
   // variables written
   std::vector<int32> variables_written;
-  
+
+  // matrices read 
+  std::vector<int32> matrices_read;
+  // matrices written
+  std::vector<int32> matrices_written;
+
   // true if this command has side effects e.g. on the model (such as
   // Backprop on an updatable component, or StoreStats).
   bool has_side_effects;
@@ -93,6 +97,8 @@ enum AccessType {
 class ComputationVariables {
  public:
   
+  // does not store a reference to computation-- so it always uses its value at
+  // the time you call the constructor.
   ComputationVariables(const NnetComputation &computation);
 
   // This function updates the CommandAttributes object to record an access of
@@ -135,7 +141,10 @@ class ComputationVariables {
   // sets up variable_ranges_ and full_row_range_.  called from constructor.
   void ComputeVariableRanges(const NnetComputation &computation);
   // sets up variable_to_matrix_.  called from constructor.
-  void ComputeVariableToMatrix(const NnetComputation &computation);  
+  void ComputeVariableToMatrix(const NnetComputation &computation);
+  // sets up submatrix_to_matrix_ and submatrix_is_whole_matrix.
+  // called from constructor.
+  void ComputeSubmatrixInfo(const NnetComputation &computation);
   
   // Indexed first by matrix-index and then a list, this gives us all the split
   // points at which column ranges start and end.  For instance, if the 3'rd
@@ -149,6 +158,9 @@ class ComputationVariables {
   // convenience there is one extra element at the end, which is equal to the
   // total number of variables.
   std::vector<int32> matrix_to_variable_index_;
+
+  std::vector<int32> submatrix_to_matrix_;
+  std::vector<bool> submatrix_is_whole_matrix_;
 
   // records the matrix index underlying each variable.
   std::vector<int32> variable_to_matrix_;
@@ -169,19 +181,16 @@ class ComputationVariables {
 };
 
 
-
-struct VariableAccesses {
-  struct Access {
-    int32 command_index;
-    AccessType access_type;
-    Access(int32 command_index, AccessType access_type):
-        command_index(command_index), access_type(access_type) { }
-    bool operator < (const Access &other) const {
-      return command_index < other.command_index;
-    }
-  };
-  // the following vector will be sorted and unique.
-  std::vector<Access> accesses;
+// This struct records an access to a variable (i.e. a row range of a matrix) or
+// to a matrix.
+struct Access {
+  int32 command_index;
+  AccessType access_type;
+  Access(int32 command_index, AccessType access_type):
+      command_index(command_index), access_type(access_type) { }
+  bool operator < (const Access &other) const {
+    return command_index < other.command_index;
+  }
 };
 
 // After the command-level attributes have been computed, this function
@@ -190,7 +199,7 @@ struct VariableAccesses {
 void ComputeVariableAccesses(
     const ComputationVariables &variables,
     const std::vector<CommandAttributes> &command_attributes,
-    std::vector<VariableAccesses> *variable_accesses);
+    std::vector<std::vector<Access> > *variable_accesses);
 
 
 struct MatrixAccesses {
@@ -200,8 +209,11 @@ struct MatrixAccesses {
   // the index of the command that destroys the matrix (or -1 if never gets
   // destroyed.
   int32 destroy_command;
-  // the indexes of commands that access the matrix for read/write (sorted).
-  std::vector<int32> access_commands;
+  // this records the indexes of commands that access the matrix, and
+  // the type (read, read/write, write).  Note: a write to only a part of
+  // the matrix (i.e. a submatrix that isn't the whole thing) will be
+  // recorded as an access of type read/write.
+  std::vector<Access> accesses;
   // true if this matrix is an input to the computation.
   bool is_input;
   // true if this matrix is an output of the computation.  
@@ -217,6 +229,28 @@ void ComputeMatrixAccesses(
     const ComputationVariables &variables,
     const std::vector<CommandAttributes> &command_attributes,
     std::vector<MatrixAccesses> *matrix_accesses);
+
+
+/// Returns true if the matrix "matrix_index" is written to (i.e.  accesses of
+/// type kWriteAccess or kReadWriteAccess) after the command numbered
+/// "command_index" (not counting deallocation as an access).
+bool MatrixIsWrittenToAfterCommand(
+    const std::vector<MatrixAccesses> &matrix_accesses,
+    int32 matrix_index, int32 command_index);
+  
+/// Returns true if the matrix "matrix_index" is accessed at all after the
+/// command numbered "command_index" (not counting deallocation as an access).
+bool MatrixIsAccessedAfterCommand(
+    const std::vector<MatrixAccesses> &matrix_accesses,    
+    int32 matrix_index, int32 command_index);
+
+/// Returns true if the matrix "matrix_index" is accessed at all before the
+/// command numbered "command_index" (but not counting zeroing in initialization
+/// as access).
+bool MatrixIsAccessedBeforeCommand(
+    const std::vector<MatrixAccesses> &matrix_accesses,
+    int32 matrix_index, int32 command_index);
+
 
 
 /// This function computes a vector "submat_lists", indexed
@@ -281,7 +315,7 @@ class ComputationChecker {
   const NnetComputation &computation_;
   ComputationVariables variables_;
   std::vector<CommandAttributes> attributes_;
-  std::vector<VariableAccesses> variable_accesses_;
+  std::vector<std::vector<Access> > variable_accesses_;
   std::vector<MatrixAccesses> matrix_accesses_;
 };
 

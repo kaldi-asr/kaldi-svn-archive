@@ -68,8 +68,9 @@ void Optimize(const NnetOptimizeConfig &config,
       (c) a backprop command with s1 as output-deriv and s2 as input-deriv, with
           a component that supports backprop in place.
    Suppose also that:
-     - m1 is not an output.
+     - m1 is not an output (or it's case (a))
      - after command C, s1 is never accessed [apart from deallocating its matrix]
+       (or it's case (a) and s1 is never written to after command C).
      - before command C, s2 is never accessed, apart from initializing it and possibly
        zeroing it
      - m2 is not an input.
@@ -80,9 +81,9 @@ void Optimize(const NnetOptimizeConfig &config,
        [later we'll renumber so that there are no duplicates.]
      - If m2 was an output, replace it as an output with m1.
      - If it was case (a), replace the assignment command with a no-op.
-     - Modify the command that deallocates m2 (if it exists) to make it
-       deallocate m1 instead.
-     - Remove the original command that deallocated m1 (which should exist).
+     - If both m2 and m1 have commands that deallocate them, keep only the
+       later of the two and make it refer to m1 (otherwise delete any
+       deallocation command).
 
     At the end when we call RemoveOrphanMatrices(), renumbering code will
     automatically detect that there are duplicate submatrices, and will merge
@@ -100,16 +101,17 @@ class VariableMergingOptimizer {
   bool MergeVariables();
 
  private:
-
   // this function, called while testing whether the pair (s1,s2) is a candidate
   // for optimization, returns true if all the following conditions hold:
   //   - s1 != s2
   //   - s1 and s2 correspond to the whole of their corresponding matrices m1 and m2.
   //   - neither matrix_already_optimized_[m1] nor matrix_already_optimized_[m2] is true
-  //   - m1 is not an output of the computation.
-  //   - m2 is not an input of the computation.
-  //   - after command "command_index", no part of m1 is ever accessed [apart from
-  //     deallocating it].
+  //   - m1 is not an output of the computation (or command command_index is an
+  //     assignment).
+  //   - m2 is not an input of the computation
+  //   - after command "command_index", no part of m1 is ever accessed [apart
+  //     from deallocating it] (or command "command_index" is an assignment and
+  //     no part of m1 is written to after command "command_index"
   //   - before command C, no part of m2 is never accessed, apart from
   //     initializing it and possibly zeroing it.
   bool IsCandidate(int32 command_index, int32 s1, int32 s2) const;
@@ -120,12 +122,12 @@ class VariableMergingOptimizer {
   //   [later we'll renumber so that there are no duplicates.]
   //  - If m2 was an output, replace it as an output with m1.
   //  - If it was case (a), replace the assignment command with a no-op.
-  //  - Modify the command that deallocates m2 (if it exists) to make it
-  //    deallocate m1 instead.
-  //  - Remove the original command that deallocated m1 (which should exist).
+  //  - If both m2 and m1 have commands that deallocate them, keep only the
+  //    later of the two and make it refer to m1 (otherwise delete any
+  //    deallocation command).
   //  - Remove the original command that allocated m2 (which should exist).
   void DoMerge(int32 command_index, int32 s1, int32 s2);
-  
+
   void Initialize();
 
   const NnetOptimizeConfig &config_;
@@ -135,7 +137,7 @@ class VariableMergingOptimizer {
 
   ComputationVariables variables_;  
   std::vector<CommandAttributes> attributes_;
-  std::vector<VariableAccesses> variable_accesses_;
+  std::vector<std::vector<Access> > variable_accesses_;
   std::vector<MatrixAccesses> matrix_accesses_;
   // lists of submatrices that correspond to each matrix.
   std::vector<std::vector<int32> > submatrix_lists_;

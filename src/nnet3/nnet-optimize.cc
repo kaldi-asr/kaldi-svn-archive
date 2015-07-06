@@ -476,26 +476,21 @@ void VariableMergingOptimizer::DoMerge(int32 command_index,
     c.arg1 = -1;
     c.arg2 = -1;
   }
-  //  - Modify the command that deallocates m2 (if it exists) to make it
-  //    deallocate m1 instead.
-  if (matrix_accesses_[m2].destroy_command != -1) {
-    NnetComputation::Command &destroy_command = computation_->commands[
-        matrix_accesses_[m2].destroy_command];
-    KALDI_ASSERT(destroy_command.command_type ==
-                 NnetComputation::kResizeMatrixEmpty &&
-                 destroy_command.arg1 == m2);
-    destroy_command.arg1 = m1;
-  }
-  // Remove the original command that deallocated m1 (which should exist).
-  KALDI_ASSERT(matrix_accesses_[m1].destroy_command != -1);
-  {
-    NnetComputation::Command &destroy_command = computation_->commands[
-        matrix_accesses_[m1].destroy_command];
-    KALDI_ASSERT(destroy_command.command_type ==
-                 NnetComputation::kResizeMatrixEmpty &&
-                 destroy_command.arg1 == m1);
-    destroy_command.command_type = NnetComputation::kNoOperation;
-    destroy_command.arg1 = -1;
+  //   - If both m2 and m1 have commands that deallocate them, keep only the
+  //    later of the two and make it refer to m1 (otherwise delete any
+  //     deallocation command).
+  if (matrix_accesses_[m1].destroy_command != -1 &&
+      matrix_accesses_[m2].destroy_command != -1) {
+    int32 earlier_index = std::min(matrix_accesses_[m1].destroy_command,
+                                   matrix_accesses_[m2].destroy_command),
+        later_index = std::max(matrix_accesses_[m1].destroy_command,
+                               matrix_accesses_[m2].destroy_command);
+    NnetComputation::Command
+        &earlier_command = computation_->commands[earlier_index],
+        &later_command = computation_->commands[later_index];
+    earlier_command.command_type = NnetComputation::kNoOperation;
+    earlier_command.arg1 = -1;
+    later_command.arg1 = m1;
   }
   // Remove the original command that allocated m2 (which should exist).
   KALDI_ASSERT(matrix_accesses_[m2].initialize_command != -1);
@@ -520,6 +515,8 @@ void VariableMergingOptimizer::DoMerge(int32 command_index,
 // see comment by declaration of this function in nnet-optimize.h.
 bool VariableMergingOptimizer::IsCandidate(int32 command_index,
                                            int32 s1, int32 s2) const {
+  bool is_assignment = (computation_->commands[command_index].command_type ==
+                        NnetComputation::kMatrixCopy);
   if (s1 == s2) return false;
   if (!computation_->IsWholeMatrix(s1) ||
       !computation_->IsWholeMatrix(s2)) return false;
@@ -529,35 +526,27 @@ bool VariableMergingOptimizer::IsCandidate(int32 command_index,
     return false;
   const MatrixAccesses &m1_access = matrix_accesses_[m1],
       &m2_access = matrix_accesses_[m2];
-  if (m1_access.is_output) return false;
+  if (m1_access.is_output && !is_assignment) return false;
   if (m2_access.is_input) return false;
   // the following check would probably indicate a coding error- this
   // function should never be called if those things are empty.
-  if (m1_access.access_commands.empty() || m2_access.access_commands.empty())
+  if (m1_access.accesses.empty() || m2_access.accesses.empty())
     KALDI_ERR << "Matrices never accessed [confusing].";
-  // m1 is accessed after command "command_index".
-  if (m1_access.access_commands.back() > command_index)
-    return false;
-  // m2 is accessed before command "command_index" (but not counting
-  // zeroing in initialization.)
 
-  int32 m2_first_command = m2_access.access_commands.front();
-  if (m2_first_command != m2_access.initialize_command &&
-      m2_first_command < command_index) {
-    // m2 accessed before that command.
-    return false;
-  }
-  if (m2_first_command == m2_access.initialize_command) {
-    // first access just initializes it ->must consider second
-    KALDI_ASSERT(m2_access.access_commands.size() > 1);
-    int32 m2_second_command = m2_access.access_commands[1];
-    if (m2_second_command < command_index) {
-      // m2 accessed before command_index.
+
+  if (is_assignment) {
+    if (MatrixIsWrittenToAfterCommand(matrix_accesses_, m1, command_index))
+        return false;
+  } else {
+    if (MatrixIsAccessedAfterCommand(matrix_accesses_, m1, command_index))
       return false;
-    }
   }
+  if (MatrixIsAccessedBeforeCommand(matrix_accesses_, m2, command_index))
+    return false;
+  
   return true;
 }
+
 
 
 void VariableMergingOptimizer::Initialize() {

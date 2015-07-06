@@ -95,6 +95,17 @@ void ComputationVariables::ComputeVariableRanges(
   }
 }
 
+void ComputationVariables::ComputeSubmatrixInfo(
+    const NnetComputation &computation) {
+  int32 num_submatrices = computation.submatrices.size();  
+  submatrix_to_matrix_.resize(num_submatrices, 0);
+  submatrix_is_whole_matrix_.resize(num_submatrices, false);
+  for (int32 s = 1; s < num_submatrices; s++) {
+    submatrix_to_matrix_[s] = computation.submatrices[s].matrix_index;
+    submatrix_is_whole_matrix_[s] = computation.IsWholeMatrix(s);
+  }
+}
+
 void ComputationVariables::ComputeVariableToMatrix(
     const NnetComputation &computation) {
   variable_to_matrix_.clear();
@@ -121,11 +132,11 @@ void ComputationVariables::ComputeVariableToMatrix(
                           variable_to_matrix_.end(), -1) == 0);
 }
 
-ComputationVariables::ComputationVariables(
-    const NnetComputation &computation) {
+ComputationVariables::ComputationVariables(const NnetComputation &computation) {
   ComputeSplitPoints(computation);
   ComputeVariableRanges(computation);
   ComputeVariableToMatrix(computation);
+  ComputeSubmatrixInfo(computation);
 }
 
 int32 ComputationVariables::GetMatrixForVariable(int32 variable) const {
@@ -159,26 +170,39 @@ void ComputationVariables::RecordAccessForSubmatrix(
     int32 submatrix_index,
     AccessType access_type,
     CommandAttributes *ca) const {
+  if (submatrix_index == 0)
+    return;
+  KALDI_ASSERT(static_cast<size_t>(submatrix_index) <
+               submatrix_to_matrix_.size());
+  int32 matrix_index = submatrix_to_matrix_[submatrix_index];
+  bool is_whole_matrix = submatrix_is_whole_matrix_[submatrix_index];
   switch (access_type) {
     case kReadAccess:
       AppendVariablesForSubmatrix(submatrix_index,
                                   &(ca->variables_read));
+      ca->matrices_read.push_back(matrix_index);
       break;
     case kWriteAccess:
       AppendVariablesForSubmatrix(submatrix_index,
                                   &(ca->variables_written));
+      ca->matrices_written.push_back(matrix_index);
       // if submatrix does not span the full row range of the matrix,
       // a write operation has to be considered a read/write operation
       // on the underlying variable.
       if (!full_row_range_[submatrix_index])
         AppendVariablesForSubmatrix(submatrix_index,
                                     &(ca->variables_read));
+      // similar logic applies to the matrix accesses.
+      if (!is_whole_matrix)
+        ca->matrices_read.push_back(matrix_index);      
       break;
     case kReadWriteAccess:
       AppendVariablesForSubmatrix(submatrix_index,
                                   &(ca->variables_written));
       AppendVariablesForSubmatrix(submatrix_index,
                                   &(ca->variables_read));
+      ca->matrices_written.push_back(matrix_index);
+      ca->matrices_read.push_back(matrix_index);
   }
 }
 
@@ -317,13 +341,15 @@ void ComputeCommandAttributes(
     }
     SortAndUniq(&attr.variables_read);
     SortAndUniq(&attr.variables_written);
+    SortAndUniq(&attr.matrices_read);
+    SortAndUniq(&attr.matrices_written);
   }
 }
 
 void ComputeVariableAccesses(
     const ComputationVariables &variables,
     const std::vector<CommandAttributes> &command_attributes,
-    std::vector<VariableAccesses> *variable_accesses) {
+    std::vector<std::vector<Access> > *variable_accesses) {
   int32 num_variables = variables.NumVariables(),
       num_commands = command_attributes.size();
   variable_accesses->clear();
@@ -353,14 +379,14 @@ void ComputeVariableAccesses(
                                            attr.variables_written.end(),
                                            variable_index));
       if (is_read && is_written) {
-        (*variable_accesses)[variable_index].accesses.push_back(
-            VariableAccesses::Access(c, kReadWriteAccess));
+        (*variable_accesses)[variable_index].push_back(
+            Access(c, kReadWriteAccess));
       } else if (is_read) {
-        (*variable_accesses)[variable_index].accesses.push_back(
-            VariableAccesses::Access(c, kReadAccess));
+        (*variable_accesses)[variable_index].push_back(
+            Access(c, kReadAccess));
       } else {
-        (*variable_accesses)[variable_index].accesses.push_back(
-            VariableAccesses::Access(c, kWriteAccess));
+        (*variable_accesses)[variable_index].push_back(
+            Access(c, kWriteAccess));
       }
     }
   }
@@ -378,18 +404,40 @@ void ComputeMatrixAccesses(
   matrix_accesses->resize(num_matrices);
   for (int32 c = 0; c < num_commands; c++) {
     const CommandAttributes &attr = command_attributes[c];
-    for (int32 i = 0; i < 2; i++) {
-      const std::vector<int32> &vars = (i == 0 ? attr.variables_read :
-                                        attr.variables_written);
-      std::vector<int32>::const_iterator iter = vars.begin(), end = vars.end();
-      for (; iter != end; ++iter) {
-        int32 variable_index = *iter,
-            matrix_index = variables.GetMatrixForVariable(variable_index);
-        KALDI_ASSERT(matrix_index > 0 && matrix_index < num_matrices);
-        (*matrix_accesses)[matrix_index].access_commands.push_back(c);
+    KALDI_ASSERT(IsSortedAndUniq(attr.matrices_read));
+    KALDI_ASSERT(IsSortedAndUniq(attr.matrices_written));
+    std::vector<int32> all_matrices;
+    all_matrices.reserve(attr.matrices_read.size() +
+                          attr.matrices_written.size());
+    all_matrices.insert(all_matrices.end(), attr.matrices_read.begin(),
+                         attr.matrices_read.end());
+    all_matrices.insert(all_matrices.end(), attr.matrices_written.begin(),
+                         attr.matrices_written.end());
+    SortAndUniq(&all_matrices);
+    
+    std::vector<int32>::const_iterator iter = all_matrices.begin(),
+        end = all_matrices.end();
+    for (; iter != end; ++iter) {
+      int32 matrix_index = *iter;
+      bool is_read = std::binary_search(attr.matrices_read.begin(),
+                                        attr.matrices_read.end(),
+                                        matrix_index),
+          is_written = (!is_read ? true :
+                        std::binary_search(attr.matrices_written.begin(),
+                                           attr.matrices_written.end(),
+                                           matrix_index));
+      if (is_read && is_written) {
+        (*matrix_accesses)[matrix_index].accesses.push_back(
+            Access(c, kReadWriteAccess));
+      } else if (is_read) {
+        (*matrix_accesses)[matrix_index].accesses.push_back(
+            Access(c, kReadAccess));
+      } else {
+        (*matrix_accesses)[matrix_index].accesses.push_back(
+            Access(c, kWriteAccess));
       }
     }
-    
+    // Now set up initialize_command and destroy_command.
     const NnetComputation::Command &command = computation.commands[c];
     int32 matrix_index = command.arg1;
     
@@ -481,16 +529,16 @@ void ComputationChecker::Check() {
 void ComputationChecker::CheckComputationRewrite() const {
   int32 num_variables = variable_accesses_.size();
   for (int32 v = 0; v < num_variables; v++) {
-    const VariableAccesses &accesses = variable_accesses_[v];
+    const std::vector<Access> &accesses = variable_accesses_[v];
     int32 matrix_index = variables_.GetMatrixForVariable(v);
-    if (accesses.accesses.empty())
+    if (accesses.empty())
       KALDI_ERR << "Variable " << v << " (part of matrix m"
                 << matrix_index << ") "
                 << "is never used.";
-    int32 num_accesses = accesses.accesses.size();
+    int32 num_accesses = accesses.size();
     int32 first_pure_read = -1;
     for (int32 access = 0; access < num_accesses; access++) {
-      if (accesses.accesses[access].access_type == kReadAccess) {
+      if (accesses[access].access_type == kReadAccess) {
         first_pure_read = access;
         break;
       }
@@ -498,7 +546,7 @@ void ComputationChecker::CheckComputationRewrite() const {
     if (first_pure_read != -1) {
       for (int32 access = first_pure_read + 1;
            access < num_accesses; access++) {
-        if (accesses.accesses[access].access_type != kReadAccess) {
+        if (accesses[access].access_type != kReadAccess) {
           KALDI_ERR << "Variable " << v << " (part of matrix m"
                     << matrix_index << ") "
                     << "is modified after being read "
@@ -516,14 +564,14 @@ void ComputationChecker::CheckComputationRewrite() const {
 void ComputationChecker::CheckComputationUndefined() const {
   int32 num_variables = variable_accesses_.size();
   for (int32 v = 0; v < num_variables; v++) {
-    const VariableAccesses &accesses = variable_accesses_[v];
+    const std::vector<Access> &accesses = variable_accesses_[v];
     int32 matrix_index = variables_.GetMatrixForVariable(v);
     bool is_input = matrix_accesses_[matrix_index].is_input;
-    if (accesses.accesses.empty())
+    if (accesses.empty())
       KALDI_ERR << "Variable " << v << " (part of matrix m"
                 << matrix_index << ") "
                 << "is never used.";
-    if (accesses.accesses[0].access_type != kWriteAccess &&
+    if (accesses[0].access_type != kWriteAccess &&
         ! is_input)
       KALDI_ERR << "Variable " << v << " (part of matrix m"
                 << matrix_index << ") "
@@ -548,9 +596,9 @@ void ComputationChecker::CheckComputationMatrixAccesses() const {
     } else {
       if (accesses.initialize_command == -1)
         KALDI_ERR << "Matrix is not initialized.";
-      if (accesses.access_commands.empty()) {
+      if (accesses.accesses.empty()) {
         KALDI_ERR << "Matrix m" << matrix_index << " is never accessed.";
-      } else if (accesses.access_commands.front() <
+      } else if (accesses.accesses.front().command_index <
                  accesses.initialize_command) {
         KALDI_ERR << "Matrix m" << matrix_index << " is accessed before "
             "it is initialized";
@@ -562,9 +610,9 @@ void ComputationChecker::CheckComputationMatrixAccesses() const {
     } else {
       if (accesses.destroy_command == -1)
         KALDI_ERR << "Matrix is not destroyed.";
-      if (accesses.access_commands.empty()) {
+      if (accesses.accesses.empty()) {
         KALDI_ERR << "Matrix m" << matrix_index << " is never accessed.";
-      } else if (accesses.access_commands.back() >=
+      } else if (accesses.accesses.back().command_index >=
                  accesses.destroy_command) {
         KALDI_ERR << "Matrix m" << matrix_index << " is accessed after "
             "it is destroyed";
@@ -851,6 +899,64 @@ void ComputeSubmatLists(const NnetComputation &computation,
     (*submat_lists)[matrix_index].push_back(submatrix_index);
   }
 }
+
+bool MatrixIsAccessedBeforeCommand(
+    const std::vector<MatrixAccesses> &matrix_accesses,
+    int32 matrix_index,
+    int32 command_index) {
+  KALDI_ASSERT(matrix_index > 0 && matrix_index <
+               static_cast<int32>(matrix_accesses.size()));
+  const MatrixAccesses &access = matrix_accesses[matrix_index];
+  if (access.accesses.empty())
+    return false;  // should not happen in this case, but whatever...
+  int32 first_command = access.accesses.front().command_index;
+  if (first_command != access.initialize_command &&
+      first_command < command_index) {
+    // e.g. could occur if matrix was not zeroed on initialization.
+    return true;
+  }
+  if (first_command != access.initialize_command &&
+      access.accesses.size() > 1) {
+    int32 second_command = access.accesses[1].command_index;
+    if (second_command < command_index)
+      return true;
+  }
+  return false;
+}
+
+bool MatrixIsAccessedAfterCommand(
+    const std::vector<MatrixAccesses> &matrix_accesses,    
+    int32 matrix_index, int32 command_index) {
+  KALDI_ASSERT(matrix_index > 0 && matrix_index <
+               static_cast<int32>(matrix_accesses.size()));
+  const MatrixAccesses &access = matrix_accesses[matrix_index];
+  // note, deallocation won't appear in the accesses vector.
+  if (access.accesses.empty())
+    return false;
+  return access.accesses.back().command_index > command_index;
+}
+
+bool MatrixIsWrittenToAfterCommand(
+    const std::vector<MatrixAccesses> &matrix_accesses,    
+    int32 matrix_index, int32 command_index) {
+  KALDI_ASSERT(matrix_index > 0 && matrix_index <
+               static_cast<int32>(matrix_accesses.size()));
+  const MatrixAccesses &access = matrix_accesses[matrix_index];
+  // note, deallocation won't appear in the accesses vector.
+  if (access.accesses.empty())
+    return false;
+  std::vector<Access>::const_reverse_iterator iter = access.accesses.rbegin(),
+      end = access.accesses.rend();
+  for (; iter != end; ++iter) {
+    if (iter->command_index <= command_index)
+      return false;
+    // so we have iter->command_index > command_index
+    if (iter->access_type != kReadAccess)
+      return true;
+  }
+  return false;           
+}
+
 
 
 
