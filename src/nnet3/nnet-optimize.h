@@ -35,12 +35,15 @@ struct NnetOptimizeConfig {
   bool propagate_in_place;
   bool backprop_in_place;
   bool remove_assignments;
+  bool initialize_undefined;
+  bool move_sizing_commands;
 
   NnetOptimizeConfig(): optimize(true),
                         propagate_in_place(true),
                         backprop_in_place(true),
-                        remove_assignments(true) { }
-  
+                        remove_assignments(true),
+                        initialize_undefined(true),
+                        move_sizing_commands(true) { }
   
   void Register(OptionsItf *po) {
   }
@@ -135,20 +138,25 @@ class VariableMergingOptimizer {
   const ComputationRequest &request_;
   NnetComputation *computation_;
 
-  ComputationVariables variables_;  
-  std::vector<CommandAttributes> attributes_;
-  std::vector<std::vector<Access> > variable_accesses_;
-  std::vector<MatrixAccesses> matrix_accesses_;
+  Analyzer analyzer_;
+  
   // lists of submatrices that correspond to each matrix.
   std::vector<std::vector<int32> > submatrix_lists_;
 
   // true for each matrix that has already been part of
   // an optimization (either as m1 or m2), so we can
   // void potential
-  std::vector<bool> matrix_already_optimized_;
-
-  
+  std::vector<bool> matrix_already_optimized_;  
 };
+
+/// This optimization function changes, where possible, matrix initializations
+/// of type kResizeMatrixZeroed to kResizeMatrixUndefined.
+void RemoveUnnecessaryZeroing(const Nnet &nnet, NnetComputation *computation);
+
+
+/// This optimization moves commands that initialize matrices to as late as
+/// possible, and commands that empty matrices to as early as possible.
+void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation);
 
 /// This function detects matrices that have no submatrices corresponding to
 /// them (due, to changes made in other optimization code), and removes them
@@ -183,63 +191,6 @@ void IdentifyMatrixArgs(NnetComputation::Command *command,
 
 
 
-
-
-// this was a very early draft.  could end up completely changed.  I'll leave this till
-// last as it's not essential to get the framework working.
-class NnetOptimize {
- public:
-  NnetOptimize(NnetComputation *computation);
-
-  // Top-level optimization routine.
-  void OptimizeComputation();
-
- private:
-
-  // this is all provisional.
-  struct MatrixOptInfo {
-    // list of all sub-matrix indexes that point to this matrix.
-    std::vector<int32> submatrices;
-    // index of sub-matrix that is the whole of this matrix.
-    int32 whole_submatrix;
-  };
-
-  // this is all provisional.
-  struct SubmatrixOptInfo {
-    // true if this sub-matrix is the whole of a matrix.
-    bool is_whole_matrix;
-    
-    // list of other sub-matrix indexes that have some overlap with this one
-    // (including this sub-matrix index).
-    std::vector<int32> overlapping_submatrices;
-
-    struct CommandInfo {
-      bool writes;
-      bool reads;
-    };
-
-    // list of commands that reference this index or others in
-    // "overlapping_submatrices".
-    std::vector<int32> commands;
-    
-    std::vector<int32> writing_commands;
-    
-    // list of sub-matrix indexes corresponding to this matrix.
-    std::vector<int32> submatrices;
-  };
-
-  struct StepOptInfo {
-  };
-  
-  NnetComputation *computation_;
-
-  std::vector<MatrixOptInfo> matrix_info_;
-
-  std::vector<SubmatrixOptInfo> submatrix_info_;
-  
-  std::vector<StepOptInfo> step_info_;
-
-};
 
   
 /*
@@ -298,7 +249,6 @@ class NnetOptimize {
       thereof) is set, it is set in a copy operation, or in a Propagate or
       Backprop operation that sets (rather than adds to) its output, then
       we can initialize it with kUndefined rather than kZero.
-
 
   (7) optimizations for memory consumption.
       The idea here is to move the command to initialize a matrix to just

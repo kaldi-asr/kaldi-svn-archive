@@ -44,7 +44,7 @@ bool ComputationRequest::NeedDerivatives() const {
                 << "provide no derivatives at the output.";
     }
   }
-  return false;
+  return ans;
 }
 
 int32 ComputationRequest::IndexForInput(
@@ -228,7 +228,7 @@ static void PrintCommand(std::ostream &os,
                          const std::vector<std::string> &indexes_strings,
                          const std::vector<std::string> &indexes_multi_strings) {
   KALDI_ASSERT(command_index < computation.commands.size());
-  os << command_index << ": ";
+  os << "c" << command_index << ": ";
   const NnetComputation::Command &c = computation.commands[command_index];
   switch (c.command_type) {
     case NnetComputation::kResizeMatrixZeroed:
@@ -381,6 +381,31 @@ bool NnetComputation::SubMatrixInfo::operator== (
       col_offset == other.col_offset &&
       num_cols == other.num_cols;
 }
+
+void IoSpecification::Print(std::ostream &os) const {
+  os << "name=" << name << ", has-deriv=" << (has_deriv ? "true" : "false" )
+     << ", indexes=";
+  PrintIndexes(os, indexes);
+  os << "\n";
+}
+
+void ComputationRequest::Print(std::ostream &os) const {
+  os << " # Computation request:\n";
+  for (size_t i = 0; i < inputs.size(); i++) {
+    os << "input-" << i << ": ";
+    inputs[i].Print(os);
+  }
+  for (size_t i = 0; i < outputs.size(); i++) {
+    os << "output-" << i << ": ";
+    outputs[i].Print(os);
+  }
+  os << "need-model-derivative: " <<
+      (need_model_derivative ? "true\n" : "false\n");
+  os << "store-component-stats: " <<
+      (store_component_stats ? "true\n" : "false\n");
+  misc_info.Print(os);
+}
+
 
 } // namespace nnet3
 } // namespace kaldi

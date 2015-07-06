@@ -53,6 +53,9 @@ namespace nnet3 {
 // interpreted by individual components, for the most part.
 struct MiscComputationInfo {
   // will add members here as needed.
+
+  // This will print this in a human-readable way, for debugging.
+  void Print(std::ostream &os) const { };
 };
 
 
@@ -75,6 +78,10 @@ struct IoSpecification {
   IoSpecification(const std::string &name, const std::vector<Index> &indexes,
                   bool has_deriv = false):
       name(name), indexes(indexes), has_deriv(has_deriv) { }
+
+  /// This function is for printing in a human-readable way, for debugging.
+  /// Output ends in a newline.
+  void Print(std::ostream &os) const;
 };
 
 
@@ -119,7 +126,12 @@ struct ComputationRequest {
   /// "node_name", or -1 if there is no such index.  It is an error if >1 inputs
   /// have the same name.
   int32 IndexForOutput(const std::string &node_name) const;
+
+  /// This function is for printing info about the computation request
+  /// in a human-readable way.
+  void Print(std::ostream &os) const;
 };
+
 
 
 // struct NnetComputation defines the specific steps of a neural-net

@@ -35,10 +35,13 @@ void UnitTestNnetCompile() {
     std::istringstream is(configs[0]);
     nnet.ReadConfig(is);
 
+    KALDI_LOG << "Input config is: " << configs[0];
 
     ComputationRequest request;
     std::vector<Matrix<BaseFloat> > inputs;
     ComputeExampleComputationRequestSimple(nnet, &request, &inputs);
+    KALDI_LOG << "Computation request is:";
+    request.Print(std::cerr);
     
     NnetComputation computation;
     Compiler compiler(request, nnet);

@@ -251,11 +251,11 @@ void ComputeCommandAttributes(
       case NnetComputation::kResizeMatrixEmpty: // ditto.
         break;
       case NnetComputation::kPropagate:
-        vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);
+        vars.RecordAccessForSubmatrix(c.arg3, kReadAccess, &attr);
         if (nnet.GetComponent(c.arg1)->Properties() & kPropagateAdds)
-          vars.RecordAccessForSubmatrix(c.arg3, kReadWriteAccess, &attr);
+          vars.RecordAccessForSubmatrix(c.arg4, kReadWriteAccess, &attr);
         else
-          vars.RecordAccessForSubmatrix(c.arg3, kWriteAccess, &attr);        
+          vars.RecordAccessForSubmatrix(c.arg4, kWriteAccess, &attr);        
         break;
       case NnetComputation::kStoreStats:
         vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);        
@@ -507,7 +507,7 @@ void ComputationChecker::Check() {
   ComputeCommandAttributes(nnet_, computation_,
                            variables_, &attributes_);
   ComputeVariableAccesses(computation_, attributes_,
-                        &variable_accesses_);
+                          &variable_accesses_);
   ComputeMatrixAccesses(nnet_, computation_, variables_, attributes_,
                         &matrix_accesses_);  
   CheckComputationOrder();
@@ -957,8 +957,84 @@ bool MatrixIsWrittenToAfterCommand(
   return false;           
 }
 
+void PrintMatrixAccesses(std::ostream &os,
+                         const std::vector<MatrixAccesses> &matrix_accesses) {
+  int32 num_matrices = matrix_accesses.size();
+  for (int32 m = 1; m < num_matrices; m++) {
+    const MatrixAccesses &a = matrix_accesses[m];
+    os << "m" << m << ": init-command=" << a.initialize_command
+       << ", destroy-command=" << a.destroy_command
+       << ", accesses=";
+    std::vector<Access>::const_iterator iter = a.accesses.begin(),
+        end = a.accesses.end();
+    for (; iter != end; ++iter)
+      os << 'c' << iter->command_index << "("
+         << (iter->access_type == kReadAccess ? "r" :
+             (iter->access_type == kWriteAccess ? "w" : "rw")) << ") ";
+    os << "\n";
+  }
+}
+
+void PrintCommandAttributes(std::ostream &os,
+                            const std::vector<CommandAttributes> &attributes) {
+  int32 num_commands = attributes.size();
+  for (int32 c = 0; c < num_commands; c++) {
+    const CommandAttributes &this_attr = attributes[c];
+    os << "c" << c << ": ";
+    if (!this_attr.variables_read.empty()) {
+      os << "r(";
+      std::vector<int32>::const_iterator iter = this_attr.variables_read.begin(),
+          end = this_attr.variables_read.end();
+      for (; iter != end; ++iter) {
+        os << "v" << *iter;
+        if (iter+1 != end) os << ",";
+      }
+      os << ") ";
+    }
+    if (!this_attr.variables_written.empty()) {
+      os << "w(";
+      std::vector<int32>::const_iterator
+          iter = this_attr.variables_written.begin(),
+          end = this_attr.variables_written.end();
+      for (; iter != end; ++iter) {
+        os << "v" << *iter;
+        if (iter+1 != end) os << ",";
+      }
+      os << ") ";
+    }
+    if (!this_attr.matrices_read.empty()) {
+      os << "r(";
+      std::vector<int32>::const_iterator iter = this_attr.matrices_read.begin(),
+          end = this_attr.matrices_read.end();
+      for (; iter != end; ++iter) {
+        os << "m" << *iter;
+        if (iter+1 != end) os << ",";
+      }
+      os << ") ";
+    }
+    if (!this_attr.matrices_written.empty()) {
+      os << "w(";
+      std::vector<int32>::const_iterator
+          iter = this_attr.matrices_written.begin(),
+          end = this_attr.matrices_written.end();
+      for (; iter != end; ++iter) {
+        os << "m" << *iter;
+        if (iter+1 != end) os << ",";
+      }
+      os << ")";
+    }
+    os << "\n";
+  }
+}
 
 
+Analyzer::Analyzer(const Nnet &nnet, const NnetComputation &computation):
+    variables(computation) {
+  ComputeCommandAttributes(nnet, computation, variables, &command_attributes);
+  ComputeVariableAccesses(variables, command_attributes, &variable_accesses);
+  ComputeMatrixAccesses(nnet, computation, variables, command_attributes,
+                        &matrix_accesses);
+}
 
 } // namespace nnet3
 } // namespace kaldi

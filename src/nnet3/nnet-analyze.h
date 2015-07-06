@@ -60,6 +60,11 @@ struct CommandAttributes {
 };
 
 
+/// This function is to be used in debugging; it produces human-readable output.
+void PrintCommandAttributes(std::ostream &os,
+                            const std::vector<CommandAttributes> &attributes);
+
+
 enum AccessType {
   kReadAccess,
   kWriteAccess,
@@ -116,8 +121,8 @@ class ComputationVariables {
       AccessType access_type,
       CommandAttributes *ca) const;
 
-  // Appends to variables_indexes the list of variables corresponding to a
-  // matrix index.
+  /// Appends to variables_indexes the list of variables corresponding to a
+  /// matrix index.
   void AppendVariablesForMatrix(
       int32 matrix_index,
       std::vector<int32> *variable_indexes) const;
@@ -230,6 +235,19 @@ void ComputeMatrixAccesses(
     const std::vector<CommandAttributes> &command_attributes,
     std::vector<MatrixAccesses> *matrix_accesses);
 
+/// This function is to be used in debugging; it produces human-readable output.
+void PrintMatrixAccesses(std::ostream &os,
+                         const std::vector<MatrixAccesses> &matrix_accesses);
+
+/// This struct exists to set up various pieces of analysis; it helps avoid the
+/// repetition of code where we compute all these things in sequence.
+struct Analyzer {
+  ComputationVariables variables;
+  std::vector<CommandAttributes> command_attributes;
+  std::vector<std::vector<Access> > variable_accesses;  
+  std::vector<MatrixAccesses> matrix_accesses;
+  Analyzer(const Nnet &nnet, const NnetComputation &computation);
+};
 
 /// Returns true if the matrix "matrix_index" is written to (i.e.  accesses of
 /// type kWriteAccess or kReadWriteAccess) after the command numbered

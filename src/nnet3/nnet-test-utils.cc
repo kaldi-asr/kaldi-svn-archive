@@ -150,8 +150,8 @@ void ComputeExampleComputationRequestSimple(
       input_start_frame = output_start_frame - left_context - (rand() % 3),
       input_end_frame = output_end_frame + right_context + (rand() % 3),
       n_offset = rand() % 2;
-
-
+  bool need_deriv = (rand() % 2 == 0);
+  
   request->inputs.clear();
   request->outputs.clear();
   inputs->clear();
@@ -165,7 +165,11 @@ void ComputeExampleComputationRequestSimple(
     ivector_indexes.push_back(Index(n, 0, 0));
   }
   request->outputs.push_back(IoSpecification("output", output_indexes));
+  if (need_deriv || (rand() % 3 == 0))
+    request->outputs.back().has_deriv = true;
   request->inputs.push_back(IoSpecification("input", input_indexes));
+  if (need_deriv && (rand() % 2 == 0))
+    request->inputs.back().has_deriv = true;
   int32 input_dim = nnet.InputDim("input");
   KALDI_ASSERT(input_dim > 0);
   inputs->push_back(
@@ -177,7 +181,13 @@ void ComputeExampleComputationRequestSimple(
     request->inputs.push_back(IoSpecification("ivector", ivector_indexes));
     inputs->push_back(Matrix<BaseFloat>(num_examples, ivector_dim));
     inputs->back().SetRandn();
+    if (need_deriv && (rand() % 2 == 0))
+      request->inputs.back().has_deriv = true;
   }
+  if (rand() % 2 == 0)
+    request->need_model_derivative = need_deriv;
+  if (rand() % 2 == 0)
+    request->store_component_stats = true;
 }
 
 

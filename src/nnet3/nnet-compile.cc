@@ -149,7 +149,13 @@ void Compiler::ComputeDerivNeeded(
       if (c->Properties() & kUpdatableComponent)
         (*deriv_needed)[step] = true;
     }
-  }  
+  }
+  { // TEMP
+    std::cerr << "deriv_needed = ";
+    for (int32 i = 0; i < deriv_needed->size(); i++)
+      std::cerr << ((*deriv_needed)[i] ? "t" : "f");
+    std::cerr << "\n";
+  }
 }
 
       

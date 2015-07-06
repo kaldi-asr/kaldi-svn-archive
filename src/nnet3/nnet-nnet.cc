@@ -170,7 +170,6 @@ void Nnet::ReadConfig(std::istream &config_is) {
   std::vector<std::string> first_tokens(lines.size());
   std::vector<ConfigLine> config_lines(lines.size());
   for (size_t i = 0; i < lines.size(); i++) {
-    KALDI_LOG << "Line " << i << " is " << lines[i];
     std::istringstream is(lines[i]);
     std::string first_token;
     is >> first_token;

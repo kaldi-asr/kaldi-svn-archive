@@ -59,14 +59,30 @@ void UnitTestNnetOptimize() {
     checker.Check();
 
     NnetOptimizeConfig opt_config;
+    opt_config.initialize_undefined = false;
+    opt_config.propagate_in_place = false;
+    opt_config.backprop_in_place = false;
+    opt_config.remove_assignments = false;
+    
     Optimize(opt_config, nnet, request, &computation);
     {
       std::ostringstream os;
       computation.Print(os, nnet);
       KALDI_LOG << "Optimized computation is: " << os.str();
     }
-    
-    
+
+    {
+      CheckComputationConfig check_config;
+      ComputationChecker checker(check_config, nnet, request, computation);
+      checker.Check();
+    }
+    {
+      Analyzer analyzer(nnet, computation);
+      KALDI_LOG << "Matrix accesses are: ";
+      PrintMatrixAccesses(std::cerr, analyzer.matrix_accesses);
+      KALDI_LOG << "Command attributes are: ";
+      PrintCommandAttributes(std::cerr, analyzer.command_attributes);
+    }
   }
 }
 
