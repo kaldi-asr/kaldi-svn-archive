@@ -101,9 +101,9 @@ struct ComputationRequest {
   /// be backprop'd.
   bool need_model_derivative;
 
-  /// you should set need_component_stats to true if you will not need the
+  /// you should set need_component_stats to true if you need the
   /// average-activation and average-derivative statistics stored by the
-  /// StoreStats() functiopns of components/ such as Tanh, Sigmoid and Softmax.
+  /// StoreStats() functions of components/ such as Tanh, Sigmoid and Softmax.
   bool store_component_stats;
 
   /// misc_info is for extensibility to things that don't easily fit into the
@@ -210,7 +210,7 @@ struct NnetComputation {
             int32 arg1 = -1, int32 arg2 = -1, int32 arg3 = -1, int32 arg4 = -1,
             int32 arg5 = -1, int arg6 = -1, int arg7 = -1):
         command_type(command_type), arg1(arg1), arg2(arg2), arg3(arg3),
-        arg4(arg4), arg5(arg5), arg6(arg6) { }
+        arg4(arg4), arg5(arg5), arg6(arg6), arg7(arg7) { }
   };
   
   // "matrices" describes the sizes of the matrices that we use as variables in

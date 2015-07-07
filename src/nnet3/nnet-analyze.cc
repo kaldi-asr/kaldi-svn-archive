@@ -258,12 +258,13 @@ void ComputeCommandAttributes(
           vars.RecordAccessForSubmatrix(c.arg4, kWriteAccess, &attr);        
         break;
       case NnetComputation::kStoreStats:
-        vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);        
+        vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);
+        break;
       case NnetComputation::kBackprop:
         vars.RecordAccessForSubmatrix(c.arg4, kReadAccess, &attr);
         vars.RecordAccessForSubmatrix(c.arg5, kReadAccess, &attr);
         vars.RecordAccessForSubmatrix(c.arg6, kReadAccess, &attr);
-        if (nnet.GetComponent(c.arg1)->Properties() & kBackpropAdds)      
+        if (nnet.GetComponent(c.arg2)->Properties() & kBackpropAdds)      
           vars.RecordAccessForSubmatrix(c.arg7, kReadWriteAccess, &attr);
         else
           vars.RecordAccessForSubmatrix(c.arg7, kWriteAccess, &attr);        
@@ -332,6 +333,7 @@ void ComputeCommandAttributes(
       case NnetComputation::kAddRowRanges: {
         vars.RecordAccessForSubmatrix(c.arg1, kReadWriteAccess, &attr);
         vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);
+        break;
       }
       case NnetComputation::kNoOperation:
       case NnetComputation::kNoOperationMarker:
@@ -682,12 +684,13 @@ void ComputationChecker::CheckComputationIndexes() const {
           KALDI_ERR << "Invalid sub-matrix index in StoreStats";
         if (submatrices[c.arg2].num_cols != component->OutputDim())
           KALDI_ERR << "Dimension mismatch in StoreStats";
+        break;
       }
       case NnetComputation::kBackprop: {
         if (c.arg1 < 0 || c.arg1 >= nnet_.NumNodes())
           KALDI_ERR << "Node index in backprop out of range";
-        if (c.arg2 < 0 || c.arg2 >= nnet_.NumComponents());
-        KALDI_ERR << "Component index in backprop out of range";
+        if (c.arg2 < 0 || c.arg2 >= nnet_.NumComponents())
+          KALDI_ERR << "Component index in backprop out of range";
         const Component *component = nnet_.GetComponent(c.arg2);
         int32 properties = component->Properties();
         if (c.arg3 < 0 ||
@@ -729,7 +732,7 @@ void ComputationChecker::CheckComputationIndexes() const {
             submatrices[c.arg4].num_rows != submatrices[c.arg7].num_rows)
           KALDI_ERR << "Num-rows mismatch in backprop input";
         // check num-rows consistency for output
-        if (c.arg5 != 0 ||
+        if (c.arg5 != 0 &&
             submatrices[c.arg5].num_rows != submatrices[c.arg6].num_rows)
           KALDI_ERR << "Num-rows mismatch in backprop output";
         if ((properties & kSimpleComponent) && c.arg7 != 0 &&
