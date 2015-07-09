@@ -1,7 +1,6 @@
 // doc/dnn.dox
 
-
-// Copyright 2013  Johns Hopkins University (author: Daniel Povey)
+// Copyright 2013-2015  Johns Hopkins University (author: Daniel Povey)
 
 // See ../../COPYING for clarification regarding multiple authors
 //
@@ -35,15 +34,18 @@ namespace kaldi {
   code changes are required to keep up, and architectural decisions may need 
   to be rethought.  
 
-  We currently have two separate codebases for deep neural nets in Kaldi.  One
-  is located in code subdirectories nnet/ and nnetbin/, and is primiarly maintained
-  by Karel Vesely.  The other is located in code subdirectories nnet2/ and nnet2bin/,
-  and is primarily maintained by Daniel Povey (this code was originally based on an
-  earlier version of Karel's code, but it has been extensively rewritten).  Neither codebase
-  is more ``official'' than the other.  Both are still being developed in parallel.
-
+  We currently have three separate codebases for deep neural nets in Kaldi.  All
+  are still active in the sense that the up-to-date recipes refer to all of
+  them.  The first one ("nnet1"( is located in code subdirectories nnet/ and
+  nnetbin/, and is primiarly maintained by Karel Vesely.  The second is located
+  in code subdirectories nnet2/ and nnet2bin/, and is primarily maintained by
+  Daniel Povey (this code was originally based on an earlier version of Karel's
+  code, but it has been extensively rewritten).  The third is located
+  in code subdirectories nnet3/ and nnet3bin/, and Dan's previous work on nnet2
+  will shift to the nnet3 setup.
+  
   In the example directories such as egs/wsj/s5/, egs/rm/s5, egs/swbd/s5 and egs/hkust/s5b, neural
-  net example scripts can be found.  Karel's example scripts can be found in 
+  net example scripts can be found.  Karel's example scripts can be found in
   local/nnet/run_dnn.sh, and Dan's example scripts can be found in local/run_nnet2.sh.
   Before running those scripts, the first stages of ``run.sh'' in those directories must
   be run in order to build the systems used for alignment.
@@ -51,12 +53,17 @@ namespace kaldi {
   Regarding which of the two setups you should use:
   - Karel's setup (\ref dnn1 "nnet1") supports training on a single GPU card, which allows
     the implementation to be simpler and relatively easy to modify.
+
   - Dan's setup (\ref dnn2 "nnet2") is more flexible in how
     you can train: it supports using multiple GPUs, or multiple CPU's each with 
     multiple threads. Multiple GPU's is the recommended setup.  
     They don't have to all be on the same machine. Both setups give commensurate results.
 
-  Between the two setups there are many differences in the recipes. For example, Karel's setup uses pre-training 
+  - The ``new'' setup, nnet3 (\ref dnn3 "nnet3") is intended (at least, by Dan)
+    to be the recommended path going forward; how functional it is may depend on when
+    you read this.
+
+  Between the setups there are many differences in the recipes. For example, Karel's setup uses pre-training 
   but Dan's setup does not; Karel's setup uses early stopping using a validation set but
   Dan's setup uses a fixed number of epochs and averages the parameters over the last
   few epochs of training.  Most other details of the training (nonlinearity types, learning
@@ -64,12 +71,13 @@ namespace kaldi {
 
   The best published descriptions of the DNN setups are:
   - Karel's setup : <a href="http://www.fit.vutbr.cz/research/groups/speech/publi/2013/vesely_interspeech2013_IS131333.pdf">Sequence-discriminative training of deep neural networks</a>
-  - Dans's setup : <a href="http://arxiv-web3.library.cornell.edu/pdf/1410.7455v4">Parallel training of DNNs with natural gradient and parameter averaging</a>
+  - Dan's setup : <a href="http://arxiv-web3.library.cornell.edu/pdf/1410.7455v4">Parallel training of DNNs with natural gradient and parameter averaging</a>
 
   The setups use incompatible DNN formats, while there is a converter of Karel's network into Dan's format \ref dnn1_conversion_to_dnn2.
 
-  Documentation for Karel's version is available at \subpage dnn1 and 
-  documentation for Dan's version is available at \subpage dnn2.
+  - Documentation for Karel's version is available at \subpage dnn1 
+  - Documentation for Dan's old version is available at \subpage dnn2.
+  - Documentation for the nnet3 setup is available at \subpage dnn3.  
 
 */
 

@@ -322,7 +322,8 @@ void Compiler::DoForwardComputationDescriptor(
 // is empty).  These locations will be pairs [step-index, row-index].
 void Compiler::ComputeInputLocationsList(
     int32 step, int32 part_index,
-    std::vector<std::vector<std::pair<int32, int32> > > *submat_locations_list) const {
+    std::vector<std::vector<std::pair<int32, int32> > > *submat_locations_list)
+    const {
 
   KALDI_ASSERT(static_cast<size_t>(step) < steps_.size());
   const StepInfo &step_info = steps_[step];

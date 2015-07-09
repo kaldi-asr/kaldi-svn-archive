@@ -1,0 +1,66 @@
+// doc/dnn3_code.dox
+
+
+// Copyright 2015   Johns Hopkins University (author: Daniel Povey)
+
+// See ../../COPYING for clarification regarding multiple authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//  http://www.apache.org/licenses/LICENSE-2.0
+
+// THIS CODE IS PROVIDED *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY IMPLIED
+// WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
+// MERCHANTABLITY OR NON-INFRINGEMENT.
+// See the Apache 2 License for the specific language governing permissions and
+// limitations under the License.
+
+namespace kaldi {
+
+/**
+  \page dnn3_code The "nnet3" setup (from a code perspective).
+
+  \section dnn3_intro Introduction
+
+  This pages covers the "nnet3" setup from a code perspective.
+  For an overview of the 3 versions of deep neural network code in Kaldi, see
+  see \ref dnn; for the top-level of the "nnet3" setup see \ref dnn3.
+
+
+  \section dnn3_problem  Objectives and background
+
+  In this section we explain the objectives and background of this code.
+
+  For background: the previous nnet1 and nnet2 setups are based on a Component
+  object, where a neural net is a stack of Components.  Each Component
+  corresponds to a layer of the neural net, with the wrinkle that we represent a
+  single layer as an affine transform followed by a nonlinearity, so there are
+  two Components per layer.  The Components had a Propagate function and a Backprop
+  function, both geared towards operating on minibathes, as well as other functions.
+
+  Both setups supported more than just a linear sequence of nonlinearities, but
+  in different ways.  In the nnet1 code, networks with more complex topologies
+  were represented by components-within-components: for instance there was a
+  ParallelComponent, which could contain multiple sequences of Components inside itself.
+  Also, LSTMs were implemented at the C++ level by defining a Components to implement
+  the LSTM.  In the nnet2 code, the network had a notion of a time index to support
+  splicing of features across time as part of the framework directly, including
+  at intermediate layers of the network.
+
+  The objective in the nnet3 code is to support the kinds of topologies that
+  both the nnet1 and nnet2 codebases support, and to do so in a natural,
+  config-file-driven way that should not require coding to support most interesting
+  new ideas.
+
+  \section dnn3_outline  Outline of approach
+
+  
+  
+
+*/
+
+
+}
