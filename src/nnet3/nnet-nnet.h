@@ -46,7 +46,7 @@ enum NodeType { kInput, kDescriptor, kComponent, kDimRange, kNone };
 /// do various other things like shifting the time index.
 ///
 /// Each Component must have an input of type kDescriptor that is numbered
-/// preceding to the Component, and that is not used elsewhere.  This may seem
+/// Preceding to the Component, and that is not used elsewhere.  This may seem
 /// unintuitive but it makes the implementation a lot easier; any apparent waste
 /// can be optimized out after compilation.  And outputs must also be of type
 /// kDescriptor.

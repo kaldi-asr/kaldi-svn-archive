@@ -19,6 +19,7 @@
 // limitations under the License.
 
 namespace kaldi {
+namespace nnet3 {
 
 /**
   \page dnn3_code The "nnet3" setup (from a code perspective).
@@ -45,7 +46,7 @@ namespace kaldi {
   in different ways.  In the nnet1 code, networks with more complex topologies
   were represented by components-within-components: for instance there was a
   ParallelComponent, which could contain multiple sequences of Components inside itself.
-  Also, LSTMs were implemented at the C++ level by defining a Components to implement
+  Also, LSTMs were implemented at the C++ level by defining a Component to implement
   the LSTM.  In the nnet2 code, the network had a notion of a time index to support
   splicing of features across time as part of the framework directly, including
   at intermediate layers of the network.
@@ -57,10 +58,403 @@ namespace kaldi {
 
   \section dnn3_outline  Outline of approach
 
+  In nnet3, instead of just a sequence of Components we have a general graph structure.
+  An "nnet3" neural net (class Nnet) consists of:
+     - A list of named Components, in no particular order
+     - A graph structure containing "glue" that specifies how the Components fit togehter.
+  The graph refers to the Components by name (this enables certain types of
+  parameter sharing).  Part of what this "glue" does is to enable things like
+  recurrent neural nets (RNN), where something on time t can depend on time t-1.
+  It also enables us to handle edge effects in a natural way (e.g. the kind of
+  edge effect that happens in an RNN when we reach the beginning of the file and
+  there is no t-1), in a natural way.
+
+  The graph and the Components, together with the inputs provided and the
+  outputs requested, will be used to construct a "computation graph" (class
+  ComputationGraph), which is an important stage in compilation of a neural net
+  computation.  The computation graph will be an acyclic graph on vectors, where
+  those vectors, in addition to any dimension they may have as vectors (e.g.
+  the hidden layer dimension), are indexed by time (t), plus an index (n) that
+  indicate the member of the minibatch, plus an "extra" index (x) that may be
+  useful in convolutional approaches but is usually zero for now.  An Index is a
+  tuple (n, t, x).  We will also define a Cindex as a tuple (node-index, Index),
+  where the node-index is the index corresponding to a node in the graph.  The
+  actual computation that we create is expressed during compilation as a
+  directed acyclic graph on Cindexes.
+
+  The process of using a neural net (whether training or decoding) is:
+  the user supplies a ComputationRequest saying what inputs are available and what
+  outputs are requested; together with a neural network
+  this is compiled into a sequence of commands as an NnetComputation,
+  which is further optimized for speed.  Then the class NnetComputer is responsible
+  for receiving matrix-valued input, evaluating the NnetComputation, and supplying
+  matrix-valued output.  The bulk of the time in neural net computation will be spent
+  in matrix operations.
+
+  \section dnn3_data_structures  Basic data structures in nnet3
+
+   \subsection dnn3_datastruct_index Indexes
+
+  As mentioned above, an Index is a tuple (n, t, x), where n is the index within
+  the minibatch, t is the time index, and x is a placeholder
+  index for future use that will usually be zero for now.  In the neural net computation
+  there are vector-valued quantities that we deal with (say, a 1024-dimensional quantity
+  corresponding to a hidden layer activation).  In the actual neural net computation,
+  1024 would become the number of columns of a matrix, and each row of the matrix
+  would correspond to a different Index.  (nnet3 thus differs from packages like Theano,
+  in that the computation at the low level is based on matrices rather than tensors).
+  If we are training the very simplest kind of feedforward
+  network, the Indexes would probably only vary in the "n" dimension and we could set the
+  "t" values arbitrarily to zero, so the Indexes would look like
+  \verbatim
+   [ (0, 0, 0)  (1, 0, 0)  (2, 0, 0) ... ]
+  \endverbatim
+  On the other hand, if we were to decode a single utterance of the same type of network
+  the Indexes would only vary in the "t" dimension, so we'd have
+  \verbatim
+   [ (0, 1, 0)  (0, 1, 0)  (0, 2, 0) ... ]
+  \endverbatim
+  corresponding to the rows of the matrix.  In a network that uses temporal context, for
+  the early layers we would need different "t" values even during training, so we might
+  encounter lists of Indexes that vary in both "n" and "t", e.g:
+  \verbatim
+   [ (0, -1, 0)  (0, 0, 0)  (0, 1, 0) (1, -1, 0) (1, 0, 0) (1, -1, 0) ... ]
+  \endverbatim
+  Struct Index has a default sorting operator that sorts first by n, then t, then x,
+  so we'd normally order them as above.  When you see vectors of Indexes printed out
+  in code you'll often see them in compressed form, where the "x" index (if zero) is
+  omitted, and ranges of "t" values are expressed compactly, so the above vector
+  might be written as
+  \verbatim
+   [ (0, -1:1) (1, -1:1) ... ]
+  \endverbatim
   
   
+   \subsection dnn3_datastruct_cindex  Cindexes
+
+  A \ref Cindex is a pair (int32, Index), where the int32 corresponds to the index of a node
+  in a neural network.  As mentioned above, a \ref Nnet "neural network" consists of a collection of
+  named Components and a kind of graph on "nodes", and the nodes have indexes. 
+  Cindexes are used while computing a "computation
+  graph" corresponding to a specific neural net computation.  There is a correspondence
+  between a \ref Cindex and the output of a particular node, and there will generally (at least,
+  before optimization) be a one-to-one correspondence between Cindexes and rows
+  of matrices in the compiled computation.  So assuming there is a node called "affine1"
+  in the graph, with output dimension 1000 and numbered 2 in the list of nodes, the
+  \ref Cindex (2, (0, 0, 0)) would correspond to some row of a matrix of column dimension 1000,
+  that is allocated as the output of the "affine1" component.
+
+   \subsection dnn3_datastruct_computation_graph  ComputationGraph
+
+  A ComputationGraph represents a directed graph on Cindexes, where each Cindex
+  has a list of other Cindexes it depends on.  In a simple feedforward
+  structure, the graph will have a simple topology with multiple linear
+  structures where, [using the names not the integers for clarity], we might
+  have (nonlin1, (0, 0, 0)) depending on (affine1, (0, 0, 0)), and (nonlin1, (1,
+  0, 0)) depending on (affine1, (1, 0, 0)), and so on.  In the ComputationGraph
+  and elsewhere you will see integers called cindex_ids.  Each cindex_id is an
+  index into an array of Cindexes stored in the graph, and it identifies a
+  particular Cindex; cindex_ids are used for efficiency, as a single integer is
+  easier to work with than a tuple of 3 integers.
+
+   \subsection dnn3_datastruct_computation_request ComputationRequest
+
+  A ComputationRequest identifies a set of named inputs and output nodes, each
+  with an associated list of \ref Index "Indexes".  For input nodes, the list of
+  Indexes identifies which Indexes are to be provided to the computation; for
+  output nodes, the list identifies which Indexes are being requested to be
+  computed.  In addition the ComputationRequest contains various flags, such as
+  information about which output/input nodes have backprop derivatives
+  supplied/requested respectively, and whether model update is to be performed.
+  Note that the computation of the objective function is not part of the core
+  neural network framework itself; that is left to the user, who also must
+  supply the derivatives of the objective function w.r.t. the neural network
+  output(s) during training.  A neural network may in general have multiple
+  inputs and outputs, but in simple setups there will be just one input node and
+  one output node.
+
+  \subsection dnn3_data_struct_computation NnetComputation
+
+  A NnetComputation represents a specific computation that has been compiled
+  from an Nnet and a ComputationRequest.  It contains a sequence of \ref
+  NnetComputation::Command "Commands", each of which could be a Propagate
+  operation, a matrix copy or add operation, various other simple matrix
+  commands such as copying particular rows from one matrix to another; a
+  Backprop operation, matrix sizing commands, and so on.  The variables that the
+  Computation acts on are a list of matrices, and also submatrices that may
+  occupy row or column ranges of a matrix.  A Computation also contains various
+  sets of indexes (arrays of integers and so on) that are sometimes required as
+  arguments to particular matrix operations.  
+  
+  \subsection dnn3_data_struct_computer NnetComputer
+
+ The NnetComputer object is responsible for actually executing the NnetComputation.
+ This code for this is actually quite simple (chiefly a loop with a switch statement)
+ since most of the complexity happens during compilation and optimization of
+ the NnetComputation.
+
+
+  \section dnn3_nnet  Neural networks in nnet3
+
+ The previous section should have given you a high-level overview of how the
+ framework fits together.  In this section we will go into a little more detail
+ on the structure of the neural network itself, and how we glue Components together
+ and express things like dependencies on an input from time t-1.
+
+ \subsection dnn3_nnet_component Components (the basics)
+
+ A Component, in nnet3, is an object that takes data in and transforms it somehow
+ to data out.  It may contain parameters (say, for an affine layer) or it may
+ just implement a fixed nonlinearity, such as a Sigmoid component.  The most important
+ part of the interface of a Component is as follows:
+\verbatim
+class Component {
+ public:
+  virtual void Propagate(const ComponentPrecomputedIndexes *indexes,
+                         const CuMatrixBase<BaseFloat> &in,
+                         CuMatrixBase<BaseFloat> *out) const = 0;
+  virtual void Backprop(const std::string &debug_info,
+                        const ComponentPrecomputedIndexes *indexes,
+                        const CuMatrixBase<BaseFloat> &in_value,
+                        const CuMatrixBase<BaseFloat> &out_value,                        
+                        const CuMatrixBase<BaseFloat> &out_deriv,
+                        Component *to_update, // may be NULL; may be identical
+                                              // to "this" or different.
+                        CuMatrixBase<BaseFloat> *in_deriv) const = 0;
+   ...
+};
+\endverbatim
+ For now, please ignore the `const ComponentPrecomputedIndexes *indexes` argument.
+ A particular Component will have an input dimension and an output dimension, and
+ it will generally transform the data "row-by-row".  That is, the in and out matrices in
+ Propagate() have the same number of rows, and each row of the input is processed
+ to create the corresponding row of the output.  In terms of Indexes, this means
+ that the Indexes corresponding to each element of input and output are the same.
+ Similar logic holds in the Backprop function.
+ 
+
+ \subsection dnn3_nnet_component Components (properties)
+
+A Component has a virtual function "Properties()" that will return a bitmask
+value containing various binary flags defined as enum \ref ComponentProperties.
+\verbatim
+class Component {
+  ...
+  virtual int32 Properties() const = 0;
+  ...
+};
+\endverbatim
+ These properties identify various characteristics of the component, such as
+ whether it contains updatable parameters (kUpdatableComponent), whether its
+ propagate function supports in-place operation (kPropagateInPlace), and various
+ other things.  Many of these are needed by the optimization code so it can know
+ which optimizations are applicable.  You'll also notice an enum value
+ kSimpleComponent.  If set, then the Component is "simple" which means it
+ transforms the data row-by-row as defined above.  Non-simple Components
+ may allow inputs and outputs with different numbers of rows, and may need
+ to know what indexes are used at the input and output.  The
+ `const ComponentPrecomputedIndexes *indexes` argument to Propgate and
+ Backprop is only for use by non-simple Components.  For now, please
+ assume all Components are simple, because we have not implemented any non-simple
+ Components yet, and because they are not required for implementing any of the
+ standard methods (RNNs, LSTMs and so on).  Unlike in the nnet2 framework,
+ Components are not responsible for implementing things like splicing across frames,
+ that is handled by Descriptors as will be explained below.
+ 
+
+ \subsection dnn3_nnet_nnet Neural network nodes
+
+We previously explained that a neural net is a collection of named Components
+together with a graph on "network nodes", but we haven't yet explained what
+a "network node" is.  NetworkNode is actually a struct.  A NetworkNode may be
+one of four different types, defined by the \ref NodeType enum:
+\verbatim
+enum NodeType { kInput, kDescriptor, kComponent, kDimRange };
+\endverbatim
+The three most important ones are kInput, kDescriptor and kComponent (kDimRange
+is included to support splitting up a node's output into various parts).  The
+kComponent nodes are the "meat" of the network, and (at the risk of mixing
+metaphors) the Descriptors are the "glue" that holds it together, supporting
+things like frame splicing and recurrence.  The kInput nodes are very simple and
+just provide a place to dump the provided input and to declare its dimension;
+they don't really do anything.  You may be surprised that there is no kOutput
+node.  The reason is that output nodes are simply Descriptors.  There is a rule
+that each node of type kComponent must be immediately preceded in the list of
+nodes, by its "own" node of type kDescriptor; this rule makes the graph
+compilation easier.  Thus, a node of type kDescriptor that is not immediately
+followed by a kComponent node is bound to be an output node; for convenience,
+class Nnet has functions \ref Nnet::IsOutputNode() "IsOutputNode(int32
+node_index)" and \ref Nnet::IsComponentInputNode() "IsComponentInputNode(int32
+node_index)" that can tell these apart.
+
+
+ \subsection dnn3_nnet_config Neural network config files
+
+Neural networks can be created from configuration files.  We give a very simple example
+here to show how the configuration files relate to the Descriptors.  This network has one
+hidden layer and does splicing over time in the first node:
+\verbatim
+# First the components
+component name=affine1 type=NaturalGradientAffineComponent input-dim=48 output-dim=65
+component name=relu1 type=RectifiedLinearComponent dim=65
+component name=affine2 type=NaturalGradientAffineComponent input-dim=65 output-dim=115
+component name=logsoftmax type=LogSoftmaxComponent dim=115
+# Next the nodes
+input-node name=input dim=12
+component-node name=affine1_node component=affine1 input=Append(Offset(input, -1), Offset(input, 0), Offset(input, 1), Offset(input, 2))
+component-node name=nonlin1 component=relu1 input=affine1_node
+component-node name=affine2 component=affine2 input=nonlin1
+component-node name=output_nonlin component=logsoftmax input=affine2
+output-node name=output input=output_nonlin
+\endverbatim
+In the config file there is no reference to descriptors (e.g. no "descriptor-node").
+Instead, the "input" field (e.g. `Input=Append(....)`) is the descriptor.
+Each component-node in the config file gets expanded to two nodes: a node of
+type kComponent, and an immediately preceding node of type kDescriptor that is
+defined by the "input" field.
+
+ 
+ \subsection dnn3_nnet_descriptor Descriptors in config files
+
+  A Descriptor is a very limited type of expression that refers to quantities defined
+  other nodes in the graph.   In this section we describe Descriptors from the perspective
+  of their config file format; below we'll explain how they appear in code.
+
+  The simplest type of Descriptor (the base-case) is just a node name,
+  e.g. "affine1" (only nodes of type kComponent or kInput are allowed to appear here,
+  to simplify implementation).
+  We will list below some types of expression that may appear in Descriptors, but
+  please bear in mind that this description will give you a picture of Descriptors that
+  is a little more general than the reality; in reality these may only appear in a certain
+  hierarchy, when we will describe more precisely further down.
+\verbatim
+# caution, this is a simplification that overgenerates descriptors.
+<descriptor>  ::=   <node-name>      ;; node name of kInput or kComponent node.
+<descriptor>  ::=   Append(<descriptor>, <descriptor> [, <descriptor> ... ] )
+<descriptor>  ::=   Sum(<descriptor>, <descriptor>)
+<descriptor>  ::=   Failover(<descriptor>, <descriptor>)   ;; 1st arg if computable, else 2nd
+<descriptor>  ::=   IfDefined(<descriptor>)     ;; the arg if defined, else zero.
+<descriptor>  ::=   Offset(<descriptor>, <t-offset> [, <x-offset> ] ) ;; offsets are integers
+;; Switch(...) is intended to be used in clockwork RNNs or similar schemes.  It chooses
+;; one argument based on the value of t (in the requested Index) modulo the number of
+;; arguments
+<descriptor>  ::=   Switch(<descriptor>, <descriptor> [, <descriptor> ...])
+;; For use in clockwork RNNs or similar, Round() rounds the time-index t of the
+;; requested Index to the next-lowest multiple of the integer <t-modulus>
+;; and evaluates the input argument for the resulting Index.
+<descriptor>  ::=   Round(<descriptor>, <t-modulus>)  ;; <t-modulus> is an integer
+;; ReplaceIndex replaces some <variable-name> (t or x) in the requested Index
+;; with a fixed integer <value>.  E.g. might be useful when incorporating
+;; iVectors; iVector would always have time-index t=0.
+<descriptor>  ::=   ReplaceIndex(<descriptor>, <variable-name>, <value>)
+\endverbatim
+
+
+Below we describe the actual syntax, which differs from the above simplified
+version because expressions may appear only in a certain hierarchy.  This
+syntax also corresponds more closely with the class names in the real code.
+\verbatim
+;;; <descriptor> == class Descriptor
+<descriptor> ::=  Append(<sum-descriptor>[, <sum-descriptor> ... ] )
+<descriptor> ::=  <sum-descriptor>  ;; equivalent to Append() with one arg.
+;;; <sum-descriptor> == class SumDescriptor
+<sum-descriptor> ::= Sum(<sum-descriptor>, <sum-descriptor>)
+<sum-descriptor> ::= Failover(<sum-descriptor>, <sum-descriptor>)
+<sum-descriptor> ::= IfDefined(<sum-descriptor>)
+<sum-descriptor> ::= <forwarding-descriptor>
+;;; <fwd-descriptor> == class ForwardingDescriptor
+;; <t-offset> and <x-offset> are integers.
+<fwd-descriptor>  ::=   Offset(<fwd-descriptor>, <t-offset> [, <x-offset> ] )
+<fwd-descriptor>  ::=   Switch(<fwd-descriptor>, <fwd-descriptor> [, <fwd-descriptor> ...])
+;; <t-modulus> is an integer
+<fwd-descriptor>  ::=   Round(<fwd-descriptor>, <t-modulus>)
+;; <variable-name> is t or x; <value> is an integer
+<fwd-descriptor>  ::=   ReplaceIndex(<fwd-descriptor>, <variable-name>, <value>)
+;; <node-name> is the name of a node of type kInput or kComponent.
+<fwd-descriptor>  ::=  <node-name>
+\endverbatim
+The design of the Descriptors is supposed to be restrictive enough that the
+resulting expressions will be fairly easy to compute (and to produce backprop
+code for).  They are only supposed to do heavy lifting when it comes to
+connecting Components together, while any more interesting or nonlinear
+operations are supposed to be carried out in the Components themselves.
+
+Note: if it ever becomes necessary to do a sum or average over a variety of
+indexes of unknown length (e.g. all the "t" values in a file), we intend to do
+this in a Component - a non-simple Component- rather than using Descriptors.
+
+\subsection dnn3_nnet_descriptor Descriptors in code
+
+We'll handle Descriptors in code from the bottom up.  Base-class ForwardingDescriptor
+handles the types of Descriptor that will reference just a single value, without
+any `Append(...)` or `Sum(...)` expressions or the like.  The most important
+function in this interface is \ref ForwardingDescriptor::MapToInput() "MapToInput()":
+\verbatim
+class ForwardingDescriptor {
+ public:
+  virtual Cindex MapToInput(const Index &output) const = 0;
+  ...
+ }
+\endverbatim
+Given a particular requested Index, this function will return a Cindex
+(referencing some other node) corresponding to the input value.  The parameter
+is an Index rather than a Cindex because the value is never going to depend on
+the node-index of the node corresponding to the Descriptor itself.  There
+are several derived classes of ForwardingDescriptor, including
+SimpleForwardingDescriptor (the base-case, holding just a node index),
+OffsetForwardingDescriptor, ReplaceIndexForwardingDescriptor, and so on.
+
+The next level up the hierarchy is class SumDescriptor, which exists to
+support the expressions `Sum(<desc>, <desc>)`, `Failover(<desc>, <desc>)`,
+and `IfDefined(<desc>)`.  Clearly a request for a given Index to a SumDescriptor
+may return several different Cindexes, so the interface we used for
+ForwardingDescriptor won't work.  We also need to support optional
+dependencies.   Here is how we manage it at the code level:
+\verbatim
+class SumDescriptor {
+ public:
+  virtual void GetDependencies(const Index &ind,
+                               std::vector<Cindex> *dependencies) const = 0;
+  ...
+};
+\endverbatim
+The function GetDependencies appends to `dependencies` all Cindexes that
+are potentially involved in computing this quantity for this Index.  Next
+we need to worry about what happens when some of the requested inputs may not be
+computable (e.g. because of limited input data or edge effects), and whether the
+overall expression is still computable.  The \ref SumDescriptor::IsComputable()
+"IsComputable()" function handles this:
+\verbatim
+class SumDescriptor {
+ public:
+  ...
+  virtual bool IsComputable(const Index &ind,
+                            const CindexSet &cindex_set,
+                            std::vector<Cindex> *input_terms) const = 0;
+  ...
+};
+\endverbatim
+Here, the `CindexSet` object is a representation of a set of Cindexes, which in
+this context represents "the set of all Cindexes that we know are computable".
+If the Descriptor is computable for this Index, the function will return true.
+In that case it will also append to "input_terms" all the input Cindexes that
+actually appear in the evaluated expression.  For example (and speaking
+loosely), in an expression of the form Failover(X, Y), if X is computable then
+only X would be appended to "input_terms", not Y, because the expression
+means "use X if it is available, else Y".
+
+Class Descriptor is the top level of the hierarchy.  It can be thought of
+as a vector of SumDescriptors, and note that this vector will usually be of
+length one.  It has functions \ref Descriptor::GetDependencies() "GetDependencies()"
+and \ref Descriptor::IsComputable() "IsComputable()" with the same interface as
+SumDescriptor, and also functions such as \ref Descriptor::NumParts() "NumParts()"
+\ref Descriptor::Part() "Part(int32 n)" that allow the user to access the
+individual SumDescriptors in its vector.
+  
+  
+     
 
 */
 
-
+}
 }

@@ -37,7 +37,7 @@ namespace kaldi {
   with model averaging, see <a href=http://arxiv.org/abs/1410.7455> this paper </a>.
 
   The documentation has been broken up into multiple pages: see
-    - \ref dnn3_code
+    - \subpage dnn3_code
     - [documentation on scripts to come]
 
 
