@@ -150,7 +150,7 @@ class VariableMergingOptimizer {
 };
 
 /// This optimization function changes, where possible, matrix initializations
-/// of type kResizeMatrixZeroed to kResizeMatrixUndefined.
+/// of type kAllocMatrixZeroed to kAllocMatrixUndefined.
 void RemoveUnnecessaryZeroing(const Nnet &nnet, NnetComputation *computation);
 
 
@@ -176,13 +176,13 @@ bool ReplaceInOutput(
     NnetComputation *computation);
 
 /// This function outputs to "submatrix_args" the addresses of a subset of
-/// arguments arg1 through arg7 in "command", that correspond to the indexes
+/// arguments arg1 through arg6 in "command", that correspond to the indexes
 /// of submatrices.  This is useful in renumbering code.
 void IdentifySubmatrixArgs(NnetComputation::Command *command,
                            std::vector<int32*> *submatrix_args);
 
 /// This function outputs to "matrix_args" the addresses of a subset of the
-/// arguments arg1 through arg7 in "command", that correspond to the indexes of
+/// arguments arg1 through arg6 in "command", that correspond to the indexes of
 /// matrices.  This is useful in renumbering code.  (Note: only a few types of
 /// command use matrix indexes).
 void IdentifyMatrixArgs(NnetComputation::Command *command,

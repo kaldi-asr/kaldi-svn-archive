@@ -1,4 +1,4 @@
-// doc/dnn3_code.dox
+// doc/dnn3_code_data_types.dox
 
 
 // Copyright 2015   Johns Hopkins University (author: Daniel Povey)
@@ -22,16 +22,18 @@ namespace kaldi {
 namespace nnet3 {
 
 /**
-  \page dnn3_code The "nnet3" setup (from a code perspective).
+  \page dnn3_code_data_types The "nnet3" setup from a code perspective: data-types.
 
-  \section dnn3_intro Introduction
+  \section dnn3_dt_intro Introduction
 
-  This pages covers the "nnet3" setup from a code perspective.
+  This page covers the datatypes encountered in the "nnet3" setup.
   For an overview of the 3 versions of deep neural network code in Kaldi, see
   see \ref dnn; for the top-level of the "nnet3" setup see \ref dnn3.
 
+  After this, read \ref dnn3_code_compilation.  
 
-  \section dnn3_problem  Objectives and background
+
+  \section dnn3_dt_problem  Objectives and background
 
   In this section we explain the objectives and background of this code.
 
@@ -56,12 +58,12 @@ namespace nnet3 {
   config-file-driven way that should not require coding to support most interesting
   new ideas.
 
-  \section dnn3_outline  Outline of approach
+  \section dnn3_dt_outline  Outline of approach
 
   In nnet3, instead of just a sequence of Components we have a general graph structure.
   An "nnet3" neural net (class Nnet) consists of:
      - A list of named Components, in no particular order
-     - A graph structure containing "glue" that specifies how the Components fit togehter.
+     - A graph structure containing "glue" that specifies how the Components fit together.
   The graph refers to the Components by name (this enables certain types of
   parameter sharing).  Part of what this "glue" does is to enable things like
   recurrent neural nets (RNN), where something on time t can depend on time t-1.
@@ -75,41 +77,49 @@ namespace nnet3 {
   computation.  The computation graph will be an acyclic graph on vectors, where
   those vectors, in addition to any dimension they may have as vectors (e.g.
   the hidden layer dimension), are indexed by time (t), plus an index (n) that
-  indicate the member of the minibatch, plus an "extra" index (x) that may be
+  indicates the index of the example within the minibatch (e.g. 0 through 511 for
+  a 512-example minibatch), plus an "extra" index (x) that may eventually be
   useful in convolutional approaches but is usually zero for now.  An Index is a
   tuple (n, t, x).  We will also define a Cindex as a tuple (node-index, Index),
-  where the node-index is the index corresponding to a node in the graph.  The
-  actual computation that we create is expressed during compilation as a
+    where the node-index is the index corresponding to a node in the graph.
+  A node in the graph roughly corresponds to a layer in a neural net.
+  The actual computation that we create is expressed during compilation as a
   directed acyclic graph on Cindexes.
+  The process of using a neural net (whether training or decoding) is as follows:
+   - The user supplies a ComputationRequest saying what indexes (e.g. time-indexes)
+     of what inputs are available and what outputs are requested
+   - The ComputationRequest together with a neural network
+      is compiled into a sequence of commands as an NnetComputation
+   - The NnetComputation is further optimized for speed (think of this is a compiler
+     optimization, like gcc's -O flag).
+   - Class NnetComputer is responsible
+     for receiving matrix-valued input, evaluating the NnetComputation, and supplying
+     matrix-valued output.  Think of this as the run-time of a very limited interpreted
+     language.
+  The bulk of the time in neural net computation will be spent in matrix operations.
 
-  The process of using a neural net (whether training or decoding) is:
-  the user supplies a ComputationRequest saying what inputs are available and what
-  outputs are requested; together with a neural network
-  this is compiled into a sequence of commands as an NnetComputation,
-  which is further optimized for speed.  Then the class NnetComputer is responsible
-  for receiving matrix-valued input, evaluating the NnetComputation, and supplying
-  matrix-valued output.  The bulk of the time in neural net computation will be spent
-  in matrix operations.
+  \section dnn3_dt_data_structures  Basic data structures in nnet3
 
-  \section dnn3_data_structures  Basic data structures in nnet3
-
-   \subsection dnn3_datastruct_index Indexes
+   \subsection dnn3_dt_datastruct_index Indexes
 
   As mentioned above, an Index is a tuple (n, t, x), where n is the index within
   the minibatch, t is the time index, and x is a placeholder
   index for future use that will usually be zero for now.  In the neural net computation
   there are vector-valued quantities that we deal with (say, a 1024-dimensional quantity
   corresponding to a hidden layer activation).  In the actual neural net computation,
-  1024 would become the number of columns of a matrix, and each row of the matrix
-  would correspond to a different Index.  (nnet3 thus differs from packages like Theano,
-  in that the computation at the low level is based on matrices rather than tensors).
-  If we are training the very simplest kind of feedforward
+  1024 would become the number of columns of a matrix, and there is a one-to-one
+  correspondence between Indexes on the one hand, and rows of the matrix, on the other.
+  The nnet3 framework thus differs from packages like Theano, where tensor operations are
+  used throughout: instead, we operate efficiently on tensors by packing them into matrices.
+  This enables us to use optimized BLAS operations.
+
+  As an example of Indexes: if we are training the very simplest kind of feedforward
   network, the Indexes would probably only vary in the "n" dimension and we could set the
   "t" values arbitrarily to zero, so the Indexes would look like
   \verbatim
    [ (0, 0, 0)  (1, 0, 0)  (2, 0, 0) ... ]
   \endverbatim
-  On the other hand, if we were to decode a single utterance of the same type of network
+  On the other hand, if we were to decode a single utterance using the same type of network,
   the Indexes would only vary in the "t" dimension, so we'd have
   \verbatim
    [ (0, 1, 0)  (0, 1, 0)  (0, 2, 0) ... ]
@@ -130,21 +140,24 @@ namespace nnet3 {
   \endverbatim
   
   
-   \subsection dnn3_datastruct_cindex  Cindexes
+   \subsection dnn3_dt_datastruct_cindex  Cindexes
 
   A \ref Cindex is a pair (int32, Index), where the int32 corresponds to the index of a node
   in a neural network.  As mentioned above, a \ref Nnet "neural network" consists of a collection of
   named Components and a kind of graph on "nodes", and the nodes have indexes. 
-  Cindexes are used while computing a "computation
-  graph" corresponding to a specific neural net computation.  There is a correspondence
+  Cindexes are used during the compilation process, and
+  they correspond to the nodes of a "computation graph" corresponding to a specific
+  neural net computation.  There is a correspondence
   between a \ref Cindex and the output of a particular node, and there will generally (at least,
   before optimization) be a one-to-one correspondence between Cindexes and rows
-  of matrices in the compiled computation.  So assuming there is a node called "affine1"
+  of matrices in the compiled computation.  We previously mentioned that there is a correspondence
+  between Indexes and rows of matrices; the difference is that a Cindex will tell us which
+  matrix, in addition to which row of that matrix.   For example, assuming there is a node called "affine1"
   in the graph, with output dimension 1000 and numbered 2 in the list of nodes, the
   \ref Cindex (2, (0, 0, 0)) would correspond to some row of a matrix of column dimension 1000,
   that is allocated as the output of the "affine1" component.
 
-   \subsection dnn3_datastruct_computation_graph  ComputationGraph
+   \subsection dnn3_dt_datastruct_computation_graph  ComputationGraph
 
   A ComputationGraph represents a directed graph on Cindexes, where each Cindex
   has a list of other Cindexes it depends on.  In a simple feedforward
@@ -155,9 +168,9 @@ namespace nnet3 {
   and elsewhere you will see integers called cindex_ids.  Each cindex_id is an
   index into an array of Cindexes stored in the graph, and it identifies a
   particular Cindex; cindex_ids are used for efficiency, as a single integer is
-  easier to work with than a tuple of 3 integers.
+  easier to work with than a Cindex.
 
-   \subsection dnn3_datastruct_computation_request ComputationRequest
+   \subsection dnn3_dt_datastruct_computation_request ComputationRequest
 
   A ComputationRequest identifies a set of named inputs and output nodes, each
   with an associated list of \ref Index "Indexes".  For input nodes, the list of
@@ -170,10 +183,11 @@ namespace nnet3 {
   neural network framework itself; that is left to the user, who also must
   supply the derivatives of the objective function w.r.t. the neural network
   output(s) during training.  A neural network may in general have multiple
-  inputs and outputs, but in simple setups there will be just one input node and
-  one output node.
+  inputs and outputs (which might be useful in multi-task learning or in
+  frameworks with multiple different types of input data), but in simple setups
+  there will be just one input node and one output node.
 
-  \subsection dnn3_data_struct_computation NnetComputation
+  \subsection dnn3_dt_data_struct_computation NnetComputation
 
   A NnetComputation represents a specific computation that has been compiled
   from an Nnet and a ComputationRequest.  It contains a sequence of \ref
@@ -186,7 +200,7 @@ namespace nnet3 {
   sets of indexes (arrays of integers and so on) that are sometimes required as
   arguments to particular matrix operations.  
   
-  \subsection dnn3_data_struct_computer NnetComputer
+  \subsection dnn3_dt_data_struct_computer NnetComputer
 
  The NnetComputer object is responsible for actually executing the NnetComputation.
  This code for this is actually quite simple (chiefly a loop with a switch statement)
@@ -194,14 +208,14 @@ namespace nnet3 {
  the NnetComputation.
 
 
-  \section dnn3_nnet  Neural networks in nnet3
+  \section dnn3_dt_nnet  Neural networks in nnet3
 
  The previous section should have given you a high-level overview of how the
  framework fits together.  In this section we will go into a little more detail
  on the structure of the neural network itself, and how we glue Components together
  and express things like dependencies on an input from time t-1.
 
- \subsection dnn3_nnet_component Components (the basics)
+ \subsection dnn3_dt_nnet_component_basics Components (the basics)
 
  A Component, in nnet3, is an object that takes data in and transforms it somehow
  to data out.  It may contain parameters (say, for an affine layer) or it may
@@ -233,7 +247,7 @@ class Component {
  Similar logic holds in the Backprop function.
  
 
- \subsection dnn3_nnet_component Components (properties)
+ \subsection dnn3_dt_nnet_component_properties Components (properties)
 
 A Component has a virtual function "Properties()" that will return a bitmask
 value containing various binary flags defined as enum \ref ComponentProperties.
@@ -262,7 +276,7 @@ class Component {
  that is handled by Descriptors as will be explained below.
  
 
- \subsection dnn3_nnet_nnet Neural network nodes
+ \subsection dnn3_dt_nnet_node_outline Neural network nodes (outline)
 
 We previously explained that a neural net is a collection of named Components
 together with a graph on "network nodes", but we haven't yet explained what
@@ -283,12 +297,13 @@ that each node of type kComponent must be immediately preceded in the list of
 nodes, by its "own" node of type kDescriptor; this rule makes the graph
 compilation easier.  Thus, a node of type kDescriptor that is not immediately
 followed by a kComponent node is bound to be an output node; for convenience,
-class Nnet has functions \ref Nnet::IsOutputNode() "IsOutputNode(int32
-node_index)" and \ref Nnet::IsComponentInputNode() "IsComponentInputNode(int32
-node_index)" that can tell these apart.
+class Nnet has functions \ref Nnet::IsOutputNode() "IsOutputNode(int32 node_index)"
+and \ref Nnet::IsComponentInputNode() "IsComponentInputNode(int32 node_index)"
+that can tell these apart.
 
+We will go into neural network nodes in more detail below in \ref dnn3_dt_nnet_node_detail.
 
- \subsection dnn3_nnet_config Neural network config files
+ \subsection dnn3_dt_nnet_config Neural network config files
 
 Neural networks can be created from configuration files.  We give a very simple example
 here to show how the configuration files relate to the Descriptors.  This network has one
@@ -314,7 +329,7 @@ type kComponent, and an immediately preceding node of type kDescriptor that is
 defined by the "input" field.
 
  
- \subsection dnn3_nnet_descriptor Descriptors in config files
+ \subsection dnn3_dt_nnet_descriptor_code Descriptors in config files
 
   A Descriptor is a very limited type of expression that refers to quantities defined
   other nodes in the graph.   In this section we describe Descriptors from the perspective
@@ -332,6 +347,7 @@ defined by the "input" field.
 <descriptor>  ::=   <node-name>      ;; node name of kInput or kComponent node.
 <descriptor>  ::=   Append(<descriptor>, <descriptor> [, <descriptor> ... ] )
 <descriptor>  ::=   Sum(<descriptor>, <descriptor>)
+;; Failover or IfDefined might be useful for time t=-1 in a RNN, for instance.
 <descriptor>  ::=   Failover(<descriptor>, <descriptor>)   ;; 1st arg if computable, else 2nd
 <descriptor>  ::=   IfDefined(<descriptor>)     ;; the arg if defined, else zero.
 <descriptor>  ::=   Offset(<descriptor>, <t-offset> [, <x-offset> ] ) ;; offsets are integers
@@ -383,7 +399,7 @@ Note: if it ever becomes necessary to do a sum or average over a variety of
 indexes of unknown length (e.g. all the "t" values in a file), we intend to do
 this in a Component - a non-simple Component- rather than using Descriptors.
 
-\subsection dnn3_nnet_descriptor Descriptors in code
+\subsection dnn3_dt_nnet_descriptor_code Descriptors in code
 
 We'll handle Descriptors in code from the bottom up.  Base-class ForwardingDescriptor
 handles the types of Descriptor that will reference just a single value, without
@@ -447,12 +463,152 @@ Class Descriptor is the top level of the hierarchy.  It can be thought of
 as a vector of SumDescriptors, and note that this vector will usually be of
 length one.  It has functions \ref Descriptor::GetDependencies() "GetDependencies()"
 and \ref Descriptor::IsComputable() "IsComputable()" with the same interface as
-SumDescriptor, and also functions such as \ref Descriptor::NumParts() "NumParts()"
+SumDescriptor, and also functions such as \ref Descriptor::NumParts() "NumParts()" and
 \ref Descriptor::Part() "Part(int32 n)" that allow the user to access the
 individual SumDescriptors in its vector.
   
-  
-     
+\subsection dnn3_dt_nnet_node_detail Neural network nodes (detail)
+
+After describing Descriptors, now might be a good time to describe
+neural network nodes in more detail.  As mentioned above, there are
+four types of node, as defined by the enum
+\verbatim
+enum NodeType { kInput, kDescriptor, kComponent, kDimRange };
+\endverbatim
+The actual NetworkNode is a struct.  To avoid the hassle of pointers and because C++ doesn't
+allow unions containing classes, we have a slightly messy layout:
+\verbatim
+struct NetworkNode {  
+  NodeType node_type;
+  // "descriptor" is is relevant only for nodes of type kDescriptor.  
+  Descriptor descriptor;
+  union {
+    // For kComponent, the index of the component in the network's components_.
+    int32 component_index;
+    // for kDimRange, the node-index of the input node.
+    int32 node_index;
+  } u;
+  // for kInput, the dimension of the input feature.  For kDimRange, the dimension
+  // of the output (i.e. the length of the range)
+  int32 dim;
+  // for kDimRange, the dimension of the offset into the input component's feature.
+  int32 dim_offset;
+};
+\endverbatim
+Summarizing the different types of nodes and the members they actually use:
+  - kInput nodes use only "dim"
+  - kDescriptor nodes use only "descriptor"
+  - kComponent nodes use only "component_index", which indexes the components_ array of the Nnet.
+  - kDimRange nodes use only "node_index", "dim" and "dim_offset".
+
+
+\subsection dnn3_dt_nnet_detail Neural network (detail)
+
+Now that we have explained some sub-components, we can now give a little more detail on
+class Nnet itself, which stores the entire neural net.  The easiest way to show it is just
+to list the private data members:
+\verbatim
+class Nnet {
+public:
+  ...
+private:
+  std::vector<std::string> component_names_;
+  std::vector<Component*> components_;  
+  std::vector<std::string> node_names_;
+  std::vector<NetworkNode> nodes_;
+
+};
+\endverbatim
+The components_names_ should have the same size as components_ and the node_names_ should
+have the same size as nodes_; these associate names with the components and nodes.
+Note that we assign names to the nodes of type kDescriptor which precede their corresponding
+nodes of type kComponent, by appending "_input" to the component node's name.  These
+names don't appear in the config-file representation of the neural net.
+
+\section dnn3_dt_nnet_computation Computations in nnet3 (type NnetComputation)
+
+Another important data type is struct NnetComputation.  This represents a compiled
+neural-net computation, containing a sequence of commands together with other
+information necessary to interpret them.  Internally it defines a number of types,
+including the following enum value:
+\verbatim
+  enum CommandType {
+    kAllocMatrixUndefined, kAllocMatrixZeroed, 
+    kDeallocMatrix, kPropagate, kStoreStats, kBackprop,
+    kMatrixCopy, kMatrixAdd, kCopyRows, kAddRows,
+    kCopyRowsMulti, kCopyToRowsMulti, kAddRowsMulti, kAddToRowsMulti,
+    kAddRowRanges, kNoOperation, kNoOperationMarker };
+\endverbatim
+We would like to highlight `kPropagate`, `kBackprop` and `kMatrixCopy`
+as self-explanatory examples of commands.   We will go into more detail on the commands below.
+There is a struct Command which represents a single command together with
+its arguments.   Most of the arguments are indexes into lists of matrices
+and components.
+\verbatim
+  struct Command {
+    CommandType command_type;
+    int32 arg1;
+    int32 arg2;
+    int32 arg3;
+    int32 arg4;
+    int32 arg5;
+    int32 arg6;
+  };
+\endverbatim
+There are also a couple of struct types defined, which are used to store
+size information for matrices and submatrices.  A submatrix is a possibly
+restricted row and column range of a matrix, like the matlab syntax
+`some_matrix(1:10, 1:20)`:
+\verbatim
+  struct MatrixInfo {
+    int32 num_rows;
+    int32 num_cols;
+  };
+  struct SubMatrixInfo {
+    int32 matrix_index;  // index into "matrices": the underlying matrix.
+    int32 row_offset;    
+    int32 num_rows;
+    int32 col_offset;    
+    int32 num_cols;
+  };
+\endverbatim
+The data members of struct NnetComputation include the following:
+\verbatim
+struct Command {
+  ...
+  std::vector<Command> commands;
+  std::vector<MatrixInfo> matrices;
+  std::vector<SubMatrixInfo> submatrices;
+  // used in kAddRows, kAddToRows, kCopyRows, kCopyToRows.  contains row-indexes.
+  std::vector<std::vector<int32> > indexes;
+  // used in kAddRowsMulti, kAddToRowsMulti, kCopyRowsMulti, kCopyToRowsMulti.
+  // contains pairs (sub-matrix index, row index)- or (-1,-1) meaning don't
+  // do anything for this row.
+  std::vector<std::vector<std::pair<int32,int32> > > indexes_multi;
+  // Indexes used in kAddRowRanges commands, containing pairs (start-index,
+  // end-index)
+  std::vector<std::vector<std::pair<int32,int32> > > indexes_ranges;
+  // Information about where the values and derivatives of inputs and outputs of
+  // the neural net live.
+  unordered_map<int32, std::pair<int32, int32> > input_output_info;
+  bool need_model_derivative;
+  // the number of steps in the forward part of computation.
+  int32 forward_computation_end;
+  // the following is only used in non-simple Components; ignore for now.
+  std::vector<ComponentPrecomputedIndexes*> component_precomputed_indexes;
+  ...
+};
+\endverbatim
+The vectors with "indexes" in their name are arguments to matrix functions
+such as CopyRows, AddRows and so on, that need vectors of indexes as input
+(we will copy these to the GPU card before executing the computation).
+
+More information about the individual commands and the meaning of their
+arguments can be found \ref NnetComputation::CommandType "here".
+
+
+ Next: dnn3_code_compilation.
+
 
 */
 

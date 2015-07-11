@@ -61,16 +61,11 @@ enum NodeType { kInput, kDescriptor, kComponent, kDimRange, kNone };
 /// kDescriptor that represent the input to a component, are described in the
 /// same config-file line as the Component itself.
 struct NetworkNode {  
-  // This is relevant only for nodes of type kDescriptor.  It describes which
-  // other network nodes it gets its input from, and how those inputs are
-  // combined together; see type Descriptor in nnet-descriptor.h for
-  // details.
   NodeType node_type;
+  // "descriptor" is is relevant only for nodes of type kDescriptor.
   Descriptor descriptor;
-
   union {
-    // For kComponent, the index of the component in the network's components_
-    // vector.
+    // For kComponent, the index of the component in the network's components_.
     int32 component_index;
     // for kDimRange, the node-index of the input node, which must be of
     // type kComponent or kInput.
@@ -109,6 +104,16 @@ class Nnet {
   /// return component indexed c (const version).  not a copy; not owned by
   /// caller.
   const Component *GetComponent(int32 c) const;
+
+
+  /// return the component corresponding to the node indexed n, which must
+  /// be of type kComponent.  Convenience function.  Result is not a copy and
+  /// not owned by the caller.
+  Component *GetComponentForNode(int32 n);
+  /// Const version of GetComponentForNode().
+  const Component *GetComponentForNode(int32 n) const;
+
+
 
   /// returns const reference to a particular numbered network node.
   const NetworkNode &GetNode(int32 node) const {

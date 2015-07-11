@@ -27,9 +27,9 @@ void IdentifySubmatrixArgs(NnetComputation::Command *c,
                            std::vector<int32*> *submatrix_args) {
   submatrix_args->clear();
   switch (c->command_type) {
-      case NnetComputation::kResizeMatrixZeroed:
-      case NnetComputation::kResizeMatrixUndefined:
-      case NnetComputation::kResizeMatrixEmpty:
+      case NnetComputation::kAllocMatrixZeroed:
+      case NnetComputation::kAllocMatrixUndefined:
+      case NnetComputation::kDeallocMatrix:
         break;
     case NnetComputation::kPropagate:
       submatrix_args->push_back(&c->arg3);
@@ -39,10 +39,10 @@ void IdentifySubmatrixArgs(NnetComputation::Command *c,
       submatrix_args->push_back(&c->arg2);
       break;
     case NnetComputation::kBackprop:
+      submatrix_args->push_back(&c->arg3);
       submatrix_args->push_back(&c->arg4);
       submatrix_args->push_back(&c->arg5);
-      submatrix_args->push_back(&c->arg6);
-      submatrix_args->push_back(&c->arg7);      
+      submatrix_args->push_back(&c->arg6);      
       break;
     case NnetComputation::kMatrixCopy:
     case NnetComputation::kMatrixAdd:
@@ -70,9 +70,9 @@ void IdentifyMatrixArgs(NnetComputation::Command *c,
                         std::vector<int32*> *matrix_args) {
   matrix_args->clear();
   switch (c->command_type) {
-    case NnetComputation::kResizeMatrixZeroed:
-    case NnetComputation::kResizeMatrixUndefined:
-    case NnetComputation::kResizeMatrixEmpty:
+    case NnetComputation::kAllocMatrixZeroed:
+    case NnetComputation::kAllocMatrixUndefined:
+    case NnetComputation::kDeallocMatrix:
       matrix_args->push_back(&c->arg1);
       break;
     default:
@@ -427,11 +427,11 @@ bool VariableMergingOptimizer::MergeVariables() {
       }
     } else if (c.command_type == NnetComputation::kBackprop &&
                config_.backprop_in_place) {
-      const Component *component = nnet_.GetComponent(c.arg2);
+      const Component *component = nnet_.GetComponentForNode(c.arg1);
       if (component->Properties() & kBackpropInPlace) {
-        s1 = c.arg6;
-        s2 = c.arg7;  // s2 is the written-to matrix.
-        if (s1 == c.arg4 || s2 == c.arg4 || s1 == c.arg5 || s2 == c.arg5) {
+        s1 = c.arg5;
+        s2 = c.arg6;  // s2 is the written-to matrix.
+        if (s1 == c.arg3 || s2 == c.arg3 || s1 == c.arg4 || s2 == c.arg4) {
           // we don't think this should ever happen, but just out of an
           // abundance of caution: if either of these submatrix indexes are the
           // input-value or output-value args to Backprop, don't do the optimization.
@@ -500,9 +500,9 @@ void VariableMergingOptimizer::DoMerge(int32 command_index,
     NnetComputation::Command &initialize_command = computation_->commands[
         matrix_accesses[m2].initialize_command];
     KALDI_ASSERT((initialize_command.command_type ==
-                  NnetComputation::kResizeMatrixZeroed ||
+                  NnetComputation::kAllocMatrixZeroed ||
                   initialize_command.command_type ==
-                  NnetComputation::kResizeMatrixUndefined) &&
+                  NnetComputation::kAllocMatrixUndefined) &&
                  initialize_command.arg1 == m2);
     initialize_command.command_type = NnetComputation::kNoOperation;
     initialize_command.arg1 = -1;
@@ -623,8 +623,8 @@ void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
   
 }
 
-// This command replaces commands of type kResizeMatrixZeroed with commands of
-// type kResizeMatrixUndefined, where possible.
+// This command replaces commands of type kAllocMatrixZeroed with commands of
+// type kAllocMatrixUndefined, where possible.
 void RemoveUnnecessaryZeroing(const Nnet &nnet,
                               NnetComputation *computation) {
   Analyzer a(nnet, *computation);
@@ -641,9 +641,9 @@ void RemoveUnnecessaryZeroing(const Nnet &nnet,
     if (initialize_command == -1)  // an input
       continue;  // nothing to do.
     if (computation->commands[initialize_command].command_type !=
-        NnetComputation::kResizeMatrixZeroed) {
+        NnetComputation::kAllocMatrixZeroed) {
       KALDI_ASSERT(computation->commands[initialize_command].command_type ==
-                   NnetComputation::kResizeMatrixUndefined);
+                   NnetComputation::kAllocMatrixUndefined);
       continue;  // already leaving it undefined, so nothing to do.
     }
     std::vector<int32> variables_for_matrix;
@@ -664,7 +664,7 @@ void RemoveUnnecessaryZeroing(const Nnet &nnet,
     if (all_variables_ok) {
       // Here is where the change actually happens.
       computation->commands[initialize_command].command_type =
-          NnetComputation::kResizeMatrixUndefined;
+          NnetComputation::kAllocMatrixUndefined;
     }      
   }
 }

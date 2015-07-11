@@ -632,5 +632,17 @@ const std::string& Nnet::GetComponentName(int32 component_index) const {
   return component_names_[component_index];
 }
 
+const Component *Nnet::GetComponentForNode(int32 node_index) const {
+  KALDI_ASSERT(static_cast<size_t>(node_index) < node_names_.size() &&
+               nodes_[node_index].node_type == kComponent);
+  return GetComponent(nodes_[node_index].u.component_index);
+}
+
+Component *Nnet::GetComponentForNode(int32 node_index) {
+  KALDI_ASSERT(static_cast<size_t>(node_index) < node_names_.size() &&
+               nodes_[node_index].node_type == kComponent);
+  return GetComponent(nodes_[node_index].u.component_index);
+}
+
 } // namespace nnet3
 } // namespace kaldi

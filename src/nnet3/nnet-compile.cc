@@ -822,7 +822,6 @@ void Compiler::AddBackpropStep(int32 step,
   
   NnetComputation::Command c(NnetComputation::kBackprop,
                              node_index,
-                             node.u.component_index,
                              step_info.precomputed_indexes_index,
                              input_submatrix_index,
                              output_submatrix_index,
@@ -865,11 +864,11 @@ void Compiler::SetUpMatrices(NnetComputation *computation) const {
   for (int32 m = 1; m < computation->matrices.size(); m++) {
     // Later in the optimization phase, it turns out that zeroing is not
     // necessary for some matrices, we'll turn these commands into
-    // kResizeMatrixUndefined.
+    // kAllocMatrixUndefined.
     // We don't set up the matrices that are inputs to the computation;
     // this happens when the user provides the input.
     if (input_and_oderiv_matrices.count(m) == 0) {
-      NnetComputation::Command c(NnetComputation::kResizeMatrixZeroed, m);
+      NnetComputation::Command c(NnetComputation::kAllocMatrixZeroed, m);
       computation->commands.push_back(c);
     }
   }
@@ -959,7 +958,7 @@ void Compiler::DestroyMatrices(NnetComputation *computation) {
   for (int32 m = 1; m < num_matrices; m++)
     if (will_destroy[m])
       computation->commands.push_back(
-          NnetComputation::Command(NnetComputation::kResizeMatrixEmpty, m));
+          NnetComputation::Command(NnetComputation::kDeallocMatrix, m));
 }
 
 void Compiler::OutputDebugInfo(NnetComputation *computation) const {

@@ -243,12 +243,12 @@ void ComputeCommandAttributes(
     const NnetComputation::Command &c = computation.commands[command_index];
     CommandAttributes &attr = (*attributes)[command_index];
     switch (c.command_type) {
-      case NnetComputation::kResizeMatrixZeroed:
+      case NnetComputation::kAllocMatrixZeroed:
         vars.AppendVariablesForMatrix(c.arg1, &attr.variables_written);
         break;
-      case NnetComputation::kResizeMatrixUndefined: // nothing is written here. 
+      case NnetComputation::kAllocMatrixUndefined: // nothing is written here. 
         break;
-      case NnetComputation::kResizeMatrixEmpty: // ditto.
+      case NnetComputation::kDeallocMatrix: // ditto.
         break;
       case NnetComputation::kPropagate:
         vars.RecordAccessForSubmatrix(c.arg3, kReadAccess, &attr);
@@ -261,14 +261,14 @@ void ComputeCommandAttributes(
         vars.RecordAccessForSubmatrix(c.arg2, kReadAccess, &attr);
         break;
       case NnetComputation::kBackprop:
+        vars.RecordAccessForSubmatrix(c.arg3, kReadAccess, &attr);
         vars.RecordAccessForSubmatrix(c.arg4, kReadAccess, &attr);
         vars.RecordAccessForSubmatrix(c.arg5, kReadAccess, &attr);
-        vars.RecordAccessForSubmatrix(c.arg6, kReadAccess, &attr);
-        if (nnet.GetComponent(c.arg2)->Properties() & kBackpropAdds)      
-          vars.RecordAccessForSubmatrix(c.arg7, kReadWriteAccess, &attr);
+        if (nnet.GetComponentForNode(c.arg1)->Properties() & kBackpropAdds)      
+          vars.RecordAccessForSubmatrix(c.arg6, kReadWriteAccess, &attr);
         else
-          vars.RecordAccessForSubmatrix(c.arg7, kWriteAccess, &attr);        
-        if (nnet.GetComponent(c.arg2)->Properties() & kUpdatableComponent)
+          vars.RecordAccessForSubmatrix(c.arg6, kWriteAccess, &attr);        
+        if (nnet.GetComponentForNode(c.arg1)->Properties() & kUpdatableComponent)
           attr.has_side_effects = true;
         break;
       case NnetComputation::kMatrixCopy:
@@ -444,13 +444,13 @@ void ComputeMatrixAccesses(
     int32 matrix_index = command.arg1;
     
     switch (command.command_type) {
-      case NnetComputation::kResizeMatrixZeroed:
-      case NnetComputation::kResizeMatrixUndefined:
+      case NnetComputation::kAllocMatrixZeroed:
+      case NnetComputation::kAllocMatrixUndefined:
         if ((*matrix_accesses)[matrix_index].initialize_command != -1)
           KALDI_ERR << "Matrix " << matrix_index << " initialized twice.";
         (*matrix_accesses)[matrix_index].initialize_command = c;
         break;
-      case NnetComputation::kResizeMatrixEmpty:
+      case NnetComputation::kDeallocMatrix:
         if ((*matrix_accesses)[matrix_index].destroy_command != -1)
           KALDI_ERR << "Matrix " << matrix_index << " destroyed twice.";
         (*matrix_accesses)[matrix_index].destroy_command = c;
@@ -638,9 +638,9 @@ void ComputationChecker::CheckComputationIndexes() const {
   for (int32 command_index = 0; command_index < num_commands; command_index++) {
     const NnetComputation::Command &c = computation_.commands[command_index];
     switch (c.command_type) {
-      case NnetComputation::kResizeMatrixZeroed:
-      case NnetComputation::kResizeMatrixUndefined:
-      case NnetComputation::kResizeMatrixEmpty:
+      case NnetComputation::kAllocMatrixZeroed:
+      case NnetComputation::kAllocMatrixUndefined:
+      case NnetComputation::kDeallocMatrix:
         if (c.arg1 < 1 || c.arg1 >= num_matrices)
           KALDI_ERR << "matrix index out of range.";
         break;
@@ -687,56 +687,55 @@ void ComputationChecker::CheckComputationIndexes() const {
         break;
       }
       case NnetComputation::kBackprop: {
-        if (c.arg1 < 0 || c.arg1 >= nnet_.NumNodes())
-          KALDI_ERR << "Node index in backprop out of range";
-        if (c.arg2 < 0 || c.arg2 >= nnet_.NumComponents())
-          KALDI_ERR << "Component index in backprop out of range";
-        const Component *component = nnet_.GetComponent(c.arg2);
+        if (c.arg1 < 0 || c.arg1 >= nnet_.NumNodes() ||
+            !nnet_.IsComponentNode(c.arg1))
+          KALDI_ERR << "Node index in backprop invalid or out of range";
+        const Component *component = nnet_.GetComponentForNode(c.arg1);
         int32 properties = component->Properties();
-        if (c.arg3 < 0 ||
-            c.arg3 > computation_.component_precomputed_indexes.size())
+        if (c.arg2 < 0 ||
+            c.arg2 > computation_.component_precomputed_indexes.size())
           KALDI_ERR << "Precomputed-indexes index out of range";
-        if (c.arg3 != 0 && (properties & kSimpleComponent))
+        if (c.arg2 != 0 && (properties & kSimpleComponent))
           KALDI_ERR << "Precomputed-indexes index nonzero for simple component";
-        // output-deriv (arg6) must be supplied; others could plausibly be zero.
-        if (c.arg4 < 0 || c.arg4 >= num_submatrices ||
-            c.arg5 < 0 || c.arg5 >= num_submatrices ||
-            c.arg6 < 1 || c.arg6 >= num_submatrices ||
-            c.arg7 < 0 || c.arg7 >= num_submatrices)
+        // output-deriv (arg5) must be supplied; others could plausibly be zero.
+        if (c.arg3 < 0 || c.arg3 >= num_submatrices ||
+            c.arg4 < 0 || c.arg4 >= num_submatrices ||
+            c.arg5 < 1 || c.arg5 >= num_submatrices ||
+            c.arg6 < 0 || c.arg6 >= num_submatrices)
           KALDI_ERR << "Submatrix index out of range for backprop.";
-        if ((properties & kBackpropNeedsInput) && c.arg4 == 0)
+        if ((properties & kBackpropNeedsInput) && c.arg3 == 0)
           KALDI_ERR << "Backprop input needed but not supplied.";
-        if ((properties & kBackpropNeedsOutput) && c.arg5 == 0)
+        if ((properties & kBackpropNeedsOutput) && c.arg4 == 0)
           KALDI_ERR << "Backprop output needed but not supplied.";
-        if (c.arg7 == 0 && !(properties && kUpdatableComponent)) {
+        if (c.arg6 == 0 && !(properties && kUpdatableComponent)) {
           // note: we could perhaps make this just a warning,
           // or optimize it away somehow.
           KALDI_ERR << "Backprop is done but has no effect.";
         }
-        if (c.arg6 == c.arg7 && !(properties & kBackpropInPlace))
+        if (c.arg5 == c.arg6 && !(properties & kBackpropInPlace))
           KALDI_ERR << "In-place backprop used where not supported.";
-        if (c.arg4 != 0 &&
-            submatrices[c.arg4].num_cols != component->InputDim())
+        if (c.arg3 != 0 &&
+            submatrices[c.arg3].num_cols != component->InputDim())
           KALDI_ERR << "Input-dim mismatch in backprop.";
+        if (c.arg4 != 0 &&
+            submatrices[c.arg4].num_cols != component->OutputDim())
+          KALDI_ERR << "Output-dim mismatch in backprop.";
         if (c.arg5 != 0 &&
             submatrices[c.arg5].num_cols != component->OutputDim())
           KALDI_ERR << "Output-dim mismatch in backprop.";
         if (c.arg6 != 0 &&
-            submatrices[c.arg6].num_cols != component->OutputDim())
-          KALDI_ERR << "Output-dim mismatch in backprop.";
-        if (c.arg7 != 0 &&
-            submatrices[c.arg7].num_cols != component->InputDim())
+            submatrices[c.arg6].num_cols != component->InputDim())
           KALDI_ERR << "Input-dim mismatch in backprop.";
         // check num-rows consistency for input.
-        if (c.arg4 != 0 && c.arg7 != 0 &&
-            submatrices[c.arg4].num_rows != submatrices[c.arg7].num_rows)
+        if (c.arg3 != 0 && c.arg6 != 0 &&
+            submatrices[c.arg3].num_rows != submatrices[c.arg6].num_rows)
           KALDI_ERR << "Num-rows mismatch in backprop input";
         // check num-rows consistency for output
-        if (c.arg5 != 0 &&
-            submatrices[c.arg5].num_rows != submatrices[c.arg6].num_rows)
+        if (c.arg4 != 0 &&
+            submatrices[c.arg4].num_rows != submatrices[c.arg5].num_rows)
           KALDI_ERR << "Num-rows mismatch in backprop output";
-        if ((properties & kSimpleComponent) && c.arg7 != 0 &&
-            submatrices[c.arg6].num_rows != submatrices[c.arg7].num_rows)
+        if ((properties & kSimpleComponent) && c.arg6 != 0 &&
+            submatrices[c.arg5].num_rows != submatrices[c.arg6].num_rows)
           KALDI_ERR << "Num-rows mismatch in backprop input vs output.";
         break;
       }

@@ -231,17 +231,17 @@ static void PrintCommand(std::ostream &os,
   os << "c" << command_index << ": ";
   const NnetComputation::Command &c = computation.commands[command_index];
   switch (c.command_type) {
-    case NnetComputation::kResizeMatrixZeroed:
+    case NnetComputation::kAllocMatrixZeroed:
       os << "m" << c.arg1 << " = zeros("
          << computation.matrices[c.arg1].num_rows
          << ',' << computation.matrices[c.arg1].num_cols << ")\n";
       break;
-    case NnetComputation::kResizeMatrixUndefined:
+    case NnetComputation::kAllocMatrixUndefined:
       os << "m" << c.arg1 << " = undefined("
          << computation.matrices[c.arg1].num_rows
          << ',' << computation.matrices[c.arg1].num_rows << ")\n";
       break;
-    case NnetComputation::kResizeMatrixEmpty:
+    case NnetComputation::kDeallocMatrix:
       os << "m" << c.arg1 << " = []\n";
       break;      
     case NnetComputation::kPropagate:
@@ -255,15 +255,17 @@ static void PrintCommand(std::ostream &os,
       os << nnet.GetComponentName(c.arg1) << ".StoreStats("
          << submatrix_strings[c.arg2] << ")\n";
       break;
-    case NnetComputation::kBackprop:
-      os << nnet.GetComponentName(c.arg2) << ".Backprop(";
-      if (c.arg3 == 0) os << "NULL, ";
-      else os << "precomputed_indexes[" << c.arg3 << "], ";
-      os << submatrix_strings[c.arg4] << ", "
-         << submatrix_strings[c.arg5] << ", "
-         << submatrix_strings[c.arg6] << ", &"
-         << submatrix_strings[c.arg7] << ")\n";
+    case NnetComputation::kBackprop: {
+      int32 component_index = nnet.GetNode(c.arg1).u.component_index;
+      os << nnet.GetComponentName(component_index) << ".Backprop(";
+      if (c.arg2 == 0) os << "NULL, ";
+      else os << "precomputed_indexes[" << c.arg2 << "], ";
+      os << submatrix_strings[c.arg3] << ", "
+         << submatrix_strings[c.arg4] << ", "
+         << submatrix_strings[c.arg5] << ", &"
+         << submatrix_strings[c.arg6] << ")\n";
       break;
+    }
     case NnetComputation::kMatrixCopy:
       os << submatrix_strings[c.arg1] << " = "
          << submatrix_strings[c.arg2] << "\n";
