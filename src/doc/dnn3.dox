@@ -27,7 +27,7 @@ namespace kaldi {
 
   This documentation covers the latest, "nnet3", DNN setup in Kaldi.
   For an overview of all deep neural network code in Kaldi, explaining
-  Karel's version, see \ref dnn1.
+  Karel's version, see \ref dnn.
 
   The nnet3 setup is intended to support more general kinds of networks
   than simple feedforward networks (e.g. things like RNNs and LSTMs)

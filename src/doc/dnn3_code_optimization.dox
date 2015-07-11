@@ -22,7 +22,7 @@ namespace kaldi {
 namespace nnet3 {
 
 /**
-  \page dnn3_code_optimization The "nnet3" setup from a code perspective: optimization
+  \page dnn3_code_optimization Optimization in the "nnet3" setup
 
   \section dnn3_code_optimization_intro Introduction
 

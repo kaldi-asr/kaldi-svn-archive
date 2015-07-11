@@ -34,12 +34,12 @@ void Compiler::CreateComputation(const CompilerOptions &opts,
   builder.Compute();
   builder.Prune();
 
-  // see function declaration's comment for meaning of "by_order".
-  std::vector<std::vector<int32> > by_order;
-  ComputeComputationOrder(nnet_, graph_, &by_order);
+  // see function declaration's comment for meaning of "phases".
+  std::vector<std::vector<int32> > phases;
+  ComputeComputationPhases(nnet_, graph_, &phases);
   std::vector<std::vector<int32> > steps;
-  ComputeComputationSteps(nnet_, request_, by_order, &graph_, &steps);
-  by_order.clear();
+  ComputeComputationSteps(nnet_, request_, phases, &graph_, &steps);
+  phases.clear();
   CreateLocationInfo(steps);
   std::vector<bool> deriv_needed;
   ComputeDerivNeeded(steps, &deriv_needed);
@@ -65,7 +65,7 @@ void Compiler::AddCommands(const std::vector<bool> &deriv_needed,
   // mark the end of the forward phase.
   computation->commands.push_back(
       NnetComputation::Command(NnetComputation::kNoOperationMarker));
-  for (int32 step = num_steps; step >= 0; step--)
+  for (int32 step = num_steps - 1; step >= 0; step--)
     if (deriv_needed[step])
       DoBackwardComputation(step, computation);
   DestroyMatrices(computation);

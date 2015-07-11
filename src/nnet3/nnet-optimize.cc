@@ -590,11 +590,12 @@ void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
       int32 first_access_command = -1;
       if (!ma.accesses.empty()) {
         first_access_command = ma.accesses[0].command_index;
-        if (first_access_command == ma.initialize_command)
+        if (first_access_command == ma.initialize_command) {
           if (ma.accesses.size() > 1)
             first_access_command = ma.accesses[1].command_index;
           else
             first_access_command = -1;
+        }
       }
       if (first_access_command != -1) {
         KALDI_ASSERT(first_access_command > ma.initialize_command);

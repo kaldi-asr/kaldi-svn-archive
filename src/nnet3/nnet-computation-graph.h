@@ -42,7 +42,7 @@ namespace nnet3 {
 /// ComputationGraph.  The GetCindexId() functions perform the reverse mapping.
 struct ComputationGraph {
 
-  /// This is the mapping of cindex_id to Cindex.
+  /// The mapping of cindex_id to Cindex.
   std::vector<Cindex> cindexes;
 
   /// For each Cindex this tells us whether it was provided as an input to the
@@ -93,6 +93,7 @@ struct ComputationGraph {
 
 
 /// An abstract representation of a set of Cindexes.
+/// See \ref dnn3_compile_graph_building.
 class ComputationGraphBuilder {
  public:
   ComputationGraphBuilder(const Nnet &nnet,
@@ -100,12 +101,12 @@ class ComputationGraphBuilder {
                           ComputationGraph *graph):
       nnet_(nnet), request_(request), graph_(graph), current_distance_(-1) { }
 
-  // this does the initial computation (populating the graph and computing
+  // Does the initial computation (populating the graph and computing
   // whether each required cindex_id is computable), without the pruning.
   void Compute();
 
-  // to be called after Compute() but before Prune(), this returns true if all
-  // requested outputs are computable.
+  // Returns true if all requested outputs are computable.  To be called after
+  // Compute() but before Prune(().
   bool AllOutputsAreComputable();
 
   // This function outputs to "computable" information about whether each
@@ -122,13 +123,13 @@ class ComputationGraphBuilder {
   // you want to avoid this.
   void Prune();
   
-  // This enum says for each cindex_id, whether we can compute it from the
-  // given inputs or not.  Note that there may be situations where
-  // before adding dependencies of a particular cindex_id we realize that
-  // we won't be able to use this cindex_id (i.e. it may be computable
-  // but it's not used) and in those cases we change the status to
-  // kWillNotCompute even though the cindex-id may be computable- for
-  // most purposes this status is treated the same as kNotComputable.
+  // This enum says for each cindex_id, whether we can compute it from the given
+  // inputs or not.  Note that there may be situations where before adding
+  // dependencies of a particular cindex_id we realize that we won't be able to
+  // use this cindex_id (i.e. it may be computable but it's not used) because
+  // its usable_count is zero, and in those cases we change the status to
+  // kWillNotCompute even though the cindex-id may be computable- for most
+  // purposes this status is treated the same as kNotComputable.
   enum ComputableInfo {
     kUnknown = 0,
     kComputable = 1,
@@ -290,25 +291,26 @@ class IndexSet {
 };
 
 
-/// Compute the order in which we can compute each cindex in the computation;
-/// each cindex will map to an order-index.  This is a prelude to computing the
-/// steps of the computation (ComputeComputationSteps), and gives a coarser
-/// ordering than the steps.  The order-index is 0 for input cindexes, and in
-/// general is n for any cindex that can be computed immediately from cindexes
-/// with order-index less than n.  It is an error if some cindexes cannot be
-/// computed (we assume that you have called PruneComputationGraph before this
-/// function).  It will output to by_order, for each order-index 0, 1 and so on,
-/// a sorted vector of cindex_ids that have that order-index.
-void ComputeComputationOrder(
+/// Compute the phases in which we can compute each cindex in the computation;
+/// the cindexes will be grouped into phases.  This is a prelude to computing
+/// the steps of the computation (ComputeComputationSteps), and gives a coarser
+/// ordering than the steps.  All input cindexes go to phase 0, and in general a
+/// phase contains all cindexes not in previous phases that can be computed
+/// immediately from cindexes in previous phases.  It is an error if some
+/// cindexes cannot be computed (we assume that you have called
+/// PruneComputationGraph before this function), and it is an error if the
+/// computation graph contains cycles.  Each element of *phases will be sorted
+/// numerically.
+void ComputeComputationPhases(
     const Nnet &nnet,
     const ComputationGraph &computation_graph,
-    std::vector<std::vector<int32> > *by_order);
+    std::vector<std::vector<int32> > *phases);
 
 
 /// Once the computation order has been computed by ComputeComputationOrder,
 /// this function computes the "steps" of the computation.  These are a finer
-/// measure than the "order" because if there are cindexes with a particular
-/// order-index and different node-ids (i.e. they belong to different nodes of
+/// measure than the "phases" because if there are cindexes with a particular
+/// phase-index and different node-ids (i.e. they belong to different nodes of
 /// the nnet), they need to be separated into different steps.  Also, if the
 /// cindexes for a particular output node are computed in multiple steps, they
 /// are all combined into a single step whose numbering is the same as the last
@@ -328,7 +330,7 @@ void ComputeComputationOrder(
 void ComputeComputationSteps(
     const Nnet &nnet,
     const ComputationRequest &request,
-    const std::vector<std::vector<int32> > &by_order,
+    const std::vector<std::vector<int32> > &phases,
     ComputationGraph *computation_graph,
     std::vector<std::vector<int32> > *steps);
 
