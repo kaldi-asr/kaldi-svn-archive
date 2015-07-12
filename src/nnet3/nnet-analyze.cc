@@ -533,10 +533,11 @@ void ComputationChecker::CheckComputationRewrite() const {
   for (int32 v = 0; v < num_variables; v++) {
     const std::vector<Access> &accesses = variable_accesses_[v];
     int32 matrix_index = variables_.GetMatrixForVariable(v);
-    if (accesses.empty())
+    if (accesses.empty() && ! matrix_accesses_[matrix_index].is_input) {
       KALDI_ERR << "Variable " << v << " (part of matrix m"
                 << matrix_index << ") "
                 << "is never used.";
+    }
     int32 num_accesses = accesses.size();
     int32 first_pure_read = -1;
     for (int32 access = 0; access < num_accesses; access++) {
@@ -569,15 +570,16 @@ void ComputationChecker::CheckComputationUndefined() const {
     const std::vector<Access> &accesses = variable_accesses_[v];
     int32 matrix_index = variables_.GetMatrixForVariable(v);
     bool is_input = matrix_accesses_[matrix_index].is_input;
-    if (accesses.empty())
-      KALDI_ERR << "Variable " << v << " (part of matrix m"
-                << matrix_index << ") "
-                << "is never used.";
-    if (accesses[0].access_type != kWriteAccess &&
-        ! is_input)
-      KALDI_ERR << "Variable " << v << " (part of matrix m"
-                << matrix_index << ") "
-                << "is read before it is written to";
+    if (! is_input) {
+      if (accesses.empty()) 
+        KALDI_ERR << "Variable " << v << " (part of matrix m"
+                  << matrix_index << ") "
+                  << "is never used.";
+      if (accesses[0].access_type != kWriteAccess)
+        KALDI_ERR << "Variable " << v << " (part of matrix m"
+                  << matrix_index << ") "
+                  << "is read before it is written to";
+    }
   }
 }
 
@@ -587,6 +589,8 @@ void ComputationChecker::CheckComputationUndefined() const {
    are deallocated, and some other checks that can be done from the
    MatrixAccesses.
 */
+static bool computation_checker_warned_unused_input = false;
+
 void ComputationChecker::CheckComputationMatrixAccesses() const {
   int32 num_matrices = matrix_accesses_.size();
 
@@ -613,7 +617,19 @@ void ComputationChecker::CheckComputationMatrixAccesses() const {
       if (accesses.destroy_command == -1)
         KALDI_ERR << "Matrix is not destroyed.";
       if (accesses.accesses.empty()) {
-        KALDI_ERR << "Matrix m" << matrix_index << " is never accessed.";
+        if (accesses.is_input) {
+          // we allow there to be no accesses if it is an input, e.g. if an
+          // output derivative is supplied for some reason but never used.
+          // We'll warn, though (once).
+          if (!computation_checker_warned_unused_input) {
+            KALDI_WARN << "Matrix m" << matrix_index << " is never accessed. "
+                "Allowing because it is an input (un-needed input or "
+                "derivative?)  Will warn only once.";
+            computation_checker_warned_unused_input = true;
+          }
+        } else {
+          KALDI_ERR << "Matrix m" << matrix_index << " is never accessed.";
+        }
       } else if (accesses.accesses.back().command_index >=
                  accesses.destroy_command) {
         KALDI_ERR << "Matrix m" << matrix_index << " is accessed after "

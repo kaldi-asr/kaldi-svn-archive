@@ -1324,13 +1324,36 @@ void AddOutputSteps(const Nnet &nnet,
   }
 }
 
+/// Convert the cindex_ids in the vector "cindex_ids" to cindexes, but only
+/// keeping those that correspond to nodes of type kComponent.
+/// Asserts that none of these cindexes have the "is_input" set to true.
+/// [this is possible because we call this only for phases >1, and inputs
+/// should not be there.]
+static void ExtractOnlyComponentCindexes(const std::vector<int32> &cindex_ids,
+                                         const ComputationGraph &graph,
+                                         const Nnet &nnet,
+                                         std::vector<Cindex> *cindexes) {
+  cindexes->clear();
+  cindexes->reserve(cindex_ids.size());
+  std::vector<int32>::const_iterator iter = cindex_ids.begin(),
+                                      end = cindex_ids.end();
+  for (; iter != end; ++iter) {
+    int32 cindex_id = *iter;
+    const Cindex &cindex = graph.cindexes[cindex_id];
+    if (nnet.IsComponentNode(cindex.first)) {
+      KALDI_ASSERT(!graph.is_input[cindex_id]);
+      cindexes->push_back(cindex);
+    }
+  }
+}
+
 /// Outputs into component_steps, steps corresponding to all Cindexes that
 /// correspond to Component nodes and that are not inputs to the network.  (note
 /// that a Cindex for a Component node that's provided as an input to the
 /// network is not case we anticipate being common, but it's possible in the
 /// framework).  Note, a step is just a list of cindex_ids that can all be computed
 /// at the same time.
-void AddComponentSteps(
+static void AddComponentSteps(
     const Nnet &nnet,
     const ComputationGraph &graph,
     const std::vector<std::vector<int32> > &phases,
@@ -1343,20 +1366,8 @@ void AddComponentSteps(
   // (whether the node index is type kInput or kComponent) will be assigned to
   // phase_index 0, and no non-inputs should be there (we checked this).
   for (int32 phase_index = 1; phase_index < num_phase_indexes; phase_index++) {
-    const std::vector<int32> &this_cindex_ids = phases[phase_index];
-    
-    cindexes.clear();
-    cindexes.reserve(this_cindex_ids.size());
-    int32 num_cindex_ids = this_cindex_ids.size();
-    for (int32 i = 0; i < num_cindex_ids; i++) {
-      int32 cindex_id = this_cindex_ids[i],
-          node_index = graph.cindexes[cindex_id].first;
-      if (nnet.IsComponentNode(node_index)) {
-        // the following assert is only possible because phase_index > 1.
-        KALDI_ASSERT(!graph.is_input[cindex_id]);
-        cindexes.push_back(graph.cindexes[cindex_id]);
-      }
-    }
+    ExtractOnlyComponentCindexes(phases[phase_index], graph, nnet, &cindexes);
+
     // now "cindexes" contains all Cindexes that are from Component nodes (and
     // we have made sure that none of these are being provided as inputs).
     // Sorting this array gives us the ordering we want, where Cindexes from

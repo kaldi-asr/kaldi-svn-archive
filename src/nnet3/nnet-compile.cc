@@ -57,7 +57,7 @@ void Compiler::AddCommands(const std::vector<bool> &deriv_needed,
   int32 arbitrary_factor = 8;
   computation->commands.reserve(computation->matrices.size()
                                 * arbitrary_factor);
-  SetUpMatrices(computation);
+  AllocateMatrices(computation);
   int32 num_steps = steps_.size();
   for (int32 step = 0; step < num_steps; step++)
     DoForwardComputation(step, computation);
@@ -68,7 +68,7 @@ void Compiler::AddCommands(const std::vector<bool> &deriv_needed,
   for (int32 step = num_steps - 1; step >= 0; step--)
     if (deriv_needed[step])
       DoBackwardComputation(step, computation);
-  DestroyMatrices(computation);
+  DeallocateMatrices(computation);
 }
 
 
@@ -100,8 +100,6 @@ void Compiler::ComputeDerivNeeded(
   deriv_needed->clear();
   int32 num_steps = steps.size();
   deriv_needed->resize(num_steps, false);
-  if (!request_.NeedDerivatives())
-    return;
 
   for (int32 step = 0; step < num_steps; step++) {
     const std::vector<int32> &this_step = steps[step];
@@ -187,12 +185,17 @@ void Compiler::CreateStepInfo(
       this_info.value = computation->NewMatrix(num_rows, num_cols);
       if (deriv_needed[step])
         this_info.deriv = computation->NewMatrix(num_rows, num_cols);
+      if (node.node_type == kComponent)
+        KALDI_PARANOID_ASSERT(step > 0 &&  steps_[step-1].output_indexes ==
+                              this_info.output_indexes);
     } else {
       // kDimRange.  Will just be a sub-matrix of a Component or Input node.
       int32 cindex_id = this_info.output_cindex_ids.front(),
           input_cindex_id = graph_.dependencies[cindex_id][0],
           input_step = cindex_id_to_location_[input_cindex_id].first;
-      KALDI_ASSERT(input_step != -1);
+      KALDI_ASSERT(input_step != -1 && input_step < step);
+      KALDI_PARANOID_ASSERT(this_info.output_indexes ==
+                            steps_[input_step].output_indexes);
       this_info.value = computation->NewSubMatrix(steps_[input_step].value,
                                                   node.dim_offset, node.dim);
       if (deriv_needed[step])
@@ -289,16 +292,14 @@ void Compiler::DoForwardComputation(int32 step,
                                     NnetComputation *computation) const {
   KALDI_ASSERT(step < static_cast<int32>(steps_.size()));
   const StepInfo &step_info = steps_[step];
-  int32 node_index = step_info.node_index;
-  const NetworkNode &node = nnet_.GetNode(node_index);
-
+  const NetworkNode &node = nnet_.GetNode(step_info.node_index);
   switch (node.node_type) {
-    case kInput: break;  // Nothing to do.
-    case kDescriptor:
-      DoForwardComputationDescriptor(step, computation);
-      break;
+    case kInput: case kDimRange: break;  // Nothing to do.
     case kComponent:
       AddPropagateStep(step, computation);
+      break;
+    case kDescriptor:
+      DoForwardComputationDescriptor(step, computation);
       break;
     default:
       KALDI_ERR << "Invalid node type";
@@ -343,7 +344,7 @@ void Compiler::ComputeInputLocationsList(
     bool ans = descriptor.IsComputable(index, cindex_set, &input_cindexes);
     // earlier compilation stages should have checked that it is computable,
     // and the graph should still contain required inputs.
-    KALDI_ASSERT(ans == true);
+    KALDI_ASSERT(ans);
     std::sort(input_cindexes.begin(), input_cindexes.end());
     int32 size = input_cindexes.size();
     input_cindex_ids.resize(size);
@@ -522,8 +523,7 @@ void Compiler::DoBackwardComputationFromSubmatLocationsList(
     NnetComputation *computation) const {
   std::vector<std::vector<std::pair<int32, int32> > > split_lists;  
   SplitLocationsBackward(submat_lists, &split_lists);
-  int32 size = split_lists.size();
-  KALDI_ASSERT(size > 0);
+  int32 size = split_lists.size();  // size may be zero e.g. for unused outputs.
   for (int32 i = 0; i < size; i++)
     DoBackwardComputationFromSubmatLocations(
         deriv_submatrix_index,
@@ -538,9 +538,9 @@ void Compiler::DoBackwardComputationSumDescriptor(
   std::vector<std::vector<std::pair<int32, int32> > > submat_locations_list;
   ComputeDerivSubmatLocationsList(step_info.input_locations_list[part_index],
                                   &submat_locations_list);
-  
   int32 deriv_submatrix_index = step_info.deriv_parts[part_index];
   KALDI_ASSERT(deriv_submatrix_index > 0);  // or should not have called this.
+
   DoBackwardComputationFromSubmatLocationsList(deriv_submatrix_index,
                                                submat_locations_list,
                                                computation);
@@ -745,12 +745,12 @@ void Compiler::DoBackwardComputation(int32 step,
   const NetworkNode &node = nnet_.GetNode(node_index);
 
   switch (node.node_type) {
-    case kInput: break;  // Nothing to do.
-    case kDescriptor:
-      DoBackwardComputationDescriptor(step, computation);
-      break;
+    case kInput: case kDimRange: break;  // Nothing to do.
     case kComponent:
       AddBackpropStep(step, computation);
+      break;
+    case kDescriptor:
+      DoBackwardComputationDescriptor(step, computation);
       break;
     default:
       KALDI_ERR << "Invalid node type";
@@ -832,7 +832,7 @@ void Compiler::AddBackpropStep(int32 step,
 
 
 
-void Compiler::SetUpMatrices(NnetComputation *computation) const {
+void Compiler::AllocateMatrices(NnetComputation *computation) const {
   KALDI_ASSERT(computation->commands.empty());
   // Work out which matrices are inputs to the computation (or output-derivs,
   // which are also supplied as inputs to the computation); we won't be setting
@@ -914,7 +914,7 @@ void Compiler::SetUpPrecomputedIndexes(
 }
 
 
-void Compiler::DestroyMatrices(NnetComputation *computation) {
+void Compiler::DeallocateMatrices(NnetComputation *computation) {
   // This adds the commands to destroy all the matrices- but not the
   // ones that might be needed as outputs of the computation.  The ones that
   // are spared from destruction are those corresponding to outputs of the

@@ -84,7 +84,8 @@ void SplitLocations(
   print a warning (once per process).  If we have to split into too many lists it
   will generate inefficient computations, and we will need to extend the backprop
   code to support more general types of operation.
-   
+  If all elements of submat_lists are empty, the output split_lists will be
+  the empty vector.
  */
 void SplitLocationsBackward(
     const std::vector<std::vector<std::pair<int32, int32> > > &submat_lists,

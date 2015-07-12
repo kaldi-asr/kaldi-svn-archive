@@ -307,26 +307,34 @@ void ComputeComputationPhases(
     std::vector<std::vector<int32> > *phases);
 
 
-/// Once the computation order has been computed by ComputeComputationOrder,
-/// this function computes the "steps" of the computation.  These are a finer
-/// measure than the "phases" because if there are cindexes with a particular
-/// phase-index and different node-ids (i.e. they belong to different nodes of
-/// the nnet), they need to be separated into different steps.  Also, if the
-/// cindexes for a particular output node are computed in multiple steps, they
-/// are all combined into a single step whose numbering is the same as the last
-/// of the steps.  [we'll later delete the other unnecessary steps].
-///
-/// Also this function makes sure that the order of cindex_ids in each step is
-/// correct.  For steps corresponding to input and output nodes, this means that
-/// the order is the same as specified in the ComputationRequest; for other
-/// steps, it means that they are sorted using the order of struct Index (but
-/// this order may be modified by components that defined ReorderIndexes()).
-///
-/// The reason why computation_graph is not provided as a const argument is
-/// that in order to process nodes of type kDimRange, which will end up
-/// just being a sub-matrix looking at nodes of type kComponent or kInput,
-/// we may in some circumstances need to add some new cindexes to the graph,
-/// to fill in any gaps.
+/**
+   This function arranges the cindex_ids of the computation into a sequence of
+   lists called "steps", which will correspond roughly to the commands in the
+   compiled computation.  The steps are finer than phases.  (See \ref
+   dnn3_compile_steps for more info).  To summarize the properties that
+   these steps will satisfy:
+
+  - All cindex_ids within a given step correspond to the same node in the graph
+  - All dependencies of cindex_ids within a given step have been computed in 
+    earlier steps.
+  .
+There are also some extra, more obscure properties that the sequence of steps
+must satisfy:
+  - Any input or output in the ComputationRequest must be in one step, with the
+    Indexes in the same order as specified in the ComputationRequest.  (Note:
+    inputs can be for nodes of type kComponent as well as kInput).
+  - If a step corresponds to a node of type kComponent (and does not
+    correspond to an input in the ComputationRequest), then the immediately
+    preceding step must correspond to a node of type kDescriptor, and the
+    sequence of Indexes in the two steps must be identical.
+  - If a step corresponds to a node of type kDimRange, then there must be
+    another step corresponding to the source node, with exactly the same
+    Indexes appearing in the same order.  (This lets us use a sub-matrix for
+    the kDimRange node).
+
+The reason why computation_graph is not provided as a const argument is
+that in order to ensure the final property we may have to add a few new cindex_ids.
+*/
 void ComputeComputationSteps(
     const Nnet &nnet,
     const ComputationRequest &request,

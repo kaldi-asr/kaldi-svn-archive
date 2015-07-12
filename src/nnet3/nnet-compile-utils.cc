@@ -97,7 +97,6 @@ void ComputeSubmatIndexHistogram(
   KALDI_ASSERT(submat_lists.size() > 0);
   // computing the submat_histogram
   for (int32 i = 0; i < submat_lists.size(); i++) {
-    KALDI_ASSERT(submat_lists[i].size() > 0);
     if (submat_lists[i].size() > *max_submat_list_size)
       *max_submat_list_size = submat_lists[i].size();
     sorted_submat_lists->push_back(submat_lists[i]);
@@ -231,7 +230,6 @@ void SplitLocationsUsingSubmatHistogram(
     std::vector<std::vector<std::pair<int32, int32> > > *split_lists
     )  {
 
-  KALDI_ASSERT(max_submat_list_size > 0); 
   // sort the submat_histogram_vector based on second element of pair
   // in descending order then first element of pair in descending order
   std::sort(submat_histogram_vector->begin(),
