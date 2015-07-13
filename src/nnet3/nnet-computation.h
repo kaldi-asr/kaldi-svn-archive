@@ -282,10 +282,6 @@ struct NnetComputation {
   // This is a copy of "need_model_derivative" from the ComputationRequest.
   bool need_model_derivative;
   
-  // the number of steps in the forward part of computation.  Equals the index
-  // of the kNoOperationMarker command.
-  int32 forward_computation_end;
-  
   // computed from "indexes" by ComputeCudaIndexes().
   std::vector<CuArray<int32> > indexes_cuda;
 

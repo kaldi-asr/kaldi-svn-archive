@@ -55,6 +55,8 @@ namespace nnet3 {
    more efficient command in the compiled code.  It doesn't have to be 100%
    optimal.  Note: in the most common case, all the lists will have the same
    length and padding will not be necessary at all.
+
+   See documentation here: \ref dnn3_compile_compiler_split_locations
  */
 
 void SplitLocations(

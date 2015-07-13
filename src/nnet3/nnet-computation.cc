@@ -303,7 +303,7 @@ static void PrintCommand(std::ostream &os,
       os << "[no-op]\n";
       break;
     case NnetComputation::kNoOperationMarker:
-      os << "[no-op/marker]\n";
+      os << "# begin backward commands\n";
       break;
     default:
       KALDI_ERR << "Un-handled command type.";
@@ -359,8 +359,6 @@ void NnetComputation::Print(std::ostream &os, const Nnet &nnet) const {
   }
   os << "# begin forward commands\n";
   for (int32 c = 0; c < commands.size(); c++) {
-    if (c == forward_computation_end)
-      os << "# begin backward commands\n";
     PrintCommand(os, nnet, *this, c, submatrix_strings,
                  indexes_strings, indexes_multi_strings);
   }

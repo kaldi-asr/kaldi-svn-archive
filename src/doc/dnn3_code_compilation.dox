@@ -634,7 +634,9 @@ Skipping a couple of minor things, the next function call in
   AllocateMatrices(computation);
 \endverbatim
 This function adds commands to the computation, to allocate and zero
-all the matrices we declared in the "matrices" member of class Computation.
+all the matrices we declared in the "matrices" member of class Computation
+(Except those corresponding to inputs; those will be set up when the user
+provides the input).
 The commands will be of type kAllocateMatrixZeroed, with one argument
 corresponding to the matrix index.  Later, in the optimization phase, we will
 replace some of these commands with kAllocateMatrixUndefined, if we determine
@@ -698,7 +700,7 @@ that are oversaturated.  The code is:
   }
 \endverbatim
 
-\subsubsection dnn3_compile_compiler_forward_descriptor  Forward computation for Descriptors
+\subsubsection dnn3_compile_compiler_forward_descriptor  Forward computation for Descriptors (top-level)
 
 Setting up the forward computation for Descriptors is a little more complicated.
 The function call <code>DoForwardComputationDescriptor(step, computation)</code>
@@ -711,13 +713,207 @@ void Compiler::DoForwardComputationDescriptor(
     DoForwardComputationSumDescriptor(step, part, computation);
 }
 \endverbatim
+\ref Compiler::DoForwardComputationSumDescriptor() "DoForwardComputationSumDescriptor()"
+is defined as follows:
+\verbatim
+void Compiler::DoForwardComputationSumDescriptor(
+    int32 step, int32 part_index, NnetComputation *computation) const {
+  const StepInfo &step_info = steps_[step];
+  std::vector<std::vector<std::pair<int32, int32> > > submat_locations_list;
+  ComputeValueSubmatLocationsList(step_info.input_locations_list[part_index],
+                                  &submat_locations_list);
+  int32 value_submatrix_index = step_info.value_parts[part_index];
+  DoForwardComputationFromSubmatLocationsList(
+      value_submatrix_index,
+      submat_locations_list,
+      computation);
+}
+\endverbatim
+The call to \ref Compiler::ComputeValueSubmatLocationsList()
+"ComputeValueSubmatLocationsList()" turns the previously discussed
+input_locations_list in the standard location format with pairs
+(step-index, row-index) into
+submat-location format with pairs (submatrix-index, row-index).
+Stepping into \ref Compiler::DoForwardComputationFromSubmatLocationsList()
+"DoForwardComputationFromSubmatLocationsList()", we see the following code:
+\verbatim
+void Compiler::DoForwardComputationFromSubmatLocationsList(
+    int32 value_submatrix_index,
+    const std::vector<std::vector<std::pair<int32, int32> > > &submat_lists,
+    NnetComputation *computation) const {
+  std::vector<std::vector<std::pair<int32, int32> > > split_lists;  
+  SplitLocations(submat_lists, &split_lists);
+  for (int32 i = 0; i < split_lists.size(); i++)
+    DoForwardComputationFromSubmatLocations(
+        value_submatrix_index, (i == 0),
+        split_lists[i],
+        computation);
+}
+\endverbatim
+
+\subsubsection dnn3_compile_compiler_split_locations  Forward computation for Descriptors (SplitLocations)
+
+The function SplitLocations() is important.  Its input and output is of the same
+type (<code>std::vector<std::pair<int32, int32> ></code>, but it performs a change
+of format.  The input <code>submat_lists</code> is indexed by matrix-row and is then a list
+of input locations to be summed over.  SplitLocations() pads all 
+those lists with (-1, -1) so they are all the same length and then turns the
+vector of lists into a list of vectors (<code>split_lists</code>).  For example, if we had a matrix with 1000
+rows and the input submat_lists were all of length not exceeding 2, the SplitLocations()
+would output a vector of length 2, each element being a vector of length 1000; and there
+would be (-1, -1) pairs in one or both of those output lists, if not all of the
+input vectors had size exactly 2.
+
+In fact, SplitLocations() tries to be a bit clever about how it splits things up, to
+try to ensure that inputs from the same submatrix are allocated as much as possible
+to the same vector in the output.  This will enable us to use slightly more efficient
+commands in the compiled computation.  SplitLocations() may end up outputting
+a slightly larger number of vectors in order to achieve this.
+
+\subsubsection dnn3_compile_compiler_forward_submat  Forward computation with DoForwardComputationFromSubmatLocations
+
+After splitting up the submat-location lists using SplitLocations(), we give each
+vector in the resulting list
+to \ref Compiler::DoForwardComputationFromSubmatLocations() "DoForwardComputationFromSubmatLocations()".
+The main input to this function is a vector of submat-locations, i.e. a vector
+of pairs (submatrix-index, row-index), where the length of the vector corresponds to the
+number of matrix rows (or equivalently, the number of cindex_ids in the step).
+This function works out the appropriate command to use in the forward propagation,
+trying to figure out which one will be the most efficient.  The code for this
+function is quite simple so we show it:
+\verbatim
+void Compiler::DoForwardComputationFromSubmatLocations(
+    int32 value_submatrix_index,
+    bool is_first_term_in_sum,
+    const std::vector<std::pair<int32, int32> > &submat_locations, 
+    NnetComputation *computation) const {
+
+  int32 input_submatrix_index = -1;
+  std::vector<int32> indexes;
+
+  if (ConvertToIndexes(submat_locations, &input_submatrix_index, &indexes)) {
+    DoForwardComputationFromIndexes(value_submatrix_index,
+                                    input_submatrix_index,
+                                    is_first_term_in_sum,
+                                    indexes,
+                                    computation);
+    return;
+  } else {
+    // There are multiple source matrices.
+    NnetComputation::CommandType ctype =
+        (is_first_term_in_sum ?
+         NnetComputation::kCopyRowsMulti : NnetComputation::kAddRowsMulti);
+    int32 indexes_multi_index = computation->indexes_multi.size();
+    computation->indexes_multi.push_back(submat_locations);
+    computation->commands.push_back(
+        NnetComputation::Command(ctype, value_submatrix_index,
+                                 indexes_multi_index));
+    return;
+  }
+}
+\endverbatim
+The function ConvertToIndexes() is detecting for us the case where all inputs
+come from the same submatrix, and if so, converts the submat-locations vector to
+a single submatrix index a vector of row indexes, which will contain -1's corresponding
+to any (-1, -1) values in the input submat_locations.  In this case we
+call \ref Compiler::DoForwardComputationFromIndexes() "DoForwardComputationFromIndexes()",
+which if possible creates a command for a simple matrix copy or add (commands kMatrixCopy
+and kMatrixAdd), and otherwise into a command of type kCopyRows or kAddRows, which will
+call the functions \ref CuMatrix::CopyRows() "CopyRows()" \ref CuMatrix::AddRows() "AddRows()"
+of class CuMatrix.
+
+If there were multiple source sub-matrices, then we generate a command of type
+kCopyRowsMulti or kAddRowsMulti, calling the functions
+\ref CuMatrix::CopyRowsMulti() "CopyRowsMulti()" \ref CuMatrix::AddRowsMulti() "AddRowsMulti()"
+of class CuMatrix.  These functions take pointer arguments, pointing to the row-address
+of the source data for each row of the destination matrix.  We prefer not to call those
+functions, because to use them we transfer the addresses to the GPU card for each minibatch
+(we reallocate the matrices each time, so the addresses might change).  This is a minor
+issue, though.
+
+\subsubsection dnn3_compile_compiler_forward_end Marking the end of the forward computation
+
+After we are finished setting up the commands for the forward computation, we mark
+that it's over.  This is done as follows:
+\verbatim
+  computation->commands.push_back(
+      NnetComputation::Command(NnetComputation::kNoOperationMarker));
+\endverbatim
+The execution code will later detect this marker to know when the forward part
+of the computation ends and the backward part begins.
+
+\subsection dnn3_compile_compiler_backward   The backward computation
+
+The backward computation is created in the following statements
+from \ref Compiler::AddCommands() "AddCommands()":
+\verbatim
+  for (int32 step = num_steps - 1; step >= 0; step--)
+    if (deriv_needed[step])
+      DoBackwardComputation(step, computation);
+\endverbatim
+The code for \ref Compiler::DoBackwardComputation() "DoBackwardComputation()" mostly mirrors
+that of "DoForwardComputation()", so we won't go into it in detail.  However, we
+would like to point out that
+\ref Compiler::DoBackwardComputationFromSubmatLocationsList() "DoBackwardComputationSubmatLocationsList()"
+differs from
+\ref Compiler::DoForwardComputationSubmatLocationsList() "DoForwardComputationSubmatLocationsList()"
+in that it calls the function \ref SplitLocationsBackward()
+instead of SplitLocations().  The issue is that when splitting the submatrix-locations, we need to
+be a little more careful to ensure we generate valid commands.  In the forward computation,
+if multiple locations of the matrix are copied (or added-to) from the same input location, it
+is not a problem.  However, in the backward computation, this would be a problem because it
+could lead to different CUDA kernels attempting to update the same location at the same time.
+While there are solutions to this synchronization problem, they have a cost and we prefer
+to avoid the issue.
+
+Our solution is essentially as follows, and see the documentation of SplitLocationsBackward() for
+more details.  We first split the locations into separate vectors as for SplitLocations().  Then
+we split further as needed in order to ensure that either one of the two following properties
+holds: that for each vector, either:
+   - All pairs (submatrix-index, row-index) in the vector are unique, except possibly
+     the special pair (-1, -1) may be repeated
+   - The .first values (submatrix-index) in the list are all the same, and the .second
+     have a special property (see the function HasContiguousProperty()) that allows
+     us to call CuMatrix::AddRowRanges().  The property is that each unique
+     row-index must appear only in a single contiguous run.
+   .
 
 
+\subsection dnn3_compile_compiler_deallocating the matrices  Deallocating the matrices
 
+The last command of \ref Compiler::AddCommands() "AddCommands()" adds commands to
+deallocate the matrices:
+\verbatim
+  DeallocateMatrices(computation);
+\endverbatim
+We add commands (kDeallocMatrix) to deallocate each of the matrices in the computation,
+except those that are outputs of the computation (including requested derivatives
+at the inputs).
 
+\subsection dnn3_compile_compiler_debug  Adding debug information
 
+\ref Compiler::AddCommands() "AddCommands()" terminates, the last command remaining
+in the function \ref Compiler::CreateComputation() "CreateComputation()" is to
+output the debug information, if requested:
+\verbatim
+  if (opts.output_debug_info)
+    OutputDebugInfo(computation);
+\endverbatim
+This information is intended mostly for diagnostics and to help
+users interpret the meaning of matrices in a compiler computation, and consists of the following:
+\verbatim
+  struct MatrixDebugInfo {
+    bool is_deriv;  // true if this represents a derivative, not a value.
+    int32 node_index;  // network-node index.
+    std::vector<Index> indexes;
+    MatrixDebugInfo(): is_deriv(false), node_index(-1) {}
+  };
+\endverbatim
+We won't go into further detail on this, since it's quite obvious what this function
+would do.  We note that in the optimization phase, we sometimes merge matrices together
+as an optimization.  In this case the associated \ref NnetComputation::debug_info "debug_info"
+will correspond to the debug information of one of the matrices that we merged.
 
-[UNFINISHED]
 
  Next: \ref dnn3_code_optimization
 

@@ -591,8 +591,6 @@ struct Command {
   // the neural net live.
   unordered_map<int32, std::pair<int32, int32> > input_output_info;
   bool need_model_derivative;
-  // the number of steps in the forward part of computation.
-  int32 forward_computation_end;
   // the following is only used in non-simple Components; ignore for now.
   std::vector<ComponentPrecomputedIndexes*> component_precomputed_indexes;
   ...

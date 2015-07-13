@@ -873,31 +873,35 @@ void ComputationChecker::CheckComputationIndexes() const {
 }
 
 
-// make sure Propagate comes before kNoOpMarker and Backprop comes after it,
-// and that the value of computation_computation_end matches the position of
+// make sure Propagate comes before kNoOperationMarker and Backprop comes after
+// it, and that the value of computation_computation_end matches the position of
 // kNoOpMarker.
 void ComputationChecker::CheckComputationOrder() const {
-  int32 num_commands = computation_.commands.size(),
-      forward_computation_end = computation_.forward_computation_end;
-  if (forward_computation_end < 0 ||
-      computation_.forward_computation_end >= num_commands)
-    KALDI_ERR << "forward_computation_end has bad value";
-  if (computation_.commands[forward_computation_end].command_type !=
-      NnetComputation::kNoOperationMarker)
-    KALDI_ERR << "expected kNoOpMarker at forward_computation_end";
+  int32 num_commands = computation_.commands.size();
+  int32 num_markers = 0, marker_location = 0;
+  for (int32 c = 0; c < num_commands; c++) {
+    if (computation_.commands[c].command_type ==
+        NnetComputation::kNoOperationMarker) {
+      marker_location = c;
+      num_markers++;
+    }
+  }
+  if (num_markers != 1)
+    KALDI_ERR << "Expected exactly one kNoOperationMarker marker.";
+  
   for (int32 c = 0; c < num_commands; c++) {
     NnetComputation::CommandType command_type =
         computation_.commands[c].command_type;
-    if (c != forward_computation_end &&
+    if (c != marker_location &&
         command_type == NnetComputation::kNoOperationMarker)
       KALDI_ERR << "Found kNoOpMarker in unexpected place";
-    if (c < forward_computation_end &&
+    if (c < marker_location &&
         command_type == NnetComputation::kBackprop)
       KALDI_ERR << "Backprop occurs before kNoOpMarker";
-    if (c > forward_computation_end &&
+    if (c > marker_location &&
         command_type == NnetComputation::kPropagate)
       KALDI_ERR << "Propagate occurs after kNoOpMarker";
-    if (c > forward_computation_end &&
+    if (c > marker_location &&
         command_type == NnetComputation::kStoreStats)
       KALDI_ERR << "StoreStats occurs after kNoOpMarker";
   }

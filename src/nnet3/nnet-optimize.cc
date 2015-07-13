@@ -335,7 +335,6 @@ void RemoveOrphanMatrices(NnetComputation *computation) {
 }
 
 void RemoveNoOps(NnetComputation *computation) {
-  int32 noop_marker_index = -1;
   std::vector<NnetComputation::Command>::iterator
       input_iter = computation->commands.begin(),
       input_end = computation->commands.end(),
@@ -343,20 +342,10 @@ void RemoveNoOps(NnetComputation *computation) {
   for (; input_iter != input_end; ++input_iter) {
     if (input_iter->command_type != NnetComputation::kNoOperation) {
       *output_iter = *input_iter;
-      if (input_iter->command_type == NnetComputation::kNoOperationMarker) {
-        KALDI_ASSERT(noop_marker_index == -1 &&
-                     "kNoOperationMarker appears twice");
-        noop_marker_index = output_iter - computation->commands.begin();
-      }
       ++output_iter;
     }
   }
-  KALDI_ASSERT(noop_marker_index != -1 &&
-               "kNoOperationMarker does not appear in computation.");
   computation->commands.resize(output_iter - computation->commands.begin());
-  computation->forward_computation_end = noop_marker_index;
-  
-
 }
 
 /// Wherever matrix orig_matrix_index appears in the output of the network
@@ -616,12 +605,6 @@ void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
   for (int32 c = 0; c < num_commands; c++)
     reordered_commands[c] = *(commands[c].second);
   computation->commands = reordered_commands;
-  // reset computation->forward_computation_end.
-  for (int32 c = 0; c < num_commands; c++)
-    if (computation->commands[c].command_type ==
-        NnetComputation::kNoOperationMarker)
-      computation->forward_computation_end = c;
-  
 }
 
 // This command replaces commands of type kAllocMatrixZeroed with commands of

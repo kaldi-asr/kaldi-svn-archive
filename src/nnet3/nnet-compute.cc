@@ -213,18 +213,20 @@ void NnetComputer::GetPointers(int32 indexes_multi_index,
 }
 
 void NnetComputer::Forward() {
-  KALDI_ASSERT(computation_.forward_computation_end <=
-               computation_.commands.size());
-  for (int32 i = 0; i < computation_.forward_computation_end; i++)
+  int32 size = computation_.commands.size(), i = 0;
+  const std::vector<NnetComputation::Command> &c = computation_.commands;
+  for (; i < size && c[i].command_type != NnetComputation::kNoOperationMarker;
+       i++)
     ExecuteCommand(i);
 }
 
 
 void NnetComputer::Backward() {
-  KALDI_ASSERT(computation_.forward_computation_end <
-               computation_.commands.size());
-  int32 size = computation_.commands.size();
-  for (int32 i = computation_.forward_computation_end; i < size; i++)
+  int32 size = computation_.commands.size(), i = 0;
+  const std::vector<NnetComputation::Command> &c = computation_.commands;
+  for (; i < size && c[i].command_type != NnetComputation::kNoOperationMarker;
+       i++);
+  for (; i < size; i++)
     ExecuteCommand(i);
 }
 

@@ -47,7 +47,6 @@ void Compiler::CreateComputation(const CompilerOptions &opts,
   AddCommands(deriv_needed, computation);
   if (opts.output_debug_info)
     OutputDebugInfo(computation);
-  
 }
 
 void Compiler::AddCommands(const std::vector<bool> &deriv_needed,
@@ -61,7 +60,6 @@ void Compiler::AddCommands(const std::vector<bool> &deriv_needed,
   int32 num_steps = steps_.size();
   for (int32 step = 0; step < num_steps; step++)
     DoForwardComputation(step, computation);
-  computation->forward_computation_end = computation->commands.size();
   // mark the end of the forward phase.
   computation->commands.push_back(
       NnetComputation::Command(NnetComputation::kNoOperationMarker));
