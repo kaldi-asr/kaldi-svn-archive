@@ -59,10 +59,14 @@ void PrintVectorVectorPair(
   }
   KALDI_LOG << ostream.str();
 }
-// Function to check SplitLocations() method
+
+// Function to check SplitLocationsBackward() method
 // checks if the submat_lists and split_lists have the same non-dummy elements
 // checks if the submat_lists are split into same first_element lists wherever
 // possible
+// checks if the split_lists satisfy either "unique contiguous segments"
+// property or unique pairs property (see SplitLocationsBackward in 
+// nnet-compile-utils.h for more details)
 void UnitTestSplitLocationsBackward(bool verbose) {
   int32 minibatch_size = Rand() % 1024 + 100;
   int32 num_submat_indexes = Rand() % 10 + 1;
@@ -95,10 +99,7 @@ void UnitTestSplitLocationsBackward(bool verbose) {
         // since we need min_num_kAddRows in the split_lists we ensure that
         // we add a pair with the same first element in all the submat_lists 
         submat_lists[i].push_back(std::make_pair(submat_indexes[j],
-                           minibatch_size - 1));
-                           //Rand() % minibatch_size));
-
-        
+                           Rand() % minibatch_size));
       submat_lists[i].push_back(
           std::make_pair(submat_indexes[Rand() % num_submat_indexes],
                          Rand() % minibatch_size));
