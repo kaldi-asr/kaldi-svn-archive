@@ -185,26 +185,25 @@ void Nnet::ReadConfig(std::istream &config_is) {
   // "config_lines" so nothing is doubly defined.
   RemoveRedundantConfigLines(num_lines_initial, &first_tokens, &config_lines);
 
-  
   int32 initial_num_components = components_.size();
-  
   for (int32 pass = 0; pass <= 1; pass++) {
-    for (size_t i = 0; i < lines.size(); i++) {
+    for (size_t i = 0; i < config_lines.size(); i++) {
       if (first_tokens[i] == "component") {
         if (pass == 0)
           ProcessComponentConfigLine(initial_num_components,
-                                     lines[i], &(config_lines[i]));
+                                     &(config_lines[i]));
       } else if (first_tokens[i] == "component-node") {
-        ProcessComponentNodeConfigLine(pass, lines[i], &(config_lines[i]));
+        ProcessComponentNodeConfigLine(pass,  &(config_lines[i]));
       } else if (first_tokens[i] == "input-node") {
         if (pass == 0)
-          ProcessInputNodeConfigLine(lines[i], &(config_lines[i]));
+          ProcessInputNodeConfigLine(&(config_lines[i]));
       } else if (first_tokens[i] == "output-node") {
-        ProcessOutputNodeConfigLine(pass, lines[i], &(config_lines[i]));
+        ProcessOutputNodeConfigLine(pass, &(config_lines[i]));
       } else if (first_tokens[i] == "dim-range-node") {
-        ProcessDimRangeNodeConfigLine(pass, lines[i], &(config_lines[i]));
+        ProcessDimRangeNodeConfigLine(pass, &(config_lines[i]));
       } else {
-        KALDI_ERR << "Invalid config-file line: " << lines[i];
+        KALDI_ERR << "Invalid config-file line ('" << first_tokens[i]
+                  << "' not expected): " << config_lines[i].WholeLine();
       }
     }
   }  
@@ -212,18 +211,18 @@ void Nnet::ReadConfig(std::istream &config_is) {
 
 // called only on pass 0.
 void Nnet::ProcessComponentConfigLine(
-    int32 initial_num_components, const std::string &whole_line,
+    int32 initial_num_components,
     ConfigLine *config) {
   std::string name, type;
   if (!config->GetValue("name", &name))
     KALDI_ERR << "Expected field name=<component-name> in config line: "
-              << whole_line;
+              << config->WholeLine();
   if (!IsToken(name)) // e.g. contains a space.
     KALDI_ERR << "Component name '" << name << "' is not allowed, in line: "
-              << whole_line;
+              << config->WholeLine();
   if (!config->GetValue("type", &type))
     KALDI_ERR << "Expected field type=<component-type> in config line: "
-              << whole_line;
+              << config->WholeLine();
   Component *new_component = Component::NewComponentOfType(type);
   if (new_component == NULL)
     KALDI_ERR << "Unknown component-type '" << type
@@ -246,18 +245,18 @@ void Nnet::ProcessComponentConfigLine(
   }
   if (config->HasUnusedValues())
     KALDI_ERR << "Unused values '" << config->UnusedValues()
-              << " in config line: " << whole_line;
+              << " in config line: " << config->WholeLine();
 }
 
 
 void Nnet::ProcessComponentNodeConfigLine(
-    int32 pass, const std::string &whole_line,
+    int32 pass,
     ConfigLine *config) {
   
   std::string name;
   if (!config->GetValue("name", &name))
     KALDI_ERR << "Expected field name=<component-name> in config line: "
-              << whole_line;
+              << config->WholeLine();
   
   std::string input_name = name + std::string("_input");
   int32 input_node_index = GetNodeIndex(input_name),
@@ -277,53 +276,52 @@ void Nnet::ProcessComponentNodeConfigLine(
     std::string component_name, input_descriptor;
     if (!config->GetValue("component", &component_name))
       KALDI_ERR << "Expected component=<component-name>, in config line: "
-                << whole_line;
+                << config->WholeLine();
     int32 component_index = GetComponentIndex(component_name);
     if (component_index == -1)
       KALDI_ERR << "No component named '" << component_name
-                << "', in config line: " << whole_line;
+                << "', in config line: " << config->WholeLine();
     nodes_[node_index].u.component_index = component_index;
     
     if (!config->GetValue("input", &input_descriptor))
       KALDI_ERR << "Expected input=<input-descriptor>, in config line: "
-                << whole_line;
+                << config->WholeLine();
     std::vector<std::string> tokens;
     if (!DescriptorTokenize(input_descriptor, &tokens))
       KALDI_ERR << "Error tokenizing descriptor in config line "
-                << whole_line;
+                << config->WholeLine();
     std::vector<std::string> node_names_temp;
     GetSomeNodeNames(&node_names_temp);
     tokens.push_back("end of input");
     const std::string *next_token = &(tokens[0]);
     if (!nodes_[input_node_index].descriptor.Parse(node_names_temp, &next_token))
       KALDI_ERR << "Error parsing Descriptor in config line: "
-                << whole_line;
+                << config->WholeLine();
     if (config->HasUnusedValues())
       KALDI_ERR << "Unused values '" << config->UnusedValues()
-                << " in config line: " << whole_line;
+                << " in config line: " << config->WholeLine();
   }
 }
 
 // called only on pass 0.
 void Nnet::ProcessInputNodeConfigLine(
-    const std::string &whole_line,
     ConfigLine *config) {
   std::string name;
   if (!config->GetValue("name", &name))
     KALDI_ERR << "Expected field name=<input-name> in config line: "
-              << whole_line;
+              << config->WholeLine();
   int32 dim;
   if (!config->GetValue("dim", &dim))
     KALDI_ERR << "Expected field dim=<input-dim> in config line: "
-              << whole_line;
+              << config->WholeLine();
 
   if (config->HasUnusedValues())
     KALDI_ERR << "Unused values '" << config->UnusedValues()
-              << " in config line: " << whole_line;
+              << " in config line: " << config->WholeLine();
   
   KALDI_ASSERT(GetNodeIndex(name) == -1);
   if (dim <= 0)
-    KALDI_ERR << "Invalid dimension in config line: " << whole_line;
+    KALDI_ERR << "Invalid dimension in config line: " << config->WholeLine();
   
   int32 node_index = nodes_.size();    
   nodes_.push_back(NetworkNode(kInput));
@@ -334,12 +332,11 @@ void Nnet::ProcessInputNodeConfigLine(
 
 void Nnet::ProcessOutputNodeConfigLine(
     int32 pass,
-    const std::string &whole_line,
     ConfigLine *config) {
   std::string name;
   if (!config->GetValue("name", &name))
     KALDI_ERR << "Expected field name=<input-name> in config line: "
-              << whole_line;
+              << config->WholeLine();
   int32 node_index = GetNodeIndex(name);
   if (pass == 0) {
     KALDI_ASSERT(node_index == -1);
@@ -350,11 +347,11 @@ void Nnet::ProcessOutputNodeConfigLine(
     std::string input_descriptor;
     if (!config->GetValue("input", &input_descriptor))
       KALDI_ERR << "Expected input=<input-descriptor>, in config line: "
-                << whole_line;
+                << config->WholeLine();
     std::vector<std::string> tokens;
     if (!DescriptorTokenize(input_descriptor, &tokens))
       KALDI_ERR << "Error tokenizing descriptor in config line "
-                << whole_line;
+                << config->WholeLine();
     tokens.push_back("end of input");
     // if the following fails it will die.
     std::vector<std::string> node_names_temp;
@@ -362,22 +359,21 @@ void Nnet::ProcessOutputNodeConfigLine(
     const std::string *next_token = &(tokens[0]);
     if (!nodes_[node_index].descriptor.Parse(node_names_temp, &next_token))
       KALDI_ERR << "Error parsing descriptor (input=...) in config line "
-                << whole_line;
+                << config->WholeLine();
     if (config->HasUnusedValues())
       KALDI_ERR << "Unused values '" << config->UnusedValues()
-                << " in config line: " << whole_line;
+                << " in config line: " << config->WholeLine();
   }
 }
 
 
 void Nnet::ProcessDimRangeNodeConfigLine(
     int32 pass,
-    const std::string &whole_line,
     ConfigLine *config) {
   std::string name;
   if (!config->GetValue("name", &name))
     KALDI_ERR << "Expected field name=<input-name> in config line: "
-              << whole_line;
+              << config->WholeLine();
   int32 node_index = GetNodeIndex(name);
   if (pass == 0) {
     KALDI_ASSERT(node_index == -1);
@@ -388,25 +384,25 @@ void Nnet::ProcessDimRangeNodeConfigLine(
     std::string input_node_name;
     if (!config->GetValue("input-node", &input_node_name))
       KALDI_ERR << "Expected input-node=<input-node-name>, in config line: "
-                << whole_line;
+                << config->WholeLine();
     int32 dim, dim_offset;
     if (!config->GetValue("dim", &dim))
       KALDI_ERR << "Expected dim=<feature-dim>, in config line: "
-                << whole_line;
+                << config->WholeLine();
     if (!config->GetValue("dim-offset", &dim_offset))
       KALDI_ERR << "Expected dim-offset=<dimension-offset>, in config line: "
-                << whole_line;
+                << config->WholeLine();
 
     int32 input_node_index = GetNodeIndex(input_node_name);
     if (input_node_index == -1 ||
         !(nodes_[input_node_index].node_type == kComponent ||
           nodes_[input_node_index].node_type == kInput))
       KALDI_ERR << "invalid input-node " << input_node_name
-                << ": " << whole_line;
+                << ": " << config->WholeLine();
 
     if (config->HasUnusedValues())
       KALDI_ERR << "Unused values '" << config->UnusedValues()
-                << " in config line: " << whole_line;
+                << " in config line: " << config->WholeLine();
 
     NetworkNode &node = nodes_[node_index];
     KALDI_ASSERT(node.node_type == kDimRange);

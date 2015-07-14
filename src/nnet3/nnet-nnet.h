@@ -228,18 +228,13 @@ class Nnet {
                                          std::vector<ConfigLine> *configs);
   
   void ProcessComponentConfigLine(int32 initial_num_components,
-                                  const std::string &whole_line,
                                   ConfigLine *config);
   void ProcessComponentNodeConfigLine(int32 pass,
-                                      const std::string &whole_line,
                                       ConfigLine *config);
-  void ProcessInputNodeConfigLine(const std::string &whole_line,
-                                  ConfigLine *config);
+  void ProcessInputNodeConfigLine(ConfigLine *config);
   void ProcessOutputNodeConfigLine(int32 pass,
-                                   const std::string &whole_line,
                                    ConfigLine *config);
   void ProcessDimRangeNodeConfigLine(int32 pass,
-                                     const std::string &whole_line,
                                      ConfigLine *config);
 
   // This function output to "modified_node_names" a modified copy of

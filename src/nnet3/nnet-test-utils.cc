@@ -27,6 +27,7 @@ namespace nnet3 {
 
 // A simple case, just to get started.
 // Generate a single config with one input, splicing, and one hidden layer.
+// Also sometimes generate a part of the config that adds a new hidden layer.
 void GenerateConfigSequenceSimple(
     const NnetGenerationConfig &opts,
     std::vector<std::string> *configs) {
@@ -47,7 +48,7 @@ void GenerateConfigSequenceSimple(
      << spliced_dim << " output-dim=" << hidden_dim << std::endl;
   os << "component name=relu1 type=RectifiedLinearComponent dim="
      << hidden_dim << std::endl;
-  os << "component name=affine2 type=NaturalGradientAffineComponent input-dim="
+  os << "component name=final_affine type=NaturalGradientAffineComponent input-dim="
      << hidden_dim << " output-dim=" << output_dim << std::endl;
   os << "component name=logsoftmax type=LogSoftmaxComponent dim="
      << output_dim << std::endl;
@@ -62,10 +63,25 @@ void GenerateConfigSequenceSimple(
   }
   os << ")\n";
   os << "component-node name=nonlin1 component=relu1 input=affine1_node\n";
-  os << "component-node name=affine2 component=affine2 input=nonlin1\n";
-  os << "component-node name=output_nonlin component=logsoftmax input=affine2\n";
+  os << "component-node name=final_affine component=final_affine input=nonlin1\n";
+  os << "component-node name=output_nonlin component=logsoftmax input=final_affine\n";
   os << "output-node name=output input=output_nonlin\n";
   configs->push_back(os.str());
+
+  if ((rand() % 2) == 0) {
+    std::ostringstream os2;
+    os2 << "component name=affine2 type=NaturalGradientAffineComponent input-dim="
+        << spliced_dim << " output-dim=" << hidden_dim << std::endl;
+    os2 << "component name=relu2 type=RectifiedLinearComponent dim="
+        << hidden_dim << std::endl;
+    // regenerate the final_affine component when we add the new config.
+    os2 << "component name=final_affine type=NaturalGradientAffineComponent input-dim="
+        << hidden_dim << " output-dim=" << output_dim << std::endl;
+    os2 << "component-node name=affine2 component=affine2 input=nonlin1\n";
+    os2 << "component-node name=relu2 component=relu2 input=affine2\n";
+    os2 << "component-node name=final_affine component=final_affine input=relu2\n";
+    configs->push_back(os2.str());
+  }
 }
 
 
@@ -125,12 +141,14 @@ start:
   switch(network_type) {
     case 0:
       GenerateConfigSequenceSimple(opts, configs);
+      break;
     case 1:
       if (!opts.allow_recursion)  // disallow.
         goto start;
       GenerateConfigSequenceRnn(opts, configs);
+      break;
     default:
-      ;
+      KALDI_ERR << "Error generating config sequence.";
   }
 }
 
