@@ -48,8 +48,10 @@ namespace nnet3 {
    Something that might be considered a part of the compilation process, but
    which we discuss in a separate page, is code optimization: see \ref dnn3_code_optimization.
 
-   This page includes [TODO]
-    
+ This page covers:
+   - \ref dnn3_compile_graph
+   - \ref dnn3_compile_steps
+   - \ref dnn3_compile_compiler
 
   \section dnn3_compile_graph Creating the computation graph
 
@@ -915,7 +917,9 @@ as an optimization.  In this case the associated \ref NnetComputation::debug_inf
 will correspond to the debug information of one of the matrices that we merged.
 
 
- Next: \ref dnn3_code_optimization
+ - Up: \ref dnn3
+ - Previous: \ref dnn3_code_data_types
+ - Next: \ref dnn3_code_optimization
 
 */
 

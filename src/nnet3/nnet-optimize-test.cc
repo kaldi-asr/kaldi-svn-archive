@@ -77,7 +77,8 @@ void UnitTestNnetOptimize() {
       checker.Check();
     }
     {
-      Analyzer analyzer(nnet, computation);
+      Analyzer analyzer;
+      analyzer.Init(nnet, computation);
       KALDI_LOG << "Matrix accesses are: ";
       PrintMatrixAccesses(std::cerr, analyzer.matrix_accesses);
       KALDI_LOG << "Command attributes are: ";

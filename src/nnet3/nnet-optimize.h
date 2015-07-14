@@ -26,10 +26,9 @@
 namespace kaldi {
 namespace nnet3 {
 
-// Options class for optimizing a NnetComputation
-// The main projected use for this is in debugging the optimization
-// code itself, so that if an error is detected, we can work out
-// which optimization was responsible for the error.
+// Options class for optimizing a NnetComputation The main projected use for
+// this is in debugging the optimization code itself, so that if an error is
+// detected, we can work out which optimization was responsible for the error.
 struct NnetOptimizeConfig {
   bool optimize;  // setting this false disallow all optimization.
   bool propagate_in_place;

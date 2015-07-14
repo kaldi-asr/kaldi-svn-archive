@@ -389,8 +389,9 @@ VariableMergingOptimizer::VariableMergingOptimizer(
     const ComputationRequest &request,
     NnetComputation *computation):
     config_(config), nnet_(nnet), request_(request),
-    computation_(computation),
-    analyzer_(nnet, *computation) { }
+    computation_(computation) {
+  analyzer_.Init(nnet, *computation);
+}
 
 bool VariableMergingOptimizer::MergeVariables() {
   if (!config_.optimize)
@@ -470,12 +471,12 @@ void VariableMergingOptimizer::DoMerge(int32 command_index,
   //   - If both m2 and m1 have commands that deallocate them, keep only the
   //    later of the two and make it refer to m1 (otherwise delete any
   //     deallocation command).
-  if (matrix_accesses[m1].destroy_command != -1 &&
-      matrix_accesses[m2].destroy_command != -1) {
-    int32 earlier_index = std::min(matrix_accesses[m1].destroy_command,
-                                   matrix_accesses[m2].destroy_command),
-        later_index = std::max(matrix_accesses[m1].destroy_command,
-                               matrix_accesses[m2].destroy_command);
+  if (matrix_accesses[m1].deallocate_command != -1 &&
+      matrix_accesses[m2].deallocate_command != -1) {
+    int32 earlier_index = std::min(matrix_accesses[m1].deallocate_command,
+                                   matrix_accesses[m2].deallocate_command),
+        later_index = std::max(matrix_accesses[m1].deallocate_command,
+                               matrix_accesses[m2].deallocate_command);
     NnetComputation::Command
         &earlier_command = computation_->commands[earlier_index],
         &later_command = computation_->commands[later_index];
@@ -484,17 +485,17 @@ void VariableMergingOptimizer::DoMerge(int32 command_index,
     later_command.arg1 = m1;
   }
   // Remove the original command that allocated m2 (which should exist).
-  KALDI_ASSERT(matrix_accesses[m2].initialize_command != -1);
+  KALDI_ASSERT(matrix_accesses[m2].allocate_command != -1);
   {
-    NnetComputation::Command &initialize_command = computation_->commands[
-        matrix_accesses[m2].initialize_command];
-    KALDI_ASSERT((initialize_command.command_type ==
+    NnetComputation::Command &allocate_command = computation_->commands[
+        matrix_accesses[m2].allocate_command];
+    KALDI_ASSERT((allocate_command.command_type ==
                   NnetComputation::kAllocMatrixZeroed ||
-                  initialize_command.command_type ==
+                  allocate_command.command_type ==
                   NnetComputation::kAllocMatrixUndefined) &&
-                 initialize_command.arg1 == m2);
-    initialize_command.command_type = NnetComputation::kNoOperation;
-    initialize_command.arg1 = -1;
+                 allocate_command.arg1 == m2);
+    allocate_command.command_type = NnetComputation::kNoOperation;
+    allocate_command.arg1 = -1;
   }
   // Prevent further optimizations touching m1 or m2 (we can
   // try again in a later round of optimization, with a new
@@ -550,7 +551,8 @@ void VariableMergingOptimizer::Initialize() {
 
 // move commands that resize matrices to as late/early as possible.
 void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
-  ComputationVariables variables(*computation);
+  ComputationVariables variables;
+  variables.Init(*computation);
   std::vector<CommandAttributes> attributes;
   ComputeCommandAttributes(nnet, *computation, variables, &attributes);
   std::vector<std::vector<Access> > variable_accesses;
@@ -574,12 +576,12 @@ void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
   }
   for (int32 m = 1; m < num_matrices; m++) {
     const MatrixAccesses &ma = matrix_accesses[m];
-    if (ma.initialize_command != -1) {
+    if (ma.allocate_command != -1) {
       // first_access_command will be index of first non-initializing access.
       int32 first_access_command = -1;
       if (!ma.accesses.empty()) {
         first_access_command = ma.accesses[0].command_index;
-        if (first_access_command == ma.initialize_command) {
+        if (first_access_command == ma.allocate_command) {
           if (ma.accesses.size() > 1)
             first_access_command = ma.accesses[1].command_index;
           else
@@ -587,16 +589,16 @@ void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
         }
       }
       if (first_access_command != -1) {
-        KALDI_ASSERT(first_access_command > ma.initialize_command);
+        KALDI_ASSERT(first_access_command > ma.allocate_command);
         // move the initialization command to just before the first access.
-        commands[ma.initialize_command].first = first_access_command * 3 - 1;
+        commands[ma.allocate_command].first = first_access_command * 3 - 1;
       }
     }
-    if (ma.destroy_command != -1) {
+    if (ma.deallocate_command != -1) {
       if (!ma.accesses.empty()) {
         int32 last_access_command = ma.accesses.back().command_index;
         // move the destruction command to just after the last access.
-        commands[ma.destroy_command].first = last_access_command * 3 + 1;
+        commands[ma.deallocate_command].first = last_access_command * 3 + 1;
       }
     }
   }
@@ -611,7 +613,8 @@ void MoveSizingCommands(const Nnet &nnet, NnetComputation *computation) {
 // type kAllocMatrixUndefined, where possible.
 void RemoveUnnecessaryZeroing(const Nnet &nnet,
                               NnetComputation *computation) {
-  Analyzer a(nnet, *computation);
+  Analyzer a;
+  a.Init(nnet, *computation);
 
   // OK, now we'll work out which matrices have all their pieces (i.e. all the
   // variables belonging to that matrix) written to as the first instruction
@@ -621,12 +624,12 @@ void RemoveUnnecessaryZeroing(const Nnet &nnet,
   int32 num_matrices = a.matrix_accesses.size();
   for (int32 matrix_index = 0; matrix_index < num_matrices; matrix_index++) {
     const MatrixAccesses &accesses = a.matrix_accesses[matrix_index];
-    int32 initialize_command = accesses.initialize_command;
-    if (initialize_command == -1)  // an input
+    int32 allocate_command = accesses.allocate_command;
+    if (allocate_command == -1)  // an input
       continue;  // nothing to do.
-    if (computation->commands[initialize_command].command_type !=
+    if (computation->commands[allocate_command].command_type !=
         NnetComputation::kAllocMatrixZeroed) {
-      KALDI_ASSERT(computation->commands[initialize_command].command_type ==
+      KALDI_ASSERT(computation->commands[allocate_command].command_type ==
                    NnetComputation::kAllocMatrixUndefined);
       continue;  // already leaving it undefined, so nothing to do.
     }
@@ -639,7 +642,7 @@ void RemoveUnnecessaryZeroing(const Nnet &nnet,
       const std::vector<Access> &v_accesses =
           a.variable_accesses[variable_index];
       KALDI_ASSERT(v_accesses.size() > 0 &&
-                   v_accesses[0].command_index == initialize_command &&
+                   v_accesses[0].command_index == allocate_command &&
                    v_accesses[0].access_type == kWriteAccess);
       if (v_accesses.size() > 1 &&
           v_accesses[1].access_type != kWriteAccess)
@@ -647,7 +650,7 @@ void RemoveUnnecessaryZeroing(const Nnet &nnet,
     }
     if (all_variables_ok) {
       // Here is where the change actually happens.
-      computation->commands[initialize_command].command_type =
+      computation->commands[allocate_command].command_type =
           NnetComputation::kAllocMatrixUndefined;
     }      
   }

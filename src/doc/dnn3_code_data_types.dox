@@ -450,7 +450,7 @@ this context represents "the set of all Cindexes that we know are computable".
 If the Descriptor is computable for this Index, the function will return true.
 For instance, the expression <code>Sum(X, Y)</code> would only be computable
 if <code>X</code> and <code>Y</code> are computable.  If this function is going to
-return true, it will also append to "input_terms" all the input Cindexes that
+return true, it will also append to "input_terms" only the input Cindexes that
 actually appear in the evaluated expression. 
 For example (and speaking
 loosely), in an expression of the form <code>Failover(X, Y)</code>, if <code>X</code> is computable then
@@ -459,7 +459,7 @@ only <code>X</code> would be appended to "input_terms", and not <code>Y</code>.
 Class Descriptor is the top level of the hierarchy.  It can be thought of
 as a vector of SumDescriptors, and note that this vector will usually be of
 length one.  Its function is to append things (think of appending vectors), and
-it is responsible for the <code>Append(...)</code> sytax.
+it is responsible for the <code>Append(...)</code> syntax.
 It has functions \ref Descriptor::GetDependencies() "GetDependencies()"
 and \ref Descriptor::IsComputable() "IsComputable()" with the same interface as
 SumDescriptor, and also functions such as \ref Descriptor::NumParts() "NumParts()" and
@@ -478,10 +478,10 @@ allow unions containing classes, we have a slightly messy layout:
 \verbatim
 struct NetworkNode {  
   NodeType node_type;
-  // "descriptor" is is relevant only for nodes of type kDescriptor.  
+  // "descriptor" is relevant only for nodes of type kDescriptor.  
   Descriptor descriptor;
   union {
-    // For kComponent, the index of the component in the network's components_.
+    // For kComponent, the index into Nnet::components_
     int32 component_index;
     // for kDimRange, the node-index of the input node.
     int32 node_index;

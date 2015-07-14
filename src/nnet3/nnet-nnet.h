@@ -62,10 +62,10 @@ enum NodeType { kInput, kDescriptor, kComponent, kDimRange, kNone };
 /// same config-file line as the Component itself.
 struct NetworkNode {  
   NodeType node_type;
-  // "descriptor" is is relevant only for nodes of type kDescriptor.
+  // "descriptor" is relevant only for nodes of type kDescriptor.
   Descriptor descriptor;
   union {
-    // For kComponent, the index of the component in the network's components_.
+    // For kComponent, the index into Nnet::components_
     int32 component_index;
     // for kDimRange, the node-index of the input node, which must be of
     // type kComponent or kInput.
