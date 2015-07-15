@@ -1,4 +1,4 @@
-// nnet3/nnet-nnet-test.cc
+// nnet3/nnet-component-test.cc
 
 // Copyright 2015  Johns Hopkins University (author: Daniel Povey)
 
@@ -18,40 +18,34 @@
 // limitations under the License.
 
 #include "nnet3/nnet-nnet.h"
+#include "nnet3/nnet-simple-component.h"
 #include "nnet3/nnet-test-utils.h"
 
 namespace kaldi {
 namespace nnet3 {
 
+void TestNnetComponentIo(Component *c) {
+  bool binary = (Rand() % 2 == 0);
+  std::ostringstream os1;
+  c->Write(os1, binary);
+  std::istringstream is(os1.str());
+  Component *c2 = Component::ReadNew(is, binary);
+  std::ostringstream os2;
+  c2->Write(os2, binary);
+  if (!binary) {
+    KALDI_ASSERT(os2.str() == os1.str());
+  }
+  delete c2;
+  
+}
 
-void UnitTestNnetIo() {
-  for (int32 n = 0; n < 100; n++) {
-    struct NnetGenerationConfig gen_config;
-    
-    bool binary = (Rand() % 2 == 0);
-    std::vector<std::string> configs;
-    GenerateConfigSequence(gen_config, &configs);
-    Nnet nnet;
-    std::istringstream is(configs[0]);
-    nnet.ReadConfig(is);
 
-    std::ostringstream os;
-    nnet.Write(os, binary);
-    const std::string &original_output = os.str();
-    std::istringstream nnet_is(original_output);
-    nnet.Read(nnet_is, binary);
-    std::istringstream nnet_is2(original_output);
-    Nnet nnet2;
-    nnet2.Read(nnet_is2, binary);
-      
-    std::ostringstream os2, os3;
-    nnet.Write(os2, binary);
-    
-    nnet2.Write(os3, binary);
-    if (binary) {
-      KALDI_ASSERT(os2.str() == original_output);
-      KALDI_ASSERT(os3.str() == original_output);
-    }
+void UnitTestNnetComponent() {
+  for (int32 n = 0; n < 200; n++) {
+    Component *c = GenerateRandomSimpleComponent();
+    TestNnetComponentIo(c);
+    // More tests here.
+    delete c;
   }
 }
 
@@ -61,10 +55,11 @@ void UnitTestNnetIo() {
 int main() {
   using namespace kaldi;
   using namespace kaldi::nnet3;
+  //SetVerboseLevel(2);
 
-  UnitTestNnetIo();
+  UnitTestNnetComponent();
 
-  KALDI_LOG << "Nnet tests succeeded.";
+  KALDI_LOG << "Nnet component ntests succeeded.";
 
   return 0;
 }

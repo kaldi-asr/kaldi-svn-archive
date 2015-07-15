@@ -272,19 +272,11 @@ class Component {
   ///   See enum ComponentProperties.
   virtual int32 Properties() const = 0;
 
-  /// \brief Read component from stream (works out its type).
-  ///     Dies on error.
+  /// \brief Read component from stream (works out its type).  Dies on error.
   static Component* ReadNew(std::istream &is, bool binary);
 
   /// \brief Copies component (deep copy).
   virtual Component* Copy() const = 0;  
-  
-  /// \brief Initialize the Component from one config-file line
-  /// \param [in] initializer_line  Typically something like
-  ///      "AffineComponent input-dim=1000 output-dim=1000"
-  /// \return Returns newly created Component.
-  /// TODO: delete this.
-  static Component *NewFromString(const std::string &initializer_line);
 
   /// \brief Returns a new Component of the given type e.g. "SoftmaxComponent",
   ///   or NULL if no such component type exists. 

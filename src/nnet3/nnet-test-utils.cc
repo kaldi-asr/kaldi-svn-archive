@@ -35,15 +35,15 @@ void GenerateConfigSequenceSimple(
 
   std::vector<int32> splice_context;
   for (int32 i = -5; i < 4; i++)
-    if (rand() % 3 == 0)
+    if (Rand() % 3 == 0)
       splice_context.push_back(i);
   if (splice_context.empty())
     splice_context.push_back(0);
   
-  int32 input_dim = 10 + rand() % 20,
+  int32 input_dim = 10 + Rand() % 20,
       spliced_dim = input_dim * splice_context.size(),
-      output_dim = 100 + rand() % 200,
-      hidden_dim = 40 + rand() % 50;
+      output_dim = 100 + Rand() % 200,
+      hidden_dim = 40 + Rand() % 50;
   os << "component name=affine1 type=NaturalGradientAffineComponent input-dim="
      << spliced_dim << " output-dim=" << hidden_dim << std::endl;
   os << "component name=relu1 type=RectifiedLinearComponent dim="
@@ -68,10 +68,10 @@ void GenerateConfigSequenceSimple(
   os << "output-node name=output input=output_nonlin\n";
   configs->push_back(os.str());
 
-  if ((rand() % 2) == 0) {
+  if ((Rand() % 2) == 0) {
     std::ostringstream os2;
     os2 << "component name=affine2 type=NaturalGradientAffineComponent input-dim="
-        << spliced_dim << " output-dim=" << hidden_dim << std::endl;
+        << hidden_dim << " output-dim=" << hidden_dim << std::endl;
     os2 << "component name=relu2 type=RectifiedLinearComponent dim="
         << hidden_dim << std::endl;
     // regenerate the final_affine component when we add the new config.
@@ -93,15 +93,15 @@ void GenerateConfigSequenceRnn(
 
   std::vector<int32> splice_context;
   for (int32 i = -5; i < 4; i++)
-    if (rand() % 3 == 0)
+    if (Rand() % 3 == 0)
       splice_context.push_back(i);
   if (splice_context.empty())
     splice_context.push_back(0);
   
-  int32 input_dim = 10 + rand() % 20,
+  int32 input_dim = 10 + Rand() % 20,
       spliced_dim = input_dim * splice_context.size(),
-      output_dim = 100 + rand() % 200,
-      hidden_dim = 40 + rand() % 50;
+      output_dim = 100 + Rand() % 200,
+      hidden_dim = 40 + Rand() % 50;
   os << "component name=affine1 type=NaturalGradientAffineComponent input-dim="
      << spliced_dim << " output-dim=" << hidden_dim << std::endl;
   os << "component name=nonlin1 type=RectifiedLinearComponent dim="
@@ -161,14 +161,14 @@ void ComputeExampleComputationRequestSimple(
   int32 left_context, right_context;
   ComputeSimpleNnetContext(nnet, &left_context, &right_context);
 
-  int32 num_output_frames = 1 + rand() % 10,
-      output_start_frame = rand() % 10,
-      num_examples = 1 + rand() % 10,
+  int32 num_output_frames = 1 + Rand() % 10,
+      output_start_frame = Rand() % 10,
+      num_examples = 1 + Rand() % 10,
       output_end_frame = output_start_frame + num_output_frames,
-      input_start_frame = output_start_frame - left_context - (rand() % 3),
-      input_end_frame = output_end_frame + right_context + (rand() % 3),
-      n_offset = rand() % 2;
-  bool need_deriv = (rand() % 2 == 0);
+      input_start_frame = output_start_frame - left_context - (Rand() % 3),
+      input_end_frame = output_end_frame + right_context + (Rand() % 3),
+      n_offset = Rand() % 2;
+  bool need_deriv = (Rand() % 2 == 0);
   
   request->inputs.clear();
   request->outputs.clear();
@@ -183,10 +183,10 @@ void ComputeExampleComputationRequestSimple(
     ivector_indexes.push_back(Index(n, 0, 0));
   }
   request->outputs.push_back(IoSpecification("output", output_indexes));
-  if (need_deriv || (rand() % 3 == 0))
+  if (need_deriv || (Rand() % 3 == 0))
     request->outputs.back().has_deriv = true;
   request->inputs.push_back(IoSpecification("input", input_indexes));
-  if (need_deriv && (rand() % 2 == 0))
+  if (need_deriv && (Rand() % 2 == 0))
     request->inputs.back().has_deriv = true;
   int32 input_dim = nnet.InputDim("input");
   KALDI_ASSERT(input_dim > 0);
@@ -199,15 +199,124 @@ void ComputeExampleComputationRequestSimple(
     request->inputs.push_back(IoSpecification("ivector", ivector_indexes));
     inputs->push_back(Matrix<BaseFloat>(num_examples, ivector_dim));
     inputs->back().SetRandn();
-    if (need_deriv && (rand() % 2 == 0))
+    if (need_deriv && (Rand() % 2 == 0))
       request->inputs.back().has_deriv = true;
   }
-  if (rand() % 2 == 0)
+  if (Rand() % 2 == 0)
     request->need_model_derivative = need_deriv;
-  if (rand() % 2 == 0)
+  if (Rand() % 2 == 0)
     request->store_component_stats = true;
 }
 
+
+static void GenerateRandomComponentConfig(std::string *component_type,
+                                          std::string *config) {
+  int32 n = RandInt(0, 13);
+  std::ostringstream os;
+  switch(n) {
+    case 0: {
+      *component_type = "PnormComponent";
+      int32 output_dim = RandInt(1, 50), group_size = RandInt(1, 15),
+             input_dim = output_dim * group_size;
+      os << "input-dim=" << input_dim << " output-dim=" << output_dim;
+      break;
+    }
+    case 1: {
+      *component_type = "NormalizeComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 2: {
+      *component_type = "SigmoidComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 3: {
+      *component_type = "TanhComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 4: {
+      *component_type = "RectifiedLinearComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 5: {
+      *component_type = "SoftmaxComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 6: {
+      *component_type = "LogSoftmaxComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 7: {
+      *component_type = "NoOpComponent";
+      os << "dim=" << RandInt(1, 50);
+      break;
+    }
+    case 8: {
+      *component_type = "FixedAffineComponent";
+      int32 input_dim = RandInt(1, 50), output_dim = RandInt(1, 50);
+      os << "input-dim=" << input_dim << " output-dim=" << output_dim;
+      break;
+    }
+    case 9: {
+      *component_type = "AffineComponent";
+      int32 input_dim = RandInt(1, 50), output_dim = RandInt(1, 50);
+      os << "input-dim=" << input_dim << " output-dim=" << output_dim;
+      break;
+    }
+    case 10: {
+      *component_type = "NaturalGradientAffineComponent";
+      int32 input_dim = RandInt(1, 50), output_dim = RandInt(1, 50);
+      os << "input-dim=" << input_dim << " output-dim=" << output_dim;
+      break;
+    }
+    case 11: {
+      *component_type = "SumGroupComponent";
+      std::vector<int32> sizes;
+      int32 num_groups = RandInt(1, 50);
+      os << "sizes=";
+      for (int32 i = 0; i < num_groups; i++) {
+        os << RandInt(1, 5);
+        if (i + 1 < num_groups)
+          os << ',';
+      }
+      break;
+    }
+    case 12: {
+      *component_type = "FixedScaleComponent";
+      os << "dim=" << RandInt(1, 100);
+      break;
+    }
+    case 13: {
+      *component_type = "FixedBiasComponent";
+      os << "dim=" << RandInt(1, 100);
+      break;
+    }
+    default:
+      KALDI_ERR << "Error generating random component";
+  }
+  *config = os.str();
+}
+
+
+/// Generates random simple component for testing.
+Component *GenerateRandomSimpleComponent() {
+  std::string component_type, config;
+  GenerateRandomComponentConfig(&component_type, &config);
+  ConfigLine config_line;
+  if (!config_line.ParseLine(config))
+    KALDI_ERR << "Bad config line " << config;
+  
+  Component *c = Component::NewComponentOfType(component_type);
+  if (c == NULL)
+    KALDI_ERR << "Invalid component type " << component_type;
+  c->InitFromConfig(&config_line);
+  return c;
+}
 
 
 

@@ -206,7 +206,8 @@ void Nnet::ReadConfig(std::istream &config_is) {
                   << "' not expected): " << config_lines[i].WholeLine();
       }
     }
-  }  
+  }
+  Check();
 }
 
 // called only on pass 0.
@@ -639,6 +640,75 @@ Component *Nnet::GetComponentForNode(int32 node_index) {
                nodes_[node_index].node_type == kComponent);
   return GetComponent(nodes_[node_index].u.component_index);
 }
+
+void Nnet::Check() const {
+  int32 num_nodes = nodes_.size(),
+    num_input_nodes = 0,
+    num_output_nodes = 0;
+  KALDI_ASSERT(num_nodes != 0);
+  for (int32 n = 0; n < num_nodes; n++) {
+    const NetworkNode &node = nodes_[n];
+    std::string node_name = node_names_[n];
+    KALDI_ASSERT(GetNodeIndex(node_name) == n);
+    switch (node.node_type) {
+      case kInput:
+        KALDI_ASSERT(node.dim > 0);
+        num_input_nodes++;
+        break;
+      case kDescriptor: {
+        if (IsOutputNode(n))
+          num_output_nodes++;
+        std::vector<int32> node_deps;
+        node.descriptor.GetNodeDependencies(&node_deps);
+        SortAndUniq(&node_deps);
+        for (size_t i = 0; i < node_deps.size(); i++) {
+          int32 src_node = node_deps[i];
+          KALDI_ASSERT(src_node >= 0 && src_node < num_nodes);
+          NodeType src_type = nodes_[src_node].node_type;
+          if (src_type != kInput && src_type != kDimRange &&
+              src_type != kComponent)
+            KALDI_ERR << "Invalid source node type in Descriptor: source node "
+                      << node_names_[src_node];
+        }
+        break;
+      }
+      case kComponent: {
+        KALDI_ASSERT(n > 0 && nodes_[n-1].node_type == kDescriptor);
+        const NetworkNode &src_node = nodes_[n-1];
+        const Component *c = GetComponent(node.u.component_index);
+        int32 src_dim = src_node.Dim(*this), input_dim = c->InputDim();
+        if (src_dim != input_dim) {
+          KALDI_ERR << "Dimension mismatch for network-node "
+                    << node_name << ": input-dim "
+                    << src_dim << " versus component-input-dim "
+                    << input_dim;
+        }
+        break;
+      }
+      case kDimRange: {
+        int32 input_node = node.u.node_index;
+        KALDI_ASSERT(input_node <= 0 && input_node < num_nodes);
+        NodeType input_type = nodes_[input_node].node_type;
+        if (input_type != kInput && input_type != kComponent)
+          KALDI_ERR << "Invalid source node type in DimRange node: source node "
+                    << node_names_[input_node];
+        int32 input_dim = nodes_[input_node].Dim(*this);
+        if (!(node.dim > 0 && node.dim_offset >= 0 &&
+              node.dim + node.dim_offset <= input_dim)) {
+          KALDI_ERR << "Invalid node dimensions for DimRange node: " << node_name
+                    << ": input-dim=" << input_dim << ", dim=" << node.dim
+                    << ", dim-offset=" << node.dim_offset;
+        }
+        break;        
+      }
+      default:
+        KALDI_ERR << "Invalid node type for node " << node_name;
+    }
+  }
+  KALDI_ASSERT(num_input_nodes > 0);
+  KALDI_ASSERT(num_output_nodes > 0);
+}
+
 
 } // namespace nnet3
 } // namespace kaldi

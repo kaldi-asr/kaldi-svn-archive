@@ -60,6 +60,7 @@ void ComputeExampleComputationRequestSimple(
     ComputationRequest *request,
     std::vector<Matrix<BaseFloat> > *inputs);
 
+Component *GenerateRandomSimpleComponent();
 
 
 } // namespace nnet3

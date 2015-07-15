@@ -183,7 +183,7 @@ class Nnet {
   /// of each output node into a single step, as dependencies would be messed
   /// up.  Also make sure no nodes referred to in Descriptors, or in kDimRange,
   /// are themselves Descriptors.
-  void Check()const;
+  void Check() const;
 
   /// returns some human-readable information about the network, mostly for
   /// debugging purposes.
